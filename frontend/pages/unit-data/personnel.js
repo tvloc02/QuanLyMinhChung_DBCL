@@ -51,26 +51,6 @@ export default function PersonnelPage() {
     const [showPositionModal, setShowPositionModal] = useState(false)
     const [currentPerson, setCurrentPerson] = useState(null)
 
-    // Form state
-    const [formData, setFormData] = useState({
-        fullName: '',
-        employeeId: '',
-        email: '',
-        phoneNumber: '',
-        position: '',
-        facultyId: '',
-        departmentId: '',
-        qualifications: [],
-        specializations: [],
-        workingYears: '',
-        dateOfBirth: '',
-        dateJoined: '',
-        academicLevel: 'cu_nhan',
-        isExpert: false,
-        positions: []
-    })
-
-    // Search and filter
     const [searchQuery, setSearchQuery] = useState('')
     const [filters, setFilters] = useState({
         facultyId: '',
@@ -81,43 +61,13 @@ export default function PersonnelPage() {
         academicLevel: ''
     })
 
-    // Pagination
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [pagination, setPagination] = useState({})
 
-    // Options
     const [facultyOptions, setFacultyOptions] = useState([])
     const [departmentOptions, setDepartmentOptions] = useState([])
     const [statistics, setStatistics] = useState({})
-
-    const positions = [
-        { value: 'giang_vien', label: 'Giảng viên' },
-        { value: 'truong_khoa', label: 'Trưởng khoa' },
-        { value: 'pho_truong_khoa', label: 'Phó trưởng khoa' },
-        { value: 'truong_bo_mon', label: 'Trưởng bộ môn' },
-        { value: 'pho_truong_bo_mon', label: 'Phó trưởng bộ môn' },
-        { value: 'chu_nhiem_chuong_trinh', label: 'Chủ nhiệm chương trình' },
-        { value: 'giam_doc_trung_tam', label: 'Giám đốc trung tâm' },
-        { value: 'pho_giam_doc', label: 'Phó giám đốc' },
-        { value: 'thu_ky_khoa', label: 'Thư ký khoa' },
-        { value: 'chuyen_vien', label: 'Chuyên viên' },
-        { value: 'nhan_vien', label: 'Nhân viên' }
-    ]
-
-    const academicLevels = [
-        { value: 'tien_si', label: 'Tiến sĩ' },
-        { value: 'thac_si', label: 'Thạc sĩ' },
-        { value: 'cu_nhan', label: 'Cử nhân' },
-        { value: 'ky_su', label: 'Kỹ sư' },
-        { value: 'cao_dang', label: 'Cao đẳng' },
-        { value: 'trung_cap', label: 'Trung cấp' }
-    ]
-
-    const breadcrumbItems = [
-        { name: 'Dữ liệu đơn vị', href: '/unit-data' },
-        { name: 'Nhân sự', icon: Users }
-    ]
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -181,7 +131,6 @@ export default function PersonnelPage() {
             }
         } catch (error) {
             console.error('Lỗi tải options:', error)
-            // Set default options
             setFacultyOptions([])
         }
     }
@@ -224,23 +173,7 @@ export default function PersonnelPage() {
     }
 
     const handleCreate = () => {
-        setFormData({
-            fullName: '',
-            employeeId: '',
-            email: '',
-            phoneNumber: '',
-            position: '',
-            facultyId: '',
-            departmentId: '',
-            qualifications: [],
-            specializations: [],
-            workingYears: '',
-            dateOfBirth: '',
-            dateJoined: '',
-            academicLevel: 'cu_nhan',
-            isExpert: false,
-            positions: []
-        })
+
         setCurrentPerson(null)
         setShowCreateModal(true)
     }
