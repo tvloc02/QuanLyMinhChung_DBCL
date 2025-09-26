@@ -1,7 +1,6 @@
-import mongoose from "mongoose";
+const mongoose = require('mongoose');
 
 const organizationSchema = new mongoose.Schema({
-
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear',
@@ -19,7 +18,6 @@ const organizationSchema = new mongoose.Schema({
     code: {
         type: String,
         required: [true, 'Mã tổ chức là bắt buộc'],
-        unique: true,
         uppercase: true,
         trim: true,
         maxlength: [20, 'Mã tổ chức không được quá 20 ký tự'],
@@ -137,11 +135,12 @@ const organizationSchema = new mongoose.Schema({
     }
 });
 
-organizationSchema.index({ code: 1 });
-organizationSchema.index({ level: 1 });
-organizationSchema.index({ type: 1 });
-organizationSchema.index({ status: 1 });
-organizationSchema.index({ name: 'text', description: 'text' });
+// Indexes - cập nhật với academicYearId
+organizationSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
+organizationSchema.index({ academicYearId: 1, level: 1 });
+organizationSchema.index({ academicYearId: 1, type: 1 });
+organizationSchema.index({ academicYearId: 1, status: 1 });
+organizationSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 organizationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -159,14 +158,30 @@ organizationSchema.methods.isInUse = async function() {
     const Evidence = require('./Evidence');
 
     const [standardCount, evidenceCount] = await Promise.all([
-        Standard.countDocuments({ organizationId: this._id }),
-        Evidence.countDocuments({ organizationId: this._id })
+        Standard.countDocuments({
+            organizationId: this._id,
+            academicYearId: this.academicYearId
+        }),
+        Evidence.countDocuments({
+            organizationId: this._id,
+            academicYearId: this.academicYearId
+        })
     ]);
 
     return standardCount > 0 || evidenceCount > 0;
+};
+
+// Static method để tìm theo năm học
+organizationSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
+    return this.find({
+        academicYearId,
+        ...query
+    });
 };
 
 organizationSchema.set('toJSON', { virtuals: true });
 organizationSchema.set('toObject', { virtuals: true });
 
 const Organization = mongoose.model('Organization', organizationSchema);
+
+module.exports = Organization;
