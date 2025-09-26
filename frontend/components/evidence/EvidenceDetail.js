@@ -71,7 +71,6 @@ export default function EvidenceDetail({ evidenceId, onEdit, onDelete }) {
 
     const handleCopy = async () => {
         try {
-            // Implementation for copying evidence
             toast.success('Sao chép minh chứng thành công')
         } catch (error) {
             toast.error('Lỗi sao chép minh chứng')
@@ -80,7 +79,6 @@ export default function EvidenceDetail({ evidenceId, onEdit, onDelete }) {
 
     const handleMove = async () => {
         try {
-            // Implementation for moving evidence
             toast.success('Di chuyển minh chứng thành công')
         } catch (error) {
             toast.error('Lỗi di chuyển minh chứng')
@@ -91,7 +89,6 @@ export default function EvidenceDetail({ evidenceId, onEdit, onDelete }) {
         try {
             const response = await apiMethods.downloadFile(fileId)
 
-            // Create download link
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
@@ -108,7 +105,6 @@ export default function EvidenceDetail({ evidenceId, onEdit, onDelete }) {
     }
 
     const handleViewFile = (fileId, filename) => {
-        // Open file in new tab or modal viewer
         window.open(`/api/files/${fileId}/view`, '_blank')
     }
 
@@ -427,7 +423,6 @@ export default function EvidenceDetail({ evidenceId, onEdit, onDelete }) {
                 </div>
             </div>
 
-            {/* Delete Confirmation Modal */}
             <ConfirmModal
                 isOpen={deleteModal}
                 onClose={() => setDeleteModal(false)}
