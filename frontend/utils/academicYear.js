@@ -1,9 +1,8 @@
-import { api } from './api'
+import { api } from '../hooks/useApi'
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from './helpers'
 
 export const ACADEMIC_YEAR_STORAGE_KEY = 'current_academic_year'
 export const SELECTED_YEAR_STORAGE_KEY = 'selected_academic_year'
-
 
 export const getCurrentAcademicYear = async () => {
     try {
@@ -14,7 +13,6 @@ export const getCurrentAcademicYear = async () => {
         throw error
     }
 }
-
 
 export const getAllAcademicYears = async () => {
     try {
@@ -162,8 +160,10 @@ export const getAvailableYears = () => {
 }
 
 export const canDeleteAcademicYear = (academicYear) => {
+    // Cannot delete current academic year
     if (academicYear?.isCurrent) return false
 
+    // Cannot delete if has data (should be checked on backend)
     return true
 }
 
