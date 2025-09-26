@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../middleware/auth');
+const { setAcademicYearContext } = require('../middleware/academicYear');
 const validation = require('../middleware/validation');
 const {
     getPrograms,
@@ -10,8 +11,12 @@ const {
     createProgram,
     updateProgram,
     deleteProgram,
-    getProgramStatistics
+    getProgramStatistics,
+    copyProgramToAnotherYear
 } = require('../controllers/programController');
+
+// Apply academic year context to all routes
+router.use(auth, setAcademicYearContext);
 
 // Validation rules
 const createProgramValidation = [
@@ -71,14 +76,29 @@ const updateProgramValidation = [
     ...createProgramValidation
 ];
 
+const copyProgramValidation = [
+    param('id').isMongoId().withMessage('ID chương trình không hợp lệ'),
+    body('targetAcademicYearId')
+        .notEmpty()
+        .withMessage('Năm học đích là bắt buộc')
+        .isMongoId()
+        .withMessage('ID năm học đích không hợp lệ'),
+    body('newCode')
+        .notEmpty()
+        .withMessage('Mã chương trình mới là bắt buộc')
+        .isLength({ max: 20 })
+        .withMessage('Mã chương trình không được quá 20 ký tự')
+        .matches(/^[A-Z0-9\-_]+$/)
+        .withMessage('Mã chương trình chỉ được chứa chữ hoa, số, dấu gạch ngang và gạch dưới')
+];
+
 // Routes
 router.get('/statistics',
-    auth,
     requireManager,
     getProgramStatistics
 );
 
-router.get('/', auth, [
+router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
@@ -88,14 +108,13 @@ router.get('/', auth, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getPrograms);
 
-router.get('/all', auth, getAllPrograms);
+router.get('/all', getAllPrograms);
 
-router.get('/:id', auth, [
+router.get('/:id', [
     param('id').isMongoId().withMessage('ID chương trình không hợp lệ')
 ], validation, getProgramById);
 
 router.post('/',
-    auth,
     requireAdmin,
     createProgramValidation,
     validation,
@@ -103,7 +122,6 @@ router.post('/',
 );
 
 router.put('/:id',
-    auth,
     requireAdmin,
     updateProgramValidation,
     validation,
@@ -111,13 +129,20 @@ router.put('/:id',
 );
 
 router.delete('/:id',
-    auth,
     requireAdmin,
     [
         param('id').isMongoId().withMessage('ID chương trình không hợp lệ')
     ],
     validation,
     deleteProgram
+);
+
+// Copy program to another academic year
+router.post('/:id/copy-to-year',
+    requireManager,
+    copyProgramValidation,
+    validation,
+    copyProgramToAnotherYear
 );
 
 module.exports = router;
