@@ -1,4 +1,12 @@
+const mongoose = require('mongoose');
+
 const standardSchema = new mongoose.Schema({
+    academicYearId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AcademicYear',
+        required: [true, 'Năm học là bắt buộc']
+    },
+
     name: {
         type: String,
         required: [true, 'Tên tiêu chuẩn là bắt buộc'],
@@ -112,10 +120,11 @@ const standardSchema = new mongoose.Schema({
     }
 });
 
-standardSchema.index({ programId: 1, organizationId: 1, code: 1 }, { unique: true });
-standardSchema.index({ programId: 1, organizationId: 1, order: 1 });
-standardSchema.index({ status: 1 });
-standardSchema.index({ name: 'text', description: 'text' });
+// Indexes - cập nhật với academicYearId
+standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, code: 1 }, { unique: true });
+standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, order: 1 });
+standardSchema.index({ academicYearId: 1, status: 1 });
+standardSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 standardSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -137,19 +146,40 @@ standardSchema.methods.isInUse = async function() {
     const Evidence = require('./Evidence');
 
     const [criteriaCount, evidenceCount] = await Promise.all([
-        Criteria.countDocuments({ standardId: this._id }),
-        Evidence.countDocuments({ standardId: this._id })
+        Criteria.countDocuments({
+            standardId: this._id,
+            academicYearId: this.academicYearId
+        }),
+        Evidence.countDocuments({
+            standardId: this._id,
+            academicYearId: this.academicYearId
+        })
     ]);
 
     return criteriaCount > 0 || evidenceCount > 0;
 };
 
-standardSchema.statics.findByProgramAndOrganization = function(programId, organizationId) {
-    return this.find({ programId, organizationId, status: 'active' })
+standardSchema.statics.findByProgramAndOrganization = function(programId, organizationId, academicYearId) {
+    return this.find({
+        academicYearId,
+        programId,
+        organizationId,
+        status: 'active'
+    })
         .sort({ order: 1, code: 1 });
+};
+
+// Static method để tìm theo năm học
+standardSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
+    return this.find({
+        academicYearId,
+        ...query
+    });
 };
 
 standardSchema.set('toJSON', { virtuals: true });
 standardSchema.set('toObject', { virtuals: true });
 
 const Standard = mongoose.model('Standard', standardSchema);
+
+module.exports = Standard;
