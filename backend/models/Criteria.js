@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const criteriaSchema = new mongoose.Schema({
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -143,12 +145,13 @@ const criteriaSchema = new mongoose.Schema({
     }
 });
 
-criteriaSchema.index({ standardId: 1, code: 1 }, { unique: true });
-criteriaSchema.index({ standardId: 1, order: 1 });
-criteriaSchema.index({ programId: 1, organizationId: 1 });
-criteriaSchema.index({ status: 1 });
-criteriaSchema.index({ type: 1 });
-criteriaSchema.index({ name: 'text', description: 'text' });
+// Indexes - cập nhật với academicYearId
+criteriaSchema.index({ academicYearId: 1, standardId: 1, code: 1 }, { unique: true });
+criteriaSchema.index({ academicYearId: 1, standardId: 1, order: 1 });
+criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
+criteriaSchema.index({ academicYearId: 1, status: 1 });
+criteriaSchema.index({ academicYearId: 1, type: 1 });
+criteriaSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 criteriaSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -171,19 +174,39 @@ criteriaSchema.virtual('url').get(function() {
 
 criteriaSchema.methods.isInUse = async function() {
     const Evidence = require('./Evidence');
-    const evidenceCount = await Evidence.countDocuments({ criteriaId: this._id });
+    const evidenceCount = await Evidence.countDocuments({
+        criteriaId: this._id,
+        academicYearId: this.academicYearId
+    });
     return evidenceCount > 0;
 };
 
-criteriaSchema.statics.findByStandard = function(standardId) {
-    return this.find({ standardId, status: 'active' })
+criteriaSchema.statics.findByStandard = function(standardId, academicYearId) {
+    return this.find({
+        academicYearId,
+        standardId,
+        status: 'active'
+    })
         .sort({ order: 1, code: 1 });
 };
 
-criteriaSchema.statics.findByProgramAndOrganization = function(programId, organizationId) {
-    return this.find({ programId, organizationId, status: 'active' })
+criteriaSchema.statics.findByProgramAndOrganization = function(programId, organizationId, academicYearId) {
+    return this.find({
+        academicYearId,
+        programId,
+        organizationId,
+        status: 'active'
+    })
         .populate('standardId', 'name code')
         .sort({ 'standardId.code': 1, order: 1, code: 1 });
+};
+
+// Static method để tìm theo năm học
+criteriaSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
+    return this.find({
+        academicYearId,
+        ...query
+    });
 };
 
 criteriaSchema.set('toJSON', { virtuals: true });
@@ -191,9 +214,4 @@ criteriaSchema.set('toObject', { virtuals: true });
 
 const Criteria = mongoose.model('Criteria', criteriaSchema);
 
-module.exports = {
-    Program,
-    Organization,
-    Standard,
-    Criteria
-};
+module.exports = Criteria;
