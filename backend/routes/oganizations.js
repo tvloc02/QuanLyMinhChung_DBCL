@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../middleware/auth');
+const { setAcademicYearContext } = require('../middleware/academicYearMiddleware');
 const validation = require('../middleware/validation');
 const {
     getOrganizations,
@@ -12,6 +13,9 @@ const {
     deleteOrganization,
     getOrganizationStatistics
 } = require('../controllers/organizationController');
+
+// Apply academic year context to all routes
+router.use(auth, setAcademicYearContext);
 
 // Validation rules
 const createOrganizationValidation = [
@@ -68,12 +72,11 @@ const updateOrganizationValidation = [
 
 // Routes
 router.get('/statistics',
-    auth,
     requireManager,
     getOrganizationStatistics
 );
 
-router.get('/', auth, [
+router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
@@ -84,14 +87,13 @@ router.get('/', auth, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getOrganizations);
 
-router.get('/all', auth, getAllOrganizations);
+router.get('/all', getAllOrganizations);
 
-router.get('/:id', auth, [
+router.get('/:id', [
     param('id').isMongoId().withMessage('ID tổ chức không hợp lệ')
 ], validation, getOrganizationById);
 
 router.post('/',
-    auth,
     requireAdmin,
     createOrganizationValidation,
     validation,
@@ -99,7 +101,6 @@ router.post('/',
 );
 
 router.put('/:id',
-    auth,
     requireAdmin,
     updateOrganizationValidation,
     validation,
@@ -107,7 +108,6 @@ router.put('/:id',
 );
 
 router.delete('/:id',
-    auth,
     requireAdmin,
     [
         param('id').isMongoId().withMessage('ID tổ chức không hợp lệ')
