@@ -2,6 +2,13 @@
 const mongoose = require('mongoose');
 
 const programSchema = new mongoose.Schema({
+    // Thêm academicYearId
+    academicYearId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AcademicYear',
+        required: [true, 'Năm học là bắt buộc']
+    },
+
     name: {
         type: String,
         required: [true, 'Tên chương trình đánh giá là bắt buộc'],
@@ -13,7 +20,6 @@ const programSchema = new mongoose.Schema({
     code: {
         type: String,
         required: [true, 'Mã chương trình là bắt buộc'],
-        unique: true,
         uppercase: true,
         trim: true,
         maxlength: [20, 'Mã chương trình không được quá 20 ký tự'],
@@ -115,10 +121,11 @@ const programSchema = new mongoose.Schema({
     }
 });
 
-programSchema.index({ code: 1 });
-programSchema.index({ status: 1 });
-programSchema.index({ applicableYear: 1 });
-programSchema.index({ name: 'text', description: 'text' });
+// Indexes - thêm academicYearId vào các index
+programSchema.index({ academicYearId: 1, code: 1 }, { unique: true }); // Unique trong cùng năm học
+programSchema.index({ academicYearId: 1, status: 1 });
+programSchema.index({ academicYearId: 1, applicableYear: 1 });
+programSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 programSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -136,8 +143,14 @@ programSchema.methods.isInUse = async function() {
     const Evidence = require('./Evidence');
 
     const [standardCount, evidenceCount] = await Promise.all([
-        Standard.countDocuments({ programId: this._id }),
-        Evidence.countDocuments({ programId: this._id })
+        Standard.countDocuments({
+            programId: this._id,
+            academicYearId: this.academicYearId
+        }),
+        Evidence.countDocuments({
+            programId: this._id,
+            academicYearId: this.academicYearId
+        })
     ]);
 
     return standardCount > 0 || evidenceCount > 0;
@@ -157,6 +170,14 @@ programSchema.statics.getStatistics = async function() {
         acc[item._id] = item.count;
         return acc;
     }, {});
+};
+
+// Static method để tìm theo năm học
+programSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
+    return this.find({
+        academicYearId,
+        ...query
+    });
 };
 
 programSchema.set('toJSON', { virtuals: true });
