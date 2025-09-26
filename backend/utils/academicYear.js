@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from 'frontend/hooks/useApi'
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from './helpers'
 
 export const ACADEMIC_YEAR_STORAGE_KEY = 'current_academic_year'
@@ -15,7 +15,6 @@ export const getCurrentAcademicYear = async () => {
     }
 }
 
-
 export const getAllAcademicYears = async () => {
     try {
         const response = await api.get('/academic-years/all')
@@ -29,7 +28,6 @@ export const getAllAcademicYears = async () => {
 export const setSelectedAcademicYear = (academicYear) => {
     setLocalStorage(SELECTED_YEAR_STORAGE_KEY, academicYear)
 
-    // Add to request headers for API calls
     api.defaults.headers.common['switchToYearId'] = academicYear?._id || academicYear?.id
 }
 

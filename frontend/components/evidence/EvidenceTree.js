@@ -34,8 +34,8 @@ export default function EvidenceTree() {
     const fetchPrograms = async () => {
         try {
             setPrograms([
-                { id: 'prog1', name: 'Chương trình đánh giá chất lượng giáo dục' },
-                { id: 'prog2', name: 'Chương trình kiểm định chất lượng' }
+                { id: '', name: '' },
+                { id: '', name: '' }
             ])
         } catch (error) {
             toast.error('Lỗi tải danh sách chương trình')
@@ -45,77 +45,7 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
-            const mockTreeData = {
-                id: 'root',
-                name: 'Minh chứng',
-                type: 'folder',
-                children: [
-                    {
-                        id: 'std1',
-                        name: 'Tiêu chuẩn 1: Sứ mệnh và mục tiêu',
-                        type: 'standard',
-                        children: [
-                            {
-                                id: 'cri1.1',
-                                name: 'Tiêu chí 1.1: Sứ mệnh',
-                                type: 'criteria',
-                                children: [
-                                    {
-                                        id: 'ev1',
-                                        name: 'H1.01.01.01 - Quyết định thành lập trường',
-                                        type: 'evidence',
-                                        code: 'H1.01.01.01',
-                                        files: [
-                                            { id: 'f1', name: 'quyet-dinh-thanh-lap.pdf', size: '2.5 MB' },
-                                            { id: 'f2', name: 'bang-phu-luc.docx', size: '1.2 MB' }
-                                        ]
-                                    },
-                                    {
-                                        id: 'ev2',
-                                        name: 'H1.01.01.02 - Điều lệ trường',
-                                        type: 'evidence',
-                                        code: 'H1.01.01.02',
-                                        files: [
-                                            { id: 'f3', name: 'dieu-le-truong.pdf', size: '3.1 MB' }
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                id: 'cri1.2',
-                                name: 'Tiêu chí 1.2: Mục tiêu đào tạo',
-                                type: 'criteria',
-                                children: [
-                                    {
-                                        id: 'ev3',
-                                        name: 'H1.01.02.01 - Chương trình đào tạo',
-                                        type: 'evidence',
-                                        code: 'H1.01.02.01',
-                                        files: [
-                                            { id: 'f4', name: 'chuong-trinh-dao-tao.xlsx', size: '5.2 MB' }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        id: 'std2',
-                        name: 'Tiêu chuẩn 2: Tổ chức và quản lý',
-                        type: 'standard',
-                        children: [
-                            {
-                                id: 'cri2.1',
-                                name: 'Tiêu chí 2.1: Cơ cấu tổ chức',
-                                type: 'criteria',
-                                children: []
-                            }
-                        ]
-                    }
-                ]
-            }
 
-            setTreeData(mockTreeData)
             setExpandedNodes(new Set(['root', 'std1', 'std2']))
         } catch (error) {
             toast.error('Lỗi tải cây minh chứng')
