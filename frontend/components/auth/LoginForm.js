@@ -14,35 +14,51 @@ import {
     BookOpen,
     TrendingUp
 } from 'lucide-react'
+import ForgotPassword from "./ForgotPassword";
 
 export default function LoginForm() {
     const [isDarkMode, setIsDarkMode] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
+    const [showForgotPassword, setShowForgotPassword] = useState(false)
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     })
     const [rememberMe, setRememberMe] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
 
     const { login } = useAuth()
     const router = useRouter()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+        setError('')
+
         if (!formData.email || !formData.password) {
+            setError('Vui lòng nhập đầy đủ thông tin')
             return
         }
 
         setIsLoading(true)
 
-        const result = await login(formData.email, formData.password)
+        try {
+            const result = await login(formData.email, formData.password)
 
-        if (result.success) {
-            router.push('/dashboard')
+            if (result.success) {
+                // Lưu remember me nếu được chọn
+                if (rememberMe) {
+                    localStorage.setItem('rememberLogin', 'true')
+                }
+                router.push('/dashboard')
+            } else {
+                setError(result.message || 'Đăng nhập thất bại')
+            }
+        } catch (err) {
+            setError('Có lỗi xảy ra, vui lòng thử lại')
+        } finally {
+            setIsLoading(false)
         }
-
-        setIsLoading(false)
     }
 
     const handleInputChange = (e) => {
@@ -50,6 +66,8 @@ export default function LoginForm() {
             ...formData,
             [e.target.name]: e.target.value
         })
+        // Clear error when user starts typing
+        if (error) setError('')
     }
 
     const toggleTheme = () => {
@@ -68,8 +86,6 @@ export default function LoginForm() {
                     backgroundSize: '30px 30px'
                 }}></div>
             </div>
-
-
 
             <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
                 <div className="w-full max-w-5xl mx-auto">
@@ -104,6 +120,13 @@ export default function LoginForm() {
                             </div>
 
                             <form onSubmit={handleSubmit} className="space-y-6">
+                                {/* Error Message */}
+                                {error && (
+                                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                                        {error}
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                                         EMAIL / TÊN ĐĂNG NHẬP
@@ -132,7 +155,11 @@ export default function LoginForm() {
                                         <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                                             MẬT KHẨU
                                         </label>
-                                        <button type="button" className="text-blue-500 text-sm hover:underline">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowForgotPassword(true)}
+                                            className="text-blue-500 text-sm hover:underline focus:outline-none"
+                                        >
                                             Quên mật khẩu?
                                         </button>
                                     </div>
@@ -155,7 +182,7 @@ export default function LoginForm() {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
                                         >
                                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
@@ -320,6 +347,12 @@ export default function LoginForm() {
                     </div>
                 </div>
             </div>
+
+            <ForgotPassword
+                isOpen={showForgotPassword}
+                onClose={() => setShowForgotPassword(false)}
+                isDarkMode={isDarkMode}
+            />
         </div>
     )
 }
