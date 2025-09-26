@@ -188,7 +188,7 @@ export default function ReportsPage() {
 
     return (
         <Layout
-            title="Báo cáo thống kê"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">

@@ -93,66 +93,6 @@ export default function ProgramList() {
 
             await new Promise(resolve => setTimeout(resolve, 500))
 
-            const mockData = {
-                programs: [
-                    {
-                        id: '1',
-                        code: 'AUN-QA-2023',
-                        name: 'Chương trình đánh giá chất lượng giáo dục AUN-QA 2023',
-                        description: 'Chương trình đánh giá chất lượng theo tiêu chuẩn AUN-QA dành cho các trường đại học trong khu vực ASEAN',
-                        version: '2.0',
-                        organizationId: '1',
-                        organization: {
-                            name: 'Trường Đại học Nông nghiệp Việt Nam',
-                            shortName: 'VNUA'
-                        },
-                        startDate: '2023-01-01',
-                        endDate: '2025-12-31',
-                        status: 'active',
-                        criteria: 'Đánh giá dựa trên 11 tiêu chuẩn chính của AUN-QA',
-                        scope: 'Áp dụng cho tất cả các chương trình đào tạo đại học',
-                        objective: 'Nâng cao chất lượng giáo dục và đạt chuẩn quốc tế',
-                        isActive: true,
-                        createdAt: '2023-01-01T00:00:00Z',
-                        updatedAt: '2024-12-25T10:00:00Z',
-                        standardCount: 11,
-                        criteriaCount: 42,
-                        evidenceCount: 245,
-                        userCount: 50
-                    },
-                    {
-                        id: '2',
-                        code: 'MOET-2024',
-                        name: 'Chương trình kiểm định chất lượng Bộ GD&ĐT 2024',
-                        description: 'Chương trình kiểm định chất lượng theo quy định của Bộ Giáo dục và Đào tạo Việt Nam',
-                        version: '1.5',
-                        organizationId: '2',
-                        organization: {
-                            name: 'Trung tâm kiểm định chất lượng giáo dục - VNUA',
-                            shortName: 'TTKTCL-VNUA'
-                        },
-                        startDate: '2024-01-01',
-                        endDate: '2024-12-31',
-                        status: 'active',
-                        criteria: 'Dựa trên 5 tiêu chuẩn chính của Bộ GD&ĐT',
-                        scope: 'Kiểm định chất lượng cơ sở giáo dục',
-                        objective: 'Đảm bảo chất lượng giáo dục theo tiêu chuẩn quốc gia',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-20T15:30:00Z',
-                        standardCount: 5,
-                        criteriaCount: 25,
-                        evidenceCount: 120,
-                        userCount: 25
-                    }
-                ],
-                pagination: {
-                    total: 2,
-                    totalPages: 1,
-                    currentPage: 1
-                }
-            }
-
             setPrograms(mockData.programs)
             setTotalPages(mockData.pagination.totalPages)
             setTotalItems(mockData.pagination.total)

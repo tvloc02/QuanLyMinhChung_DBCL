@@ -20,7 +20,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     const [currentAcademicYear, setCurrentAcademicYear] = useState(null)
     const [academicYears, setAcademicYears] = useState([])
 
-    // Load danh sách năm học khi component mount
     useEffect(() => {
         fetchAcademicYears()
     }, [])
@@ -44,7 +43,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             }
         } catch (error) {
             console.error('Lỗi khi tải danh sách năm học:', error)
-            // Dữ liệu mẫu khi không thể tải từ API
             const sampleYears = [
                 {
                     _id: '507f1f77bcf86cd799439021',

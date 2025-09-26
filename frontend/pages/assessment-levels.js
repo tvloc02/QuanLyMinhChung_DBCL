@@ -30,7 +30,6 @@ export default function AssessmentLevelsPage() {
     const [totalPages, setTotalPages] = useState(1)
     const [totalItems, setTotalItems] = useState(0)
 
-    // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [showDetailModal, setShowDetailModal] = useState(false)
@@ -38,7 +37,6 @@ export default function AssessmentLevelsPage() {
     const [editingLevel, setEditingLevel] = useState(null)
     const [viewingLevel, setViewingLevel] = useState(null)
 
-    // Form state
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -74,80 +72,8 @@ export default function AssessmentLevelsPage() {
     const fetchLevels = async () => {
         try {
             setLoading(true)
-            // Mock API call - replace with actual service
             await new Promise(resolve => setTimeout(resolve, 500))
 
-            const mockData = {
-                levels: [
-                    {
-                        id: '1',
-                        name: 'Xuất sắc',
-                        code: 'EXCELLENT',
-                        description: 'Đạt mức cao nhất, vượt trội so với tiêu chuẩn',
-                        minScore: 90,
-                        maxScore: 100,
-                        color: '#10B981',
-                        order: 1,
-                        requirements: 'Phải đạt tối thiểu 90% các tiêu chí với chất lượng cao',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-25T10:00:00Z',
-                        usageCount: 15
-                    },
-                    {
-                        id: '2',
-                        name: 'Tốt',
-                        code: 'GOOD',
-                        description: 'Đạt tiêu chuẩn tốt, đáp ứng đầy đủ yêu cầu',
-                        minScore: 75,
-                        maxScore: 89,
-                        color: '#3B82F6',
-                        order: 2,
-                        requirements: 'Đạt 75-89% các tiêu chí với chất lượng đảm bảo',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-20T15:30:00Z',
-                        usageCount: 28
-                    },
-                    {
-                        id: '3',
-                        name: 'Đạt',
-                        code: 'SATISFACTORY',
-                        description: 'Đạt mức cơ bản, đáp ứng yêu cầu tối thiểu',
-                        minScore: 60,
-                        maxScore: 74,
-                        color: '#F59E0B',
-                        order: 3,
-                        requirements: 'Đạt 60-74% các tiêu chí cơ bản',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-18T12:15:00Z',
-                        usageCount: 42
-                    },
-                    {
-                        id: '4',
-                        name: 'Chưa đạt',
-                        code: 'UNSATISFACTORY',
-                        description: 'Chưa đạt yêu cầu tối thiểu, cần cải thiện',
-                        minScore: 0,
-                        maxScore: 59,
-                        color: '#EF4444',
-                        order: 4,
-                        requirements: 'Dưới 60% các tiêu chí, cần có kế hoạch cải thiện',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-15T09:45:00Z',
-                        usageCount: 8
-                    }
-                ],
-                pagination: {
-                    total: 4,
-                    totalPages: 1,
-                    currentPage: 1
-                }
-            }
-
-            // Apply search filter
             let filteredLevels = mockData.levels
             if (searchQuery) {
                 filteredLevels = mockData.levels.filter(level =>
@@ -215,7 +141,6 @@ export default function AssessmentLevelsPage() {
 
     const handleDeleteLevel = async () => {
         try {
-            // Mock API call
             await new Promise(resolve => setTimeout(resolve, 1000))
 
             toast.success('Xóa cấp đánh giá thành công')
@@ -492,7 +417,7 @@ export default function AssessmentLevelsPage() {
 
     return (
         <Layout
-            title="Cấp đánh giá"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">

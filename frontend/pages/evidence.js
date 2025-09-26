@@ -232,7 +232,7 @@ export default function EvidencePage() {
 
     return (
         <Layout
-            title="Tổng quan minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">

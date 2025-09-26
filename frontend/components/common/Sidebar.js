@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/router'
+
 import {
     BarChart3,
     FileText,
@@ -22,7 +23,7 @@ import {
     ChevronDown,
     ChevronRight,
     Menu,
-    X, FolderTree, Upload
+    X, FolderTree, Upload, Calendar, UsersIcon
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose }) {
@@ -58,14 +59,20 @@ export default function Sidebar({ open, onClose }) {
         {
             name: 'Chương trình đánh giá',
             icon: BookOpen,
-            path: '/assessment-program',
-            active: router.pathname.includes('/assessment-program')
+            path: '/program-management',
+            active: router.pathname.includes('/program-management')
         },
         {
             name: 'Cấp đánh giá',
             icon: FileText,
             path: '/assessment-levels',
             active: router.pathname.includes('/assessment-levels')
+        },
+        {
+            name: 'Tổ chức đánh giá',
+            icon: UsersIcon,
+            path: '/organizations',
+            active: router.pathname.includes('/organizations')
         },
         {
             name: 'Tiêu chuẩn',
@@ -98,6 +105,7 @@ export default function Sidebar({ open, onClose }) {
             hasSubmenu: true,
             active: router.pathname.includes('/configuration'),
             submenu: [
+                { name: 'Năm học', icon: Calendar, path: 'AcademicYearSelector' },
                 { name: 'Phân quyền', icon: Shield, path: '/configuration/authorization' },
                 { name: 'Nhóm người dùng', icon: Users, path: '/configuration/user-groups' },
             ]
@@ -151,7 +159,7 @@ export default function Sidebar({ open, onClose }) {
                     {/* Header with toggle button */}
                     <div className="flex items-center justify-between p-4 border-b border-gray-200">
                         {!collapsed && (
-                            <h2 className="text-lg font-semibold text-gray-800">Menu</h2>
+                            <h2 className="text-lg font-semibold text-gray-800">Thao tác</h2>
                         )}
                         <button
                             onClick={toggleCollapse}

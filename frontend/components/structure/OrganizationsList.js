@@ -27,7 +27,6 @@ export default function OrganizationsList() {
     const [totalPages, setTotalPages] = useState(1)
     const [totalItems, setTotalItems] = useState(0)
 
-    // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
     const [showDetailModal, setShowDetailModal] = useState(false)
@@ -35,7 +34,6 @@ export default function OrganizationsList() {
     const [editingOrganization, setEditingOrganization] = useState(null)
     const [viewingOrganization, setViewingOrganization] = useState(null)
 
-    // Form state
     const [formData, setFormData] = useState({
         code: '',
         name: '',
@@ -80,59 +78,7 @@ export default function OrganizationsList() {
                 search: searchQuery
             }
 
-            // Mock data - replace with actual API call
             await new Promise(resolve => setTimeout(resolve, 500))
-
-            const mockData = {
-                organizations: [
-                    {
-                        id: '1',
-                        code: 'VNUA',
-                        name: 'Trường Đại học Nông nghiệp Việt Nam',
-                        shortName: 'VNUA',
-                        type: 'university',
-                        description: 'Trường đại học nông nghiệp hàng đầu Việt Nam',
-                        address: 'Trâu Quỳ, Gia Lâm, Hà Nội',
-                        phone: '024-3827-6554',
-                        email: 'info@vnua.edu.vn',
-                        website: 'https://vnua.edu.vn',
-                        contactPerson: 'Nguyễn Văn A',
-                        contactPhone: '024-3827-6555',
-                        contactEmail: 'contact@vnua.edu.vn',
-                        isActive: true,
-                        createdAt: '2024-01-01T00:00:00Z',
-                        updatedAt: '2024-12-25T10:00:00Z',
-                        evidenceCount: 245,
-                        userCount: 50
-                    },
-                    {
-                        id: '2',
-                        code: 'TTKTCL',
-                        name: 'Trung tâm kiểm định chất lượng giáo dục - VNUA',
-                        shortName: 'TTKTCL-VNUA',
-                        type: 'center',
-                        parentId: '1',
-                        description: 'Trung tâm kiểm định chất lượng giáo dục của VNUA',
-                        address: 'Trâu Quỳ, Gia Lâm, Hà Nội',
-                        phone: '024-3827-6556',
-                        email: 'ttktcl@vnua.edu.vn',
-                        website: '',
-                        contactPerson: 'Trần Thị B',
-                        contactPhone: '024-3827-6557',
-                        contactEmail: 'ttktcl@vnua.edu.vn',
-                        isActive: true,
-                        createdAt: '2024-02-01T00:00:00Z',
-                        updatedAt: '2024-12-20T15:30:00Z',
-                        evidenceCount: 120,
-                        userCount: 15
-                    }
-                ],
-                pagination: {
-                    total: 2,
-                    totalPages: 1,
-                    currentPage: 1
-                }
-            }
 
             setOrganizations(mockData.organizations)
             setTotalPages(mockData.pagination.totalPages)

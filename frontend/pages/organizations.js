@@ -33,7 +33,7 @@ export default function OrganizationsPage() {
 
     return (
         <Layout
-            title="Quản lý tổ chức"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <OrganizationsList />

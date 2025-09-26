@@ -31,7 +31,6 @@ export default function ProgramManagementPage() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        // Get active tab from URL query if available
         const { tab } = router.query
         if (tab && Object.values(TABS).includes(tab)) {
             setActiveTab(tab)
@@ -40,7 +39,6 @@ export default function ProgramManagementPage() {
 
     const handleTabChange = (tab) => {
         setActiveTab(tab)
-        // Update URL without triggering a page reload
         router.push({
             pathname: router.pathname,
             query: { ...router.query, tab }
@@ -99,7 +97,7 @@ export default function ProgramManagementPage() {
 
     return (
         <Layout
-            title="Cấu trúc chương trình"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">
@@ -111,7 +109,7 @@ export default function ProgramManagementPage() {
                                 Cấu trúc chương trình đánh giá
                             </h1>
                             <p className="text-gray-600 mt-1">
-                                Quản lý cấu trúc phân cấp: Chương trình → Tiêu chuẩn → Tiêu chí
+                                Quản lý cấu trúc phân cấp: Chương trình → Cấp đánh giá → Tiêu chuẩn → Tiêu chí
                             </p>
                         </div>
                         <div className="flex items-center space-x-2">
