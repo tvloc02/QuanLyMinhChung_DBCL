@@ -1,4 +1,13 @@
+import mongoose from "mongoose";
+
 const organizationSchema = new mongoose.Schema({
+
+    academicYearId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AcademicYear',
+        required: [true, 'Năm học là bắt buộc']
+    },
+
     name: {
         type: String,
         required: [true, 'Tên tổ chức - cấp đánh giá là bắt buộc'],
