@@ -102,7 +102,30 @@ userSchema.pre('save', function(next) {
 });
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
-    return bcrypt.compare(candidatePassword, this.password);
+    try {
+        if (!this.password) return false;
+
+        const stored = this.password;
+        const isBcryptHash = typeof stored === 'string' && stored.startsWith('$2');
+
+        if (isBcryptHash) {
+            return await bcrypt.compare(candidatePassword, stored);
+        }
+
+        // Fallback: legacy plaintext password stored in DB
+        const isPlainMatch = candidatePassword === stored;
+        if (isPlainMatch) {
+            // Upgrade to bcrypt hash transparently
+            const salt = await bcrypt.genSalt(10);
+            this.password = await bcrypt.hash(candidatePassword, salt);
+            await this.save();
+            return true;
+        }
+
+        return false;
+    } catch (err) {
+        return false;
+    }
 };
 
 userSchema.methods.getFullEmail = function(domain = 'cmc.edu.vn') {

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
 
@@ -13,6 +14,8 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        console.log('🔐 Login attempt:', { email, passwordLength: password?.length });
+
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -20,39 +23,108 @@ const login = async (req, res) => {
             });
         }
 
-        const user = await User.findByEmail(email);
+        // Tìm user theo email (username)
+        const username = email.split('@')[0].toLowerCase().trim();
+        console.log('🔍 Searching for username:', username);
+
+        const user = await User.findOne({ email: username });
 
         if (!user) {
+            console.log('❌ User not found');
+            // Debug: Show available users
+            const availableUsers = await User.find({}, 'email fullName').lean();
+            console.log('📋 Available users:', availableUsers);
+
             return res.status(401).json({
                 success: false,
                 message: 'Tên đăng nhập không tồn tại'
             });
         }
 
+        console.log('✅ User found:', { email: user.email, fullName: user.fullName });
+
+        // Kiểm tra status
         if (user.status !== 'active') {
+            console.log('❌ User status:', user.status);
             return res.status(401).json({
                 success: false,
                 message: 'Tài khoản đã bị khóa hoặc vô hiệu hóa'
             });
         }
 
-        const isPasswordValid = await user.comparePassword(password);
+        // Kiểm tra password
+        console.log('🔑 Checking password...');
+        console.log('🔑 Stored password starts with:', user.password?.substring(0, 10) + '...');
+
+        let isPasswordValid = false;
+
+        try {
+            // Kiểm tra xem có phải bcrypt hash không
+            const isBcryptHash = user.password && user.password.startsWith('$2');
+            console.log('🔑 Is bcrypt hash:', isBcryptHash);
+
+            if (isBcryptHash) {
+                // Sử dụng bcrypt compare
+                isPasswordValid = await bcrypt.compare(password, user.password);
+                console.log('🔑 Bcrypt comparison result:', isPasswordValid);
+            } else {
+                // Fallback: plaintext comparison
+                isPasswordValid = (password === user.password);
+                console.log('🔑 Plaintext comparison result:', isPasswordValid);
+
+                // Nếu match và là plaintext, upgrade sang bcrypt
+                if (isPasswordValid) {
+                    console.log('🔄 Upgrading plaintext password to bcrypt...');
+                    const salt = await bcrypt.genSalt(10);
+                    const hashedPassword = await bcrypt.hash(password, salt);
+
+                    await User.updateOne(
+                        { _id: user._id },
+                        { password: hashedPassword }
+                    );
+                    console.log('✅ Password upgraded successfully');
+                }
+            }
+        } catch (passwordError) {
+            console.error('❌ Password check error:', passwordError);
+            isPasswordValid = false;
+        }
+
         if (!isPasswordValid) {
+            console.log('❌ Invalid password');
             return res.status(401).json({
                 success: false,
                 message: 'Mật khẩu không chính xác'
             });
         }
 
-        user.lastLogin = new Date();
-        await user.save();
+        console.log('✅ Login successful');
 
+        // Cập nhật lastLogin
+        await User.updateOne(
+            { _id: user._id },
+            { lastLogin: new Date() }
+        );
+
+        // Tạo token
         const token = generateToken(user._id);
 
-        const userResponse = user.toObject();
-        delete userResponse.password;
-        delete userResponse.resetPasswordToken;
-        delete userResponse.resetPasswordExpires;
+        // Tạo response (loại bỏ sensitive data)
+        const userResponse = {
+            _id: user._id,
+            email: user.email,
+            fullName: user.fullName,
+            role: user.role,
+            status: user.status,
+            department: user.department,
+            position: user.position,
+            phoneNumber: user.phoneNumber,
+            standardAccess: user.standardAccess,
+            criteriaAccess: user.criteriaAccess,
+            lastLogin: new Date(),
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        };
 
         res.json({
             success: true,
@@ -64,7 +136,7 @@ const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('💥 Login error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi đăng nhập'
@@ -98,7 +170,9 @@ const forgotPassword = async (req, res) => {
             });
         }
 
-        const user = await User.findByEmail(email);
+        const username = email.split('@')[0].toLowerCase().trim();
+        const user = await User.findOne({ email: username });
+
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -106,17 +180,27 @@ const forgotPassword = async (req, res) => {
             });
         }
 
+        // Tạo reset token
         const resetToken = crypto.randomBytes(20).toString('hex');
-        user.resetPasswordToken = crypto
+        const hashedToken = crypto
             .createHash('sha256')
             .update(resetToken)
             .digest('hex');
-        user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 phút
 
-        await user.save();
+        // Cập nhật user với reset token
+        await User.updateOne(
+            { _id: user._id },
+            {
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: Date.now() + 10 * 60 * 1000 // 10 phút
+            }
+        );
 
+        // Gửi email reset
         const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-        await emailService.sendPasswordResetEmail(user.getFullEmail(), user.fullName, resetUrl);
+        const fullEmail = `${user.email}@cmc.edu.vn`;
+
+        await emailService.sendPasswordResetEmail(fullEmail, user.fullName, resetUrl);
 
         res.json({
             success: true,
@@ -151,11 +235,13 @@ const resetPassword = async (req, res) => {
             });
         }
 
+        // Hash token để so sánh
         const hashedToken = crypto
             .createHash('sha256')
             .update(token)
             .digest('hex');
 
+        // Tìm user với token hợp lệ và chưa hết hạn
         const user = await User.findOne({
             resetPasswordToken: hashedToken,
             resetPasswordExpires: { $gt: Date.now() }
@@ -168,11 +254,21 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        user.password = newPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
+        // Hash password mới
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        await user.save();
+        // Cập nhật password và xóa reset token
+        await User.updateOne(
+            { _id: user._id },
+            {
+                password: hashedPassword,
+                $unset: {
+                    resetPasswordToken: 1,
+                    resetPasswordExpires: 1
+                }
+            }
+        );
 
         res.json({
             success: true,
@@ -215,7 +311,16 @@ const changePassword = async (req, res) => {
             });
         }
 
-        const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+        // Kiểm tra mật khẩu hiện tại
+        let isCurrentPasswordValid = false;
+        const isBcryptHash = user.password && user.password.startsWith('$2');
+
+        if (isBcryptHash) {
+            isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        } else {
+            isCurrentPasswordValid = (currentPassword === user.password);
+        }
+
         if (!isCurrentPasswordValid) {
             return res.status(400).json({
                 success: false,
@@ -223,8 +328,14 @@ const changePassword = async (req, res) => {
             });
         }
 
-        user.password = newPassword;
-        await user.save();
+        // Hash mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        await User.updateOne(
+            { _id: user._id },
+            { password: hashedPassword }
+        );
 
         res.json({
             success: true,
@@ -273,7 +384,18 @@ const updateProfile = async (req, res) => {
         const userId = req.user.id;
         const { fullName, phoneNumber, department, position } = req.body;
 
-        const user = await User.findById(userId);
+        const updateData = {};
+        if (fullName) updateData.fullName = fullName.trim();
+        if (phoneNumber) updateData.phoneNumber = phoneNumber.trim();
+        if (department) updateData.department = department.trim();
+        if (position) updateData.position = position.trim();
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true, runValidators: true }
+        ).select('-password -resetPasswordToken -resetPasswordExpires');
+
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -281,22 +403,10 @@ const updateProfile = async (req, res) => {
             });
         }
 
-        if (fullName) user.fullName = fullName.trim();
-        if (phoneNumber) user.phoneNumber = phoneNumber.trim();
-        if (department) user.department = department.trim();
-        if (position) user.position = position.trim();
-
-        await user.save();
-
-        const updatedUser = user.toObject();
-        delete updatedUser.password;
-        delete updatedUser.resetPasswordToken;
-        delete updatedUser.resetPasswordExpires;
-
         res.json({
             success: true,
             message: 'Cập nhật thông tin thành công',
-            data: updatedUser
+            data: user
         });
 
     } catch (error) {
