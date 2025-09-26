@@ -13,11 +13,13 @@ const getStandards = async (req, res) => {
             sortOrder = 'asc'
         } = req.query;
 
+        const academicYearId = req.academicYearId; // From middleware
+
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = {};
+        let query = { academicYearId }; // Always filter by academic year
 
         if (search) {
             query.$or = [
@@ -36,6 +38,7 @@ const getStandards = async (req, res) => {
 
         const [standards, total] = await Promise.all([
             Standard.find(query)
+                .populate('academicYearId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
                 .populate('createdBy', 'fullName email')
@@ -55,7 +58,8 @@ const getStandards = async (req, res) => {
                     total,
                     hasNext: pageNum * limitNum < total,
                     hasPrev: pageNum > 1
-                }
+                },
+                academicYear: req.currentAcademicYear
             }
         });
 
@@ -71,6 +75,7 @@ const getStandards = async (req, res) => {
 const getStandardsByProgramAndOrg = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -79,7 +84,15 @@ const getStandardsByProgramAndOrg = async (req, res) => {
             });
         }
 
-        const standards = await Standard.findByProgramAndOrganization(programId, organizationId);
+        const standards = await Standard.find({
+            academicYearId,
+            programId,
+            organizationId,
+            status: 'active'
+        })
+            .populate('programId', 'name code')
+            .populate('organizationId', 'name code')
+            .sort({ order: 1, code: 1 });
 
         res.json({
             success: true,
@@ -91,6 +104,39 @@ const getStandardsByProgramAndOrg = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách tiêu chuẩn'
+        });
+    }
+};
+
+const getStandardById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const standard = await Standard.findOne({ _id: id, academicYearId })
+            .populate('academicYearId', 'name code')
+            .populate('programId', 'name code')
+            .populate('organizationId', 'name code')
+            .populate('createdBy', 'fullName email')
+            .populate('updatedBy', 'fullName email');
+
+        if (!standard) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: standard
+        });
+
+    } catch (error) {
+        console.error('Get standard by ID error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy thông tin tiêu chuẩn'
         });
     }
 };
@@ -110,20 +156,31 @@ const createStandard = async (req, res) => {
             evaluationCriteria
         } = req.body;
 
+        const academicYearId = req.academicYearId;
+
+        // Validate program and organization belong to the same academic year
         const [program, organization] = await Promise.all([
-            Program.findById(programId),
-            Organization.findById(organizationId)
+            Program.findOne({ _id: programId, academicYearId }),
+            Organization.findOne({ _id: organizationId, academicYearId })
         ]);
 
-        if (!program || !organization) {
+        if (!program) {
             return res.status(400).json({
                 success: false,
-                message: 'Chương trình hoặc tổ chức không tồn tại'
+                message: 'Chương trình không tồn tại trong năm học này'
             });
         }
 
-        // Check if code already exists in this program-organization
+        if (!organization) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tổ chức không tồn tại trong năm học này'
+            });
+        }
+
+        // Check if code already exists in this academic year + program + organization
         const existingStandard = await Standard.findOne({
+            academicYearId,
             programId,
             organizationId,
             code: code.toString().padStart(2, '0')
@@ -137,6 +194,7 @@ const createStandard = async (req, res) => {
         }
 
         const standard = new Standard({
+            academicYearId,
             name: name.trim(),
             code: code.toString().padStart(2, '0'),
             description: description?.trim(),
@@ -154,6 +212,7 @@ const createStandard = async (req, res) => {
         await standard.save();
 
         await standard.populate([
+            { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' }
@@ -172,4 +231,169 @@ const createStandard = async (req, res) => {
             message: 'Lỗi hệ thống khi tạo tiêu chuẩn'
         });
     }
+};
+
+const updateStandard = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = req.body;
+        const academicYearId = req.academicYearId;
+
+        const standard = await Standard.findOne({ _id: id, academicYearId });
+        if (!standard) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
+            });
+        }
+
+        // Check if code change conflicts
+        if (updateData.code && updateData.code !== standard.code) {
+            const existingStandard = await Standard.findOne({
+                academicYearId,
+                programId: standard.programId,
+                organizationId: standard.organizationId,
+                code: updateData.code.toString().padStart(2, '0'),
+                _id: { $ne: id }
+            });
+            if (existingStandard) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Mã tiêu chuẩn ${updateData.code} đã tồn tại`
+                });
+            }
+        }
+
+        // Check if in use before major changes
+        const isInUse = await standard.isInUse();
+        if (isInUse && (updateData.code || updateData.programId || updateData.organizationId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể thay đổi mã hoặc chương trình/tổ chức của tiêu chuẩn đang được sử dụng'
+            });
+        }
+
+        // Update allowed fields
+        const allowedFields = [
+            'name', 'description', 'order', 'weight', 'objectives',
+            'guidelines', 'evaluationCriteria', 'status'
+        ];
+
+        allowedFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                standard[field] = updateData[field];
+            }
+        });
+
+        if (updateData.code) {
+            standard.code = updateData.code.toString().padStart(2, '0');
+        }
+
+        standard.updatedBy = req.user.id;
+        await standard.save();
+
+        await standard.populate([
+            { path: 'academicYearId', select: 'name code' },
+            { path: 'programId', select: 'name code' },
+            { path: 'organizationId', select: 'name code' },
+            { path: 'updatedBy', select: 'fullName email' }
+        ]);
+
+        res.json({
+            success: true,
+            message: 'Cập nhật tiêu chuẩn thành công',
+            data: standard
+        });
+
+    } catch (error) {
+        console.error('Update standard error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi cập nhật tiêu chuẩn'
+        });
+    }
+};
+
+const deleteStandard = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const standard = await Standard.findOne({ _id: id, academicYearId });
+        if (!standard) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
+            });
+        }
+
+        // Check if in use
+        const isInUse = await standard.isInUse();
+        if (isInUse) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể xóa tiêu chuẩn đang được sử dụng'
+            });
+        }
+
+        await Standard.findByIdAndDelete(id);
+
+        res.json({
+            success: true,
+            message: 'Xóa tiêu chuẩn thành công'
+        });
+
+    } catch (error) {
+        console.error('Delete standard error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi xóa tiêu chuẩn'
+        });
+    }
+};
+
+const getStandardStatistics = async (req, res) => {
+    try {
+        const academicYearId = req.academicYearId;
+
+        const stats = await Standard.aggregate([
+            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const statusStats = stats.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+        }, {});
+
+        res.json({
+            success: true,
+            data: {
+                statusStats,
+                academicYear: req.currentAcademicYear
+            }
+        });
+
+    } catch (error) {
+        console.error('Get standard statistics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy thống kê tiêu chuẩn'
+        });
+    }
+};
+
+module.exports = {
+    getStandards,
+    getStandardsByProgramAndOrg,
+    getStandardById,
+    createStandard,
+    updateStandard,
+    deleteStandard,
+    getStandardStatistics
 };
