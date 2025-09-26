@@ -26,28 +26,6 @@ export default function EvidenceForm({ evidenceId = null, onSuccess, onCancel })
     const [errors, setErrors] = useState({})
     const [newTag, setNewTag] = useState('')
 
-    // Mock data - replace with actual API calls
-    const [programs] = useState([
-        { id: 'prog1', name: 'Chương trình đánh giá chất lượng giáo dục' },
-        { id: 'prog2', name: 'Chương trình kiểm định chất lượng' }
-    ])
-
-    const [organizations] = useState([
-        { id: 'org1', name: 'Trung tâm kiểm định chất lượng - VNUA' },
-        { id: 'org2', name: 'Ban đảm bảo chất lượng' }
-    ])
-
-    const [standards] = useState([
-        { id: 'std1', name: 'Tiêu chuẩn 1: Sứ mệnh và mục tiêu' },
-        { id: 'std2', name: 'Tiêu chuẩn 2: Tổ chức và quản lý' },
-        { id: 'std3', name: 'Tiêu chuẩn 3: Chương trình đào tạo' }
-    ])
-
-    const [criteria, setCriteria] = useState([
-        { id: 'cri1', name: 'Tiêu chí 1.1: Sứ mệnh', standardId: 'std1' },
-        { id: 'cri2', name: 'Tiêu chí 1.2: Mục tiêu đào tạo', standardId: 'std1' },
-        { id: 'cri3', name: 'Tiêu chí 2.1: Cơ cấu tổ chức', standardId: 'std2' }
-    ])
 
     useEffect(() => {
         if (isEdit) {
