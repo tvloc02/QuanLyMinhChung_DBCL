@@ -1,6 +1,7 @@
 const Evidence = require('../models/Evidence');
 const { Standard, Criteria } = require('../models/Program');
 const File = require('../models/File');
+const AcademicYear = require('../models/AcademicYear');
 const exportService = require('../services/exportService');
 const importService = require('../services/importService');
 const searchService = require('../services/searchService');
@@ -24,11 +25,13 @@ const getEvidences = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
+        const academicYearId = req.academicYearId; // From middleware
+
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = {};
+        let query = { academicYearId }; // Always filter by academic year
 
         // Xây dựng query dựa trên quyền của user
         if (req.user.role !== 'admin') {
@@ -55,7 +58,8 @@ const getEvidences = async (req, res) => {
                             total: 0,
                             hasNext: false,
                             hasPrev: false
-                        }
+                        },
+                        academicYear: req.currentAcademicYear
                     }
                 });
             }
@@ -86,6 +90,7 @@ const getEvidences = async (req, res) => {
 
         const [evidences, total] = await Promise.all([
             Evidence.find(query)
+                .populate('academicYearId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
                 .populate('standardId', 'name code')
@@ -108,7 +113,8 @@ const getEvidences = async (req, res) => {
                     total,
                     hasNext: pageNum * limitNum < total,
                     hasPrev: pageNum > 1
-                }
+                },
+                academicYear: req.currentAcademicYear
             }
         });
 
@@ -124,8 +130,10 @@ const getEvidences = async (req, res) => {
 const getEvidenceById = async (req, res) => {
     try {
         const { id } = req.params;
+        const academicYearId = req.academicYearId;
 
-        const evidence = await Evidence.findById(id)
+        const evidence = await Evidence.findOne({ _id: id, academicYearId })
+            .populate('academicYearId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
             .populate('standardId', 'name code')
@@ -144,7 +152,7 @@ const getEvidenceById = async (req, res) => {
         if (!evidence) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy minh chứng'
+                message: 'Không tìm thấy minh chứng trong năm học này'
             });
         }
 
@@ -172,7 +180,6 @@ const getEvidenceById = async (req, res) => {
     }
 };
 
-// Tạo minh chứng mới
 const createEvidence = async (req, res) => {
     try {
         const {
@@ -192,6 +199,8 @@ const createEvidence = async (req, res) => {
             tags
         } = req.body;
 
+        const academicYearId = req.academicYearId;
+
         // Kiểm tra quyền truy cập
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(standardId) &&
@@ -202,35 +211,41 @@ const createEvidence = async (req, res) => {
             });
         }
 
+        // Validate standard and criteria belong to the same academic year
         const [standard, criteria] = await Promise.all([
-            Standard.findById(standardId),
-            Criteria.findById(criteriaId)
+            Standard.findOne({ _id: standardId, academicYearId }),
+            Criteria.findOne({ _id: criteriaId, academicYearId })
         ]);
 
         if (!standard || !criteria) {
             return res.status(400).json({
                 success: false,
-                message: 'Tiêu chuẩn hoặc tiêu chí không tồn tại'
+                message: 'Tiêu chuẩn hoặc tiêu chí không tồn tại trong năm học này'
             });
         }
 
         let evidenceCode = code;
         if (!evidenceCode) {
             evidenceCode = await Evidence.generateCode(
+                academicYearId,
                 standard.code,
                 criteria.code
             );
         } else {
-            const existingEvidence = await Evidence.findOne({ code: evidenceCode });
+            const existingEvidence = await Evidence.findOne({
+                code: evidenceCode,
+                academicYearId
+            });
             if (existingEvidence) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã minh chứng ${evidenceCode} đã tồn tại`
+                    message: `Mã minh chứng ${evidenceCode} đã tồn tại trong năm học này`
                 });
             }
         }
 
         const evidence = new Evidence({
+            academicYearId,
             name: name.trim(),
             description: description?.trim(),
             code: evidenceCode,
@@ -252,6 +267,7 @@ const createEvidence = async (req, res) => {
         await evidence.save();
 
         await evidence.populate([
+            { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
@@ -278,12 +294,13 @@ const updateEvidence = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
+        const academicYearId = req.academicYearId;
 
-        const evidence = await Evidence.findById(id);
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy minh chứng'
+                message: 'Không tìm thấy minh chứng trong năm học này'
             });
         }
 
@@ -299,12 +316,13 @@ const updateEvidence = async (req, res) => {
         if (updateData.code && updateData.code !== evidence.code) {
             const existingEvidence = await Evidence.findOne({
                 code: updateData.code,
+                academicYearId,
                 _id: { $ne: id }
             });
             if (existingEvidence) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã minh chứng ${updateData.code} đã tồn tại`
+                    message: `Mã minh chứng ${updateData.code} đã tồn tại trong năm học này`
                 });
             }
         }
@@ -324,6 +342,7 @@ const updateEvidence = async (req, res) => {
         await evidence.save();
 
         await evidence.populate([
+            { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
@@ -349,12 +368,13 @@ const updateEvidence = async (req, res) => {
 const deleteEvidence = async (req, res) => {
     try {
         const { id } = req.params;
+        const academicYearId = req.academicYearId;
 
-        const evidence = await Evidence.findById(id);
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy minh chứng'
+                message: 'Không tìm thấy minh chứng trong năm học này'
             });
         }
 
@@ -391,145 +411,12 @@ const deleteEvidence = async (req, res) => {
     }
 };
 
-const bulkDeleteEvidences = async (req, res) => {
-    try {
-        const { ids } = req.body;
-
-        if (!Array.isArray(ids) || ids.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Danh sách ID không hợp lệ'
-            });
-        }
-
-        const evidences = await Evidence.find({ _id: { $in: ids } });
-        for (const evidence of evidences) {
-            if (req.user.role !== 'admin' &&
-                !req.user.hasStandardAccess(evidence.standardId) &&
-                !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-                return res.status(403).json({
-                    success: false,
-                    message: `Không có quyền xóa minh chứng ${evidence.code}`
-                });
-            }
-        }
-
-        const files = await File.find({ evidenceId: { $in: ids } });
-        for (const file of files) {
-            if (fs.existsSync(file.filePath)) {
-                fs.unlinkSync(file.filePath);
-            }
-        }
-
-        await File.deleteMany({ evidenceId: { $in: ids } });
-        await Evidence.deleteMany({ _id: { $in: ids } });
-
-        res.json({
-            success: true,
-            message: `Xóa thành công ${evidences.length} minh chứng`
-        });
-
-    } catch (error) {
-        console.error('Bulk delete evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi xóa minh chứng'
-        });
-    }
-};
-
-const copyEvidence = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { targetStandardId, targetCriteriaId, newCode } = req.body;
-
-        const evidence = await Evidence.findById(id);
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng'
-            });
-        }
-
-        const existingEvidence = await Evidence.findOne({ code: newCode });
-        if (existingEvidence) {
-            return res.status(400).json({
-                success: false,
-                message: `Mã minh chứng ${newCode} đã tồn tại`
-            });
-        }
-
-        const copiedEvidence = await evidence.copyTo(
-            targetStandardId,
-            targetCriteriaId,
-            newCode,
-            req.user.id
-        );
-
-        await copiedEvidence.save();
-
-        res.status(201).json({
-            success: true,
-            message: 'Sao chép minh chứng thành công',
-            data: copiedEvidence
-        });
-
-    } catch (error) {
-        console.error('Copy evidence error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi sao chép minh chứng'
-        });
-    }
-};
-
-const moveEvidence = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { targetStandardId, targetCriteriaId, newCode } = req.body;
-
-        const evidence = await Evidence.findById(id);
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng'
-            });
-        }
-
-        const existingEvidence = await Evidence.findOne({
-            code: newCode,
-            _id: { $ne: id }
-        });
-        if (existingEvidence) {
-            return res.status(400).json({
-                success: false,
-                message: `Mã minh chứng ${newCode} đã tồn tại`
-            });
-        }
-
-        await evidence.moveTo(targetStandardId, targetCriteriaId, newCode, req.user.id);
-        await evidence.save();
-
-        res.json({
-            success: true,
-            message: 'Di chuyển minh chứng thành công',
-            data: evidence
-        });
-
-    } catch (error) {
-        console.error('Move evidence error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi di chuyển minh chứng'
-        });
-    }
-};
-
 const generateCode = async (req, res) => {
     try {
         const { standardCode, criteriaCode, boxNumber = 1 } = req.body;
+        const academicYearId = req.academicYearId;
 
-        const code = await Evidence.generateCode(standardCode, criteriaCode, boxNumber);
+        const code = await Evidence.generateCode(academicYearId, standardCode, criteriaCode, boxNumber);
 
         res.json({
             success: true,
@@ -548,46 +435,16 @@ const generateCode = async (req, res) => {
 const getEvidenceTree = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
 
-        const evidences = await Evidence.find({
-            programId,
-            organizationId,
-            status: 'active'
-        })
-            .populate('standardId', 'name code')
-            .populate('criteriaId', 'name code')
-            .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 });
-
-        const tree = {};
-        evidences.forEach(evidence => {
-            const standardKey = `${evidence.standardId.code} - ${evidence.standardId.name}`;
-            const criteriaKey = `${evidence.criteriaId.code} - ${evidence.criteriaId.name}`;
-
-            if (!tree[standardKey]) {
-                tree[standardKey] = {
-                    standard: evidence.standardId,
-                    criteria: {}
-                };
-            }
-
-            if (!tree[standardKey].criteria[criteriaKey]) {
-                tree[standardKey].criteria[criteriaKey] = {
-                    criteria: evidence.criteriaId,
-                    evidences: []
-                };
-            }
-
-            tree[standardKey].criteria[criteriaKey].evidences.push({
-                _id: evidence._id,
-                code: evidence.code,
-                name: evidence.name,
-                fileCount: evidence.files.length
-            });
-        });
+        const tree = await Evidence.getTreeByAcademicYear(academicYearId, programId, organizationId);
 
         res.json({
             success: true,
-            data: tree
+            data: {
+                tree,
+                academicYear: req.currentAcademicYear
+            }
         });
 
     } catch (error) {
@@ -602,11 +459,16 @@ const getEvidenceTree = async (req, res) => {
 const advancedSearch = async (req, res) => {
     try {
         const searchParams = req.body;
+        searchParams.academicYearId = req.academicYearId;
+
         const evidences = await Evidence.advancedSearch(searchParams);
 
         res.json({
             success: true,
-            data: evidences
+            data: {
+                evidences,
+                academicYear: req.currentAcademicYear
+            }
         });
 
     } catch (error) {
@@ -618,133 +480,12 @@ const advancedSearch = async (req, res) => {
     }
 };
 
-const bulkDownload = async (req, res) => {
-    try {
-        const { ids } = req.body;
-
-        const evidences = await Evidence.find({ _id: { $in: ids } })
-            .populate('files');
-
-        if (evidences.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng nào'
-            });
-        }
-
-        const archive = archiver('zip');
-        const filename = `evidences_${Date.now()}.zip`;
-
-        res.attachment(filename);
-        archive.pipe(res);
-
-        for (const evidence of evidences) {
-            for (const file of evidence.files) {
-                if (fs.existsSync(file.filePath)) {
-                    archive.file(file.filePath, {
-                        name: `${evidence.code}/${file.storedName}`
-                    });
-                }
-            }
-        }
-
-        await archive.finalize();
-
-    } catch (error) {
-        console.error('Bulk download error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi tải xuống'
-        });
-    }
-};
-
-const importEvidences = async (req, res) => {
-    try {
-        const file = req.file;
-        const { programId, organizationId } = req.body;
-
-        if (!file) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không có file được upload'
-            });
-        }
-
-        const result = await importService.importEvidences(
-            file.path,
-            programId,
-            organizationId,
-            req.user.id
-        );
-
-        if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-        }
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('Import evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi import minh chứng'
-        });
-    }
-};
-
-const downloadImportTemplate = async (req, res) => {
-    try {
-        const { programId, organizationId } = req.query;
-
-        const templateData = await importService.generateTemplate(programId, organizationId);
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename="evidence_import_template.xlsx"');
-
-        res.send(templateData);
-
-    } catch (error) {
-        console.error('Download import template error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi tải template'
-        });
-    }
-};
-
-const exportEvidences = async (req, res) => {
-    try {
-        const filters = req.query;
-        const format = filters.format || 'xlsx';
-
-        const data = await exportService.exportEvidences(filters, format);
-
-        const filename = `evidences_export_${Date.now()}.${format}`;
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-        if (format === 'xlsx') {
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        } else {
-            res.setHeader('Content-Type', 'text/csv');
-        }
-
-        res.send(data);
-
-    } catch (error) {
-        console.error('Export evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi export minh chứng'
-        });
-    }
-};
-
 const getStatistics = async (req, res) => {
     try {
         const { programId, organizationId, standardId, criteriaId } = req.query;
+        const academicYearId = req.academicYearId;
 
-        let matchStage = {};
+        let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
         if (programId) matchStage.programId = mongoose.Types.ObjectId(programId);
         if (organizationId) matchStage.organizationId = mongoose.Types.ObjectId(organizationId);
         if (standardId) matchStage.standardId = mongoose.Types.ObjectId(standardId);
@@ -776,7 +517,10 @@ const getStatistics = async (req, res) => {
 
         res.json({
             success: true,
-            data: result
+            data: {
+                ...result,
+                academicYear: req.currentAcademicYear
+            }
         });
 
     } catch (error) {
@@ -788,22 +532,136 @@ const getStatistics = async (req, res) => {
     }
 };
 
-const searchInFiles = async (req, res) => {
+const copyEvidenceToAnotherYear = async (req, res) => {
     try {
-        const { keyword } = req.query;
+        const { id } = req.params;
+        const { targetAcademicYearId, targetStandardId, targetCriteriaId, newCode } = req.body;
 
-        const results = await searchService.searchInFiles(keyword);
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ admin và manager mới có quyền sao chép minh chứng giữa các năm học'
+            });
+        }
 
-        res.json({
+        const evidence = await Evidence.findOne({
+            _id: id,
+            academicYearId: req.academicYearId
+        });
+
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        // Check if target academic year exists
+        const targetAcademicYear = await AcademicYear.findById(targetAcademicYearId);
+        if (!targetAcademicYear) {
+            return res.status(404).json({
+                success: false,
+                message: 'Năm học đích không tồn tại'
+            });
+        }
+
+        // Check if code exists in target year
+        const existingEvidence = await Evidence.findOne({
+            code: newCode,
+            academicYearId: targetAcademicYearId
+        });
+        if (existingEvidence) {
+            return res.status(400).json({
+                success: false,
+                message: `Mã minh chứng ${newCode} đã tồn tại trong năm học đích`
+            });
+        }
+
+        const copiedEvidence = await evidence.copyTo(
+            targetAcademicYearId,
+            targetStandardId,
+            targetCriteriaId,
+            newCode,
+            req.user.id
+        );
+
+        await copiedEvidence.save();
+
+        res.status(201).json({
             success: true,
-            data: results
+            message: 'Sao chép minh chứng sang năm học khác thành công',
+            data: copiedEvidence
         });
 
     } catch (error) {
-        console.error('Search in files error:', error);
+        console.error('Copy evidence to another year error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tìm kiếm trong file'
+            message: 'Lỗi hệ thống khi sao chép minh chứng'
+        });
+    }
+};
+
+// Export functions with academic year context
+const exportEvidences = async (req, res) => {
+    try {
+        const filters = { ...req.query, academicYearId: req.academicYearId };
+        const format = filters.format || 'xlsx';
+
+        const data = await exportService.exportEvidences(filters, format);
+
+        const filename = `evidences_${req.currentAcademicYear.code}_${Date.now()}.${format}`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        if (format === 'xlsx') {
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        } else {
+            res.setHeader('Content-Type', 'text/csv');
+        }
+
+        res.send(data);
+
+    } catch (error) {
+        console.error('Export evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi export minh chứng'
+        });
+    }
+};
+
+const importEvidences = async (req, res) => {
+    try {
+        const file = req.file;
+        const { programId, organizationId } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        const result = await importService.importEvidences(
+            file.path,
+            academicYearId,
+            programId,
+            organizationId,
+            req.user.id
+        );
+
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json(result);
+
+    } catch (error) {
+        console.error('Import evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi import minh chứng'
         });
     }
 };
@@ -814,16 +672,11 @@ module.exports = {
     createEvidence,
     updateEvidence,
     deleteEvidence,
-    bulkDeleteEvidences,
-    copyEvidence,
-    moveEvidence,
     generateCode,
     getEvidenceTree,
     advancedSearch,
-    bulkDownload,
-    importEvidences,
-    downloadImportTemplate,
-    exportEvidences,
     getStatistics,
-    searchInFiles
+    copyEvidenceToAnotherYear,
+    exportEvidences,
+    importEvidences
 };
