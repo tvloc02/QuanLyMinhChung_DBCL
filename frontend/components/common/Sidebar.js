@@ -22,7 +22,7 @@ import {
     ChevronDown,
     ChevronRight,
     Menu,
-    X
+    X, FolderTree, Upload
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose }) {
@@ -38,10 +38,16 @@ export default function Sidebar({ open, onClose }) {
             active: router.pathname === '/dashboard'
         },
         {
-            name: 'Trình ký minh chứng',
-            icon: FileSignature,
-            path: '/evidence-signing',
-            active: router.pathname.includes('/evidence-signing')
+            name: 'Cây minh chứng',
+            icon: FolderTree,
+            path: '/evidence-tree',
+            active: router.pathname.includes('/evidence-tree')
+        },
+        {
+            name: 'Import minh chứng',
+            icon: Upload,
+            path: '/import-evidence',
+            active: router.pathname.includes('/import-evidence')
         },
         {
             name: 'Tra cứu minh chứng',
@@ -56,16 +62,10 @@ export default function Sidebar({ open, onClose }) {
             active: router.pathname.includes('/assessment-program')
         },
         {
-            name: 'Đóng dấu',
-            icon: Stamp,
-            path: '/stamping',
-            active: router.pathname.includes('/stamping')
-        },
-        {
-            name: 'Ban hành',
-            icon: Send,
-            path: '/publishing',
-            active: router.pathname.includes('/publishing')
+            name: 'Cấp đánh giá',
+            icon: FileText,
+            path: '/assessment-levels',
+            active: router.pathname.includes('/assessment-levels')
         },
         {
             name: 'Tiêu chuẩn',
@@ -80,10 +80,10 @@ export default function Sidebar({ open, onClose }) {
             active: router.pathname.includes('/criteria')
         },
         {
-            name: 'Chuyên gia',
+            name: 'Chuyên gia đánh giá',
             icon: User,
-            path: '/experts',
-            active: router.pathname.includes('/experts')
+            path: '/user-management',
+            active: router.pathname.includes('/user-management')
         },
         {
             name: 'Báo cáo',
@@ -100,7 +100,6 @@ export default function Sidebar({ open, onClose }) {
             submenu: [
                 { name: 'Phân quyền', icon: Shield, path: '/configuration/authorization' },
                 { name: 'Nhóm người dùng', icon: Users, path: '/configuration/user-groups' },
-                { name: 'Thông tin ký', icon: FileSignature, path: '/configuration/signing-info' }
             ]
         },
         {
@@ -114,12 +113,6 @@ export default function Sidebar({ open, onClose }) {
                 { name: 'Ngành', icon: Building2, path: '/unit-data/departments' },
                 { name: 'Nhân sự', icon: UserCheck, path: '/unit-data/personnel' }
             ]
-        },
-        {
-            name: 'Lịch sử sử dụng',
-            icon: TrendingUp,
-            path: '/history',
-            active: router.pathname.includes('/history')
         }
     ]
 
@@ -158,7 +151,7 @@ export default function Sidebar({ open, onClose }) {
                     {/* Header with toggle button */}
                     <div className="flex items-center justify-between p-4 border-b border-gray-200">
                         {!collapsed && (
-                            <h2 className="text-lg font-semibold text-gray-800">Thao tác</h2>
+                            <h2 className="text-lg font-semibold text-gray-800">Menu</h2>
                         )}
                         <button
                             onClick={toggleCollapse}
