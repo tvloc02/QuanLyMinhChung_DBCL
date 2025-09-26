@@ -1,11 +1,17 @@
 const mongoose = require('mongoose');
 
 const evidenceSchema = new mongoose.Schema({
+    // Thêm academicYearId
+    academicYearId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AcademicYear',
+        required: [true, 'Năm học là bắt buộc']
+    },
+
     // Mã minh chứng theo format: Số hộp.Mã tiêu chuẩn.Mã tiêu chí.STT minh chứng
     code: {
         type: String,
         required: [true, 'Mã minh chứng là bắt buộc'],
-        unique: true,
         uppercase: true,
         validate: {
             validator: function(code) {
@@ -134,15 +140,17 @@ const evidenceSchema = new mongoose.Schema({
     }]
 });
 
-evidenceSchema.index({ code: 1 });
-evidenceSchema.index({ programId: 1, organizationId: 1 });
-evidenceSchema.index({ standardId: 1 });
-evidenceSchema.index({ criteriaId: 1 });
-evidenceSchema.index({ name: 'text', description: 'text', documentNumber: 'text' });
-evidenceSchema.index({ createdAt: -1 });
-evidenceSchema.index({ status: 1 });
+// Indexes - cập nhật với academicYearId
+evidenceSchema.index({ academicYearId: 1, code: 1 }, { unique: true }); // Unique trong cùng năm học
+evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
+evidenceSchema.index({ academicYearId: 1, standardId: 1 });
+evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
+evidenceSchema.index({ academicYearId: 1, name: 'text', description: 'text', documentNumber: 'text' });
+evidenceSchema.index({ academicYearId: 1, createdAt: -1 });
+evidenceSchema.index({ academicYearId: 1, status: 1 });
 
 evidenceSchema.index({
+    academicYearId: 1,
     programId: 1,
     organizationId: 1,
     standardId: 1,
@@ -167,10 +175,13 @@ evidenceSchema.pre('save', function(next) {
     next();
 });
 
-// Static method tạo mã minh chứng tự động
-evidenceSchema.statics.generateCode = async function(standardCode, criteriaCode, boxNumber = 1) {
+// Static method tạo mã minh chứng tự động với academicYearId
+evidenceSchema.statics.generateCode = async function(academicYearId, standardCode, criteriaCode, boxNumber = 1) {
     const pattern = new RegExp(`^H${boxNumber}\\.${standardCode}\\.${criteriaCode}\\.(\\d{2})$`);
-    const evidences = await this.find({ code: pattern }).sort({ code: -1 }).limit(1);
+    const evidences = await this.find({
+        academicYearId,
+        code: pattern
+    }).sort({ code: -1 }).limit(1);
 
     let nextNumber = 1;
     if (evidences.length > 0) {
@@ -185,6 +196,7 @@ evidenceSchema.statics.generateCode = async function(standardCode, criteriaCode,
 evidenceSchema.statics.advancedSearch = function(searchParams) {
     const {
         keyword,
+        academicYearId,
         programId,
         organizationId,
         standardId,
@@ -197,6 +209,10 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
 
     let query = {};
 
+    // Luôn filter theo năm học
+    if (academicYearId) {
+        query.academicYearId = academicYearId;
+    }
 
     if (keyword) {
         query.$or = [
@@ -213,7 +229,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     if (criteriaId) query.criteriaId = criteriaId;
 
     if (status) query.status = status;
-
     if (documentType) query.documentType = documentType;
 
     if (dateFrom || dateTo) {
@@ -225,7 +240,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     return this.find(query);
 };
 
-evidenceSchema.methods.copyTo = async function(targetStandardId, targetCriteriaId, newCode, userId) {
+evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStandardId, targetCriteriaId, newCode, userId) {
     const Evidence = this.constructor;
 
     const evidenceData = this.toObject();
@@ -235,6 +250,7 @@ evidenceSchema.methods.copyTo = async function(targetStandardId, targetCriteriaI
     delete evidenceData.updatedAt;
     delete evidenceData.changeHistory;
 
+    evidenceData.academicYearId = targetAcademicYearId;
     evidenceData.code = newCode;
     evidenceData.standardId = targetStandardId;
     evidenceData.criteriaId = targetCriteriaId;
@@ -244,9 +260,10 @@ evidenceSchema.methods.copyTo = async function(targetStandardId, targetCriteriaI
     evidenceData.changeHistory = [{
         action: 'copied',
         changedBy: userId,
-        description: `Sao chép từ ${this.code}`,
+        description: `Sao chép từ ${this.code} (năm học khác)`,
         changes: {
             originalCode: this.code,
+            originalAcademicYearId: this.academicYearId,
             originalStandardId: this.standardId,
             originalCriteriaId: this.criteriaId
         }
@@ -280,6 +297,55 @@ evidenceSchema.methods.moveTo = async function(targetStandardId, targetCriteriaI
     });
 
     return this;
+};
+
+// Static methods để filter theo năm học
+evidenceSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
+    return this.find({
+        academicYearId,
+        ...query
+    });
+};
+
+evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, programId, organizationId) {
+    const evidences = await this.find({
+        academicYearId,
+        programId,
+        organizationId,
+        status: 'active'
+    })
+        .populate('standardId', 'name code')
+        .populate('criteriaId', 'name code')
+        .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 });
+
+    const tree = {};
+    evidences.forEach(evidence => {
+        const standardKey = `${evidence.standardId.code} - ${evidence.standardId.name}`;
+        const criteriaKey = `${evidence.criteriaId.code} - ${evidence.criteriaId.name}`;
+
+        if (!tree[standardKey]) {
+            tree[standardKey] = {
+                standard: evidence.standardId,
+                criteria: {}
+            };
+        }
+
+        if (!tree[standardKey].criteria[criteriaKey]) {
+            tree[standardKey].criteria[criteriaKey] = {
+                criteria: evidence.criteriaId,
+                evidences: []
+            };
+        }
+
+        tree[standardKey].criteria[criteriaKey].evidences.push({
+            _id: evidence._id,
+            code: evidence.code,
+            name: evidence.name,
+            fileCount: evidence.files.length
+        });
+    });
+
+    return tree;
 };
 
 evidenceSchema.virtual('fileName').get(function() {
