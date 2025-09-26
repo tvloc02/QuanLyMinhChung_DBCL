@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
+const { setAcademicYearContext } = require('../middleware/academicYear');
 const upload = require('../middleware/upload');
 const validation = require('../middleware/validation');
 const {
@@ -10,19 +11,17 @@ const {
     createEvidence,
     updateEvidence,
     deleteEvidence,
-    bulkDeleteEvidences,
-    copyEvidence,
-    moveEvidence,
     generateCode,
     getEvidenceTree,
     advancedSearch,
-    bulkDownload,
-    importEvidences,
-    downloadImportTemplate,
-    exportEvidences,
     getStatistics,
-    searchInFiles
+    copyEvidenceToAnotherYear,
+    exportEvidences,
+    importEvidences
 } = require('../controllers/evidenceController');
+
+// Apply academic year context to all routes
+router.use(auth, setAcademicYearContext);
 
 const createEvidenceValidation = [
     body('name')
@@ -88,6 +87,11 @@ const updateEvidenceValidation = [
 
 const copyMoveValidation = [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
+    body('targetAcademicYearId')
+        .notEmpty()
+        .withMessage('Năm học đích là bắt buộc')
+        .isMongoId()
+        .withMessage('ID năm học đích không hợp lệ'),
     body('targetStandardId')
         .notEmpty()
         .withMessage('Tiêu chuẩn đích là bắt buộc')
@@ -105,7 +109,7 @@ const copyMoveValidation = [
         .withMessage('Mã minh chứng mới không đúng format')
 ];
 
-router.get('/', auth, [
+router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
@@ -118,19 +122,19 @@ router.get('/', auth, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getEvidences);
 
-router.get('/statistics', auth, [
+router.get('/statistics', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
     query('criteriaId').optional().isMongoId()
 ], validation, getStatistics);
 
-router.get('/tree', auth, [
+router.get('/tree', [
     query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
 ], validation, getEvidenceTree);
 
-router.post('/advanced-search', auth, [
+router.post('/advanced-search', [
     body('keyword').optional().trim().escape(),
     body('programId').optional().isMongoId(),
     body('organizationId').optional().isMongoId(),
@@ -144,11 +148,7 @@ router.post('/advanced-search', auth, [
     body('limit').optional().isInt({ min: 1, max: 100 })
 ], validation, advancedSearch);
 
-router.get('/search-files', auth, [
-    query('keyword').notEmpty().withMessage('Từ khóa tìm kiếm là bắt buộc').trim().escape()
-], validation, searchInFiles);
-
-router.post('/generate-code', auth, [
+router.post('/generate-code', [
     body('standardCode')
         .notEmpty()
         .withMessage('Mã tiêu chuẩn là bắt buộc')
@@ -165,7 +165,7 @@ router.post('/generate-code', auth, [
         .withMessage('Số hộp phải là số nguyên dương')
 ], validation, generateCode);
 
-router.get('/export', auth, [
+router.get('/export', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
@@ -174,58 +174,24 @@ router.get('/export', auth, [
     query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
 ], validation, exportEvidences);
 
-router.post('/bulk-download', auth, [
-    body('ids')
-        .isArray({ min: 1 })
-        .withMessage('Danh sách ID là bắt buộc')
-        .custom((value) => {
-            return value.every(id => /^[0-9a-fA-F]{24}$/.test(id));
-        })
-        .withMessage('Danh sách chứa ID không hợp lệ')
-], validation, bulkDownload);
-
-router.delete('/bulk', auth, [
-    body('ids')
-        .isArray({ min: 1 })
-        .withMessage('Danh sách ID là bắt buộc')
-        .custom((value) => {
-            return value.every(id => /^[0-9a-fA-F]{24}$/.test(id));
-        })
-        .withMessage('Danh sách chứa ID không hợp lệ')
-], validation, bulkDeleteEvidences);
-
-router.post('/import', auth, upload.single('file'), [
+router.post('/import', upload.single('file'), [
     body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
 ], validation, importEvidences);
 
-router.get('/import-template', auth, [
-    query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
-], validation, downloadImportTemplate);
-
-router.get('/:id', auth, [
+router.get('/:id', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
 ], validation, getEvidenceById);
 
-router.post('/', auth, createEvidenceValidation, validation, createEvidence);
+router.post('/', createEvidenceValidation, validation, createEvidence);
 
-router.put('/:id', auth, updateEvidenceValidation, validation, updateEvidence);
+router.put('/:id', updateEvidenceValidation, validation, updateEvidence);
 
-router.delete('/:id', auth, [
+router.delete('/:id', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
 ], validation, deleteEvidence);
 
-router.post('/:id/copy', auth, copyMoveValidation, validation, copyEvidence);
-
-router.post('/:id/move', auth, copyMoveValidation, validation, moveEvidence);
-
-router.post('/:id/files', auth, [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
-], upload.array('files', 10), validation, async (req, res, next) => {
-    // This will be handled by file controller
-    req.evidenceId = req.params.id;
-    next();
-});
+// Copy evidence to another academic year
+router.post('/:id/copy-to-year', copyMoveValidation, validation, copyEvidenceToAnotherYear);
 
 module.exports = router;
