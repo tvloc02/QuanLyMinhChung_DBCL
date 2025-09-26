@@ -1,3 +1,4 @@
+import React, { useState, useCallback, useMemo, useEffect, useContext } from 'react'
 import { api } from '../hooks/useApi'
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from './helpers'
 
@@ -26,8 +27,6 @@ export const getAllAcademicYears = async () => {
 
 export const setSelectedAcademicYear = (academicYear) => {
     setLocalStorage(SELECTED_YEAR_STORAGE_KEY, academicYear)
-
-    // Add to request headers for API calls
     api.defaults.headers.common['switchToYearId'] = academicYear?._id || academicYear?.id
 }
 
@@ -149,21 +148,15 @@ export const parseAcademicYearCode = (code) => {
 }
 
 export const getAvailableYears = () => {
-    const currentYear = new Date().getFullYear()
     const years = []
-
     for (let year = 2020; year <= 2050; year++) {
         years.push(year)
     }
-
     return years
 }
 
 export const canDeleteAcademicYear = (academicYear) => {
-    // Cannot delete current academic year
     if (academicYear?.isCurrent) return false
-
-    // Cannot delete if has data (should be checked on backend)
     return true
 }
 

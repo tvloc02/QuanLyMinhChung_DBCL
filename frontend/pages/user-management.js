@@ -43,44 +43,7 @@ export default function UserManagementPage() {
     const fetchUsers = async () => {
         try {
             setLoading(true)
-            // Mock API call - replace with actual service
-            const mockUsers = [
-                {
-                    id: 1,
-                    name: 'Admin User',
-                    email: 'admin@vnua.edu.vn',
-                    role: 'admin',
-                    department: 'IT',
-                    position: 'Quản trị hệ thống',
-                    status: 'active',
-                    lastLogin: '2024-12-25T10:00:00Z',
-                    createdAt: '2024-01-01T00:00:00Z'
-                },
-                {
-                    id: 2,
-                    name: 'Manager User',
-                    email: 'manager@vnua.edu.vn',
-                    role: 'manager',
-                    department: 'Đảm bảo chất lượng',
-                    position: 'Trưởng phòng',
-                    status: 'active',
-                    lastLogin: '2024-12-24T15:30:00Z',
-                    createdAt: '2024-02-01T00:00:00Z'
-                },
-                {
-                    id: 3,
-                    name: 'Staff User',
-                    email: 'staff@vnua.edu.vn',
-                    role: 'staff',
-                    department: 'Đảm bảo chất lượng',
-                    position: 'Chuyên viên',
-                    status: 'active',
-                    lastLogin: '2024-12-23T09:15:00Z',
-                    createdAt: '2024-03-01T00:00:00Z'
-                }
-            ]
 
-            // Apply filters
             let filteredUsers = mockUsers.filter(u => {
                 const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     u.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -88,7 +51,6 @@ export default function UserManagementPage() {
                 return matchesSearch && matchesRole
             })
 
-            // Pagination
             const startIndex = (currentPage - 1) * itemsPerPage
             const endIndex = startIndex + itemsPerPage
             const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
@@ -105,7 +67,6 @@ export default function UserManagementPage() {
 
     const handleDeleteUser = async (userId) => {
         try {
-            // Mock API call
             await new Promise(resolve => setTimeout(resolve, 1000))
             toast.success('Xóa người dùng thành công')
             fetchUsers()
@@ -202,7 +163,6 @@ export default function UserManagementPage() {
                             </select>
                         </div>
 
-                        {/* Add User Button */}
                         <button
                             onClick={() => router.push('/user-management/create')}
                             className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -213,7 +173,6 @@ export default function UserManagementPage() {
                     </div>
                 </div>
 
-                {/* Users Table */}
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900">
@@ -335,7 +294,6 @@ export default function UserManagementPage() {
                     )}
                 </div>
 
-                {/* Delete Confirmation Modal */}
                 <ConfirmModal
                     isOpen={deleteModal.show}
                     onClose={() => setDeleteModal({ show: false, userId: null })}
