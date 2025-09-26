@@ -1,4 +1,3 @@
-// controllers/programController.js
 const { Program } = require('../models/Program');
 
 const getPrograms = async (req, res) => {
@@ -13,11 +12,13 @@ const getPrograms = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
+        const academicYearId = req.academicYearId; // From middleware
+
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = {};
+        let query = { academicYearId }; // Always filter by academic year
 
         if (search) {
             query.$or = [
@@ -35,6 +36,7 @@ const getPrograms = async (req, res) => {
 
         const [programs, total] = await Promise.all([
             Program.find(query)
+                .populate('academicYearId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .populate('updatedBy', 'fullName email')
                 .sort(sortOptions)
@@ -53,7 +55,8 @@ const getPrograms = async (req, res) => {
                     total,
                     hasNext: pageNum * limitNum < total,
                     hasPrev: pageNum > 1
-                }
+                },
+                academicYear: req.currentAcademicYear
             }
         });
 
@@ -68,7 +71,12 @@ const getPrograms = async (req, res) => {
 
 const getAllPrograms = async (req, res) => {
     try {
-        const programs = await Program.find({ status: 'active' })
+        const academicYearId = req.academicYearId;
+
+        const programs = await Program.find({
+            academicYearId,
+            status: 'active'
+        })
             .select('name code type')
             .sort({ name: 1 });
 
@@ -89,15 +97,17 @@ const getAllPrograms = async (req, res) => {
 const getProgramById = async (req, res) => {
     try {
         const { id } = req.params;
+        const academicYearId = req.academicYearId;
 
-        const program = await Program.findById(id)
+        const program = await Program.findOne({ _id: id, academicYearId })
+            .populate('academicYearId', 'name code')
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email');
 
         if (!program) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy chương trình'
+                message: 'Không tìm thấy chương trình trong năm học này'
             });
         }
 
@@ -130,15 +140,22 @@ const createProgram = async (req, res) => {
             guidelines
         } = req.body;
 
-        const existingProgram = await Program.findOne({ code: code.toUpperCase() });
+        const academicYearId = req.academicYearId;
+
+        const existingProgram = await Program.findOne({
+            code: code.toUpperCase(),
+            academicYearId
+        });
+
         if (existingProgram) {
             return res.status(400).json({
                 success: false,
-                message: `Mã chương trình ${code} đã tồn tại`
+                message: `Mã chương trình ${code} đã tồn tại trong năm học này`
             });
         }
 
         const program = new Program({
+            academicYearId,
             name: name.trim(),
             code: code.toUpperCase().trim(),
             description: description?.trim(),
@@ -156,6 +173,7 @@ const createProgram = async (req, res) => {
         await program.save();
 
         await program.populate([
+            { path: 'academicYearId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' }
         ]);
 
@@ -178,24 +196,26 @@ const updateProgram = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
+        const academicYearId = req.academicYearId;
 
-        const program = await Program.findById(id);
+        const program = await Program.findOne({ _id: id, academicYearId });
         if (!program) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy chương trình'
+                message: 'Không tìm thấy chương trình trong năm học này'
             });
         }
 
         if (updateData.code && updateData.code.toUpperCase() !== program.code) {
             const existingProgram = await Program.findOne({
                 code: updateData.code.toUpperCase(),
+                academicYearId,
                 _id: { $ne: id }
             });
             if (existingProgram) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã chương trình ${updateData.code} đã tồn tại`
+                    message: `Mã chương trình ${updateData.code} đã tồn tại trong năm học này`
                 });
             }
         }
@@ -218,6 +238,7 @@ const updateProgram = async (req, res) => {
         await program.save();
 
         await program.populate([
+            { path: 'academicYearId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' },
             { path: 'updatedBy', select: 'fullName email' }
         ]);
@@ -240,12 +261,13 @@ const updateProgram = async (req, res) => {
 const deleteProgram = async (req, res) => {
     try {
         const { id } = req.params;
+        const academicYearId = req.academicYearId;
 
-        const program = await Program.findById(id);
+        const program = await Program.findOne({ _id: id, academicYearId });
         if (!program) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy chương trình'
+                message: 'Không tìm thấy chương trình trong năm học này'
             });
         }
 
@@ -272,4 +294,129 @@ const deleteProgram = async (req, res) => {
             message: 'Lỗi hệ thống khi xóa chương trình'
         });
     }
+};
+
+const copyProgramToAnotherYear = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { targetAcademicYearId, newCode } = req.body;
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ admin và manager mới có quyền sao chép chương trình giữa các năm học'
+            });
+        }
+
+        const program = await Program.findOne({
+            _id: id,
+            academicYearId: req.academicYearId
+        });
+
+        if (!program) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy chương trình'
+            });
+        }
+
+        // Check if code exists in target year
+        const existingProgram = await Program.findOne({
+            code: newCode.toUpperCase(),
+            academicYearId: targetAcademicYearId
+        });
+
+        if (existingProgram) {
+            return res.status(400).json({
+                success: false,
+                message: `Mã chương trình ${newCode} đã tồn tại trong năm học đích`
+            });
+        }
+
+        const copiedProgram = new Program({
+            ...program.toObject(),
+            _id: undefined,
+            academicYearId: targetAcademicYearId,
+            code: newCode.toUpperCase(),
+            status: 'draft',
+            createdBy: req.user.id,
+            updatedBy: req.user.id,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        });
+
+        await copiedProgram.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Sao chép chương trình sang năm học khác thành công',
+            data: copiedProgram
+        });
+
+    } catch (error) {
+        console.error('Copy program to another year error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi sao chép chương trình'
+        });
+    }
+};
+
+const getProgramStatistics = async (req, res) => {
+    try {
+        const academicYearId = req.academicYearId;
+
+        const stats = await Program.aggregate([
+            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const statusStats = stats.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+        }, {});
+
+        // Get total by type
+        const typeStats = await Program.aggregate([
+            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            {
+                $group: {
+                    _id: '$type',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                statusStats,
+                typeStats,
+                academicYear: req.currentAcademicYear
+            }
+        });
+
+    } catch (error) {
+        console.error('Get program statistics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy thống kê chương trình'
+        });
+    }
+};
+
+module.exports = {
+    getPrograms,
+    getAllPrograms,
+    getProgramById,
+    createProgram,
+    updateProgram,
+    deleteProgram,
+    copyProgramToAnotherYear,
+    getProgramStatistics
 };
