@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Evidence = require('../models/Evidence');
 const File = require('../models/File');
 const { Program, Organization, Standard, Criteria } = require('../models/Program');
@@ -8,6 +9,7 @@ const searchEvidences = async (searchParams, userPermissions) => {
     try {
         const {
             keyword,
+            academicYearId, // Required academic year context
             programId,
             organizationId,
             standardId,
@@ -25,8 +27,11 @@ const searchEvidences = async (searchParams, userPermissions) => {
             sortOrder = 'desc'
         } = searchParams;
 
-        // Build base query
+        // Build base query with required academicYearId
         let query = {};
+        if (academicYearId) {
+            query.academicYearId = mongoose.Types.ObjectId(academicYearId);
+        }
 
         // Apply user permissions
         if (userPermissions.role !== 'admin') {
@@ -69,10 +74,10 @@ const searchEvidences = async (searchParams, userPermissions) => {
         }
 
         // Filter by program/organization/standard/criteria
-        if (programId) query.programId = programId;
-        if (organizationId) query.organizationId = organizationId;
-        if (standardId) query.standardId = standardId;
-        if (criteriaId) query.criteriaId = criteriaId;
+        if (programId) query.programId = mongoose.Types.ObjectId(programId);
+        if (organizationId) query.organizationId = mongoose.Types.ObjectId(organizationId);
+        if (standardId) query.standardId = mongoose.Types.ObjectId(standardId);
+        if (criteriaId) query.criteriaId = mongoose.Types.ObjectId(criteriaId);
 
         // Filter by status
         if (status) query.status = status;
@@ -93,7 +98,7 @@ const searchEvidences = async (searchParams, userPermissions) => {
         }
 
         // Filter by creator
-        if (createdBy) query.createdBy = createdBy;
+        if (createdBy) query.createdBy = mongoose.Types.ObjectId(createdBy);
 
         // Filter by issuing agency
         if (issuingAgency) {
@@ -112,6 +117,7 @@ const searchEvidences = async (searchParams, userPermissions) => {
         // Execute search
         const [evidences, total] = await Promise.all([
             Evidence.find(query)
+                .populate('academicYearId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
                 .populate('standardId', 'name code')
@@ -140,7 +146,7 @@ const searchEvidences = async (searchParams, userPermissions) => {
 };
 
 // Search in file contents
-const searchInFiles = async (keyword, userPermissions) => {
+const searchInFiles = async (keyword, userPermissions, academicYearId = null) => {
     try {
         if (!keyword || keyword.trim().length < 2) {
             return {
@@ -149,15 +155,18 @@ const searchInFiles = async (keyword, userPermissions) => {
             };
         }
 
-        // Find files with matching content
-        const keywordRegex = new RegExp(keyword, 'i');
-        const files = await File.find({
+        // Build query for files
+        let fileQuery = {
             status: 'active',
-            extractedContent: keywordRegex
-        })
+            extractedContent: new RegExp(keyword, 'i')
+        };
+
+        // Find files with matching content
+        let files = await File.find(fileQuery)
             .populate({
                 path: 'evidenceId',
                 populate: [
+                    { path: 'academicYearId', select: 'name code' },
                     { path: 'programId', select: 'name code' },
                     { path: 'organizationId', select: 'name code' },
                     { path: 'standardId', select: 'name code' },
@@ -166,6 +175,15 @@ const searchInFiles = async (keyword, userPermissions) => {
             })
             .populate('uploadedBy', 'fullName email')
             .limit(50);
+
+        // Filter by academic year if specified
+        if (academicYearId) {
+            files = files.filter(file =>
+                file.evidenceId &&
+                file.evidenceId.academicYearId &&
+                file.evidenceId.academicYearId._id.toString() === academicYearId.toString()
+            );
+        }
 
         // Filter by user permissions
         const filteredFiles = files.filter(file => {
@@ -180,6 +198,7 @@ const searchInFiles = async (keyword, userPermissions) => {
         });
 
         // Extract relevant text snippets
+        const keywordRegex = new RegExp(keyword, 'i');
         const results = filteredFiles.map(file => {
             const snippet = extractSnippet(file.extractedContent, keyword);
             return {
@@ -197,7 +216,8 @@ const searchInFiles = async (keyword, userPermissions) => {
                     program: file.evidenceId.programId?.name,
                     organization: file.evidenceId.organizationId?.name,
                     standard: file.evidenceId.standardId?.name,
-                    criteria: file.evidenceId.criteriaId?.name
+                    criteria: file.evidenceId.criteriaId?.name,
+                    academicYear: file.evidenceId.academicYearId?.name
                 },
                 snippet,
                 matchCount: (file.extractedContent.match(keywordRegex) || []).length
@@ -212,7 +232,8 @@ const searchInFiles = async (keyword, userPermissions) => {
             data: {
                 results,
                 total: results.length,
-                keyword
+                keyword,
+                academicYearId
             }
         };
 
@@ -251,7 +272,7 @@ const extractSnippet = (text, keyword, contextLength = 100) => {
 };
 
 // Global search across all entities
-const globalSearch = async (keyword, userPermissions) => {
+const globalSearch = async (keyword, userPermissions, academicYearId = null) => {
     try {
         if (!keyword || keyword.trim().length < 2) {
             return {
@@ -270,8 +291,15 @@ const globalSearch = async (keyword, userPermissions) => {
             users: []
         };
 
+        // Build base query with academic year filter
+        let baseQuery = {};
+        if (academicYearId) {
+            baseQuery.academicYearId = mongoose.Types.ObjectId(academicYearId);
+        }
+
         // Search evidences
         const evidenceQuery = {
+            ...baseQuery,
             $or: [
                 { name: keywordRegex },
                 { description: keywordRegex },
@@ -298,45 +326,56 @@ const globalSearch = async (keyword, userPermissions) => {
         }
 
         results.evidences = await Evidence.find(evidenceQuery)
+            .populate('academicYearId', 'name code')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
-            .select('code name description')
+            .select('code name description academicYearId standardId criteriaId')
             .limit(10);
 
-        // Search programs (if user has access)
-        if (userPermissions.role !== 'staff') {
+        // Search programs (if user has access and academic year context)
+        if (userPermissions.role !== 'staff' && academicYearId) {
             results.programs = await Program.find({
+                ...baseQuery,
                 $or: [
                     { name: keywordRegex },
                     { code: keywordRegex },
                     { description: keywordRegex }
                 ]
-            }).select('code name description').limit(10);
+            })
+                .populate('academicYearId', 'name code')
+                .select('code name description academicYearId')
+                .limit(10);
         }
 
-        // Search standards
-        results.standards = await Standard.find({
-            $or: [
-                { name: keywordRegex },
-                { code: keywordRegex },
-                { description: keywordRegex }
-            ]
-        })
-            .populate('programId', 'name')
-            .select('code name description programId')
-            .limit(10);
+        // Search standards (with academic year context)
+        if (academicYearId) {
+            results.standards = await Standard.find({
+                ...baseQuery,
+                $or: [
+                    { name: keywordRegex },
+                    { code: keywordRegex },
+                    { description: keywordRegex }
+                ]
+            })
+                .populate('academicYearId', 'name code')
+                .populate('programId', 'name')
+                .select('code name description academicYearId programId')
+                .limit(10);
 
-        // Search criteria
-        results.criteria = await Criteria.find({
-            $or: [
-                { name: keywordRegex },
-                { code: keywordRegex },
-                { description: keywordRegex }
-            ]
-        })
-            .populate('standardId', 'name code')
-            .select('code name description standardId')
-            .limit(10);
+            // Search criteria (with academic year context)
+            results.criteria = await Criteria.find({
+                ...baseQuery,
+                $or: [
+                    { name: keywordRegex },
+                    { code: keywordRegex },
+                    { description: keywordRegex }
+                ]
+            })
+                .populate('academicYearId', 'name code')
+                .populate('standardId', 'name code')
+                .select('code name description academicYearId standardId')
+                .limit(10);
+        }
 
         // Search users (admin and manager only)
         if (['admin', 'manager'].includes(userPermissions.role)) {
@@ -351,7 +390,7 @@ const globalSearch = async (keyword, userPermissions) => {
         }
 
         // Search files
-        const fileSearchResult = await searchInFiles(keyword, userPermissions);
+        const fileSearchResult = await searchInFiles(keyword, userPermissions, academicYearId);
         if (fileSearchResult.success) {
             results.files = fileSearchResult.data.results.slice(0, 10);
         }
@@ -364,7 +403,8 @@ const globalSearch = async (keyword, userPermissions) => {
             data: {
                 results,
                 totalResults,
-                keyword
+                keyword,
+                academicYearId
             }
         };
 
@@ -378,7 +418,7 @@ const globalSearch = async (keyword, userPermissions) => {
 };
 
 // Get search suggestions
-const getSearchSuggestions = async (keyword, userPermissions) => {
+const getSearchSuggestions = async (keyword, userPermissions, academicYearId = null) => {
     try {
         if (!keyword || keyword.trim().length < 1) {
             return { success: true, data: [] };
@@ -387,8 +427,15 @@ const getSearchSuggestions = async (keyword, userPermissions) => {
         const keywordRegex = new RegExp(keyword, 'i');
         const suggestions = [];
 
+        // Build base query
+        let baseQuery = {};
+        if (academicYearId) {
+            baseQuery.academicYearId = mongoose.Types.ObjectId(academicYearId);
+        }
+
         // Get evidence suggestions
         const evidences = await Evidence.find({
+            ...baseQuery,
             $or: [
                 { name: keywordRegex },
                 { code: keywordRegex }
@@ -406,6 +453,7 @@ const getSearchSuggestions = async (keyword, userPermissions) => {
 
         // Get tag suggestions
         const evidencesWithTags = await Evidence.find({
+            ...baseQuery,
             tags: keywordRegex
         }).select('tags').limit(10);
 
@@ -440,41 +488,6 @@ const getSearchSuggestions = async (keyword, userPermissions) => {
     }
 };
 
-// Save search query for analytics
-const saveSearchQuery = async (keyword, userId, resultCount) => {
-    try {
-        // This could be stored in a separate SearchLog collection
-        // For now, just log to console
-        console.log(`Search query: "${keyword}" by user ${userId}, ${resultCount} results`);
-
-        // You could implement search analytics here:
-        // - Popular search terms
-        // - Search success rate
-        // - User search patterns
-
-    } catch (error) {
-        console.error('Save search query error:', error);
-    }
-};
-
-// Get popular search terms
-const getPopularSearchTerms = async (limit = 10) => {
-    try {
-        // This would require a SearchLog collection
-        // For now, return mock data
-        return [
-            { keyword: 'quyết định', count: 150 },
-            { keyword: 'báo cáo', count: 120 },
-            { keyword: 'kế hoạch', count: 95 },
-            { keyword: 'thông tư', count: 80 },
-            { keyword: 'nghị định', count: 70 }
-        ];
-    } catch (error) {
-        console.error('Get popular search terms error:', error);
-        return [];
-    }
-};
-
 // Search with filters and facets
 const facetedSearch = async (searchParams, userPermissions) => {
     try {
@@ -499,6 +512,11 @@ const getFacets = async (searchParams, userPermissions) => {
     try {
         // Build base query (similar to searchEvidences but without pagination)
         let query = {};
+
+        // Include academic year filter
+        if (searchParams.academicYearId) {
+            query.academicYearId = mongoose.Types.ObjectId(searchParams.academicYearId);
+        }
 
         // Apply user permissions
         if (userPermissions.role !== 'admin') {
@@ -562,6 +580,41 @@ const getFacets = async (searchParams, userPermissions) => {
     } catch (error) {
         console.error('Get facets error:', error);
         return {};
+    }
+};
+
+// Save search query for analytics
+const saveSearchQuery = async (keyword, userId, resultCount, academicYearId = null) => {
+    try {
+        // This could be stored in a separate SearchLog collection
+        // For now, just log to console
+        console.log(`Search query: "${keyword}" by user ${userId} in academic year ${academicYearId}, ${resultCount} results`);
+
+        // You could implement search analytics here:
+        // - Popular search terms by academic year
+        // - Search success rate
+        // - User search patterns
+
+    } catch (error) {
+        console.error('Save search query error:', error);
+    }
+};
+
+// Get popular search terms
+const getPopularSearchTerms = async (academicYearId = null, limit = 10) => {
+    try {
+        // This would require a SearchLog collection
+        // For now, return mock data
+        return [
+            { keyword: 'quyết định', count: 150, academicYearId },
+            { keyword: 'báo cáo', count: 120, academicYearId },
+            { keyword: 'kế hoạch', count: 95, academicYearId },
+            { keyword: 'thông tư', count: 80, academicYearId },
+            { keyword: 'nghị định', count: 70, academicYearId }
+        ];
+    } catch (error) {
+        console.error('Get popular search terms error:', error);
+        return [];
     }
 };
 
