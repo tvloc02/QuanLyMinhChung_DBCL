@@ -1,17 +1,24 @@
 const XLSX = require('xlsx');
+const mongoose = require('mongoose');
 const Evidence = require('../models/Evidence');
 const { Program, Organization, Standard, Criteria } = require('../models/Program');
 
 // Export evidences to Excel
 const exportEvidences = async (filters, format = 'xlsx') => {
     try {
-        // Build query
+        // Build query with academicYearId as required filter
         let query = {};
 
-        if (filters.programId) query.programId = filters.programId;
-        if (filters.organizationId) query.organizationId = filters.organizationId;
-        if (filters.standardId) query.standardId = filters.standardId;
-        if (filters.criteriaId) query.criteriaId = filters.criteriaId;
+        // academicYearId is required
+        if (!filters.academicYearId) {
+            throw new Error('Academic Year ID is required for export');
+        }
+        query.academicYearId = mongoose.Types.ObjectId(filters.academicYearId);
+
+        if (filters.programId) query.programId = mongoose.Types.ObjectId(filters.programId);
+        if (filters.organizationId) query.organizationId = mongoose.Types.ObjectId(filters.organizationId);
+        if (filters.standardId) query.standardId = mongoose.Types.ObjectId(filters.standardId);
+        if (filters.criteriaId) query.criteriaId = mongoose.Types.ObjectId(filters.criteriaId);
         if (filters.status) query.status = filters.status;
         if (filters.documentType) query.documentType = filters.documentType;
 
@@ -23,6 +30,7 @@ const exportEvidences = async (filters, format = 'xlsx') => {
 
         // Get evidences with populated fields
         const evidences = await Evidence.find(query)
+            .populate('academicYearId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
             .populate('standardId', 'name code')
@@ -33,6 +41,7 @@ const exportEvidences = async (filters, format = 'xlsx') => {
 
         // Prepare data for export
         const exportData = evidences.map(evidence => ({
+            'Năm học': evidence.academicYearId?.name || '',
             'Mã minh chứng': evidence.code,
             'Tên minh chứng': evidence.name,
             'Mô tả': evidence.description || '',
@@ -67,6 +76,10 @@ const exportEvidences = async (filters, format = 'xlsx') => {
 // Export evidence statistics
 const exportStatistics = async (filters) => {
     try {
+        if (!filters.academicYearId) {
+            throw new Error('Academic Year ID is required for export');
+        }
+
         // Get overall statistics
         const totalStats = await Evidence.aggregate([
             { $match: buildMatchQuery(filters) },
@@ -179,18 +192,24 @@ const exportStatistics = async (filters) => {
 };
 
 // Export evidence template for import
-const exportImportTemplate = async (programId, organizationId) => {
+const exportImportTemplate = async (programId, organizationId, academicYearId) => {
     try {
-        // Get standards and criteria for the program and organization
+        if (!academicYearId) {
+            throw new Error('Academic Year ID is required for template generation');
+        }
+
+        // Get standards and criteria for the program, organization and academic year
         const standards = await Standard.find({
-            programId,
-            organizationId,
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
+            programId: mongoose.Types.ObjectId(programId),
+            organizationId: mongoose.Types.ObjectId(organizationId),
             status: 'active'
         }).sort({ code: 1 });
 
         const criteria = await Criteria.find({
-            programId,
-            organizationId,
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
+            programId: mongoose.Types.ObjectId(programId),
+            organizationId: mongoose.Types.ObjectId(organizationId),
             status: 'active'
         }).populate('standardId', 'name code').sort({ 'standardId.code': 1, code: 1 });
 
@@ -268,7 +287,7 @@ const exportImportTemplate = async (programId, organizationId) => {
             ['3. Ngày tháng phải có định dạng dd/mm/yyyy'],
             ['4. Loại văn bản: Quyết định, Thông tư, Nghị định, Luật, Báo cáo, Kế hoạch, Khác'],
             ['5. Không được để trống tên minh chứng, mã tiêu chuẩn và mã tiêu chí'],
-            ['6. Tham khao danh sách tiêu chuẩn và tiêu chí trong các sheet tương ứng'],
+            ['6. Tham khảo danh sách tiêu chuẩn và tiêu chí trong các sheet tương ứng'],
             ['7. File import phải là định dạng .xlsx hoặc .csv'],
             ['8. Tối đa 1000 bản ghi trong 1 lần import'],
             [''],
@@ -331,6 +350,11 @@ const exportToCSV = (data) => {
 
 const buildMatchQuery = (filters) => {
     let query = {};
+
+    // academicYearId is required
+    if (filters.academicYearId) {
+        query.academicYearId = mongoose.Types.ObjectId(filters.academicYearId);
+    }
 
     if (filters.programId) query.programId = mongoose.Types.ObjectId(filters.programId);
     if (filters.organizationId) query.organizationId = mongoose.Types.ObjectId(filters.organizationId);
