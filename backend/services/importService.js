@@ -1,10 +1,18 @@
 const XLSX = require('xlsx');
+const mongoose = require('mongoose');
 const Evidence = require('../models/Evidence');
 const { Standard, Criteria } = require('../models/Program');
 const fs = require('fs');
 
-const importEvidences = async (filePath, programId, organizationId, userId) => {
+const importEvidences = async (filePath, academicYearId, programId, organizationId, userId) => {
     try {
+        if (!academicYearId) {
+            return {
+                success: false,
+                message: 'Academic Year ID is required for import'
+            };
+        }
+
         // Read file
         const workbook = XLSX.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
@@ -39,10 +47,20 @@ const importEvidences = async (filePath, programId, organizationId, userId) => {
             };
         }
 
-        // Get existing standards and criteria
+        // Get existing standards and criteria for this academic year
         const [standards, criterias] = await Promise.all([
-            Standard.find({ programId, organizationId, status: 'active' }),
-            Criteria.find({ programId, organizationId, status: 'active' })
+            Standard.find({
+                academicYearId: mongoose.Types.ObjectId(academicYearId),
+                programId: mongoose.Types.ObjectId(programId),
+                organizationId: mongoose.Types.ObjectId(organizationId),
+                status: 'active'
+            }),
+            Criteria.find({
+                academicYearId: mongoose.Types.ObjectId(academicYearId),
+                programId: mongoose.Types.ObjectId(programId),
+                organizationId: mongoose.Types.ObjectId(organizationId),
+                status: 'active'
+            })
         ]);
 
         const standardMap = new Map();
@@ -70,6 +88,7 @@ const importEvidences = async (filePath, programId, organizationId, userId) => {
                 const evidenceData = await processImportRow(
                     row,
                     rowIndex,
+                    academicYearId,
                     programId,
                     organizationId,
                     userId,
@@ -84,11 +103,14 @@ const importEvidences = async (filePath, programId, organizationId, userId) => {
                     continue;
                 }
 
-                // Check if evidence with same code already exists
-                const existingEvidence = await Evidence.findOne({ code: evidenceData.code });
+                // Check if evidence with same code already exists in this academic year
+                const existingEvidence = await Evidence.findOne({
+                    code: evidenceData.code,
+                    academicYearId: mongoose.Types.ObjectId(academicYearId)
+                });
                 if (existingEvidence) {
                     results.skipped++;
-                    results.errors.push(`Dòng ${rowIndex}: Mã minh chứng ${evidenceData.code} đã tồn tại`);
+                    results.errors.push(`Dòng ${rowIndex}: Mã minh chứng ${evidenceData.code} đã tồn tại trong năm học này`);
                     continue;
                 }
 
@@ -126,7 +148,7 @@ const importEvidences = async (filePath, programId, organizationId, userId) => {
 };
 
 // Process single row from import file
-const processImportRow = async (row, rowIndex, programId, organizationId, userId, standardMap, criteriaMap) => {
+const processImportRow = async (row, rowIndex, academicYearId, programId, organizationId, userId, standardMap, criteriaMap) => {
     try {
         // Extract data from row
         const name = (row['Tên minh chứng (*)'] || '').toString().trim();
@@ -152,17 +174,17 @@ const processImportRow = async (row, rowIndex, programId, organizationId, userId
         // Find standard
         const standard = standardMap.get(standardCode);
         if (!standard) {
-            return { error: `Không tìm thấy tiêu chuẩn với mã ${standardCode}` };
+            return { error: `Không tìm thấy tiêu chuẩn với mã ${standardCode} trong năm học này` };
         }
 
         // Find criteria
         const criteria = criteriaMap.get(`${standard._id}_${criteriaCode}`);
         if (!criteria) {
-            return { error: `Không tìm thấy tiêu chí với mã ${criteriaCode} trong tiêu chuẩn ${standardCode}` };
+            return { error: `Không tìm thấy tiêu chí với mã ${criteriaCode} trong tiêu chuẩn ${standardCode} của năm học này` };
         }
 
         // Generate evidence code
-        const evidenceCode = await Evidence.generateCode(standardCode, criteriaCode);
+        const evidenceCode = await Evidence.generateCode(academicYearId, standardCode, criteriaCode);
 
         // Parse dates
         let issueDate = null;
@@ -189,11 +211,12 @@ const processImportRow = async (row, rowIndex, programId, organizationId, userId
         }
 
         return {
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
             name,
             description,
             code: evidenceCode,
-            programId,
-            organizationId,
+            programId: mongoose.Types.ObjectId(programId),
+            organizationId: mongoose.Types.ObjectId(organizationId),
             standardId: standard._id,
             criteriaId: criteria._id,
             documentNumber,
@@ -203,8 +226,8 @@ const processImportRow = async (row, rowIndex, programId, organizationId, userId
             issuingAgency,
             notes,
             status: 'active',
-            createdBy: userId,
-            updatedBy: userId
+            createdBy: mongoose.Types.ObjectId(userId),
+            updatedBy: mongoose.Types.ObjectId(userId)
         };
 
     } catch (error) {
@@ -239,10 +262,14 @@ const parseDate = (dateString) => {
 };
 
 // Generate import template
-const generateTemplate = async (programId, organizationId) => {
+const generateTemplate = async (programId, organizationId, academicYearId) => {
     try {
+        if (!academicYearId) {
+            throw new Error('Academic Year ID is required for template generation');
+        }
+
         const exportService = require('./exportService');
-        return await exportService.exportImportTemplate(programId, organizationId);
+        return await exportService.exportImportTemplate(programId, organizationId, academicYearId);
     } catch (error) {
         console.error('Generate template error:', error);
         throw error;
@@ -368,7 +395,7 @@ const importUsers = async (filePath, createdBy) => {
                 }
 
                 // Clean email
-                const cleanEmail = email.replace('@vnua.edu.vn', '');
+                const cleanEmail = email.replace('@cmc.edu.vn', '');
 
                 // Check if user exists
                 const existingUser = await User.findOne({ email: new RegExp(`^${cleanEmail}`, 'i') });
