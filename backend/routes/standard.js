@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../middleware/auth');
+const { setAcademicYearContext } = require('../middleware/academicYearMiddleware');
 const validation = require('../middleware/validation');
 const {
     getStandards,
@@ -12,6 +13,9 @@ const {
     deleteStandard,
     getStandardStatistics
 } = require('../controllers/standardController');
+
+// Apply academic year context to all routes
+router.use(auth, setAcademicYearContext);
 
 // Validation rules
 const createStandardValidation = [
@@ -71,7 +75,6 @@ const updateStandardValidation = [
 
 // Routes
 router.get('/statistics',
-    auth,
     requireManager,
     [
         query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
@@ -81,7 +84,7 @@ router.get('/statistics',
     getStandardStatistics
 );
 
-router.get('/by-program-org', auth, [
+router.get('/by-program-org', [
     query('programId')
         .notEmpty()
         .withMessage('ID chương trình là bắt buộc')
@@ -94,7 +97,7 @@ router.get('/by-program-org', auth, [
         .withMessage('ID tổ chức không hợp lệ')
 ], validation, getStandardsByProgramAndOrg);
 
-router.get('/', auth, [
+router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
@@ -105,12 +108,11 @@ router.get('/', auth, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getStandards);
 
-router.get('/:id', auth, [
+router.get('/:id', [
     param('id').isMongoId().withMessage('ID tiêu chuẩn không hợp lệ')
 ], validation, getStandardById);
 
 router.post('/',
-    auth,
     requireManager,
     createStandardValidation,
     validation,
@@ -118,7 +120,6 @@ router.post('/',
 );
 
 router.put('/:id',
-    auth,
     requireManager,
     updateStandardValidation,
     validation,
@@ -126,7 +127,6 @@ router.put('/:id',
 );
 
 router.delete('/:id',
-    auth,
     requireAdmin,
     [
         param('id').isMongoId().withMessage('ID tiêu chuẩn không hợp lệ')
