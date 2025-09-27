@@ -1,5 +1,4 @@
-// Date utilities
-export const formatDate = (date, format = 'DD/MM/YYYY') => {
+const formatDate = (date, format = 'DD/MM/YYYY') => {
     if (!date) return ''
 
     const d = new Date(date)
@@ -21,7 +20,7 @@ export const formatDate = (date, format = 'DD/MM/YYYY') => {
     }
 }
 
-export const getRelativeTime = (date) => {
+const getRelativeTime = (date) => {
     if (!date) return ''
 
     const now = new Date()
@@ -40,17 +39,17 @@ export const getRelativeTime = (date) => {
 }
 
 // String utilities
-export const truncateText = (text, maxLength = 100) => {
+const truncateText = (text, maxLength = 100) => {
     if (!text || text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
 }
 
-export const capitalizeFirstLetter = (string) => {
+const capitalizeFirstLetter = (string) => {
     if (!string) return ''
     return string.charAt(0).toUpperCase() + string.slice(1)
 }
 
-export const slugify = (text) => {
+const slugify = (text) => {
     return text
         .toString()
         .toLowerCase()
@@ -63,12 +62,12 @@ export const slugify = (text) => {
 }
 
 // Number utilities
-export const formatNumber = (number) => {
+const formatNumber = (number) => {
     if (number == null) return '0'
     return new Intl.NumberFormat('vi-VN').format(number)
 }
 
-export const formatBytes = (bytes, decimals = 2) => {
+const formatBytes = (bytes, decimals = 2) => {
     if (bytes === 0) return '0 Bytes'
 
     const k = 1024
@@ -81,7 +80,7 @@ export const formatBytes = (bytes, decimals = 2) => {
 }
 
 // Array utilities
-export const groupBy = (array, key) => {
+const groupBy = (array, key) => {
     return array.reduce((result, currentValue) => {
         const groupKey = currentValue[key]
         if (!result[groupKey]) {
@@ -92,7 +91,7 @@ export const groupBy = (array, key) => {
     }, {})
 }
 
-export const sortBy = (array, key, order = 'asc') => {
+const sortBy = (array, key, order = 'asc') => {
     return array.sort((a, b) => {
         const valueA = a[key]
         const valueB = b[key]
@@ -105,7 +104,7 @@ export const sortBy = (array, key, order = 'asc') => {
     })
 }
 
-export const removeDuplicates = (array, key = null) => {
+const removeDuplicates = (array, key = null) => {
     if (!key) {
         return [...new Set(array)]
     }
@@ -122,7 +121,7 @@ export const removeDuplicates = (array, key = null) => {
 }
 
 // Object utilities
-export const deepClone = (obj) => {
+const deepClone = (obj) => {
     if (obj === null || typeof obj !== 'object') return obj
     if (obj instanceof Date) return new Date(obj.getTime())
     if (obj instanceof Array) return obj.map(item => deepClone(item))
@@ -135,13 +134,13 @@ export const deepClone = (obj) => {
     }
 }
 
-export const omit = (obj, keys) => {
+const omit = (obj, keys) => {
     const result = { ...obj }
     keys.forEach(key => delete result[key])
     return result
 }
 
-export const pick = (obj, keys) => {
+const pick = (obj, keys) => {
     const result = {}
     keys.forEach(key => {
         if (key in obj) {
@@ -152,7 +151,7 @@ export const pick = (obj, keys) => {
 }
 
 // URL utilities
-export const buildQueryString = (params) => {
+const buildQueryString = (params) => {
     const queryString = new URLSearchParams()
 
     Object.entries(params).forEach(([key, value]) => {
@@ -164,7 +163,7 @@ export const buildQueryString = (params) => {
     return queryString.toString()
 }
 
-export const parseQueryString = (queryString) => {
+const parseQueryString = (queryString) => {
     const params = new URLSearchParams(queryString)
     const result = {}
 
@@ -176,12 +175,12 @@ export const parseQueryString = (queryString) => {
 }
 
 // File utilities
-export const getFileExtension = (filename) => {
+const getFileExtension = (filename) => {
     if (!filename) return ''
     return filename.split('.').pop().toLowerCase()
 }
 
-export const getFileIcon = (filename) => {
+const getFileIcon = (filename) => {
     const extension = getFileExtension(filename)
 
     switch (extension) {
@@ -211,86 +210,128 @@ export const getFileIcon = (filename) => {
 }
 
 // Validation utilities
-export const isValidEmail = (email) => {
+const isValidEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(email)
 }
 
-export const isValidPhone = (phone) => {
+const isValidPhone = (phone) => {
     const phoneRegex = /^[0-9]{10,11}$/
     return phoneRegex.test(phone)
 }
 
-export const isValidPassword = (password) => {
+const isValidPassword = (password) => {
     return password && password.length >= 6
 }
 
-export const isValidEvidenceCode = (code) => {
+const isValidEvidenceCode = (code) => {
     const codeRegex = /^H\d+\.\d+\.\d+\.\d+$/
     return codeRegex.test(code)
 }
 
-// DOM utilities
-export const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+const isValidAcademicYearCode = (code) => {
+    const codeRegex = /^\d{4}-\d{4}$/
+    return codeRegex.test(code)
 }
 
-export const scrollToElement = (elementId) => {
-    const element = document.getElementById(elementId)
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth' })
+// Academic Year utilities
+const generateAcademicYearCode = (startYear, endYear) => {
+    return `${startYear}-${endYear}`
+}
+
+const parseAcademicYearCode = (code) => {
+    const match = code.match(/^(\d{4})-(\d{4})$/)
+    if (!match) return null
+
+    return {
+        startYear: parseInt(match[1]),
+        endYear: parseInt(match[2])
     }
 }
 
-// Local Storage utilities
-export const getLocalStorage = (key, defaultValue = null) => {
-    if (typeof window === 'undefined') return defaultValue
+const getCurrentAcademicYear = () => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1 // 0-indexed
 
-    try {
-        const item = window.localStorage.getItem(key)
-        return item ? JSON.parse(item) : defaultValue
-    } catch (error) {
-        console.error(`Error getting localStorage key "${key}":`, error)
-        return defaultValue
+    // Academic year typically starts in September
+    if (currentMonth >= 9) {
+        return {
+            startYear: currentYear,
+            endYear: currentYear + 1,
+            code: generateAcademicYearCode(currentYear, currentYear + 1)
+        }
+    } else {
+        return {
+            startYear: currentYear - 1,
+            endYear: currentYear,
+            code: generateAcademicYearCode(currentYear - 1, currentYear)
+        }
     }
 }
 
-export const setLocalStorage = (key, value) => {
-    if (typeof window === 'undefined') return
+const isAcademicYearActive = (academicYear) => {
+    if (!academicYear.startDate || !academicYear.endDate) return false
 
-    try {
-        window.localStorage.setItem(key, JSON.stringify(value))
-    } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error)
+    const now = new Date()
+    return academicYear.startDate <= now && now <= academicYear.endDate
+}
+
+const formatAcademicYearDisplay = (academicYear) => {
+    if (!academicYear) return ''
+    return `${academicYear.name || academicYear.code} (${academicYear.code})`
+}
+
+// Error handling utilities
+const getErrorMessage = (error) => {
+    if (typeof error === 'string') return error
+    if (error?.response?.data?.message) return error.response.data.message
+    if (error?.message) return error.message
+    return 'Có lỗi xảy ra'
+}
+
+const isNetworkError = (error) => {
+    return !error.response && error.request
+}
+
+// Evidence code utilities
+const generateEvidenceCode = (boxNumber, standardCode, criteriaCode, sequence) => {
+    return `H${boxNumber}.${standardCode.padStart(2, '0')}.${criteriaCode.padStart(2, '0')}.${sequence.toString().padStart(2, '0')}`
+}
+
+const parseEvidenceCode = (code) => {
+    const match = code.match(/^H(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
+    if (!match) return null
+
+    return {
+        boxNumber: parseInt(match[1]),
+        standardCode: parseInt(match[2]),
+        criteriaCode: parseInt(match[3]),
+        sequence: parseInt(match[4])
     }
 }
 
-export const removeLocalStorage = (key) => {
-    if (typeof window === 'undefined') return
-
-    try {
-        window.localStorage.removeItem(key)
-    } catch (error) {
-        console.error(`Error removing localStorage key "${key}":`, error)
+// Generate random string
+const generateRandomString = (length = 10) => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    let result = ''
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
     }
+    return result
 }
 
-// Color utilities
-export const hexToRgb = (hex) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-    } : null
-}
-
-export const rgbToHex = (r, g, b) => {
-    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+// Generate UUID
+const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0
+        const v = c == 'x' ? r : (r & 0x3 | 0x8)
+        return v.toString(16)
+    })
 }
 
 // Debounce utility
-export const debounce = (func, wait) => {
+const debounce = (func, wait) => {
     let timeout
     return function executedFunction(...args) {
         const later = () => {
@@ -303,7 +344,7 @@ export const debounce = (func, wait) => {
 }
 
 // Throttle utility
-export const throttle = (func, limit) => {
+const throttle = (func, limit) => {
     let inThrottle
     return function() {
         const args = arguments
@@ -316,82 +357,83 @@ export const throttle = (func, limit) => {
     }
 }
 
-// Generate random string
-export const generateRandomString = (length = 10) => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let result = ''
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
+// Status text utilities
+const getStatusText = (status, type = 'evidence') => {
+    const statusMaps = {
+        evidence: {
+            'active': 'Đang hoạt động',
+            'inactive': 'Ngừng hoạt động',
+            'pending': 'Chờ duyệt',
+            'archived': 'Lưu trữ'
+        },
+        academicYear: {
+            'draft': 'Bản nháp',
+            'active': 'Đang hoạt động',
+            'completed': 'Đã hoàn thành',
+            'archived': 'Lưu trữ'
+        },
+        program: {
+            'draft': 'Bản nháp',
+            'active': 'Đang hoạt động',
+            'inactive': 'Ngừng hoạt động',
+            'archived': 'Lưu trữ'
+        },
+        user: {
+            'active': 'Hoạt động',
+            'inactive': 'Không hoạt động',
+            'suspended': 'Tạm khóa'
+        }
     }
-    return result
+
+    return statusMaps[type]?.[status] || status
 }
 
-// Generate UUID
-export const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0
-        const v = c == 'x' ? r : (r & 0x3 | 0x8)
-        return v.toString(16)
-    })
-}
-
-// Error handling utilities
-export const getErrorMessage = (error) => {
-    if (typeof error === 'string') return error
-    if (error?.response?.data?.message) return error.response.data.message
-    if (error?.message) return error.message
-    return 'Có lỗi xảy ra'
-}
-
-export const isNetworkError = (error) => {
-    return !error.response && error.request
-}
-
-// Evidence code utilities
-export const generateEvidenceCode = (boxNumber, standardCode, criteriaCode, sequence) => {
-    return `H${boxNumber}.${standardCode.padStart(2, '0')}.${criteriaCode.padStart(2, '0')}.${sequence.toString().padStart(2, '0')}`
-}
-
-export const parseEvidenceCode = (code) => {
-    const match = code.match(/^H(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
-    if (!match) return null
-
-    return {
-        boxNumber: parseInt(match[1]),
-        standardCode: parseInt(match[2]),
-        criteriaCode: parseInt(match[3]),
-        sequence: parseInt(match[4])
+const getRoleText = (role) => {
+    const roleMap = {
+        'admin': 'Quản trị viên',
+        'manager': 'Quản lý',
+        'staff': 'Nhân viên'
     }
+    return roleMap[role] || role
 }
 
-// Export utilities
-export const downloadBlob = (blob, filename) => {
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-}
-
-export const exportToCSV = (data, filename) => {
-    if (!data || data.length === 0) return
-
-    const headers = Object.keys(data[0])
-    const csvContent = [
-        headers.join(','),
-        ...data.map(row =>
-            headers.map(header => {
-                const value = row[header]
-                return typeof value === 'string' && value.includes(',')
-                    ? `"${value}"`
-                    : value
-            }).join(',')
-        )
-    ].join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    downloadBlob(blob, filename)
-}
+// Export all utilities
+module.exports = {
+    formatDate,
+    getRelativeTime,
+    truncateText,
+    capitalizeFirstLetter,
+    slugify,
+    formatNumber,
+    formatBytes,
+    groupBy,
+    sortBy,
+    removeDuplicates,
+    deepClone,
+    omit,
+    pick,
+    buildQueryString,
+    parseQueryString,
+    getFileExtension,
+    getFileIcon,
+    isValidEmail,
+    isValidPhone,
+    isValidPassword,
+    isValidEvidenceCode,
+    isValidAcademicYearCode,
+    generateAcademicYearCode,
+    parseAcademicYearCode,
+    getCurrentAcademicYear,
+    isAcademicYearActive,
+    formatAcademicYearDisplay,
+    getErrorMessage,
+    isNetworkError,
+    generateEvidenceCode,
+    parseEvidenceCode,
+    generateRandomString,
+    generateUUID,
+    debounce,
+    throttle,
+    getStatusText,
+    getRoleText
+};
