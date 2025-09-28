@@ -1,21 +1,18 @@
 const mongoose = require('mongoose');
 
 const evidenceSchema = new mongoose.Schema({
-    // Thêm academicYearId
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear',
         required: [true, 'Năm học là bắt buộc']
     },
 
-    // Mã minh chứng theo format: Số hộp.Mã tiêu chuẩn.Mã tiêu chí.STT minh chứng
     code: {
         type: String,
         required: [true, 'Mã minh chứng là bắt buộc'],
         uppercase: true,
         validate: {
             validator: function(code) {
-                // Kiểm tra format: H + số + . + số + . + số + . + số
                 return /^H\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
             },
             message: 'Mã minh chứng không đúng yêu cầu (VD: H1.01.02.04)'
@@ -140,8 +137,7 @@ const evidenceSchema = new mongoose.Schema({
     }]
 });
 
-// Indexes - cập nhật với academicYearId
-evidenceSchema.index({ academicYearId: 1, code: 1 }, { unique: true }); // Unique trong cùng năm học
+evidenceSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
 evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 evidenceSchema.index({ academicYearId: 1, standardId: 1 });
 evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
@@ -175,7 +171,20 @@ evidenceSchema.pre('save', function(next) {
     next();
 });
 
-// Static method tạo mã minh chứng tự động với academicYearId
+evidenceSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this.academicYearId,
+        action,
+        description,
+        targetType: 'Evidence',
+        targetId: this._id,
+        targetName: `${this.code} - ${this.name}`,
+        ...additionalData
+    });
+};
+
 evidenceSchema.statics.generateCode = async function(academicYearId, standardCode, criteriaCode, boxNumber = 1) {
     const pattern = new RegExp(`^H${boxNumber}\\.${standardCode}\\.${criteriaCode}\\.(\\d{2})$`);
     const evidences = await this.find({
@@ -209,7 +218,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
 
     let query = {};
 
-    // Luôn filter theo năm học
     if (academicYearId) {
         query.academicYearId = academicYearId;
     }
@@ -269,7 +277,16 @@ evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStand
         }
     }];
 
-    return new Evidence(evidenceData);
+    const newEvidence = new Evidence(evidenceData);
+    const savedEvidence = await newEvidence.save();
+
+    await this.addActivityLog('evidence_copy', userId,
+        `Sao chép minh chứng ${this.code} thành ${newCode}`, {
+            oldData: { code: this.code, academicYearId: this.academicYearId },
+            newData: { code: newCode, academicYearId: targetAcademicYearId }
+        });
+
+    return savedEvidence;
 };
 
 evidenceSchema.methods.moveTo = async function(targetStandardId, targetCriteriaId, newCode, userId) {
@@ -296,10 +313,17 @@ evidenceSchema.methods.moveTo = async function(targetStandardId, targetCriteriaI
         }
     });
 
+    await this.save();
+
+    await this.addActivityLog('evidence_move', userId,
+        `Di chuyển minh chứng từ ${oldCode} thành ${newCode}`, {
+            oldData: { code: oldCode, standardId: oldStandardId, criteriaId: oldCriteriaId },
+            newData: { code: newCode, standardId: targetStandardId, criteriaId: targetCriteriaId }
+        });
+
     return this;
 };
 
-// Static methods để filter theo năm học
 evidenceSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
     return this.find({
         academicYearId,
@@ -350,6 +374,52 @@ evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, pr
 
 evidenceSchema.virtual('fileName').get(function() {
     return `${this.code}-${this.name}`;
+});
+
+evidenceSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('evidence_create', this.createdBy,
+                `Tạo mới minh chứng: ${this.code} - ${this.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+evidenceSchema.post('findOneAndUpdate', async function(result, next) {
+    if (result && result.updatedBy) {
+        try {
+            await result.addActivityLog('evidence_update', result.updatedBy,
+                `Cập nhật minh chứng: ${result.code} - ${result.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+evidenceSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('evidence_delete', doc.updatedBy,
+                `Xóa minh chứng: ${doc.code} - ${doc.name}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
 });
 
 evidenceSchema.set('toJSON', { virtuals: true });
