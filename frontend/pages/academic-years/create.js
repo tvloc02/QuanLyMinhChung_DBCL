@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -11,10 +13,22 @@ import {
 } from 'lucide-react'
 
 const CreateAcademicYearPage = () => {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(false)
+
+    const breadcrumbItems = [
+        { name: 'Quản lý năm học', href: '/academic-years', icon: Calendar },
+        { name: 'Tạo mới' }
+    ]
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.replace('/login')
+        }
+    }, [user, isLoading, router])
 
     const [formData, setFormData] = useState({
         name: '',
@@ -150,22 +164,36 @@ const CreateAcademicYearPage = () => {
         }
     }
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        )
+    }
+
+    if (!user) {
+        return null
+    }
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-4xl mx-auto p-6">
+        <Layout
+            title="Tạo năm học mới"
+            breadcrumbItems={breadcrumbItems}
+        >
+            <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center space-x-4 mb-4">
-                        <Link href="/academic-years">
-                            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <ArrowLeft className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Tạo năm học mới</h1>
-                            <p className="text-gray-600">Thiết lập thông tin cho năm học mới</p>
-                        </div>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Tạo năm học mới</h1>
+                        <p className="text-gray-600">Thiết lập thông tin cho năm học mới</p>
                     </div>
+                    <Link href="/academic-years">
+                        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Quay lại</span>
+                        </button>
+                    </Link>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -477,7 +505,7 @@ const CreateAcademicYearPage = () => {
                     </div>
                 </form>
             </div>
-        </div>
+        </Layout>
     )
 }
 

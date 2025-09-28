@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -25,8 +27,20 @@ import {
 } from 'lucide-react'
 
 const AcademicYearSettingsPage = () => {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const { id } = router.query
+
+    const breadcrumbItems = [
+        { name: 'Quản lý năm học', href: '/academic-years', icon: Calendar },
+        { name: 'Cài đặt' }
+    ]
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.replace('/login')
+        }
+    }, [user, isLoading, router])
 
     const [loading, setLoading] = useState(false)
     const [fetchingData, setFetchingData] = useState(true)
@@ -189,19 +203,31 @@ const AcademicYearSettingsPage = () => {
 
     if (fetchingData) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Đang tải cài đặt...</p>
+            <Layout
+                title="Cài đặt năm học"
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải cài đặt...</p>
+                    </div>
                 </div>
-            </div>
+            </Layout>
         )
+    }
+
+    if (!user) {
+        return null
     }
 
     if (!academicYear) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
+            <Layout
+                title="Cài đặt năm học"
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="text-center py-12">
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-4">Năm học không tồn tại hoặc đã bị xóa</p>
@@ -211,43 +237,45 @@ const AcademicYearSettingsPage = () => {
                         </button>
                     </Link>
                 </div>
-            </div>
+            </Layout>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto p-6">
+        <Layout
+            title="Cài đặt năm học"
+            breadcrumbItems={breadcrumbItems}
+        >
+            <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center space-x-4 mb-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        <h1 className="text-2xl font-bold text-gray-900">Cài đặt năm học</h1>
+                        <p className="text-gray-600">{academicYear.name} ({academicYear.code})</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        {academicYear.isCurrent && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Hiện tại
+                            </span>
+                        )}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            academicYear.status === 'active' ? 'bg-green-100 text-green-800' :
+                                academicYear.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                    academicYear.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-gray-100 text-gray-800'
+                        }`}>
+                            {academicYear.status === 'active' ? 'Hoạt động' :
+                                academicYear.status === 'completed' ? 'Hoàn thành' :
+                                    academicYear.status === 'draft' ? 'Nháp' : 'Lưu trữ'}
+                        </span>
                         <Link href="/academic-years">
-                            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Quay lại</span>
                             </button>
                         </Link>
-                        <div className="flex-1">
-                            <h1 className="text-2xl font-bold text-gray-900">Cài đặt năm học</h1>
-                            <p className="text-gray-600">{academicYear.name} ({academicYear.code})</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            {academicYear.isCurrent && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Hiện tại
-                                </span>
-                            )}
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                academicYear.status === 'active' ? 'bg-green-100 text-green-800' :
-                                    academicYear.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                        academicYear.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-gray-100 text-gray-800'
-                            }`}>
-                                {academicYear.status === 'active' ? 'Hoạt động' :
-                                    academicYear.status === 'completed' ? 'Hoàn thành' :
-                                        academicYear.status === 'draft' ? 'Nháp' : 'Lưu trữ'}
-                            </span>
-                        </div>
                     </div>
                 </div>
 
@@ -494,7 +522,7 @@ const AcademicYearSettingsPage = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </Layout>
     )
 }
 

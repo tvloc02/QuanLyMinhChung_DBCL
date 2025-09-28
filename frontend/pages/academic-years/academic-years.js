@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import {
     Plus,
     Search,
@@ -26,6 +28,7 @@ import {
 } from 'lucide-react'
 
 const AcademicYearsPage = () => {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const [academicYears, setAcademicYears] = useState([])
     const [loading, setLoading] = useState(true)
@@ -39,6 +42,16 @@ const AcademicYearsPage = () => {
     const [selectedYear, setSelectedYear] = useState(null)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [showActionsDropdown, setShowActionsDropdown] = useState(null)
+
+    const breadcrumbItems = [
+        { name: 'Quản lý năm học', icon: Calendar }
+    ]
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.replace('/login')
+        }
+    }, [user, isLoading, router])
 
     const statusConfig = {
         draft: { label: 'Nháp', color: 'bg-yellow-100 text-yellow-800', icon: FileText },
@@ -168,46 +181,60 @@ const AcademicYearsPage = () => {
         )
     }
 
-    if (loading && academicYears.length === 0) {
+    if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 p-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-                        <div className="bg-white rounded-lg shadow">
-                            <div className="p-6 space-y-4">
-                                {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
         )
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto p-6">
-                {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Quản lý năm học</h1>
-                            <p className="text-gray-600 mt-1">Quản lý và cấu hình các năm học trong hệ thống</p>
+    if (!user) {
+        return null
+    }
+
+    if (loading && academicYears.length === 0) {
+        return (
+            <Layout
+                title=""
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="animate-pulse">
+                    <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+                    <div className="bg-white rounded-lg shadow">
+                        <div className="p-6 space-y-4">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                            ))}
                         </div>
-                        <Link href="/academic-years/create">
-                            <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                                <Plus className="w-4 h-4" />
-                                <span>Tạo năm học mới</span>
-                            </button>
-                        </Link>
                     </div>
+                </div>
+            </Layout>
+        )
+    }
+
+    return (
+        <Layout
+            title=""
+            breadcrumbItems={breadcrumbItems}
+        >
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Quản lý năm học</h1>
+                        <p className="text-gray-600 mt-1">Quản lý và cấu hình các năm học trong hệ thống</p>
+                    </div>
+                    <Link href="/academic-years/create">
+                        <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            <Plus className="w-4 h-4" />
+                            <span>Tạo năm học mới</span>
+                        </button>
+                    </Link>
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white rounded-lg shadow mb-6">
+                <div className="bg-white rounded-lg shadow">
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {/* Search */}
@@ -264,7 +291,7 @@ const AcademicYearsPage = () => {
 
                 {/* Error */}
                 {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                         <p className="text-red-800">{error}</p>
                     </div>
                 )}
@@ -506,7 +533,7 @@ const AcademicYearsPage = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </Layout>
     )
 }
 

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -15,8 +17,20 @@ import {
 } from 'lucide-react'
 
 const EditAcademicYearPage = () => {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const { id } = router.query
+
+    const breadcrumbItems = [
+        { name: 'Quản lý năm học', href: '/academic-years', icon: Calendar },
+        { name: 'Chỉnh sửa' }
+    ]
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.replace('/login')
+        }
+    }, [user, isLoading, router])
 
     const [loading, setLoading] = useState(false)
     const [fetchingData, setFetchingData] = useState(true)
@@ -219,19 +233,31 @@ const EditAcademicYearPage = () => {
 
     if (fetchingData) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Đang tải thông tin năm học...</p>
+            <Layout
+                title="Chỉnh sửa năm học"
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải thông tin năm học...</p>
+                    </div>
                 </div>
-            </div>
+            </Layout>
         )
+    }
+
+    if (!user) {
+        return null
     }
 
     if (!originalData) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
+            <Layout
+                title="Chỉnh sửa năm học"
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="text-center py-12">
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-4">Năm học không tồn tại hoặc đã bị xóa</p>
@@ -241,39 +267,41 @@ const EditAcademicYearPage = () => {
                         </button>
                     </Link>
                 </div>
-            </div>
+            </Layout>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-4xl mx-auto p-6">
+        <Layout
+            title="Chỉnh sửa năm học"
+            breadcrumbItems={breadcrumbItems}
+        >
+            <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center space-x-4 mb-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        <h1 className="text-2xl font-bold text-gray-900">Chỉnh sửa năm học</h1>
+                        <p className="text-gray-600">{originalData.name} ({formData.startYear}-{formData.endYear})</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Link href={`/academic-years/${id}`}>
+                            <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                <Eye className="w-4 h-4" />
+                                <span>Xem chi tiết</span>
+                            </button>
+                        </Link>
+                        {hasChanges && (
+                            <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                                Có thay đổi chưa lưu
+                            </div>
+                        )}
                         <button
                             onClick={handleCancel}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-600" />
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Quay lại</span>
                         </button>
-                        <div className="flex-1">
-                            <h1 className="text-2xl font-bold text-gray-900">Chỉnh sửa năm học</h1>
-                            <p className="text-gray-600">{originalData.name} ({formData.startYear}-{formData.endYear})</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Link href={`/academic-years/${id}`}>
-                                <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <Eye className="w-4 h-4" />
-                                    <span>Xem chi tiết</span>
-                                </button>
-                            </Link>
-                            {hasChanges && (
-                                <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
-                                    Có thay đổi chưa lưu
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
 
@@ -603,7 +631,7 @@ const EditAcademicYearPage = () => {
                     </div>
                 </form>
             </div>
-        </div>
+        </Layout>
     )
 }
 

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -19,8 +21,20 @@ import {
 } from 'lucide-react'
 
 const CopyAcademicYearPage = () => {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const { source } = router.query
+
+    const breadcrumbItems = [
+        { name: 'Quản lý năm học', href: '/academic-years', icon: Calendar },
+        { name: 'Sao chép dữ liệu' }
+    ]
+
+    useEffect(() => {
+        if (!isLoading && !user) {
+            router.replace('/login')
+        }
+    }, [user, isLoading, router])
 
     const [loading, setLoading] = useState(false)
     const [fetchingData, setFetchingData] = useState(true)
@@ -191,31 +205,42 @@ const CopyAcademicYearPage = () => {
 
     if (fetchingData) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Đang tải dữ liệu...</p>
+            <Layout
+                title="Sao chép dữ liệu năm học"
+                breadcrumbItems={breadcrumbItems}
+            >
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
+                    </div>
                 </div>
-            </div>
+            </Layout>
         )
     }
 
+    if (!user) {
+        return null
+    }
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-4xl mx-auto p-6">
+        <Layout
+            title="Sao chép dữ liệu năm học"
+            breadcrumbItems={breadcrumbItems}
+        >
+            <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center space-x-4 mb-4">
-                        <Link href="/academic-years">
-                            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <ArrowLeft className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Sao chép dữ liệu năm học</h1>
-                            <p className="text-gray-600">Sao chép cấu trúc và dữ liệu từ năm học khác</p>
-                        </div>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Sao chép dữ liệu năm học</h1>
+                        <p className="text-gray-600">Sao chép cấu trúc và dữ liệu từ năm học khác</p>
                     </div>
+                    <Link href="/academic-years">
+                        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Quay lại</span>
+                        </button>
+                    </Link>
                 </div>
 
                 {/* Success Message */}
@@ -478,7 +503,7 @@ const CopyAcademicYearPage = () => {
                     </div>
                 </form>
             </div>
-        </div>
+        </Layout>
     )
 }
 
