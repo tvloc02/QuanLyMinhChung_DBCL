@@ -1,54 +1,48 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-    // Người nhận thông báo
     recipientId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: [true, 'Người nhận là bắt buộc']
     },
 
-    // Người gửi (có thể là hệ thống)
     senderId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
 
-    // Loại thông báo
     type: {
         type: String,
         enum: [
-            'assignment_new',         // Phân công mới
-            'assignment_reminder',    // Nhắc nhở phân công
-            'assignment_overdue',     // Phân công quá hạn
-            'assignment_cancelled',   // Hủy phân công
-            'evaluation_submitted',   // Đánh giá đã nộp
-            'evaluation_reviewed',    // Đánh giá đã xem xét
-            'report_published',       // Báo cáo được xuất bản
-            'report_updated',         // Báo cáo được cập nhật
-            'system_maintenance',     // Bảo trì hệ thống
-            'deadline_approaching',   // Gần hạn chót
-            'user_mentioned',         // Được nhắc đến
-            'general'                 // Thông báo chung
+            'assignment_new',
+            'assignment_reminder',
+            'assignment_overdue',
+            'assignment_cancelled',
+            'evaluation_submitted',
+            'evaluation_reviewed',
+            'report_published',
+            'report_updated',
+            'system_maintenance',
+            'deadline_approaching',
+            'user_mentioned',
+            'general'
         ],
         required: [true, 'Loại thông báo là bắt buộc']
     },
 
-    // Tiêu đề thông báo
     title: {
         type: String,
         required: [true, 'Tiêu đề thông báo là bắt buộc'],
         maxlength: [200, 'Tiêu đề không được quá 200 ký tự']
     },
 
-    // Nội dung thông báo
     message: {
         type: String,
         required: [true, 'Nội dung thông báo là bắt buộc'],
         maxlength: [1000, 'Nội dung không được quá 1000 ký tự']
     },
 
-    // Dữ liệu bổ sung
     data: {
         reportId: {
             type: mongoose.Schema.Types.ObjectId,
@@ -66,35 +60,29 @@ const notificationSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Evidence'
         },
-        url: String,        // URL để chuyển hướng
-        action: String,     // Hành động có thể thực hiện
+        url: String,
+        action: String,
         metadata: mongoose.Schema.Types.Mixed
     },
 
-    // Mức độ ưu tiên
     priority: {
         type: String,
         enum: ['low', 'normal', 'high', 'urgent'],
         default: 'normal'
     },
 
-    // Trạng thái
     status: {
         type: String,
         enum: ['sent', 'delivered', 'read', 'clicked', 'dismissed'],
         default: 'sent'
     },
 
-    // Thời gian đọc
     readAt: Date,
 
-    // Thời gian click
     clickedAt: Date,
 
-    // Thời gian dismiss
     dismissedAt: Date,
 
-    // Cấu hình gửi
     channels: {
         inApp: {
             type: Boolean,
@@ -110,7 +98,6 @@ const notificationSchema = new mongoose.Schema({
         }
     },
 
-    // Email tracking
     emailStatus: {
         sent: Boolean,
         sentAt: Date,
@@ -123,7 +110,6 @@ const notificationSchema = new mongoose.Schema({
         error: String
     },
 
-    // SMS tracking
     smsStatus: {
         sent: Boolean,
         sentAt: Date,
@@ -132,13 +118,10 @@ const notificationSchema = new mongoose.Schema({
         error: String
     },
 
-    // Thời gian hết hạn
     expiresAt: Date,
 
-    // Nhóm thông báo (để gom nhóm)
     groupKey: String,
 
-    // Template thông báo (nếu có)
     templateId: String,
     templateVars: mongoose.Schema.Types.Mixed,
 
@@ -153,7 +136,6 @@ const notificationSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
 notificationSchema.index({ recipientId: 1, status: 1 });
 notificationSchema.index({ recipientId: 1, createdAt: -1 });
 notificationSchema.index({ type: 1 });
@@ -163,13 +145,11 @@ notificationSchema.index({ groupKey: 1 });
 notificationSchema.index({ 'data.assignmentId': 1 });
 notificationSchema.index({ 'data.reportId': 1 });
 
-// Pre-save middleware
 notificationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
     }
 
-    // Auto-set expiry if not set
     if (!this.expiresAt) {
         const expiryDays = this.priority === 'urgent' ? 7 : 30;
         this.expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
@@ -178,7 +158,6 @@ notificationSchema.pre('save', function(next) {
     next();
 });
 
-// Virtual fields
 notificationSchema.virtual('isExpired').get(function() {
     return this.expiresAt && this.expiresAt < new Date();
 });
@@ -215,29 +194,66 @@ notificationSchema.virtual('typeText').get(function() {
     return typeMap[this.type] || this.type;
 });
 
-// Instance methods
-notificationSchema.methods.markAsRead = function() {
-    if (this.status === 'sent' || this.status === 'delivered') {
-        this.status = 'read';
-        this.readAt = new Date();
-        return this.save();
-    }
-    return Promise.resolve(this);
+notificationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        action,
+        description,
+        targetType: 'Notification',
+        targetId: this._id,
+        targetName: this.title,
+        ...additionalData
+    });
 };
 
-notificationSchema.methods.markAsClicked = function() {
+notificationSchema.methods.markAsRead = async function() {
+    if (this.status === 'sent' || this.status === 'delivered') {
+        const oldStatus = this.status;
+        this.status = 'read';
+        this.readAt = new Date();
+
+        await this.save();
+
+        await this.addActivityLog('notification_read', this.recipientId,
+            `Đọc thông báo: ${this.title}`, {
+                severity: 'low',
+                oldData: { status: oldStatus },
+                newData: { status: 'read' }
+            });
+    }
+    return this;
+};
+
+notificationSchema.methods.markAsClicked = async function() {
     this.status = 'clicked';
     this.clickedAt = new Date();
     if (!this.readAt) {
         this.readAt = new Date();
     }
-    return this.save();
+
+    await this.save();
+
+    await this.addActivityLog('notification_click', this.recipientId,
+        `Click thông báo: ${this.title}`, {
+            severity: 'low'
+        });
+
+    return this;
 };
 
-notificationSchema.methods.dismiss = function() {
+notificationSchema.methods.dismiss = async function() {
     this.status = 'dismissed';
     this.dismissedAt = new Date();
-    return this.save();
+
+    await this.save();
+
+    await this.addActivityLog('notification_dismiss', this.recipientId,
+        `Dismiss thông báo: ${this.title}`, {
+            severity: 'low'
+        });
+
+    return this;
 };
 
 notificationSchema.methods.canView = function(userId) {
@@ -247,7 +263,6 @@ notificationSchema.methods.canView = function(userId) {
 notificationSchema.methods.getActionUrl = function() {
     if (this.data?.url) return this.data.url;
 
-    // Generate URL based on type and data
     switch (this.type) {
         case 'assignment_new':
         case 'assignment_reminder':
@@ -267,7 +282,6 @@ notificationSchema.methods.getActionUrl = function() {
     }
 };
 
-// Static methods
 notificationSchema.statics.createAssignmentNotification = async function(assignmentId, type, recipientId, senderId = null) {
     const Assignment = mongoose.model('Assignment');
     const assignment = await Assignment.findById(assignmentId)
@@ -428,7 +442,6 @@ notificationSchema.statics.getUserNotifications = async function(userId, options
         query.priority = priority;
     }
 
-    // Filter out expired notifications
     query.expiresAt = { $gt: new Date() };
 
     const skip = (page - 1) * limit;
@@ -497,6 +510,40 @@ notificationSchema.statics.getNotificationStats = async function(userId = null) 
 
     return stats[0] || { total: 0, unread: 0, read: 0, clicked: 0, dismissed: 0 };
 };
+
+notificationSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.senderId) {
+        try {
+            await this.addActivityLog('notification_send', this.senderId,
+                `Gửi thông báo: ${this.title}`, {
+                    severity: 'low',
+                    result: 'success',
+                    metadata: {
+                        recipientId: this.recipientId,
+                        type: this.type
+                    }
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+notificationSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.recipientId) {
+        try {
+            await doc.addActivityLog('notification_delete', doc.recipientId,
+                `Xóa thông báo: ${doc.title}`, {
+                    severity: 'low',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
 
 notificationSchema.set('toJSON', { virtuals: true });
 notificationSchema.set('toObject', { virtuals: true });
