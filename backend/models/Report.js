@@ -27,7 +27,6 @@ const reportSchema = new mongoose.Schema({
         required: [true, 'Loại báo cáo là bắt buộc']
     },
 
-    // Đường dẫn phân cấp
     programId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program',
@@ -56,43 +55,37 @@ const reportSchema = new mongoose.Schema({
         }
     },
 
-    // Nội dung báo cáo
     content: {
         type: String,
         required: [true, 'Nội dung báo cáo là bắt buộc']
     },
 
-    // Phương thức tạo nội dung
     contentMethod: {
         type: String,
         enum: ['online_editor', 'file_upload'],
         default: 'online_editor'
     },
 
-    // File đính kèm (nếu upload file)
     attachedFile: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'File'
     },
 
-    // Minh chứng được tham chiếu trong báo cáo
     referencedEvidences: [{
         evidenceId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Evidence'
         },
-        contextText: String, // Đoạn văn bản chứa tham chiếu
-        linkedText: String   // Văn bản được link
+        contextText: String,
+        linkedText: String
     }],
 
-    // Trạng thái
     status: {
         type: String,
         enum: ['draft', 'under_review', 'published', 'archived'],
         default: 'draft'
     },
 
-    // Metadata
     summary: {
         type: String,
         maxlength: [1000, 'Tóm tắt không được quá 1000 ký tự']
@@ -105,7 +98,6 @@ const reportSchema = new mongoose.Schema({
         default: 0
     },
 
-    // Thông tin người tạo
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -117,7 +109,6 @@ const reportSchema = new mongoose.Schema({
         ref: 'User'
     },
 
-    // Lịch sử thay đổi
     versions: [{
         version: Number,
         content: String,
@@ -132,13 +123,11 @@ const reportSchema = new mongoose.Schema({
         changeNote: String
     }],
 
-    // Đánh giá
     evaluations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Evaluation'
     }],
 
-    // Thống kê
     metadata: {
         viewCount: {
             type: Number,
@@ -169,7 +158,6 @@ const reportSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
 reportSchema.index({ academicYearId: 1, type: 1 });
 reportSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 reportSchema.index({ academicYearId: 1, standardId: 1 });
@@ -179,12 +167,10 @@ reportSchema.index({ status: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
 
-// Pre-save middleware
 reportSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
 
-        // Auto-generate word count
         if (this.isModified('content')) {
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
         }
@@ -192,7 +178,20 @@ reportSchema.pre('save', function(next) {
     next();
 });
 
-// Generate unique code
+reportSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this.academicYearId,
+        action,
+        description,
+        targetType: 'Report',
+        targetId: this._id,
+        targetName: this.title,
+        ...additionalData
+    });
+};
+
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
     const typePrefix = {
         'criteria_analysis': 'CA',
@@ -213,7 +212,6 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
         baseCode += `-${criteriaCode.padStart(2, '0')}`;
     }
 
-    // Find next sequence number
     const pattern = new RegExp(`^${baseCode}-\\d+$`);
     const lastReport = await this.findOne({ code: pattern }).sort({ code: -1 });
 
@@ -226,17 +224,27 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
     return `${baseCode}-${sequence.toString().padStart(3, '0')}`;
 };
 
-// Instance methods
-reportSchema.methods.addVersion = function(newContent, userId, changeNote = '') {
+reportSchema.methods.addVersion = async function(newContent, userId, changeNote = '') {
+    const oldContent = this.content;
+
     this.versions.push({
         version: this.versions.length + 1,
-        content: this.content, // Save current content as version
+        content: this.content,
         changedBy: userId,
         changeNote
     });
 
     this.content = newContent;
     this.updatedBy = userId;
+
+    await this.addActivityLog('report_update', userId,
+        `Cập nhật báo cáo: ${changeNote || 'Không có ghi chú'}`, {
+            severity: 'medium',
+            oldData: { wordCount: oldContent ? oldContent.split(/\s+/).length : 0 },
+            newData: { wordCount: newContent ? newContent.split(/\s+/).length : 0 }
+        });
+
+    return this.save();
 };
 
 reportSchema.methods.canEdit = function(userId, userRole) {
@@ -250,32 +258,45 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
     if (this.createdBy.toString() === userId.toString()) return true;
     if (this.status === 'published') return true;
 
-    // Check access based on standard/criteria
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
     if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
 
     return false;
 };
 
-reportSchema.methods.incrementView = function() {
+reportSchema.methods.incrementView = async function() {
     this.metadata.viewCount += 1;
-    return this.save();
+
+    await this.save();
+
+    await this.addActivityLog('report_view', null,
+        `Xem báo cáo: ${this.title}`, {
+            severity: 'low'
+        });
+
+    return this;
 };
 
-reportSchema.methods.incrementDownload = function() {
+reportSchema.methods.incrementDownload = async function() {
     this.metadata.downloadCount += 1;
-    return this.save();
+
+    await this.save();
+
+    await this.addActivityLog('report_download', null,
+        `Tải xuống báo cáo: ${this.title}`, {
+            severity: 'low'
+        });
+
+    return this;
 };
 
-// Auto-linking functionality
 reportSchema.methods.extractEvidenceReferences = function() {
     if (!this.content) return [];
 
-    // Pattern để tìm mã minh chứng: H1.01.02.04
     const evidencePattern = /H\d+\.\d{2}\.\d{2}\.\d{2}/g;
     const matches = this.content.match(evidencePattern) || [];
 
-    return [...new Set(matches)]; // Remove duplicates
+    return [...new Set(matches)];
 };
 
 reportSchema.methods.linkEvidences = async function() {
@@ -306,7 +327,24 @@ reportSchema.methods.getContextForCode = function(code, contextLength = 100) {
     return this.content.substring(start, end);
 };
 
-// Virtual fields
+reportSchema.methods.publish = async function(userId) {
+    const oldStatus = this.status;
+    this.status = 'published';
+    this.updatedBy = userId;
+
+    await this.save();
+
+    await this.addActivityLog('report_publish', userId,
+        `Xuất bản báo cáo: ${this.title}`, {
+            severity: 'high',
+            oldData: { status: oldStatus },
+            newData: { status: 'published' },
+            isAuditRequired: true
+        });
+
+    return this;
+};
+
 reportSchema.virtual('typeText').get(function() {
     const typeMap = {
         'criteria_analysis': 'Phiếu phân tích tiêu chí',
@@ -328,6 +366,41 @@ reportSchema.virtual('statusText').get(function() {
 
 reportSchema.virtual('url').get(function() {
     return `/reports/${this._id}`;
+});
+
+reportSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('report_create', this.createdBy,
+                `Tạo mới báo cáo: ${this.title}`, {
+                    severity: 'medium',
+                    result: 'success',
+                    metadata: {
+                        type: this.type,
+                        wordCount: this.wordCount
+                    }
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+reportSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('report_delete', doc.updatedBy,
+                `Xóa báo cáo: ${doc.title}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
 });
 
 reportSchema.set('toJSON', { virtuals: true });
