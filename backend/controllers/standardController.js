@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Standard, Program, Organization } = require('../models/Program');
 
 const getStandards = async (req, res) => {
@@ -13,13 +14,13 @@ const getStandards = async (req, res) => {
             sortOrder = 'asc'
         } = req.query;
 
-        const academicYearId = req.academicYearId; // From middleware
+        const academicYearId = req.academicYearId;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId }; // Always filter by academic year
+        let query = { academicYearId };
 
         if (search) {
             query.$or = [
@@ -158,7 +159,6 @@ const createStandard = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Validate program and organization belong to the same academic year
         const [program, organization] = await Promise.all([
             Program.findOne({ _id: programId, academicYearId }),
             Organization.findOne({ _id: organizationId, academicYearId })
@@ -178,7 +178,6 @@ const createStandard = async (req, res) => {
             });
         }
 
-        // Check if code already exists in this academic year + program + organization
         const existingStandard = await Standard.findOne({
             academicYearId,
             programId,
@@ -247,7 +246,6 @@ const updateStandard = async (req, res) => {
             });
         }
 
-        // Check if code change conflicts
         if (updateData.code && updateData.code !== standard.code) {
             const existingStandard = await Standard.findOne({
                 academicYearId,
@@ -264,7 +262,6 @@ const updateStandard = async (req, res) => {
             }
         }
 
-        // Check if in use before major changes
         const isInUse = await standard.isInUse();
         if (isInUse && (updateData.code || updateData.programId || updateData.organizationId)) {
             return res.status(400).json({
@@ -273,7 +270,6 @@ const updateStandard = async (req, res) => {
             });
         }
 
-        // Update allowed fields
         const allowedFields = [
             'name', 'description', 'order', 'weight', 'objectives',
             'guidelines', 'evaluationCriteria', 'status'
@@ -327,7 +323,6 @@ const deleteStandard = async (req, res) => {
             });
         }
 
-        // Check if in use
         const isInUse = await standard.isInUse();
         if (isInUse) {
             return res.status(400).json({
