@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 const emailService = require('../services/emailService');
 
 const generateToken = (userId) => {
@@ -23,7 +24,6 @@ const login = async (req, res) => {
             });
         }
 
-        // Tìm user theo email (username)
         const username = email.split('@')[0].toLowerCase().trim();
         console.log('🔍 Searching for username:', username);
 
@@ -31,7 +31,19 @@ const login = async (req, res) => {
 
         if (!user) {
             console.log('❌ User not found');
-            // Debug: Show available users
+
+            await ActivityLog.logUserAction(null, 'user_login_failed',
+                `Đăng nhập thất bại: Tài khoản ${username} không tồn tại`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent'),
+                        method: 'POST',
+                        endpoint: '/auth/login',
+                        responseStatus: 401
+                    },
+                    metadata: { username }
+                });
+
             const availableUsers = await User.find({}, 'email fullName').lean();
             console.log('📋 Available users:', availableUsers);
 
@@ -43,55 +55,71 @@ const login = async (req, res) => {
 
         console.log('✅ User found:', { email: user.email, fullName: user.fullName });
 
-        // Kiểm tra status
         if (user.status !== 'active') {
             console.log('❌ User status:', user.status);
+
+            await ActivityLog.logUserAction(user._id, 'user_login_failed',
+                `Đăng nhập thất bại: Tài khoản bị ${user.status}`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent'),
+                        method: 'POST',
+                        endpoint: '/auth/login',
+                        responseStatus: 401
+                    },
+                    metadata: { status: user.status }
+                });
+
             return res.status(401).json({
                 success: false,
                 message: 'Tài khoản đã bị khóa hoặc vô hiệu hóa'
             });
         }
 
-        // Kiểm tra password
+        if (user.isLocked) {
+            await ActivityLog.logUserAction(user._id, 'user_login_failed',
+                `Đăng nhập thất bại: Tài khoản bị khóa`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent'),
+                        method: 'POST',
+                        endpoint: '/auth/login',
+                        responseStatus: 401
+                    },
+                    metadata: { lockUntil: user.lockUntil }
+                });
+
+            return res.status(401).json({
+                success: false,
+                message: 'Tài khoản tạm thời bị khóa do đăng nhập sai quá nhiều lần'
+            });
+        }
+
         console.log('🔑 Checking password...');
         console.log('🔑 Stored password starts with:', user.password?.substring(0, 10) + '...');
 
-        let isPasswordValid = false;
-
-        try {
-            // Kiểm tra xem có phải bcrypt hash không
-            const isBcryptHash = user.password && user.password.startsWith('$2');
-            console.log('🔑 Is bcrypt hash:', isBcryptHash);
-
-            if (isBcryptHash) {
-                // Sử dụng bcrypt compare
-                isPasswordValid = await bcrypt.compare(password, user.password);
-                console.log('🔑 Bcrypt comparison result:', isPasswordValid);
-            } else {
-                // Fallback: plaintext comparison
-                isPasswordValid = (password === user.password);
-                console.log('🔑 Plaintext comparison result:', isPasswordValid);
-
-                // Nếu match và là plaintext, upgrade sang bcrypt
-                if (isPasswordValid) {
-                    console.log('🔄 Upgrading plaintext password to bcrypt...');
-                    const salt = await bcrypt.genSalt(10);
-                    const hashedPassword = await bcrypt.hash(password, salt);
-
-                    await User.updateOne(
-                        { _id: user._id },
-                        { password: hashedPassword }
-                    );
-                    console.log('✅ Password upgraded successfully');
-                }
-            }
-        } catch (passwordError) {
-            console.error('❌ Password check error:', passwordError);
-            isPasswordValid = false;
-        }
+        const isPasswordValid = await user.comparePassword(password);
 
         if (!isPasswordValid) {
             console.log('❌ Invalid password');
+
+            await user.incFailedLoginAttempts();
+
+            await ActivityLog.logUserAction(user._id, 'user_login_failed',
+                `Đăng nhập thất bại: Mật khẩu không chính xác`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent'),
+                        method: 'POST',
+                        endpoint: '/auth/login',
+                        responseStatus: 401
+                    },
+                    metadata: {
+                        failedAttempts: user.failedLoginAttempts + 1,
+                        username
+                    }
+                });
+
             return res.status(401).json({
                 success: false,
                 message: 'Mật khẩu không chính xác'
@@ -100,16 +128,25 @@ const login = async (req, res) => {
 
         console.log('✅ Login successful');
 
-        // Cập nhật lastLogin
-        await User.updateOne(
-            { _id: user._id },
-            { lastLogin: new Date() }
-        );
+        await user.recordLogin();
 
-        // Tạo token
+        await ActivityLog.logUserAction(user._id, 'user_login',
+            `Đăng nhập thành công`, {
+                requestInfo: {
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent'),
+                    method: 'POST',
+                    endpoint: '/auth/login',
+                    responseStatus: 200
+                },
+                metadata: {
+                    role: user.role,
+                    department: user.department
+                }
+            });
+
         const token = generateToken(user._id);
 
-        // Tạo response (loại bỏ sensitive data)
         const userResponse = {
             _id: user._id,
             email: user.email,
@@ -119,8 +156,12 @@ const login = async (req, res) => {
             department: user.department,
             position: user.position,
             phoneNumber: user.phoneNumber,
+            academicYearAccess: user.academicYearAccess,
+            programAccess: user.programAccess,
+            organizationAccess: user.organizationAccess,
             standardAccess: user.standardAccess,
             criteriaAccess: user.criteriaAccess,
+            notificationSettings: user.notificationSettings,
             lastLogin: new Date(),
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
@@ -137,6 +178,15 @@ const login = async (req, res) => {
 
     } catch (error) {
         console.error('💥 Login error:', error);
+        await ActivityLog.logError(null, 'user_login', error, {
+            requestInfo: {
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent'),
+                method: 'POST',
+                endpoint: '/auth/login'
+            },
+            metadata: { email: req.body?.email }
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi đăng nhập'
@@ -146,12 +196,23 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
     try {
+        await ActivityLog.logUserAction(req.user?.id, 'user_logout',
+            `Đăng xuất`, {
+                requestInfo: {
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent'),
+                    method: 'POST',
+                    endpoint: '/auth/logout'
+                }
+            });
+
         res.json({
             success: true,
             message: 'Đăng xuất thành công'
         });
     } catch (error) {
         console.error('Logout error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_logout', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi đăng xuất'
@@ -174,33 +235,51 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email: username });
 
         if (!user) {
+            await ActivityLog.logUserAction(null, 'user_password_reset_request',
+                `Yêu cầu reset password thất bại: Email ${username} không tồn tại`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent')
+                    },
+                    metadata: { email: username }
+                });
+
             return res.status(404).json({
                 success: false,
                 message: 'Email không tồn tại trong hệ thống'
             });
         }
 
-        // Tạo reset token
         const resetToken = crypto.randomBytes(20).toString('hex');
         const hashedToken = crypto
             .createHash('sha256')
             .update(resetToken)
             .digest('hex');
 
-        // Cập nhật user với reset token
         await User.updateOne(
             { _id: user._id },
             {
                 resetPasswordToken: hashedToken,
-                resetPasswordExpires: Date.now() + 10 * 60 * 1000 // 10 phút
+                resetPasswordExpires: Date.now() + 10 * 60 * 1000
             }
         );
 
-        // Gửi email reset
         const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
         const fullEmail = `${user.email}@cmc.edu.vn`;
 
         await emailService.sendPasswordResetEmail(fullEmail, user.fullName, resetUrl);
+
+        await ActivityLog.logUserAction(user._id, 'user_password_reset_request',
+            `Yêu cầu reset password thành công`, {
+                requestInfo: {
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                },
+                metadata: {
+                    email: fullEmail,
+                    tokenExpires: new Date(Date.now() + 10 * 60 * 1000)
+                }
+            });
 
         res.json({
             success: true,
@@ -209,6 +288,9 @@ const forgotPassword = async (req, res) => {
 
     } catch (error) {
         console.error('Forgot password error:', error);
+        await ActivityLog.logError(null, 'user_password_reset_request', error, {
+            metadata: { email: req.body?.email }
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi xử lý quên mật khẩu'
@@ -235,30 +317,35 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // Hash token để so sánh
         const hashedToken = crypto
             .createHash('sha256')
             .update(token)
             .digest('hex');
 
-        // Tìm user với token hợp lệ và chưa hết hạn
         const user = await User.findOne({
             resetPasswordToken: hashedToken,
             resetPasswordExpires: { $gt: Date.now() }
         });
 
         if (!user) {
+            await ActivityLog.logUserAction(null, 'user_password_reset',
+                `Reset password thất bại: Token không hợp lệ hoặc hết hạn`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent')
+                    },
+                    metadata: { token: token.substring(0, 10) + '...' }
+                });
+
             return res.status(400).json({
                 success: false,
                 message: 'Token không hợp lệ hoặc đã hết hạn'
             });
         }
 
-        // Hash password mới
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-        // Cập nhật password và xóa reset token
         await User.updateOne(
             { _id: user._id },
             {
@@ -270,6 +357,14 @@ const resetPassword = async (req, res) => {
             }
         );
 
+        await ActivityLog.logUserAction(user._id, 'user_password_reset',
+            `Reset password thành công`, {
+                requestInfo: {
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                }
+            });
+
         res.json({
             success: true,
             message: 'Mật khẩu đã được thay đổi thành công'
@@ -277,6 +372,7 @@ const resetPassword = async (req, res) => {
 
     } catch (error) {
         console.error('Reset password error:', error);
+        await ActivityLog.logError(null, 'user_password_reset', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi reset mật khẩu'
@@ -311,31 +407,39 @@ const changePassword = async (req, res) => {
             });
         }
 
-        // Kiểm tra mật khẩu hiện tại
-        let isCurrentPasswordValid = false;
-        const isBcryptHash = user.password && user.password.startsWith('$2');
-
-        if (isBcryptHash) {
-            isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-        } else {
-            isCurrentPasswordValid = (currentPassword === user.password);
-        }
+        const isCurrentPasswordValid = await user.comparePassword(currentPassword);
 
         if (!isCurrentPasswordValid) {
+            await ActivityLog.logUserAction(userId, 'user_password_change',
+                `Đổi mật khẩu thất bại: Mật khẩu cũ không chính xác`, {
+                    result: 'failure',
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent')
+                    }
+                });
+
             return res.status(400).json({
                 success: false,
                 message: 'Mật khẩu hiện tại không chính xác'
             });
         }
 
-        // Hash mật khẩu mới
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
         await User.updateOne(
             { _id: user._id },
             { password: hashedPassword }
         );
+
+        await ActivityLog.logUserAction(userId, 'user_password_change',
+            `Đổi mật khẩu thành công`, {
+                requestInfo: {
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                }
+            });
 
         res.json({
             success: true,
@@ -344,6 +448,7 @@ const changePassword = async (req, res) => {
 
     } catch (error) {
         console.error('Change password error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_password_change', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi thay đổi mật khẩu'
@@ -354,6 +459,9 @@ const changePassword = async (req, res) => {
 const getCurrentUser = async (req, res) => {
     try {
         const user = await User.findById(req.user.id)
+            .populate('academicYearAccess', 'name code')
+            .populate('programAccess', 'name code')
+            .populate('organizationAccess', 'name code')
             .populate('standardAccess', 'name code')
             .populate('criteriaAccess', 'name code')
             .select('-password -resetPasswordToken -resetPasswordExpires');
@@ -372,6 +480,7 @@ const getCurrentUser = async (req, res) => {
 
     } catch (error) {
         console.error('Get current user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_profile_view', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thông tin người dùng'
@@ -382,20 +491,9 @@ const getCurrentUser = async (req, res) => {
 const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { fullName, phoneNumber, department, position } = req.body;
+        const { fullName, phoneNumber, department, position, notificationSettings } = req.body;
 
-        const updateData = {};
-        if (fullName) updateData.fullName = fullName.trim();
-        if (phoneNumber) updateData.phoneNumber = phoneNumber.trim();
-        if (department) updateData.department = department.trim();
-        if (position) updateData.position = position.trim();
-
-        const user = await User.findByIdAndUpdate(
-            userId,
-            updateData,
-            { new: true, runValidators: true }
-        ).select('-password -resetPasswordToken -resetPasswordExpires');
-
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -403,14 +501,46 @@ const updateProfile = async (req, res) => {
             });
         }
 
+        const oldData = {
+            fullName: user.fullName,
+            phoneNumber: user.phoneNumber,
+            department: user.department,
+            position: user.position
+        };
+
+        const updateData = {};
+        if (fullName) updateData.fullName = fullName.trim();
+        if (phoneNumber) updateData.phoneNumber = phoneNumber.trim();
+        if (department) updateData.department = department.trim();
+        if (position) updateData.position = position.trim();
+        if (notificationSettings) updateData.notificationSettings = notificationSettings;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true, runValidators: true }
+        ).select('-password -resetPasswordToken -resetPasswordExpires');
+
+        await ActivityLog.logUserAction(userId, 'user_profile_update',
+            `Cập nhật thông tin cá nhân`, {
+                oldData,
+                newData: {
+                    fullName: updatedUser.fullName,
+                    phoneNumber: updatedUser.phoneNumber,
+                    department: updatedUser.department,
+                    position: updatedUser.position
+                }
+            });
+
         res.json({
             success: true,
             message: 'Cập nhật thông tin thành công',
-            data: user
+            data: updatedUser
         });
 
     } catch (error) {
         console.error('Update profile error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_profile_update', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật thông tin'
