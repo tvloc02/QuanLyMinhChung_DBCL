@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 
 const getUsers = async (req, res) => {
     try {
@@ -33,6 +34,9 @@ const getUsers = async (req, res) => {
 
         const [users, total] = await Promise.all([
             User.find(query)
+                .populate('academicYearAccess', 'name code')
+                .populate('programAccess', 'name code')
+                .populate('organizationAccess', 'name code')
                 .populate('standardAccess', 'name code')
                 .populate('criteriaAccess', 'name code')
                 .select('-password -resetPasswordToken -resetPasswordExpires')
@@ -58,6 +62,7 @@ const getUsers = async (req, res) => {
 
     } catch (error) {
         console.error('Get users error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_list', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách người dùng'
@@ -70,6 +75,9 @@ const getUserById = async (req, res) => {
         const { id } = req.params;
 
         const user = await User.findById(id)
+            .populate('academicYearAccess', 'name code')
+            .populate('programAccess', 'name code')
+            .populate('organizationAccess', 'name code')
             .populate('standardAccess', 'name code')
             .populate('criteriaAccess', 'name code')
             .select('-password -resetPasswordToken -resetPasswordExpires');
@@ -81,6 +89,13 @@ const getUserById = async (req, res) => {
             });
         }
 
+        await ActivityLog.logUserAction(req.user?.id, 'user_view',
+            `Xem thông tin người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName
+            });
+
         res.json({
             success: true,
             data: user
@@ -88,6 +103,9 @@ const getUserById = async (req, res) => {
 
     } catch (error) {
         console.error('Get user by ID error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_view', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thông tin người dùng'
@@ -104,9 +122,22 @@ const createUser = async (req, res) => {
             role,
             department,
             position,
+            expertise,
+            academicYearAccess,
+            programAccess,
+            organizationAccess,
             standardAccess,
-            criteriaAccess
+            criteriaAccess,
+            notificationSettings
         } = req.body;
+
+        const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+        if (role && !validRoles.includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validRoles.join(', ')}`
+            });
+        }
 
         const cleanEmail = email.replace('@cmcu.edu.vn', '').toLowerCase();
 
@@ -128,23 +159,52 @@ const createUser = async (req, res) => {
             fullName: fullName.trim(),
             password: defaultPassword,
             phoneNumber: phoneNumber?.trim(),
-            role,
+            role: role || 'expert',
             department: department?.trim(),
             position: position?.trim(),
+            expertise: expertise || [],
+            academicYearAccess: academicYearAccess || [],
+            programAccess: programAccess || [],
+            organizationAccess: organizationAccess || [],
             standardAccess: standardAccess || [],
             criteriaAccess: criteriaAccess || [],
-            status: 'active'
+            notificationSettings: notificationSettings || {
+                email: true,
+                inApp: true,
+                assignment: true,
+                evaluation: true,
+                deadline: true
+            },
+            status: 'active',
+            mustChangePassword: true,
+            createdBy: req.user.id,
+            updatedBy: req.user.id
         });
 
         await user.save();
 
         await user.populate([
+            { path: 'academicYearAccess', select: 'name code' },
+            { path: 'programAccess', select: 'name code' },
+            { path: 'organizationAccess', select: 'name code' },
             { path: 'standardAccess', select: 'name code' },
             { path: 'criteriaAccess', select: 'name code' }
         ]);
 
         const userResponse = user.toObject();
         delete userResponse.password;
+
+        await ActivityLog.logCriticalAction(req.user.id, 'user_create',
+            `Tạo người dùng mới: ${user.fullName} (${user.email})`, {
+                targetType: 'User',
+                targetId: user._id,
+                targetName: user.fullName,
+                metadata: {
+                    role: user.role,
+                    department: user.department,
+                    hasDefaultPassword: true
+                }
+            });
 
         res.status(201).json({
             success: true,
@@ -157,6 +217,9 @@ const createUser = async (req, res) => {
 
     } catch (error) {
         console.error('Create user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_create', error, {
+            metadata: { email: req.body?.email, fullName: req.body?.fullName }
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi tạo người dùng'
@@ -177,16 +240,43 @@ const updateUser = async (req, res) => {
             });
         }
 
-        const allowedFields = ['fullName', 'phoneNumber', 'role', 'department', 'position'];
+        if (updateData.role) {
+            const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+            if (!validRoles.includes(updateData.role)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validRoles.join(', ')}`
+                });
+            }
+        }
+
+        const oldData = {
+            fullName: user.fullName,
+            role: user.role,
+            department: user.department,
+            position: user.position,
+            phoneNumber: user.phoneNumber
+        };
+
+        const allowedFields = [
+            'fullName', 'phoneNumber', 'role', 'department', 'position', 'expertise',
+            'academicYearAccess', 'programAccess', 'organizationAccess',
+            'standardAccess', 'criteriaAccess', 'notificationSettings'
+        ];
+
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
                 user[field] = updateData[field];
             }
         });
 
+        user.updatedBy = req.user.id;
         await user.save();
 
         await user.populate([
+            { path: 'academicYearAccess', select: 'name code' },
+            { path: 'programAccess', select: 'name code' },
+            { path: 'organizationAccess', select: 'name code' },
             { path: 'standardAccess', select: 'name code' },
             { path: 'criteriaAccess', select: 'name code' }
         ]);
@@ -196,6 +286,21 @@ const updateUser = async (req, res) => {
         delete userResponse.resetPasswordToken;
         delete userResponse.resetPasswordExpires;
 
+        await ActivityLog.logUserAction(req.user.id, 'user_update',
+            `Cập nhật người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                oldData,
+                newData: {
+                    fullName: user.fullName,
+                    role: user.role,
+                    department: user.department,
+                    position: user.position,
+                    phoneNumber: user.phoneNumber
+                }
+            });
+
         res.json({
             success: true,
             message: 'Cập nhật người dùng thành công',
@@ -204,6 +309,9 @@ const updateUser = async (req, res) => {
 
     } catch (error) {
         console.error('Update user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_update', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật người dùng'
@@ -232,6 +340,17 @@ const deleteUser = async (req, res) => {
 
         await User.findByIdAndDelete(id);
 
+        await ActivityLog.logCriticalAction(req.user.id, 'user_delete',
+            `Xóa người dùng: ${user.fullName} (${user.email})`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                metadata: {
+                    deletedRole: user.role,
+                    deletedDepartment: user.department
+                }
+            });
+
         res.json({
             success: true,
             message: 'Xóa người dùng thành công'
@@ -239,6 +358,9 @@ const deleteUser = async (req, res) => {
 
     } catch (error) {
         console.error('Delete user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_delete', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi xóa người dùng'
@@ -260,7 +382,16 @@ const resetUserPassword = async (req, res) => {
 
         const newPassword = User.generateDefaultPassword(user.email);
         user.password = newPassword;
+        user.mustChangePassword = true;
+        user.updatedBy = req.user.id;
         await user.save();
+
+        await ActivityLog.logCriticalAction(req.user.id, 'user_password_reset',
+            `Reset mật khẩu cho người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName
+            });
 
         res.json({
             success: true,
@@ -272,6 +403,9 @@ const resetUserPassword = async (req, res) => {
 
     } catch (error) {
         console.error('Reset user password error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_password_reset', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi reset mật khẩu'
@@ -283,6 +417,14 @@ const updateUserStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+
+        const validStatuses = ['active', 'inactive', 'suspended', 'pending'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}`
+            });
+        }
 
         if (id === req.user.id && status !== 'active') {
             return res.status(400).json({
@@ -299,8 +441,20 @@ const updateUserStatus = async (req, res) => {
             });
         }
 
+        const oldStatus = user.status;
         user.status = status;
+        user.updatedBy = req.user.id;
         await user.save();
+
+        await ActivityLog.logUserAction(req.user.id, 'user_status_change',
+            `Thay đổi trạng thái người dùng ${user.fullName}: ${oldStatus} → ${status}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                oldData: { status: oldStatus },
+                newData: { status },
+                severity: status === 'suspended' ? 'high' : 'medium'
+            });
 
         res.json({
             success: true,
@@ -310,6 +464,9 @@ const updateUserStatus = async (req, res) => {
 
     } catch (error) {
         console.error('Update user status error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_status_change', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật trạng thái'
@@ -320,7 +477,13 @@ const updateUserStatus = async (req, res) => {
 const updateUserPermissions = async (req, res) => {
     try {
         const { id } = req.params;
-        const { standardAccess, criteriaAccess } = req.body;
+        const {
+            academicYearAccess,
+            programAccess,
+            organizationAccess,
+            standardAccess,
+            criteriaAccess
+        } = req.body;
 
         const user = await User.findById(id);
         if (!user) {
@@ -330,24 +493,56 @@ const updateUserPermissions = async (req, res) => {
             });
         }
 
-        if (standardAccess !== undefined) {
-            user.standardAccess = standardAccess;
-        }
-        if (criteriaAccess !== undefined) {
-            user.criteriaAccess = criteriaAccess;
-        }
+        const oldPermissions = {
+            academicYearAccess: user.academicYearAccess?.length || 0,
+            programAccess: user.programAccess?.length || 0,
+            organizationAccess: user.organizationAccess?.length || 0,
+            standardAccess: user.standardAccess?.length || 0,
+            criteriaAccess: user.criteriaAccess?.length || 0
+        };
 
+        if (academicYearAccess !== undefined) user.academicYearAccess = academicYearAccess;
+        if (programAccess !== undefined) user.programAccess = programAccess;
+        if (organizationAccess !== undefined) user.organizationAccess = organizationAccess;
+        if (standardAccess !== undefined) user.standardAccess = standardAccess;
+        if (criteriaAccess !== undefined) user.criteriaAccess = criteriaAccess;
+
+        user.updatedBy = req.user.id;
         await user.save();
 
         await user.populate([
+            { path: 'academicYearAccess', select: 'name code' },
+            { path: 'programAccess', select: 'name code' },
+            { path: 'organizationAccess', select: 'name code' },
             { path: 'standardAccess', select: 'name code' },
             { path: 'criteriaAccess', select: 'name code' }
         ]);
+
+        const newPermissions = {
+            academicYearAccess: user.academicYearAccess?.length || 0,
+            programAccess: user.programAccess?.length || 0,
+            organizationAccess: user.organizationAccess?.length || 0,
+            standardAccess: user.standardAccess?.length || 0,
+            criteriaAccess: user.criteriaAccess?.length || 0
+        };
+
+        await ActivityLog.logUserAction(req.user.id, 'user_permissions_update',
+            `Cập nhật quyền truy cập cho người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                oldData: oldPermissions,
+                newData: newPermissions,
+                severity: 'high'
+            });
 
         res.json({
             success: true,
             message: 'Cập nhật quyền truy cập thành công',
             data: {
+                academicYearAccess: user.academicYearAccess,
+                programAccess: user.programAccess,
+                organizationAccess: user.organizationAccess,
                 standardAccess: user.standardAccess,
                 criteriaAccess: user.criteriaAccess
             }
@@ -355,6 +550,9 @@ const updateUserPermissions = async (req, res) => {
 
     } catch (error) {
         console.error('Update user permissions error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_permissions_update', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật quyền truy cập'
@@ -378,8 +576,11 @@ const getUserStatistics = async (req, res) => {
                     managerUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'manager'] }, 1, 0] }
                     },
-                    staffUsers: {
-                        $sum: { $cond: [{ $eq: ['$role', 'staff'] }, 1, 0] }
+                    expertUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'expert'] }, 1, 0] }
+                    },
+                    advisorUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'advisor'] }, 1, 0] }
                     }
                 }
             }
@@ -390,8 +591,14 @@ const getUserStatistics = async (req, res) => {
             activeUsers: 0,
             adminUsers: 0,
             managerUsers: 0,
-            staffUsers: 0
+            expertUsers: 0,
+            advisorUsers: 0
         };
+
+        await ActivityLog.logUserAction(req.user?.id, 'user_statistics',
+            `Xem thống kê người dùng`, {
+                metadata: result
+            });
 
         res.json({
             success: true,
@@ -400,6 +607,7 @@ const getUserStatistics = async (req, res) => {
 
     } catch (error) {
         console.error('Get user statistics error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_statistics', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thống kê người dùng'
