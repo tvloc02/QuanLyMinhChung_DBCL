@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const programSchema = new mongoose.Schema({
-    // Thêm academicYearId
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear',
@@ -120,8 +119,7 @@ const programSchema = new mongoose.Schema({
     }
 });
 
-// Indexes - thêm academicYearId vào các index
-programSchema.index({ academicYearId: 1, code: 1 }, { unique: true }); // Unique trong cùng năm học
+programSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
 programSchema.index({ academicYearId: 1, status: 1 });
 programSchema.index({ academicYearId: 1, applicableYear: 1 });
 programSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
@@ -136,6 +134,20 @@ programSchema.pre('save', function(next) {
 programSchema.virtual('url').get(function() {
     return `/programs/${this._id}`;
 });
+
+programSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this.academicYearId,
+        action,
+        description,
+        targetType: 'Program',
+        targetId: this._id,
+        targetName: this.name,
+        ...additionalData
+    });
+};
 
 programSchema.methods.isInUse = async function() {
     const Standard = require('./Standard');
@@ -171,13 +183,58 @@ programSchema.statics.getStatistics = async function() {
     }, {});
 };
 
-// Static method để tìm theo năm học
 programSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
     return this.find({
         academicYearId,
         ...query
     });
 };
+
+programSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('program_create', this.createdBy,
+                `Tạo mới chương trình: ${this.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+programSchema.post('findOneAndUpdate', async function(result, next) {
+    if (result && result.updatedBy) {
+        try {
+            await result.addActivityLog('program_update', result.updatedBy,
+                `Cập nhật chương trình: ${result.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+programSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('program_delete', doc.updatedBy,
+                `Xóa chương trình: ${doc.name}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
 
 programSchema.set('toJSON', { virtuals: true });
 programSchema.set('toObject', { virtuals: true });
