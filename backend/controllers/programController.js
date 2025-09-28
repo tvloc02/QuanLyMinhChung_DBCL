@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Program } = require('../models/Program');
 
 const getPrograms = async (req, res) => {
@@ -12,13 +13,13 @@ const getPrograms = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
-        const academicYearId = req.academicYearId; // From middleware
+        const academicYearId = req.academicYearId;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId }; // Always filter by academic year
+        let query = { academicYearId };
 
         if (search) {
             query.$or = [
@@ -271,7 +272,6 @@ const deleteProgram = async (req, res) => {
             });
         }
 
-        // Check if program is in use
         const isInUse = await program.isInUse();
         if (isInUse) {
             return res.status(400).json({
@@ -320,7 +320,6 @@ const copyProgramToAnotherYear = async (req, res) => {
             });
         }
 
-        // Check if code exists in target year
         const existingProgram = await Program.findOne({
             code: newCode.toUpperCase(),
             academicYearId: targetAcademicYearId
@@ -381,7 +380,6 @@ const getProgramStatistics = async (req, res) => {
             return acc;
         }, {});
 
-        // Get total by type
         const typeStats = await Program.aggregate([
             { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
