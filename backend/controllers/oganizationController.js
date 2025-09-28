@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Organization } = require('../models/Program');
 
 const getOrganizations = async (req, res) => {
@@ -13,13 +14,13 @@ const getOrganizations = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
-        const academicYearId = req.academicYearId; // From middleware
+        const academicYearId = req.academicYearId;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId }; // Always filter by academic year
+        let query = { academicYearId };
 
         if (search) {
             query.$or = [
@@ -144,7 +145,6 @@ const createOrganization = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Check if code exists in this academic year
         const existingOrganization = await Organization.findOne({
             academicYearId,
             code: code.toUpperCase()
@@ -209,7 +209,6 @@ const updateOrganization = async (req, res) => {
             });
         }
 
-        // Check if code change conflicts
         if (updateData.code && updateData.code.toUpperCase() !== organization.code) {
             const existingOrganization = await Organization.findOne({
                 academicYearId,
@@ -224,7 +223,6 @@ const updateOrganization = async (req, res) => {
             }
         }
 
-        // Check if in use before major changes
         const isInUse = await organization.isInUse();
         if (isInUse && (updateData.code || updateData.level || updateData.type)) {
             return res.status(400).json({
@@ -233,7 +231,6 @@ const updateOrganization = async (req, res) => {
             });
         }
 
-        // Update allowed fields
         const allowedFields = [
             'name', 'description', 'level', 'type', 'website',
             'contactEmail', 'contactPhone', 'address', 'country', 'status'
@@ -285,7 +282,6 @@ const deleteOrganization = async (req, res) => {
             });
         }
 
-        // Check if in use
         const isInUse = await organization.isInUse();
         if (isInUse) {
             return res.status(400).json({
@@ -329,7 +325,6 @@ const getOrganizationStatistics = async (req, res) => {
             return acc;
         }, {});
 
-        // Get stats by level
         const levelStats = await Organization.aggregate([
             { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
@@ -340,7 +335,6 @@ const getOrganizationStatistics = async (req, res) => {
             }
         ]);
 
-        // Get stats by type
         const typeStats = await Organization.aggregate([
             { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
