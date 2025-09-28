@@ -19,7 +19,6 @@ const academicYearSchema = new mongoose.Schema({
         maxlength: [20, 'Mã năm học không được quá 20 ký tự'],
         validate: {
             validator: function(code) {
-                // Format: 2024-2025, 2025-2026
                 return /^\d{4}-\d{4}$/.test(code);
             },
             message: 'Mã năm học phải có định dạng YYYY-YYYY (VD: 2024-2025)'
@@ -67,7 +66,6 @@ const academicYearSchema = new mongoose.Schema({
         default: false
     },
 
-    // Cấu hình sao chép từ năm học khác
     copySettings: {
         programs: {
             type: Boolean,
@@ -91,7 +89,6 @@ const academicYearSchema = new mongoose.Schema({
         }
     },
 
-    // Thống kê
     metadata: {
         totalPrograms: {
             type: Number,
@@ -143,14 +140,12 @@ const academicYearSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
 academicYearSchema.index({ code: 1 });
 academicYearSchema.index({ startYear: 1, endYear: 1 });
 academicYearSchema.index({ status: 1 });
 academicYearSchema.index({ isCurrent: 1 });
 academicYearSchema.index({ name: 'text', description: 'text' });
 
-// Validation
 academicYearSchema.pre('validate', function(next) {
     if (this.endYear <= this.startYear) {
         next(new Error('Năm kết thúc phải lớn hơn năm bắt đầu'));
@@ -160,7 +155,6 @@ academicYearSchema.pre('validate', function(next) {
         next(new Error('Ngày kết thúc phải sau ngày bắt đầu'));
     }
 
-    // Tự động tạo code nếu chưa có
     if (!this.code && this.startYear && this.endYear) {
         this.code = `${this.startYear}-${this.endYear}`;
     }
@@ -175,10 +169,8 @@ academicYearSchema.pre('save', function(next) {
     next();
 });
 
-// Ensure only one current academic year
 academicYearSchema.pre('save', async function(next) {
     if (this.isCurrent && this.isModified('isCurrent')) {
-        // Remove current flag from other years
         await this.constructor.updateMany(
             { _id: { $ne: this._id } },
             { isCurrent: false }
@@ -187,7 +179,6 @@ academicYearSchema.pre('save', async function(next) {
     next();
 });
 
-// Virtual fields
 academicYearSchema.virtual('displayName').get(function() {
     return `${this.name} (${this.code})`;
 });
@@ -210,9 +201,23 @@ academicYearSchema.virtual('url').get(function() {
     return `/academic-years/${this._id}`;
 });
 
-// Methods
-academicYearSchema.methods.activate = async function() {
-    // Deactivate all other academic years
+academicYearSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this._id,
+        action,
+        description,
+        targetType: 'AcademicYear',
+        targetId: this._id,
+        targetName: this.displayName,
+        ...additionalData
+    });
+};
+
+academicYearSchema.methods.activate = async function(userId) {
+    const oldCurrent = await this.constructor.getCurrentYear();
+
     await this.constructor.updateMany(
         { _id: { $ne: this._id } },
         { isCurrent: false }
@@ -220,7 +225,19 @@ academicYearSchema.methods.activate = async function() {
 
     this.isCurrent = true;
     this.status = 'active';
-    return this.save();
+    this.updatedBy = userId;
+
+    await this.save();
+
+    await this.addActivityLog('academic_year_activate', userId,
+        `Kích hoạt năm học ${this.displayName}`, {
+            severity: 'high',
+            isAuditRequired: true,
+            oldData: { currentYear: oldCurrent?.displayName },
+            newData: { currentYear: this.displayName }
+        });
+
+    return this;
 };
 
 academicYearSchema.methods.canDelete = async function() {
@@ -235,7 +252,7 @@ academicYearSchema.methods.canDelete = async function() {
     return programCount === 0 && evidenceCount === 0;
 };
 
-academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings = {}) {
+academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings = {}, userId) {
     const Program = require('./Program');
     const { Organization, Standard, Criteria } = require('./Program');
     const Evidence = require('./Evidence');
@@ -251,7 +268,6 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
     };
 
     try {
-        // Copy Programs
         if (copySettings.programs) {
             const programs = await Program.find({ academicYearId: sourceYearId });
             for (const program of programs) {
@@ -260,6 +276,8 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
                     _id: undefined,
                     academicYearId: this._id,
                     status: 'draft',
+                    createdBy: userId,
+                    updatedBy: userId,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
@@ -268,14 +286,16 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             }
         }
 
-        // Copy Organizations
         if (copySettings.organizations) {
+            const Organization = require('./Organization');
             const organizations = await Organization.find({ academicYearId: sourceYearId });
             for (const org of organizations) {
                 const newOrg = new Organization({
                     ...org.toObject(),
                     _id: undefined,
                     academicYearId: this._id,
+                    createdBy: userId,
+                    updatedBy: userId,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
@@ -284,8 +304,8 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             }
         }
 
-        // Copy Standards
         if (copySettings.standards) {
+            const Standard = require('./Standard');
             const standards = await Standard.find({ academicYearId: sourceYearId });
             for (const standard of standards) {
                 const newStandard = new Standard({
@@ -293,6 +313,8 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
                     _id: undefined,
                     academicYearId: this._id,
                     status: 'draft',
+                    createdBy: userId,
+                    updatedBy: userId,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
@@ -301,8 +323,8 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             }
         }
 
-        // Copy Criteria
         if (copySettings.criteria) {
+            const Criteria = require('./Criteria');
             const criterias = await Criteria.find({ academicYearId: sourceYearId });
             for (const criteria of criterias) {
                 const newCriteria = new Criteria({
@@ -310,6 +332,8 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
                     _id: undefined,
                     academicYearId: this._id,
                     status: 'draft',
+                    createdBy: userId,
+                    updatedBy: userId,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
@@ -318,7 +342,6 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             }
         }
 
-        // Copy Evidence Templates (without files)
         if (copySettings.evidenceTemplates) {
             const evidences = await Evidence.find({
                 academicYearId: sourceYearId,
@@ -330,8 +353,10 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
                     ...evidence.toObject(),
                     _id: undefined,
                     academicYearId: this._id,
-                    files: [], // Don't copy files
+                    files: [],
                     status: 'draft',
+                    createdBy: userId,
+                    updatedBy: userId,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
@@ -340,15 +365,30 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             }
         }
 
+        await this.addActivityLog('academic_year_copy', userId,
+            `Sao chép dữ liệu từ năm học khác`, {
+                severity: 'high',
+                isAuditRequired: true,
+                metadata: { sourceYearId, results }
+            });
+
         return results;
 
     } catch (error) {
         results.errors.push(error.message);
+
+        await this.addActivityLog('academic_year_copy', userId,
+            `Lỗi khi sao chép dữ liệu: ${error.message}`, {
+                severity: 'critical',
+                result: 'failure',
+                isAuditRequired: true,
+                error: { message: error.message }
+            });
+
         return results;
     }
 };
 
-// Static methods
 academicYearSchema.statics.getCurrentYear = function() {
     return this.findOne({ isCurrent: true });
 };
@@ -363,12 +403,10 @@ academicYearSchema.statics.getActiveYear = function() {
 };
 
 academicYearSchema.statics.createYear = async function(yearData, userId) {
-    // Auto-generate code if not provided
     if (!yearData.code && yearData.startYear && yearData.endYear) {
         yearData.code = `${yearData.startYear}-${yearData.endYear}`;
     }
 
-    // Auto-generate name if not provided
     if (!yearData.name && yearData.startYear && yearData.endYear) {
         yearData.name = `Năm học ${yearData.startYear}-${yearData.endYear}`;
     }
@@ -381,6 +419,37 @@ academicYearSchema.statics.createYear = async function(yearData, userId) {
 
     return academicYear.save();
 };
+
+academicYearSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('academic_year_create', this.createdBy,
+                `Tạo mới năm học: ${this.displayName}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+academicYearSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('academic_year_delete', doc.updatedBy,
+                `Xóa năm học: ${doc.displayName}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
 
 academicYearSchema.set('toJSON', { virtuals: true });
 academicYearSchema.set('toObject', { virtuals: true });
