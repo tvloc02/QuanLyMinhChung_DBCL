@@ -1,8 +1,12 @@
 const AcademicYear = require('../models/AcademicYear');
-const { Program, Organization, Standard, Criteria } = require('../models/Program');
+const ActivityLog = require('../models/ActivityLog');
+const Program = require('../models/Program');
+const Organization = require('../models/Organization');
+const Standard = require('../models/Standard');
+const Criteria = require('../models/Criteria');
 const Evidence = require('../models/Evidence');
+const mongoose = require('mongoose');
 
-// Get all academic years
 const getAcademicYears = async (req, res) => {
     try {
         const {
@@ -59,6 +63,7 @@ const getAcademicYears = async (req, res) => {
 
     } catch (error) {
         console.error('Get academic years error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_list', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách năm học'
@@ -66,7 +71,6 @@ const getAcademicYears = async (req, res) => {
     }
 };
 
-// Get all academic years for dropdown
 const getAllAcademicYears = async (req, res) => {
     try {
         const academicYears = await AcademicYear.find({
@@ -82,6 +86,7 @@ const getAllAcademicYears = async (req, res) => {
 
     } catch (error) {
         console.error('Get all academic years error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_list_all', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách năm học'
@@ -89,7 +94,6 @@ const getAllAcademicYears = async (req, res) => {
     }
 };
 
-// Get academic year by ID
 const getAcademicYearById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -105,6 +109,13 @@ const getAcademicYearById = async (req, res) => {
             });
         }
 
+        await ActivityLog.logUserAction(req.user?.id, 'academic_year_view',
+            `Xem thông tin năm học: ${academicYear.displayName}`, {
+                targetType: 'AcademicYear',
+                targetId: id,
+                targetName: academicYear.displayName
+            });
+
         res.json({
             success: true,
             data: academicYear
@@ -112,6 +123,9 @@ const getAcademicYearById = async (req, res) => {
 
     } catch (error) {
         console.error('Get academic year by ID error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_view', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thông tin năm học'
@@ -119,7 +133,6 @@ const getAcademicYearById = async (req, res) => {
     }
 };
 
-// Get current academic year
 const getCurrentAcademicYear = async (req, res) => {
     try {
         const currentYear = await AcademicYear.getCurrentYear();
@@ -138,6 +151,7 @@ const getCurrentAcademicYear = async (req, res) => {
 
     } catch (error) {
         console.error('Get current academic year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_current', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy năm học hiện tại'
@@ -145,7 +159,6 @@ const getCurrentAcademicYear = async (req, res) => {
     }
 };
 
-// Create academic year
 const createAcademicYear = async (req, res) => {
     try {
         const {
@@ -159,7 +172,6 @@ const createAcademicYear = async (req, res) => {
             copySettings
         } = req.body;
 
-        // Check if academic year already exists
         const code = `${startYear}-${endYear}`;
         const existingYear = await AcademicYear.findOne({ code });
 
@@ -198,6 +210,9 @@ const createAcademicYear = async (req, res) => {
 
     } catch (error) {
         console.error('Create academic year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_create', error, {
+            metadata: req.body
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi tạo năm học'
@@ -205,7 +220,6 @@ const createAcademicYear = async (req, res) => {
     }
 };
 
-// Update academic year
 const updateAcademicYear = async (req, res) => {
     try {
         const { id } = req.params;
@@ -219,7 +233,6 @@ const updateAcademicYear = async (req, res) => {
             });
         }
 
-        // Check if code change conflicts with existing year
         if (updateData.code && updateData.code !== academicYear.code) {
             const existingYear = await AcademicYear.findOne({
                 code: updateData.code,
@@ -233,7 +246,12 @@ const updateAcademicYear = async (req, res) => {
             }
         }
 
-        // Update fields
+        const oldData = {
+            name: academicYear.name,
+            code: academicYear.code,
+            status: academicYear.status
+        };
+
         Object.assign(academicYear, updateData);
         academicYear.updatedBy = req.user.id;
 
@@ -244,6 +262,19 @@ const updateAcademicYear = async (req, res) => {
             { path: 'updatedBy', select: 'fullName email' }
         ]);
 
+        await ActivityLog.logUserAction(req.user.id, 'academic_year_update',
+            `Cập nhật năm học: ${academicYear.displayName}`, {
+                targetType: 'AcademicYear',
+                targetId: id,
+                targetName: academicYear.displayName,
+                oldData,
+                newData: {
+                    name: academicYear.name,
+                    code: academicYear.code,
+                    status: academicYear.status
+                }
+            });
+
         res.json({
             success: true,
             message: 'Cập nhật năm học thành công',
@@ -252,6 +283,10 @@ const updateAcademicYear = async (req, res) => {
 
     } catch (error) {
         console.error('Update academic year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_update', error, {
+            targetId: req.params.id,
+            metadata: req.body
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật năm học'
@@ -259,7 +294,6 @@ const updateAcademicYear = async (req, res) => {
     }
 };
 
-// Delete academic year
 const deleteAcademicYear = async (req, res) => {
     try {
         const { id } = req.params;
@@ -272,7 +306,6 @@ const deleteAcademicYear = async (req, res) => {
             });
         }
 
-        // Check if can delete
         const canDelete = await academicYear.canDelete();
         if (!canDelete) {
             return res.status(400).json({
@@ -288,7 +321,17 @@ const deleteAcademicYear = async (req, res) => {
             });
         }
 
+        academicYear.updatedBy = req.user.id;
+        await academicYear.save();
+
         await AcademicYear.findByIdAndDelete(id);
+
+        await ActivityLog.logCriticalAction(req.user.id, 'academic_year_delete',
+            `Xóa năm học: ${academicYear.displayName}`, {
+                targetType: 'AcademicYear',
+                targetId: id,
+                targetName: academicYear.displayName
+            });
 
         res.json({
             success: true,
@@ -297,6 +340,9 @@ const deleteAcademicYear = async (req, res) => {
 
     } catch (error) {
         console.error('Delete academic year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_delete', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi xóa năm học'
@@ -304,7 +350,6 @@ const deleteAcademicYear = async (req, res) => {
     }
 };
 
-// Set current academic year
 const setCurrentAcademicYear = async (req, res) => {
     try {
         const { id } = req.params;
@@ -317,7 +362,7 @@ const setCurrentAcademicYear = async (req, res) => {
             });
         }
 
-        await academicYear.activate();
+        await academicYear.activate(req.user.id);
 
         res.json({
             success: true,
@@ -327,6 +372,9 @@ const setCurrentAcademicYear = async (req, res) => {
 
     } catch (error) {
         console.error('Set current academic year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_activate', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi đặt năm học hiện tại'
@@ -334,7 +382,6 @@ const setCurrentAcademicYear = async (req, res) => {
     }
 };
 
-// Copy data from another academic year
 const copyDataFromYear = async (req, res) => {
     try {
         const { id } = req.params;
@@ -366,7 +413,7 @@ const copyDataFromYear = async (req, res) => {
             });
         }
 
-        const results = await targetYear.copyDataFrom(sourceYearId, copySettings);
+        const results = await targetYear.copyDataFrom(sourceYearId, copySettings, req.user.id);
 
         res.json({
             success: true,
@@ -386,6 +433,10 @@ const copyDataFromYear = async (req, res) => {
 
     } catch (error) {
         console.error('Copy data from year error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_copy', error, {
+            targetId: req.params.id,
+            metadata: req.body
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi sao chép dữ liệu'
@@ -393,7 +444,6 @@ const copyDataFromYear = async (req, res) => {
     }
 };
 
-// Get academic year statistics
 const getAcademicYearStatistics = async (req, res) => {
     try {
         const { id } = req.params;
@@ -428,7 +478,6 @@ const getAcademicYearStatistics = async (req, res) => {
             ])
         };
 
-        // Update metadata
         academicYear.metadata = {
             ...academicYear.metadata,
             totalPrograms: programs,
@@ -439,6 +488,13 @@ const getAcademicYearStatistics = async (req, res) => {
 
         await academicYear.save();
 
+        await ActivityLog.logUserAction(req.user?.id, 'academic_year_statistics',
+            `Xem thống kê năm học: ${academicYear.displayName}`, {
+                targetType: 'AcademicYear',
+                targetId: id,
+                targetName: academicYear.displayName
+            });
+
         res.json({
             success: true,
             data: stats
@@ -446,6 +502,9 @@ const getAcademicYearStatistics = async (req, res) => {
 
     } catch (error) {
         console.error('Get academic year statistics error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_statistics', error, {
+            targetId: req.params.id
+        });
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thống kê năm học'
@@ -453,7 +512,6 @@ const getAcademicYearStatistics = async (req, res) => {
     }
 };
 
-// Get years available for copying
 const getAvailableYearsForCopy = async (req, res) => {
     try {
         const { id } = req.params;
@@ -472,6 +530,7 @@ const getAvailableYearsForCopy = async (req, res) => {
 
     } catch (error) {
         console.error('Get available years for copy error:', error);
+        await ActivityLog.logError(req.user?.id, 'academic_year_copy_list', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách năm học'
