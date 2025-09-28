@@ -266,8 +266,8 @@ userSchema.methods.incFailedLoginAttempts = function() {
     const updates = { $inc: { failedLoginAttempts: 1 } };
 
     // Khóa tài khoản sau 5 lần thử sai
-    if (this.failedLoginAttempts + 1 >= 5 && !this.isLocked) {
-        updates.$set = { lockUntil: Date.now() + 30 * 60 * 1000 }; // Khóa 30 phút
+    if (this.failedLoginAttempts + 1 >= 10 && !this.isLocked) {
+        updates.$set = { lockUntil: Date.now() + 300 }; // Khóa 5 phút
     }
 
     return this.updateOne(updates);
