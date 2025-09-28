@@ -145,7 +145,6 @@ const criteriaSchema = new mongoose.Schema({
     }
 });
 
-// Indexes - cập nhật với academicYearId
 criteriaSchema.index({ academicYearId: 1, standardId: 1, code: 1 }, { unique: true });
 criteriaSchema.index({ academicYearId: 1, standardId: 1, order: 1 });
 criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
@@ -171,6 +170,20 @@ criteriaSchema.virtual('fullCode').get(function() {
 criteriaSchema.virtual('url').get(function() {
     return `/criteria/${this._id}`;
 });
+
+criteriaSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this.academicYearId,
+        action,
+        description,
+        targetType: 'Criteria',
+        targetId: this._id,
+        targetName: this.fullName,
+        ...additionalData
+    });
+};
 
 criteriaSchema.methods.isInUse = async function() {
     const Evidence = require('./Evidence');
@@ -201,13 +214,58 @@ criteriaSchema.statics.findByProgramAndOrganization = function(programId, organi
         .sort({ 'standardId.code': 1, order: 1, code: 1 });
 };
 
-// Static method để tìm theo năm học
 criteriaSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
     return this.find({
         academicYearId,
         ...query
     });
 };
+
+criteriaSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('criteria_create', this.createdBy,
+                `Tạo mới tiêu chí: ${this.fullName}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+criteriaSchema.post('findOneAndUpdate', async function(result, next) {
+    if (result && result.updatedBy) {
+        try {
+            await result.addActivityLog('criteria_update', result.updatedBy,
+                `Cập nhật tiêu chí: ${result.fullName}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+criteriaSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('criteria_delete', doc.updatedBy,
+                `Xóa tiêu chí: ${doc.fullName}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
 
 criteriaSchema.set('toJSON', { virtuals: true });
 criteriaSchema.set('toObject', { virtuals: true });
