@@ -135,7 +135,6 @@ const organizationSchema = new mongoose.Schema({
     }
 });
 
-// Indexes - cập nhật với academicYearId
 organizationSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
 organizationSchema.index({ academicYearId: 1, level: 1 });
 organizationSchema.index({ academicYearId: 1, type: 1 });
@@ -152,6 +151,20 @@ organizationSchema.pre('save', function(next) {
 organizationSchema.virtual('url').get(function() {
     return `/organizations/${this._id}`;
 });
+
+organizationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        academicYearId: this.academicYearId,
+        action,
+        description,
+        targetType: 'Organization',
+        targetId: this._id,
+        targetName: this.name,
+        ...additionalData
+    });
+};
 
 organizationSchema.methods.isInUse = async function() {
     const Standard = require('./Standard');
@@ -171,13 +184,58 @@ organizationSchema.methods.isInUse = async function() {
     return standardCount > 0 || evidenceCount > 0;
 };
 
-// Static method để tìm theo năm học
 organizationSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
     return this.find({
         academicYearId,
         ...query
     });
 };
+
+organizationSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.createdBy) {
+        try {
+            await this.addActivityLog('organization_create', this.createdBy,
+                `Tạo mới tổ chức: ${this.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+organizationSchema.post('findOneAndUpdate', async function(result, next) {
+    if (result && result.updatedBy) {
+        try {
+            await result.addActivityLog('organization_update', result.updatedBy,
+                `Cập nhật tổ chức: ${result.name}`, {
+                    severity: 'medium',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+organizationSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.updatedBy) {
+        try {
+            await doc.addActivityLog('organization_delete', doc.updatedBy,
+                `Xóa tổ chức: ${doc.name}`, {
+                    severity: 'high',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
 
 organizationSchema.set('toJSON', { virtuals: true });
 organizationSchema.set('toObject', { virtuals: true });
