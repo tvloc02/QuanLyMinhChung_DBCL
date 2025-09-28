@@ -2,19 +2,16 @@ const mongoose = require('mongoose');
 const path = require('path');
 
 const fileSchema = new mongoose.Schema({
-    // Tên file gốc
     originalName: {
         type: String,
         required: [true, 'Tên file gốc là bắt buộc'],
         trim: true
     },
 
-
     storedName: {
         type: String,
         required: [true, 'Tên file lưu trữ là bắt buộc']
     },
-
 
     filePath: {
         type: String,
@@ -27,18 +24,15 @@ const fileSchema = new mongoose.Schema({
         }
     },
 
-
     size: {
         type: Number,
         required: [true, 'Kích thước file là bắt buộc']
     },
 
-
     mimeType: {
         type: String,
         required: [true, 'Loại file là bắt buộc']
     },
-
 
     extension: {
         type: String,
@@ -46,13 +40,11 @@ const fileSchema = new mongoose.Schema({
         lowercase: true
     },
 
-
     type: {
         type: String,
         enum: ['file', 'folder'],
         default: 'file'
     },
-
 
     evidenceId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -60,13 +52,11 @@ const fileSchema = new mongoose.Schema({
         required: [true, 'ID minh chứng là bắt buộc']
     },
 
-
     uploadedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: [true, 'Người upload là bắt buộc']
     },
-
 
     url: String,
     publicId: String,
@@ -145,9 +135,21 @@ fileSchema.pre('save', function(next) {
     next();
 });
 
+fileSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+    const ActivityLog = require('./ActivityLog');
+    return ActivityLog.log({
+        userId,
+        action,
+        description,
+        targetType: 'File',
+        targetId: this._id,
+        targetName: this.originalName,
+        ...additionalData
+    });
+};
+
 fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
-    // Format: Mã minh chứng-Tên minh chứng.extension
     let storedName = `${evidenceCode}-${evidenceName}${ext}`;
 
     storedName = storedName
@@ -164,10 +166,19 @@ fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, ori
     return storedName;
 };
 
-fileSchema.methods.incrementDownloadCount = function() {
+fileSchema.methods.incrementDownloadCount = async function() {
     this.downloadCount += 1;
     this.lastDownloaded = new Date();
-    return this.save();
+
+    await this.save();
+
+    await this.addActivityLog('file_download', this.uploadedBy,
+        `Tải xuống file ${this.originalName}`, {
+            severity: 'low',
+            metadata: { downloadCount: this.downloadCount }
+        });
+
+    return this;
 };
 
 fileSchema.methods.getFormattedSize = function() {
@@ -203,6 +214,56 @@ fileSchema.virtual('isOfficeDoc').get(function() {
         'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ];
     return officeMimes.includes(this.mimeType);
+});
+
+fileSchema.post('save', async function(doc, next) {
+    if (this.isNew && this.uploadedBy) {
+        try {
+            await this.addActivityLog('file_upload', this.uploadedBy,
+                `Tải lên file: ${this.originalName}`, {
+                    severity: 'low',
+                    result: 'success',
+                    metadata: {
+                        fileSize: this.size,
+                        mimeType: this.mimeType
+                    }
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+fileSchema.post('findOneAndUpdate', async function(result, next) {
+    if (result && result.uploadedBy) {
+        try {
+            await result.addActivityLog('file_update', result.uploadedBy,
+                `Cập nhật file: ${result.originalName}`, {
+                    severity: 'low',
+                    result: 'success'
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
+});
+
+fileSchema.post('findOneAndDelete', async function(doc, next) {
+    if (doc && doc.uploadedBy) {
+        try {
+            await doc.addActivityLog('file_delete', doc.uploadedBy,
+                `Xóa file: ${doc.originalName}`, {
+                    severity: 'medium',
+                    result: 'success',
+                    isAuditRequired: true
+                });
+        } catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    next();
 });
 
 fileSchema.set('toJSON', { virtuals: true });
