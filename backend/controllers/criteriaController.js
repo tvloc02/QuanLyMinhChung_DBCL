@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Criteria, Standard, Program, Organization } = require('../models/Program');
 
 const getCriteria = async (req, res) => {
@@ -15,13 +16,13 @@ const getCriteria = async (req, res) => {
             sortOrder = 'asc'
         } = req.query;
 
-        const academicYearId = req.academicYearId; // From middleware
+        const academicYearId = req.academicYearId;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId }; // Always filter by academic year
+        let query = { academicYearId };
 
         if (search) {
             query.$or = [
@@ -162,7 +163,6 @@ const createCriteria = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Validate standard belongs to the same academic year
         const standard = await Standard.findOne({ _id: standardId, academicYearId })
             .populate('programId organizationId');
 
@@ -173,7 +173,6 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Check if code already exists in this standard + academic year
         const existingCriteria = await Criteria.findOne({
             academicYearId,
             standardId,
@@ -244,7 +243,6 @@ const updateCriteria = async (req, res) => {
             });
         }
 
-        // Check if code change conflicts
         if (updateData.code && updateData.code !== criteria.code) {
             const existingCriteria = await Criteria.findOne({
                 academicYearId,
@@ -260,7 +258,6 @@ const updateCriteria = async (req, res) => {
             }
         }
 
-        // Check if in use before major changes
         const isInUse = await criteria.isInUse();
         if (isInUse && (updateData.code || updateData.standardId)) {
             return res.status(400).json({
@@ -269,7 +266,6 @@ const updateCriteria = async (req, res) => {
             });
         }
 
-        // Update allowed fields
         const allowedFields = [
             'name', 'description', 'order', 'weight', 'type',
             'requirements', 'guidelines', 'indicators', 'status'
@@ -324,7 +320,6 @@ const deleteCriteria = async (req, res) => {
             });
         }
 
-        // Check if in use
         const isInUse = await criteria.isInUse();
         if (isInUse) {
             return res.status(400).json({
@@ -368,7 +363,6 @@ const getCriteriaStatistics = async (req, res) => {
             return acc;
         }, {});
 
-        // Get stats by type
         const typeStats = await Criteria.aggregate([
             { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
