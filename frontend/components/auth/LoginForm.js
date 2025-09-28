@@ -72,12 +72,21 @@ export default function LoginForm() {
 
     const toggleTheme = () => {
         setIsDarkMode(!isDarkMode)
-        document.documentElement.setAttribute('data-theme', !isDarkMode ? 'dark' : 'light')
+    }
+
+    // Nếu đang hiển thị form quên mật khẩu
+    if (showForgotPassword) {
+        return <ForgotPassword onBackToLogin={() => setShowForgotPassword(false)} />
     }
 
     return (
-        <div className={`min-h-screen relative overflow-hidden ${isDarkMode ? 'dark' : ''}`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800" />
+        <div className="min-h-screen relative overflow-hidden">
+            {/* Background - chỉ áp dụng trong container này */}
+            <div className={`absolute inset-0 ${
+                isDarkMode
+                    ? 'bg-gradient-to-br from-gray-900 to-gray-800'
+                    : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+            }`} />
 
             <div className="absolute inset-0 opacity-10">
                 <div className="absolute inset-0" style={{
@@ -90,11 +99,106 @@ export default function LoginForm() {
             <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
                 <div className="w-full max-w-5xl mx-auto">
                     <div className="grid lg:grid-cols-2 rounded-lg overflow-hidden shadow-2xl backdrop-blur-xl">
-                        {/* Login Form */}
+                        {/* Left Side - Features */}
                         <div className={`relative p-8 ${
                             isDarkMode
-                                ? 'bg-gray-900/95 border-r border-gray-700/50'
-                                : 'bg-white/95 border-r border-gray-200/50'
+                                ? 'bg-gradient-to-br from-purple-900/90 to-blue-900/90'
+                                : 'bg-gradient-to-br from-purple-600 to-blue-600'
+                        } text-white`}>
+                            <div className="absolute top-6 left-6">
+                                <button
+                                    onClick={toggleTheme}
+                                    className={`p-3 rounded-full transition-all duration-200 ${
+                                        isDarkMode
+                                            ? 'text-yellow-400 bg-white/10 hover:bg-white/20'
+                                            : 'text-white bg-white/20 hover:bg-white/30'
+                                    }`}
+                                >
+                                    {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                                </button>
+                            </div>
+
+                            <div className="text-center mb-8 mt-12">
+                                <h2 className="text-3xl font-bold mb-4 leading-tight">
+                                    Chào mừng đến với<br />
+                                    Hệ thống quản lý minh chứng
+                                </h2>
+                                <p className="text-base opacity-90 leading-relaxed">
+                                    Quản lý, tổ chức và theo dõi tất cả minh chứng<br />
+                                    một cách hiệu quả và chuyên nghiệp.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-8">
+                                <div className="p-4 bg-white/10 rounded-lg">
+                                    <div className="mb-3 flex justify-center">
+                                        <div className="bg-white/20 p-2 rounded-md">
+                                            <ArrowUpDown className="w-6 h-6 text-white/80" />
+                                        </div>
+                                    </div>
+                                    <h3 className="text-base font-semibold mb-1 text-center">
+                                        Quản lý dễ dàng
+                                    </h3>
+                                    <p className="text-white/80 text-xs leading-relaxed text-center">
+                                        Thêm, sửa, xóa minh chứng một cách nhanh chóng
+                                    </p>
+                                </div>
+
+                                <div className="p-4 bg-white/10 rounded-lg">
+                                    <div className="mb-3 flex justify-center">
+                                        <div className="bg-white/20 p-2 rounded-md">
+                                            <FileText className="w-6 h-6 text-white/80" />
+                                        </div>
+                                    </div>
+                                    <h3 className="text-base font-semibold mb-1 text-center">
+                                        Tổ chức khoa học
+                                    </h3>
+                                    <p className="text-white/80 text-xs leading-relaxed text-center">
+                                        Phân loại theo tiêu chuẩn và tiêu chí
+                                    </p>
+                                </div>
+
+                                <div className="p-4 bg-white/10 rounded-lg">
+                                    <div className="mb-3 flex justify-center">
+                                        <div className="bg-white/20 p-2 rounded-md">
+                                            <BookOpen className="w-6 h-6 text-white/80" />
+                                        </div>
+                                    </div>
+                                    <h3 className="text-base font-semibold mb-1 text-center">
+                                        Import hàng loạt
+                                    </h3>
+                                    <p className="text-white/80 text-xs leading-relaxed text-center">
+                                        Tải lên nhiều file từ Excel, folder
+                                    </p>
+                                </div>
+
+                                <div className="p-4 bg-white/10 rounded-lg">
+                                    <div className="mb-3 flex justify-center">
+                                        <div className="bg-white/20 p-2 rounded-md">
+                                            <TrendingUp className="w-6 h-6 text-white/80" />
+                                        </div>
+                                    </div>
+                                    <h3 className="text-base font-semibold mb-1 text-center">
+                                        Báo cáo chi tiết
+                                    </h3>
+                                    <p className="text-white/80 text-xs leading-relaxed text-center">
+                                        Xuất báo cáo, thống kê đầy đủ
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="absolute bottom-6 left-0 right-0 text-center">
+                                <p className="text-sm text-white/70">
+                                    © 2025 CMC University. Made by Digital University PMU.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Right Side - Login Form */}
+                        <div className={`relative p-8 ${
+                            isDarkMode
+                                ? 'bg-gray-900/95 border-l border-gray-700/50'
+                                : 'bg-white/95 border-l border-gray-200/50'
                         }`}>
                             <div className="mb-8">
                                 <div className="flex items-center space-x-3 mb-6">
@@ -249,110 +353,9 @@ export default function LoginForm() {
                                 </p>
                             </div>
                         </div>
-
-                        {/* Right Side - Features */}
-                        <div className={`relative p-8 ${
-                            isDarkMode
-                                ? 'bg-gradient-to-br from-purple-900/90 to-blue-900/90'
-                                : 'bg-gradient-to-br from-purple-600 to-blue-600'
-                        } text-white`}>
-                            <div className="absolute top-6 right-6">
-                                <button
-                                    onClick={toggleTheme}
-                                    className={`p-3 rounded-full transition-all duration-200 ${
-                                        isDarkMode
-                                            ? 'text-yellow-400 bg-white/10 hover:bg-white/20'
-                                            : 'text-white bg-white/20 hover:bg-white/30'
-                                    }`}
-                                >
-                                    {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                                </button>
-                            </div>
-
-                            <div className="text-center mb-8 mt-12">
-                                <h2 className="text-3xl font-bold mb-4 leading-tight">
-                                    Chào mừng đến với<br />
-                                    Hệ thống quản lý minh chứng
-                                </h2>
-                                <p className="text-base opacity-90 leading-relaxed">
-                                    Quản lý, tổ chức và theo dõi tất cả minh chứng<br />
-                                    một cách hiệu quả và chuyên nghiệp.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 mb-8">
-                                <div className="p-4 bg-white/10 rounded-lg">
-                                    <div className="mb-3 flex justify-center">
-                                        <div className="bg-white/20 p-2 rounded-md">
-                                            <ArrowUpDown className="w-6 h-6 text-white/80" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-base font-semibold mb-1 text-center">
-                                        Quản lý dễ dàng
-                                    </h3>
-                                    <p className="text-white/80 text-xs leading-relaxed text-center">
-                                        Thêm, sửa, xóa minh chứng một cách nhanh chóng
-                                    </p>
-                                </div>
-
-                                <div className="p-4 bg-white/10 rounded-lg">
-                                    <div className="mb-3 flex justify-center">
-                                        <div className="bg-white/20 p-2 rounded-md">
-                                            <FileText className="w-6 h-6 text-white/80" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-base font-semibold mb-1 text-center">
-                                        Tổ chức khoa học
-                                    </h3>
-                                    <p className="text-white/80 text-xs leading-relaxed text-center">
-                                        Phân loại theo tiêu chuẩn và tiêu chí
-                                    </p>
-                                </div>
-
-                                <div className="p-4 bg-white/10 rounded-lg">
-                                    <div className="mb-3 flex justify-center">
-                                        <div className="bg-white/20 p-2 rounded-md">
-                                            <BookOpen className="w-6 h-6 text-white/80" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-base font-semibold mb-1 text-center">
-                                        Import hàng loạt
-                                    </h3>
-                                    <p className="text-white/80 text-xs leading-relaxed text-center">
-                                        Tải lên nhiều file từ Excel, folder
-                                    </p>
-                                </div>
-
-                                <div className="p-4 bg-white/10 rounded-lg">
-                                    <div className="mb-3 flex justify-center">
-                                        <div className="bg-white/20 p-2 rounded-md">
-                                            <TrendingUp className="w-6 h-6 text-white/80" />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-base font-semibold mb-1 text-center">
-                                        Báo cáo chi tiết
-                                    </h3>
-                                    <p className="text-white/80 text-xs leading-relaxed text-center">
-                                        Xuất báo cáo, thống kê đầy đủ
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="absolute bottom-6 left-0 right-0 text-center">
-                                <p className="text-sm text-white/70">
-                                    © 2025 CMC University. Made by Digital University PMU.
-                                </p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
-
-            <ForgotPassword
-                isOpen={showForgotPassword}
-                onClose={() => setShowForgotPassword(false)}
-                isDarkMode={isDarkMode}
-            />
         </div>
     )
 }
