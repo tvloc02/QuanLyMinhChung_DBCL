@@ -401,3 +401,145 @@ export const exportToCSV = (data, filename) => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     downloadBlob(blob, filename)
 }
+
+// ===============================================
+// ADDITIONAL UTILITIES - Bổ sung các hàm mới
+// ===============================================
+
+// Additional Date utilities
+export const formatDateTime = (date) => {
+    return formatDate(date, 'DD/MM/YYYY HH:mm')
+}
+
+export const formatDateTimeFull = (date) => {
+    if (!date) return ''
+    const d = new Date(date)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    const seconds = String(d.getSeconds()).padStart(2, '0')
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+}
+
+// Additional Number utilities
+export const formatCurrency = (amount, currency = 'VND') => {
+    if (amount === null || amount === undefined || isNaN(amount)) return '0'
+
+    const formatted = Number(amount).toLocaleString('vi-VN')
+
+    switch (currency) {
+        case 'VND':
+            return `${formatted} ₫`
+        case 'USD':
+            return `$${formatted}`
+        case 'EUR':
+            return `€${formatted}`
+        default:
+            return formatted
+    }
+}
+
+export const formatPercent = (value, decimals = 0) => {
+    if (value === null || value === undefined || isNaN(value)) return '0%'
+    return `${formatNumber(value)}%`
+}
+
+// Additional Validation utilities
+export const isURL = (url) => {
+    try {
+        new URL(url)
+        return true
+    } catch {
+        return false
+    }
+}
+
+export const isEmpty = (value) => {
+    if (value === null || value === undefined) return true
+    if (typeof value === 'string') return value.trim() === ''
+    if (Array.isArray(value)) return value.length === 0
+    if (typeof value === 'object') return Object.keys(value).length === 0
+    return false
+}
+
+// Copy to clipboard utility
+export const copyToClipboard = async (text) => {
+    try {
+        if (navigator.clipboard) {
+            await navigator.clipboard.writeText(text)
+            return true
+        } else {
+            // Fallback for older browsers
+            const textarea = document.createElement('textarea')
+            textarea.value = text
+            textarea.style.position = 'fixed'
+            textarea.style.opacity = '0'
+            document.body.appendChild(textarea)
+            textarea.select()
+            document.execCommand('copy')
+            document.body.removeChild(textarea)
+            return true
+        }
+    } catch (error) {
+        console.error('Copy to clipboard failed:', error)
+        return false
+    }
+}
+
+// Download file utility (alternative to downloadBlob)
+export const downloadFile = (data, filename, mimeType = 'text/plain') => {
+    const blob = new Blob([data], { type: mimeType })
+    downloadBlob(blob, filename)
+}
+
+// Status utilities
+export const getStatusColor = (status) => {
+    const colors = {
+        // General statuses
+        draft: 'bg-gray-100 text-gray-700',
+        pending: 'bg-yellow-100 text-yellow-700',
+        active: 'bg-green-100 text-green-700',
+        inactive: 'bg-red-100 text-red-700',
+        archived: 'bg-gray-100 text-gray-500',
+        completed: 'bg-blue-100 text-blue-700',
+        cancelled: 'bg-red-100 text-red-700',
+        suspended: 'bg-yellow-100 text-yellow-700',
+
+        // Assignment statuses
+        accepted: 'bg-green-100 text-green-700',
+        rejected: 'bg-red-100 text-red-700',
+        in_progress: 'bg-blue-100 text-blue-700',
+        overdue: 'bg-red-100 text-red-700',
+
+        // Evaluation statuses
+        submitted: 'bg-blue-100 text-blue-700',
+        reviewed: 'bg-green-100 text-green-700',
+        final: 'bg-purple-100 text-purple-700',
+        under_review: 'bg-yellow-100 text-yellow-700',
+        published: 'bg-green-100 text-green-700',
+
+        // Notification statuses
+        sent: 'bg-blue-100 text-blue-700',
+        delivered: 'bg-green-100 text-green-700',
+        read: 'bg-gray-100 text-gray-700',
+        clicked: 'bg-blue-100 text-blue-700',
+        dismissed: 'bg-gray-100 text-gray-500',
+
+        // Default
+        default: 'bg-gray-100 text-gray-700'
+    }
+
+    return colors[status] || colors.default
+}
+
+export const getStatusBadge = (status, label) => {
+    const color = getStatusColor(status)
+    return `<span class="px-2 py-1 text-xs font-semibold rounded-full ${color}">${label}</span>`
+}
+
+// Additional Color utility
+export const randomColor = () => {
+    return '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
+}
