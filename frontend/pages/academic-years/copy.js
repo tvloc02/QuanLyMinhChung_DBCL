@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import Link from 'next/link'
 import {
     ArrowLeft,
     Copy,
@@ -17,7 +16,8 @@ import {
     FileText,
     Calendar,
     ArrowRight,
-    Loader2
+    Loader2,
+    Plus
 } from 'lucide-react'
 
 const CopyAcademicYearPage = () => {
@@ -235,12 +235,13 @@ const CopyAcademicYearPage = () => {
                         <h1 className="text-2xl font-bold text-gray-900">Sao chép dữ liệu năm học</h1>
                         <p className="text-gray-600">Sao chép cấu trúc và dữ liệu từ năm học khác</p>
                     </div>
-                    <Link href="/academic-years/academic-years">
-                        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                            <ArrowLeft className="w-4 h-4" />
-                            <span>Quay lại</span>
-                        </button>
-                    </Link>
+                    <button
+                        onClick={() => router.push('/academic-years')}
+                        className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
                 </div>
 
                 {/* Success Message */}
@@ -282,11 +283,12 @@ const CopyAcademicYearPage = () => {
                                     <p className="text-green-700 text-sm">
                                         Đã sao chép từ "{copyResult.sourceYear?.name}" sang "{copyResult.targetYear?.name}"
                                     </p>
-                                    <Link href="/academic-years/academic-years">
-                                        <button className="text-green-700 hover:text-green-800 text-sm font-medium">
-                                            Quay về danh sách →
-                                        </button>
-                                    </Link>
+                                    <button
+                                        onClick={() => router.push('/academic-years')}
+                                        className="text-green-700 hover:text-green-800 text-sm font-medium"
+                                    >
+                                        Quay về danh sách →
+                                    </button>
                                 </div>
 
                                 {copyResult.results?.errors?.length > 0 && (
@@ -474,15 +476,14 @@ const CopyAcademicYearPage = () => {
 
                     {/* Actions */}
                     <div className="flex justify-end space-x-4">
-                        <Link href="/academic-years/academic-years">
-                            <button
-                                type="button"
-                                className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                disabled={loading}
-                            >
-                                Hủy
-                            </button>
-                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/academic-years')}
+                            className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            disabled={loading}
+                        >
+                            Hủy
+                        </button>
                         <button
                             type="submit"
                             disabled={loading || !selectedSource || !selectedTarget || success}
