@@ -231,7 +231,7 @@ const AcademicYearSettingsPage = () => {
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-4">Năm học không tồn tại hoặc đã bị xóa</p>
-                    <Link href="/academic-years">
+                    <Link href="/academic-years/academic-years">
                         <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
                             Quay về danh sách
                         </button>
@@ -270,7 +270,7 @@ const AcademicYearSettingsPage = () => {
                                 academicYear.status === 'completed' ? 'Hoàn thành' :
                                     academicYear.status === 'draft' ? 'Nháp' : 'Lưu trữ'}
                         </span>
-                        <Link href="/academic-years">
+                        <Link href="/academic-years/academic-years">
                             <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                                 <ArrowLeft className="w-4 h-4" />
                                 <span>Quay lại</span>

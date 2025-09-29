@@ -188,7 +188,7 @@ const CreateAcademicYearPage = () => {
                         <h1 className="text-2xl font-bold text-gray-900">Tạo năm học mới</h1>
                         <p className="text-gray-600">Thiết lập thông tin cho năm học mới</p>
                     </div>
-                    <Link href="/academic-years">
+                    <Link href="/academic-years/academic-years">
                         <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                             <ArrowLeft className="w-4 h-4" />
                             <span>Quay lại</span>
@@ -476,7 +476,7 @@ const CreateAcademicYearPage = () => {
 
                     {/* Actions */}
                     <div className="flex justify-end space-x-4">
-                        <Link href="/academic-years">
+                        <Link href="/academic-years/academic-years">
                             <button
                                 type="button"
                                 className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
