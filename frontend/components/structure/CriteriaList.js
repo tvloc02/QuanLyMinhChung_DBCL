@@ -1,648 +1,928 @@
+// frontend/components/structure/CriteriaList.js
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import {
-    Plus,
-    Edit,
-    Trash2,
-    Search,
-    Filter,
-    BookOpen,
-    ChevronDown,
-    ChevronRight,
-    FileText
+    Plus, Search, Edit2, Trash2, Eye, X,
+    AlertCircle, ChevronLeft, ChevronRight, FileText
 } from 'lucide-react'
-import { ConfirmModal } from '../common/Modal'
-import Modal from '../common/Modal'
-import Pagination from '../common/Pagination'
-import toast from 'react-hot-toast'
-import { apiMethods } from '../../services/api'
 
 export default function CriteriaList() {
+    const { user } = useAuth()
     const [criteria, setCriteria] = useState([])
     const [standards, setStandards] = useState([])
     const [programs, setPrograms] = useState([])
+    const [organizations, setOrganizations] = useState([])
     const [loading, setLoading] = useState(true)
-    const [searchQuery, setSearchQuery] = useState('')
-    const [selectedProgram, setSelectedProgram] = useState('')
-    const [selectedStandard, setSelectedStandard] = useState('')
+    const [error, setError] = useState(null)
+
+    // Pagination & Filters
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
-    const [totalItems, setTotalItems] = useState(0)
-    const [showFilters, setShowFilters] = useState(false)
-    const [expandedStandards, setExpandedStandards] = useState(new Set())
+    const [total, setTotal] = useState(0)
+    const [search, setSearch] = useState('')
+    const [standardFilter, setStandardFilter] = useState('')
+    const [programFilter, setProgramFilter] = useState('')
+    const [organizationFilter, setOrganizationFilter] = useState('')
+    const [statusFilter, setStatusFilter] = useState('')
+    const [typeFilter, setTypeFilter] = useState('')
+    const [sortBy, setSortBy] = useState('order')
+    const [sortOrder, setSortOrder] = useState('asc')
 
-    const [showCreateModal, setShowCreateModal] = useState(false)
-    const [showEditModal, setShowEditModal] = useState(false)
-    const [deleteModal, setDeleteModal] = useState({ show: false, criteriaId: null })
-    const [editingCriteria, setEditingCriteria] = useState(null)
+    // Modal states
+    const [showModal, setShowModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [selectedCriteria, setSelectedCriteria] = useState(null)
+    const [modalMode, setModalMode] = useState('create')
 
+    // Form data
     const [formData, setFormData] = useState({
-        code: '',
         name: '',
+        code: '',
         description: '',
         standardId: '',
-        order: 0,
-        isActive: true
+        order: 1,
+        weight: 0,
+        type: 'mandatory',
+        requirements: '',
+        guidelines: '',
+        indicators: [],
+        status: 'draft'
     })
-    const [formErrors, setFormErrors] = useState({})
-    const [submitting, setSubmitting] = useState(false)
 
-    const itemsPerPage = 10
+    const [newIndicator, setNewIndicator] = useState({
+        name: '',
+        description: '',
+        measurementMethod: '',
+        targetValue: '',
+        unit: ''
+    })
 
-    useEffect(() => {
-        fetchInitialData()
-    }, [])
-
+    // Fetch data
     useEffect(() => {
         fetchCriteria()
-    }, [searchQuery, selectedProgram, selectedStandard, currentPage])
+    }, [currentPage, search, standardFilter, programFilter, organizationFilter, statusFilter, typeFilter, sortBy, sortOrder])
 
-    const fetchInitialData = async () => {
-        try {
-            // Fetch programs and standards
-            const [programsRes, standardsRes] = await Promise.all([
-                apiMethods.getPrograms(),
-                apiMethods.getStandards()
-            ])
-
-            if (programsRes.data.success) {
-                setPrograms(programsRes.data.data)
-            }
-
-            if (standardsRes.data.success) {
-                setStandards(standardsRes.data.data)
-            }
-        } catch (error) {
-            toast.error('Lỗi tải dữ liệu')
-        }
-    }
+    useEffect(() => {
+        fetchStandards()
+        fetchPrograms()
+        fetchOrganizations()
+    }, [])
 
     const fetchCriteria = async () => {
         try {
             setLoading(true)
-            const params = {
+            const params = new URLSearchParams({
                 page: currentPage,
-                limit: itemsPerPage,
-                search: searchQuery,
-                programId: selectedProgram,
-                standardId: selectedStandard
-            }
+                limit: 10,
+                sortBy,
+                sortOrder
+            })
 
-            const response = await apiMethods.getCriteria(params)
+            if (search) params.append('search', search)
+            if (standardFilter) params.append('standardId', standardFilter)
+            if (programFilter) params.append('programId', programFilter)
+            if (organizationFilter) params.append('organizationId', organizationFilter)
+            if (statusFilter) params.append('status', statusFilter)
+            if (typeFilter) params.append('type', typeFilter)
 
-            if (response.data.success) {
-                setCriteria(response.data.data.criteria)
-                setTotalPages(response.data.data.pagination.totalPages)
-                setTotalItems(response.data.data.pagination.total)
-            }
-        } catch (error) {
-            toast.error('Lỗi tải danh sách tiêu chí')
+            const response = await fetch(`/api/criteria?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if (!response.ok) throw new Error('Lỗi khi tải danh sách tiêu chí')
+
+            const data = await response.json()
+            setCriteria(data.data.criteria)
+            setTotalPages(data.data.pagination.pages)
+            setTotal(data.data.pagination.total)
+            setError(null)
+        } catch (err) {
+            setError(err.message)
         } finally {
             setLoading(false)
         }
     }
 
-    const handleCreateCriteria = async (e) => {
-        e.preventDefault()
-
-        if (!validateForm()) {
-            return
-        }
-
+    const fetchStandards = async () => {
         try {
-            setSubmitting(true)
-            const response = await apiMethods.createCriterion(formData)
-
-            if (response.data.success) {
-                toast.success('Tạo tiêu chí thành công')
-                setShowCreateModal(false)
-                resetForm()
-                fetchCriteria()
+            const response = await fetch('/api/standards?limit=100&status=active', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            if (response.ok) {
+                const data = await response.json()
+                setStandards(data.data.standards)
             }
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi tạo tiêu chí')
-        } finally {
-            setSubmitting(false)
+        } catch (err) {
+            console.error('Lỗi khi tải tiêu chuẩn:', err)
         }
     }
 
-    const handleEditCriteria = async (e) => {
-        e.preventDefault()
-
-        if (!validateForm()) {
-            return
-        }
-
+    const fetchPrograms = async () => {
         try {
-            setSubmitting(true)
-            const response = await apiMethods.updateCriterion(editingCriteria.id, formData)
-
-            if (response.data.success) {
-                toast.success('Cập nhật tiêu chí thành công')
-                setShowEditModal(false)
-                resetForm()
-                fetchCriteria()
+            const response = await fetch('/api/programs/all', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            if (response.ok) {
+                const data = await response.json()
+                setPrograms(data.data)
             }
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi cập nhật tiêu chí')
-        } finally {
-            setSubmitting(false)
+        } catch (err) {
+            console.error('Lỗi khi tải chương trình:', err)
         }
     }
 
-    const handleDeleteCriteria = async () => {
+    const fetchOrganizations = async () => {
         try {
-            const response = await apiMethods.deleteCriterion(deleteModal.criteriaId)
-
-            if (response.data.success) {
-                toast.success('Xóa tiêu chí thành công')
-                fetchCriteria()
+            const response = await fetch('/api/organizations/all', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            if (response.ok) {
+                const data = await response.json()
+                setOrganizations(data.data)
             }
-        } catch (error) {
-            toast.error('Lỗi xóa tiêu chí')
+        } catch (err) {
+            console.error('Lỗi khi tải tổ chức:', err)
         }
-        setDeleteModal({ show: false, criteriaId: null })
     }
 
-    const validateForm = () => {
-        const errors = {}
-
-        if (!formData.code.trim()) {
-            errors.code = 'Mã tiêu chí không được để trống'
-        }
-
-        if (!formData.name.trim()) {
-            errors.name = 'Tên tiêu chí không được để trống'
-        }
-
-        if (!formData.standardId) {
-            errors.standardId = 'Vui lòng chọn tiêu chuẩn'
-        }
-
-        if (formData.order < 0) {
-            errors.order = 'Thứ tự phải là số dương'
-        }
-
-        setFormErrors(errors)
-        return Object.keys(errors).length === 0
-    }
-
-    const resetForm = () => {
+    const handleCreate = () => {
+        setModalMode('create')
         setFormData({
-            code: '',
             name: '',
+            code: '',
             description: '',
             standardId: '',
-            order: 0,
-            isActive: true
+            order: 1,
+            weight: 0,
+            type: 'mandatory',
+            requirements: '',
+            guidelines: '',
+            indicators: [],
+            status: 'draft'
         })
-        setFormErrors({})
-        setEditingCriteria(null)
+        setShowModal(true)
     }
 
-    const openEditModal = (criteria) => {
-        setEditingCriteria(criteria)
+    const handleEdit = (criteriaItem) => {
+        setModalMode('edit')
+        setSelectedCriteria(criteriaItem)
         setFormData({
-            code: criteria.code,
-            name: criteria.name,
-            description: criteria.description || '',
-            standardId: criteria.standardId,
-            order: criteria.order || 0,
-            isActive: criteria.isActive !== false
+            name: criteriaItem.name,
+            code: criteriaItem.code,
+            description: criteriaItem.description || '',
+            standardId: criteriaItem.standardId._id || criteriaItem.standardId,
+            order: criteriaItem.order,
+            weight: criteriaItem.weight || 0,
+            type: criteriaItem.type,
+            requirements: criteriaItem.requirements || '',
+            guidelines: criteriaItem.guidelines || '',
+            indicators: criteriaItem.indicators || [],
+            status: criteriaItem.status
         })
-        setShowEditModal(true)
+        setShowModal(true)
     }
 
-    const openCreateModal = () => {
-        resetForm()
-        if (selectedStandard) {
-            setFormData(prev => ({ ...prev, standardId: selectedStandard }))
+    const handleView = (criteriaItem) => {
+        setModalMode('view')
+        setSelectedCriteria(criteriaItem)
+        setFormData({
+            name: criteriaItem.name,
+            code: criteriaItem.code,
+            description: criteriaItem.description || '',
+            standardId: criteriaItem.standardId._id || criteriaItem.standardId,
+            order: criteriaItem.order,
+            weight: criteriaItem.weight || 0,
+            type: criteriaItem.type,
+            requirements: criteriaItem.requirements || '',
+            guidelines: criteriaItem.guidelines || '',
+            indicators: criteriaItem.indicators || [],
+            status: criteriaItem.status
+        })
+        setShowModal(true)
+    }
+
+    const handleDelete = (criteriaItem) => {
+        setSelectedCriteria(criteriaItem)
+        setShowDeleteModal(true)
+    }
+
+    const handleAddIndicator = () => {
+        if (!newIndicator.name.trim()) {
+            alert('Vui lòng nhập tên chỉ số')
+            return
         }
-        setShowCreateModal(true)
+
+        setFormData({
+            ...formData,
+            indicators: [...formData.indicators, { ...newIndicator }]
+        })
+
+        setNewIndicator({
+            name: '',
+            description: '',
+            measurementMethod: '',
+            targetValue: '',
+            unit: ''
+        })
     }
 
-    const toggleStandardExpansion = (standardId) => {
-        const newExpanded = new Set(expandedStandards)
-        if (newExpanded.has(standardId)) {
-            newExpanded.delete(standardId)
-        } else {
-            newExpanded.add(standardId)
+    const handleRemoveIndicator = (index) => {
+        setFormData({
+            ...formData,
+            indicators: formData.indicators.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+
+        try {
+            const url = modalMode === 'create'
+                ? '/api/criteria'
+                : `/api/criteria/${selectedCriteria._id}`
+
+            const method = modalMode === 'create' ? 'POST' : 'PUT'
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(formData)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Có lỗi xảy ra')
+            }
+
+            await fetchCriteria()
+            setShowModal(false)
+            alert(modalMode === 'create' ? 'Tạo tiêu chí thành công!' : 'Cập nhật tiêu chí thành công!')
+        } catch (err) {
+            alert(err.message)
         }
-        setExpandedStandards(newExpanded)
     }
 
-    const getFilteredStandards = () => {
-        if (!selectedProgram) return standards
-        return standards.filter(std => std.programId === selectedProgram)
+    const confirmDelete = async () => {
+        try {
+            const response = await fetch(`/api/criteria/${selectedCriteria._id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Có lỗi xảy ra')
+            }
+
+            await fetchCriteria()
+            setShowDeleteModal(false)
+            alert('Xóa tiêu chí thành công!')
+        } catch (err) {
+            alert(err.message)
+        }
     }
 
-    const getCriteriaByStandard = (standardId) => {
-        return criteria.filter(criteria => criteria.standardId === standardId)
+    const getStatusBadge = (status) => {
+        const statusConfig = {
+            draft: { label: 'Nháp', className: 'bg-gray-100 text-gray-800' },
+            active: { label: 'Hoạt động', className: 'bg-green-100 text-green-800' },
+            inactive: { label: 'Không hoạt động', className: 'bg-red-100 text-red-800' },
+            archived: { label: 'Lưu trữ', className: 'bg-yellow-100 text-yellow-800' }
+        }
+        const config = statusConfig[status] || statusConfig.draft
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
     }
 
-    const CriteriaForm = ({ isEdit = false }) => (
-        <form onSubmit={isEdit ? handleEditCriteria : handleCreateCriteria} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Mã tiêu chí *
-                    </label>
-                    <input
-                        type="text"
-                        value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.code ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Nhập mã tiêu chí"
-                    />
-                    {formErrors.code && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.code}</p>
-                    )}
-                </div>
+    const getTypeBadge = (type) => {
+        const typeConfig = {
+            mandatory: { label: 'Bắt buộc', className: 'bg-red-100 text-red-800' },
+            optional: { label: 'Tùy chọn', className: 'bg-blue-100 text-blue-800' },
+            conditional: { label: 'Có điều kiện', className: 'bg-purple-100 text-purple-800' }
+        }
+        const config = typeConfig[type] || typeConfig.mandatory
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
+    }
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tiêu chuẩn *
-                    </label>
-                    <select
-                        value={formData.standardId}
-                        onChange={(e) => setFormData({ ...formData, standardId: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.standardId ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                    >
-                        <option value="">Chọn tiêu chuẩn</option>
-                        {getFilteredStandards().map(standard => (
-                            <option key={standard.id} value={standard.id}>
-                                {standard.code} - {standard.name}
-                            </option>
-                        ))}
-                    </select>
-                    {formErrors.standardId && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.standardId}</p>
-                    )}
-                </div>
+    if (loading && criteria.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên tiêu chí *
-                </label>
-                <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.name ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập tên tiêu chí"
-                />
-                {formErrors.name && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
-                )}
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mô tả
-                </label>
-                <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập mô tả tiêu chí"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Thứ tự
-                    </label>
-                    <input
-                        type="number"
-                        min="0"
-                        value={formData.order}
-                        onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.order ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                    />
-                    {formErrors.order && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.order}</p>
-                    )}
-                </div>
-
-                <div className="flex items-center mt-6">
-                    <input
-                        type="checkbox"
-                        id="isActive"
-                        checked={formData.isActive}
-                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-                        Kích hoạt
-                    </label>
-                </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (isEdit) {
-                            setShowEditModal(false)
-                        } else {
-                            setShowCreateModal(false)
-                        }
-                        resetForm()
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                    Hủy
-                </button>
-                <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                    {submitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật' : 'Tạo mới')}
-                </button>
-            </div>
-        </form>
-    )
+        )
+    }
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
+            {/* Header & Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý tiêu chí</h1>
-                    <p className="text-gray-600 mt-1">Quản lý các tiêu chí đánh giá trong hệ thống</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Quản lý tiêu chí</h2>
+                    <p className="text-sm text-gray-600 mt-1">Tổng số: {total} tiêu chí</p>
                 </div>
-                <button
-                    onClick={openCreateModal}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm tiêu chí
-                </button>
+                {(user?.role === 'admin' || user?.role === 'manager') && (
+                    <button
+                        onClick={handleCreate}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus size={20} />
+                        Thêm tiêu chí
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Tìm kiếm và lọc</h3>
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="text-blue-600 hover:text-blue-800"
-                    >
-                        <Filter className="h-5 w-5" />
-                    </button>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm..."
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value)
+                            setCurrentPage(1)
+                        }}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                 </div>
 
-                <div className="space-y-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Tìm kiếm theo tên, mã tiêu chí..."
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
+                <select
+                    value={standardFilter}
+                    onChange={(e) => {
+                        setStandardFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả tiêu chuẩn</option>
+                    {standards.map(standard => (
+                        <option key={standard._id} value={standard._id}>
+                            {standard.code} - {standard.name}
+                        </option>
+                    ))}
+                </select>
 
-                    {showFilters && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Chương trình
-                                </label>
-                                <select
-                                    value={selectedProgram}
-                                    onChange={(e) => {
-                                        setSelectedProgram(e.target.value)
-                                        setSelectedStandard('') // Reset standard when program changes
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Tất cả chương trình</option>
-                                    {programs.map(program => (
-                                        <option key={program.id} value={program.id}>
-                                            {program.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                <select
+                    value={programFilter}
+                    onChange={(e) => {
+                        setProgramFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả chương trình</option>
+                    {programs.map(program => (
+                        <option key={program._id} value={program._id}>
+                            {program.name}
+                        </option>
+                    ))}
+                </select>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Tiêu chuẩn
-                                </label>
-                                <select
-                                    value={selectedStandard}
-                                    onChange={(e) => setSelectedStandard(e.target.value)}
-                                    disabled={!selectedProgram}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                >
-                                    <option value="">
-                                        {selectedProgram ? 'Tất cả tiêu chuẩn' : 'Chọn chương trình trước'}
-                                    </option>
-                                    {getFilteredStandards().map(standard => (
-                                        <option key={standard.id} value={standard.id}>
-                                            {standard.code} - {standard.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <select
+                    value={typeFilter}
+                    onChange={(e) => {
+                        setTypeFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả loại</option>
+                    <option value="mandatory">Bắt buộc</option>
+                    <option value="optional">Tùy chọn</option>
+                    <option value="conditional">Có điều kiện</option>
+                </select>
+
+                <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setStatusFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="draft">Nháp</option>
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Không hoạt động</option>
+                    <option value="archived">Lưu trữ</option>
+                </select>
+
+                <select
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                        const [newSortBy, newSortOrder] = e.target.value.split('-')
+                        setSortBy(newSortBy)
+                        setSortOrder(newSortOrder)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="order-asc">Thứ tự tăng dần</option>
+                    <option value="order-desc">Thứ tự giảm dần</option>
+                    <option value="code-asc">Mã A-Z</option>
+                    <option value="code-desc">Mã Z-A</option>
+                    <option value="name-asc">Tên A-Z</option>
+                    <option value="name-desc">Tên Z-A</option>
+                    <option value="createdAt-desc">Mới nhất</option>
+                    <option value="createdAt-asc">Cũ nhất</option>
+                </select>
             </div>
 
-            {/* Criteria List */}
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">
-                        Danh sách tiêu chí ({totalItems})
-                    </h3>
+            {/* Error Message */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-800">
+                    <AlertCircle size={20} />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Mã
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tên tiêu chí
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tiêu chuẩn
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Loại
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Thứ tự
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Trạng thái
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Thao tác
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                        {criteria.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                    Không có dữ liệu
+                                </td>
+                            </tr>
+                        ) : (
+                            criteria.map((criteriaItem) => (
+                                <tr key={criteriaItem._id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="font-mono text-sm font-medium text-gray-900">
+                                                {criteriaItem.code}
+                                            </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {criteriaItem.name}
+                                        </div>
+                                        {criteriaItem.description && (
+                                            <div className="text-sm text-gray-500 line-clamp-1">
+                                                {criteriaItem.description}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">
+                                            {criteriaItem.standardId?.code || '-'}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            {criteriaItem.standardId?.name || '-'}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {getTypeBadge(criteriaItem.type)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {criteriaItem.order}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {getStatusBadge(criteriaItem.status)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleView(criteriaItem)}
+                                                className="text-blue-600 hover:text-blue-800"
+                                                title="Xem chi tiết"
+                                            >
+                                                <Eye size={18} />
+                                            </button>
+                                            {(user?.role === 'admin' || user?.role === 'manager') && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(criteriaItem)}
+                                                        className="text-green-600 hover:text-green-800"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    {user?.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => handleDelete(criteriaItem)}
+                                                            className="text-red-600 hover:text-red-800"
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                    </table>
                 </div>
 
-                {loading ? (
-                    <div className="p-8 text-center">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600">Đang tải...</p>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-700">
+                                Trang <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                ) : (
-                    <div className="p-6">
-                        {getFilteredStandards().map(standard => {
-                            const standardCriteria = getCriteriaByStandard(standard.id)
-                            if (standardCriteria.length === 0) return null
+                )}
+            </div>
 
-                            const isExpanded = expandedStandards.has(standard.id)
+            {/* Create/Edit Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">
+                                {modalMode === 'create' && 'Thêm tiêu chí mới'}
+                                {modalMode === 'edit' && 'Chỉnh sửa tiêu chí'}
+                                {modalMode === 'view' && 'Chi tiết tiêu chí'}
+                            </h3>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
 
-                            return (
-                                <div key={standard.id} className="mb-6 border border-gray-200 rounded-lg">
-                                    <div
-                                        onClick={() => toggleStandardExpansion(standard.id)}
-                                        className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Mã tiêu chí <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.code}
+                                        onChange={(e) => setFormData({...formData, code: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                        placeholder="VD: 01"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Mã 1-2 chữ số</p>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tên tiêu chí <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mô tả
+                                </label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tiêu chuẩn <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.standardId}
+                                        onChange={(e) => setFormData({...formData, standardId: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                        disabled={modalMode === 'view'}
                                     >
-                                        <div className="flex items-center">
-                                            {isExpanded ? (
-                                                <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
-                                            ) : (
-                                                <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
-                                            )}
-                                            <BookOpen className="h-5 w-5 text-blue-500 mr-3" />
+                                        <option value="">-- Chọn tiêu chuẩn --</option>
+                                        {standards.map(standard => (
+                                            <option key={standard._id} value={standard._id}>
+                                                {standard.code} - {standard.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Loại <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({...formData, type: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    >
+                                        <option value="mandatory">Bắt buộc</option>
+                                        <option value="optional">Tùy chọn</option>
+                                        <option value="conditional">Có điều kiện</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Thứ tự
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={formData.order}
+                                        onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        min="1"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Trọng số (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={formData.weight}
+                                        onChange={(e) => setFormData({...formData, weight: parseFloat(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Trạng thái
+                                    </label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled={modalMode === 'view'}
+                                    >
+                                        <option value="draft">Nháp</option>
+                                        <option value="active">Hoạt động</option>
+                                        <option value="inactive">Không hoạt động</option>
+                                        <option value="archived">Lưu trữ</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Yêu cầu
+                                </label>
+                                <textarea
+                                    value={formData.requirements}
+                                    onChange={(e) => setFormData({...formData, requirements: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Hướng dẫn
+                                </label>
+                                <textarea
+                                    value={formData.guidelines}
+                                    onChange={(e) => setFormData({...formData, guidelines: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            {/* Indicators Section */}
+                            <div className="border-t pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Chỉ số đánh giá
+                                    </label>
+                                </div>
+
+                                {/* Existing Indicators */}
+                                {formData.indicators.length > 0 && (
+                                    <div className="space-y-2 mb-4">
+                                        {formData.indicators.map((indicator, index) => (
+                                            <div key={index} className="bg-gray-50 p-3 rounded-lg flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm text-gray-900">{indicator.name}</div>
+                                                    {indicator.description && (
+                                                        <div className="text-xs text-gray-600 mt-1">{indicator.description}</div>
+                                                    )}
+                                                    <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                                                        {indicator.measurementMethod && <span>Phương pháp: {indicator.measurementMethod}</span>}
+                                                        {indicator.targetValue && <span>Mục tiêu: {indicator.targetValue}</span>}
+                                                        {indicator.unit && <span>Đơn vị: {indicator.unit}</span>}
+                                                    </div>
+                                                </div>
+                                                {modalMode !== 'view' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveIndicator(index)}
+                                                        className="text-red-600 hover:text-red-800 ml-2"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Add New Indicator */}
+                                {modalMode !== 'view' && (
+                                    <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
-                                                <h4 className="text-lg font-medium text-gray-900">
-                                                    {standard.code} - {standard.name}
-                                                </h4>
-                                                <p className="text-sm text-gray-600">
-                                                    {standardCriteria.length} tiêu chí
-                                                </p>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Tên chỉ số *"
+                                                    value={newIndicator.name}
+                                                    onChange={(e) => setNewIndicator({...newIndicator, name: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Phương pháp đo"
+                                                    value={newIndicator.measurementMethod}
+                                                    onChange={(e) => setNewIndicator({...newIndicator, measurementMethod: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <input
+                                                type="text"
+                                                placeholder="Mô tả chỉ số"
+                                                value={newIndicator.description}
+                                                onChange={(e) => setNewIndicator({...newIndicator, description: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Giá trị mục tiêu"
+                                                    value={newIndicator.targetValue}
+                                                    onChange={(e) => setNewIndicator({...newIndicator, targetValue: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Đơn vị"
+                                                    value={newIndicator.unit}
+                                                    onChange={(e) => setNewIndicator({...newIndicator, unit: e.target.value})}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
                                             </div>
                                         </div>
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                setFormData(prev => ({ ...prev, standardId: standard.id }))
-                                                openCreateModal()
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 p-1"
-                                            title="Thêm tiêu chí cho tiêu chuẩn này"
+                                            type="button"
+                                            onClick={handleAddIndicator}
+                                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                                         >
-                                            <Plus className="h-4 w-4" />
+                                            Thêm chỉ số
                                         </button>
                                     </div>
-
-                                    {isExpanded && (
-                                        <div className="p-4 border-t border-gray-200">
-                                            <div className="space-y-3">
-                                                {standardCriteria.map(criteria => (
-                                                    <div
-                                                        key={criteria.id}
-                                                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                                                    >
-                                                        <div className="flex items-center flex-1">
-                                                            <FileText className="h-4 w-4 text-gray-400 mr-3" />
-                                                            <div className="flex-1">
-                                                                <h5 className="text-sm font-medium text-gray-900">
-                                                                    {criteria.code} - {criteria.name}
-                                                                </h5>
-                                                                {criteria.description && (
-                                                                    <p className="text-xs text-gray-600 mt-1">
-                                                                        {criteria.description}
-                                                                    </p>
-                                                                )}
-                                                                <div className="flex items-center space-x-4 mt-1">
-                                                                    <span className="text-xs text-gray-500">
-                                                                        Thứ tự: {criteria.order}
-                                                                    </span>
-                                                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                                                        criteria.isActive
-                                                                            ? 'bg-green-100 text-green-800'
-                                                                            : 'bg-gray-100 text-gray-800'
-                                                                    }`}>
-                                                                        {criteria.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex space-x-2 ml-4">
-                                                            <button
-                                                                onClick={() => openEditModal(criteria)}
-                                                                className="text-blue-600 hover:text-blue-800 p-1"
-                                                                title="Chỉnh sửa"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setDeleteModal({
-                                                                    show: true,
-                                                                    criteriaId: criteria.id
-                                                                })}
-                                                                className="text-red-600 hover:text-red-800 p-1"
-                                                                title="Xóa"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-
-                        {criteria.length === 0 && (
-                            <div className="text-center py-12">
-                                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    Chưa có tiêu chí nào
-                                </h3>
-                                <p className="text-gray-500 mb-4">
-                                    Bắt đầu bằng cách tạo tiêu chí đầu tiên
-                                </p>
-                                <button
-                                    onClick={openCreateModal}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Thêm tiêu chí
-                                </button>
+                                )}
                             </div>
-                        )}
+
+                            {modalMode !== 'view' && (
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModal(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        {modalMode === 'create' ? 'Tạo mới' : 'Cập nhật'}
+                                    </button>
+                                </div>
+                            )}
+                        </form>
                     </div>
-                )}
+                </div>
+            )}
 
-                {totalPages > 1 && (
-                    <Pagination
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        totalItems={totalItems}
-                        itemsPerPage={itemsPerPage}
-                        onPageChange={setCurrentPage}
-                    />
-                )}
-            </div>
-
-            {/* Create Modal */}
-            <Modal
-                isOpen={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
-                title="Thêm tiêu chí mới"
-                size="large"
-            >
-                <CriteriaForm />
-            </Modal>
-
-            {/* Edit Modal */}
-            <Modal
-                isOpen={showEditModal}
-                onClose={() => setShowEditModal(false)}
-                title="Chỉnh sửa tiêu chí"
-                size="large"
-            >
-                <CriteriaForm isEdit={true} />
-            </Modal>
-
-            {/* Delete Confirmation */}
-            <ConfirmModal
-                isOpen={deleteModal.show}
-                onClose={() => setDeleteModal({ show: false, criteriaId: null })}
-                onConfirm={handleDeleteCriteria}
-                title="Xác nhận xóa tiêu chí"
-                message="Bạn có chắc chắn muốn xóa tiêu chí này? Thao tác này không thể hoàn tác và có thể ảnh hưởng đến các minh chứng liên quan."
-                confirmText="Xóa"
-                type="danger"
-            />
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <AlertCircle size={24} />
+                            <h3 className="text-lg font-semibold">Xác nhận xóa</h3>
+                        </div>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa tiêu chí <strong>{selectedCriteria?.name}</strong>?
+                            Hành động này không thể hoàn tác.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                                Xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
