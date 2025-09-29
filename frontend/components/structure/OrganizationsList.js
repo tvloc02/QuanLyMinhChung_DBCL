@@ -1,15 +1,13 @@
-// frontend/components/structure/StandardList.js
+// frontend/components/structure/OrganizationsList.js
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
     Plus, Search, Edit2, Trash2, Eye, X,
-    AlertCircle, ChevronLeft, ChevronRight
+    AlertCircle, ChevronLeft, ChevronRight, Building2
 } from 'lucide-react'
 
-export default function StandardList() {
+export default function OrganizationsList() {
     const { user } = useAuth()
-    const [standards, setStandards] = useState([])
-    const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -19,44 +17,39 @@ export default function StandardList() {
     const [totalPages, setTotalPages] = useState(1)
     const [total, setTotal] = useState(0)
     const [search, setSearch] = useState('')
-    const [programFilter, setProgramFilter] = useState('')
-    const [organizationFilter, setOrganizationFilter] = useState('')
+    const [levelFilter, setLevelFilter] = useState('')
+    const [typeFilter, setTypeFilter] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
-    const [sortBy, setSortBy] = useState('order')
-    const [sortOrder, setSortOrder] = useState('asc')
+    const [sortBy, setSortBy] = useState('createdAt')
+    const [sortOrder, setSortOrder] = useState('desc')
 
     // Modal states
     const [showModal, setShowModal] = useState(false)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
-    const [selectedStandard, setSelectedStandard] = useState(null)
-    const [modalMode, setModalMode] = useState('create')
+    const [selectedOrganization, setSelectedOrganization] = useState(null)
+    const [modalMode, setModalMode] = useState('create') // create, edit, view
 
     // Form data
     const [formData, setFormData] = useState({
         name: '',
         code: '',
         description: '',
-        programId: '',
-        organizationId: '',
-        order: 1,
-        weight: 0,
-        objectives: '',
-        guidelines: '',
-        evaluationCriteria: [],
-        status: 'draft'
+        level: 'national',
+        type: 'education',
+        website: '',
+        contactEmail: '',
+        contactPhone: '',
+        address: '',
+        country: 'Vietnam',
+        status: 'active'
     })
 
-    // Fetch data
+    // Fetch organizations
     useEffect(() => {
-        fetchStandards()
-    }, [currentPage, search, programFilter, organizationFilter, statusFilter, sortBy, sortOrder])
-
-    useEffect(() => {
-        fetchPrograms()
         fetchOrganizations()
-    }, [])
+    }, [currentPage, search, levelFilter, typeFilter, statusFilter, sortBy, sortOrder])
 
-    const fetchStandards = async () => {
+    const fetchOrganizations = async () => {
         try {
             setLoading(true)
             const params = new URLSearchParams({
@@ -67,20 +60,20 @@ export default function StandardList() {
             })
 
             if (search) params.append('search', search)
-            if (programFilter) params.append('programId', programFilter)
-            if (organizationFilter) params.append('organizationId', organizationFilter)
+            if (levelFilter) params.append('level', levelFilter)
+            if (typeFilter) params.append('type', typeFilter)
             if (statusFilter) params.append('status', statusFilter)
 
-            const response = await fetch(`/api/standards?${params}`, {
+            const response = await fetch(`/api/organizations?${params}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             })
 
-            if (!response.ok) throw new Error('Lỗi khi tải danh sách tiêu chuẩn')
+            if (!response.ok) throw new Error('Lỗi khi tải danh sách tổ chức')
 
             const data = await response.json()
-            setStandards(data.data.standards)
+            setOrganizations(data.data.organizations)
             setTotalPages(data.data.pagination.pages)
             setTotal(data.data.pagination.total)
             setError(null)
@@ -91,96 +84,64 @@ export default function StandardList() {
         }
     }
 
-    const fetchPrograms = async () => {
-        try {
-            const response = await fetch('/api/programs/all', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            })
-            if (response.ok) {
-                const data = await response.json()
-                setPrograms(data.data)
-            }
-        } catch (err) {
-            console.error('Lỗi khi tải chương trình:', err)
-        }
-    }
-
-    const fetchOrganizations = async () => {
-        try {
-            const response = await fetch('/api/organizations/all', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            })
-            if (response.ok) {
-                const data = await response.json()
-                setOrganizations(data.data)
-            }
-        } catch (err) {
-            console.error('Lỗi khi tải tổ chức:', err)
-        }
-    }
-
     const handleCreate = () => {
         setModalMode('create')
         setFormData({
             name: '',
             code: '',
             description: '',
-            programId: '',
-            organizationId: '',
-            order: 1,
-            weight: 0,
-            objectives: '',
-            guidelines: '',
-            evaluationCriteria: [],
-            status: 'draft'
+            level: 'national',
+            type: 'education',
+            website: '',
+            contactEmail: '',
+            contactPhone: '',
+            address: '',
+            country: 'Vietnam',
+            status: 'active'
         })
         setShowModal(true)
     }
 
-    const handleEdit = (standard) => {
+    const handleEdit = (organization) => {
         setModalMode('edit')
-        setSelectedStandard(standard)
+        setSelectedOrganization(organization)
         setFormData({
-            name: standard.name,
-            code: standard.code,
-            description: standard.description || '',
-            programId: standard.programId._id || standard.programId,
-            organizationId: standard.organizationId._id || standard.organizationId,
-            order: standard.order,
-            weight: standard.weight || 0,
-            objectives: standard.objectives || '',
-            guidelines: standard.guidelines || '',
-            evaluationCriteria: standard.evaluationCriteria || [],
-            status: standard.status
+            name: organization.name,
+            code: organization.code,
+            description: organization.description || '',
+            level: organization.level,
+            type: organization.type,
+            website: organization.website || '',
+            contactEmail: organization.contactEmail || '',
+            contactPhone: organization.contactPhone || '',
+            address: organization.address || '',
+            country: organization.country || 'Vietnam',
+            status: organization.status
         })
         setShowModal(true)
     }
 
-    const handleView = (standard) => {
+    const handleView = (organization) => {
         setModalMode('view')
-        setSelectedStandard(standard)
+        setSelectedOrganization(organization)
         setFormData({
-            name: standard.name,
-            code: standard.code,
-            description: standard.description || '',
-            programId: standard.programId._id || standard.programId,
-            organizationId: standard.organizationId._id || standard.organizationId,
-            order: standard.order,
-            weight: standard.weight || 0,
-            objectives: standard.objectives || '',
-            guidelines: standard.guidelines || '',
-            evaluationCriteria: standard.evaluationCriteria || [],
-            status: standard.status
+            name: organization.name,
+            code: organization.code,
+            description: organization.description || '',
+            level: organization.level,
+            type: organization.type,
+            website: organization.website || '',
+            contactEmail: organization.contactEmail || '',
+            contactPhone: organization.contactPhone || '',
+            address: organization.address || '',
+            country: organization.country || 'Vietnam',
+            status: organization.status
         })
         setShowModal(true)
     }
 
-    const handleDelete = (standard) => {
-        setSelectedStandard(standard)
+    const handleDelete = (organization) => {
+        setSelectedOrganization(organization)
         setShowDeleteModal(true)
     }
 
@@ -189,8 +150,8 @@ export default function StandardList() {
 
         try {
             const url = modalMode === 'create'
-                ? '/api/standards'
-                : `/api/standards/${selectedStandard._id}`
+                ? '/api/organizations'
+                : `/api/organizations/${selectedOrganization._id}`
 
             const method = modalMode === 'create' ? 'POST' : 'PUT'
 
@@ -208,9 +169,9 @@ export default function StandardList() {
                 throw new Error(errorData.message || 'Có lỗi xảy ra')
             }
 
-            await fetchStandards()
+            await fetchOrganizations()
             setShowModal(false)
-            alert(modalMode === 'create' ? 'Tạo tiêu chuẩn thành công!' : 'Cập nhật tiêu chuẩn thành công!')
+            alert(modalMode === 'create' ? 'Tạo tổ chức thành công!' : 'Cập nhật tổ chức thành công!')
         } catch (err) {
             alert(err.message)
         }
@@ -218,7 +179,7 @@ export default function StandardList() {
 
     const confirmDelete = async () => {
         try {
-            const response = await fetch(`/api/standards/${selectedStandard._id}`, {
+            const response = await fetch(`/api/organizations/${selectedOrganization._id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -230,9 +191,9 @@ export default function StandardList() {
                 throw new Error(errorData.message || 'Có lỗi xảy ra')
             }
 
-            await fetchStandards()
+            await fetchOrganizations()
             setShowDeleteModal(false)
-            alert('Xóa tiêu chuẩn thành công!')
+            alert('Xóa tổ chức thành công!')
         } catch (err) {
             alert(err.message)
         }
@@ -240,12 +201,11 @@ export default function StandardList() {
 
     const getStatusBadge = (status) => {
         const statusConfig = {
-            draft: { label: 'Nháp', className: 'bg-gray-100 text-gray-800' },
             active: { label: 'Hoạt động', className: 'bg-green-100 text-green-800' },
             inactive: { label: 'Không hoạt động', className: 'bg-red-100 text-red-800' },
-            archived: { label: 'Lưu trữ', className: 'bg-yellow-100 text-yellow-800' }
+            suspended: { label: 'Tạm ngưng', className: 'bg-yellow-100 text-yellow-800' }
         }
-        const config = statusConfig[status] || statusConfig.draft
+        const config = statusConfig[status] || statusConfig.active
         return (
             <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
                 {config.label}
@@ -253,7 +213,38 @@ export default function StandardList() {
         )
     }
 
-    if (loading && standards.length === 0) {
+    const getLevelBadge = (level) => {
+        const levelConfig = {
+            national: { label: 'Quốc gia', className: 'bg-blue-100 text-blue-800' },
+            international: { label: 'Quốc tế', className: 'bg-purple-100 text-purple-800' },
+            regional: { label: 'Khu vực', className: 'bg-indigo-100 text-indigo-800' },
+            institutional: { label: 'Cơ sở', className: 'bg-gray-100 text-gray-800' }
+        }
+        const config = levelConfig[level] || levelConfig.national
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
+    }
+
+    const getTypeBadge = (type) => {
+        const typeConfig = {
+            government: { label: 'Chính phủ', className: 'bg-red-100 text-red-800' },
+            education: { label: 'Giáo dục', className: 'bg-green-100 text-green-800' },
+            professional: { label: 'Chuyên nghiệp', className: 'bg-blue-100 text-blue-800' },
+            international: { label: 'Quốc tế', className: 'bg-purple-100 text-purple-800' },
+            other: { label: 'Khác', className: 'bg-gray-100 text-gray-800' }
+        }
+        const config = typeConfig[type] || typeConfig.other
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
+    }
+
+    if (loading && organizations.length === 0) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -266,16 +257,16 @@ export default function StandardList() {
             {/* Header & Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Quản lý tiêu chuẩn</h2>
-                    <p className="text-sm text-gray-600 mt-1">Tổng số: {total} tiêu chuẩn</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Quản lý tổ chức</h2>
+                    <p className="text-sm text-gray-600 mt-1">Tổng số: {total} tổ chức</p>
                 </div>
-                {(user?.role === 'admin' || user?.role === 'manager') && (
+                {user?.role === 'admin' && (
                     <button
                         onClick={handleCreate}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <Plus size={20} />
-                        Thêm tiêu chuẩn
+                        Thêm tổ chức
                     </button>
                 )}
             </div>
@@ -297,35 +288,34 @@ export default function StandardList() {
                 </div>
 
                 <select
-                    value={programFilter}
+                    value={levelFilter}
                     onChange={(e) => {
-                        setProgramFilter(e.target.value)
+                        setLevelFilter(e.target.value)
                         setCurrentPage(1)
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                    <option value="">Tất cả chương trình</option>
-                    {programs.map(program => (
-                        <option key={program._id} value={program._id}>
-                            {program.name}
-                        </option>
-                    ))}
+                    <option value="">Tất cả cấp độ</option>
+                    <option value="national">Quốc gia</option>
+                    <option value="international">Quốc tế</option>
+                    <option value="regional">Khu vực</option>
+                    <option value="institutional">Cơ sở</option>
                 </select>
 
                 <select
-                    value={organizationFilter}
+                    value={typeFilter}
                     onChange={(e) => {
-                        setOrganizationFilter(e.target.value)
+                        setTypeFilter(e.target.value)
                         setCurrentPage(1)
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                    <option value="">Tất cả tổ chức</option>
-                    {organizations.map(org => (
-                        <option key={org._id} value={org._id}>
-                            {org.name}
-                        </option>
-                    ))}
+                    <option value="">Tất cả loại</option>
+                    <option value="government">Chính phủ</option>
+                    <option value="education">Giáo dục</option>
+                    <option value="professional">Chuyên nghiệp</option>
+                    <option value="international">Quốc tế</option>
+                    <option value="other">Khác</option>
                 </select>
 
                 <select
@@ -337,10 +327,9 @@ export default function StandardList() {
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                     <option value="">Tất cả trạng thái</option>
-                    <option value="draft">Nháp</option>
                     <option value="active">Hoạt động</option>
                     <option value="inactive">Không hoạt động</option>
-                    <option value="archived">Lưu trữ</option>
+                    <option value="suspended">Tạm ngưng</option>
                 </select>
 
                 <select
@@ -352,14 +341,12 @@ export default function StandardList() {
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                    <option value="order-asc">Thứ tự tăng dần</option>
-                    <option value="order-desc">Thứ tự giảm dần</option>
-                    <option value="code-asc">Mã A-Z</option>
-                    <option value="code-desc">Mã Z-A</option>
-                    <option value="name-asc">Tên A-Z</option>
-                    <option value="name-desc">Tên Z-A</option>
                     <option value="createdAt-desc">Mới nhất</option>
                     <option value="createdAt-asc">Cũ nhất</option>
+                    <option value="name-asc">Tên A-Z</option>
+                    <option value="name-desc">Tên Z-A</option>
+                    <option value="code-asc">Mã A-Z</option>
+                    <option value="code-desc">Mã Z-A</option>
                 </select>
             </div>
 
@@ -381,16 +368,13 @@ export default function StandardList() {
                                 Mã
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tên tiêu chuẩn
+                                Tên tổ chức
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Chương trình
+                                Cấp độ
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Tổ chức
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Thứ tự
+                                Loại
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Trạng thái
@@ -401,73 +385,64 @@ export default function StandardList() {
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                        {standards.length === 0 ? (
+                        {organizations.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                                     Không có dữ liệu
                                 </td>
                             </tr>
                         ) : (
-                            standards.map((standard) => (
-                                <tr key={standard._id} className="hover:bg-gray-50">
+                            organizations.map((org) => (
+                                <tr key={org._id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="font-mono text-sm font-medium text-gray-900">
-                                                {standard.code}
+                                                {org.code}
                                             </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-sm font-medium text-gray-900">
-                                            {standard.name}
+                                            {org.name}
                                         </div>
-                                        {standard.description && (
+                                        {org.description && (
                                             <div className="text-sm text-gray-500 line-clamp-1">
-                                                {standard.description}
+                                                {org.description}
                                             </div>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">
-                                            {standard.programId?.name || '-'}
-                                        </div>
+                                        {getLevelBadge(org.level)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">
-                                            {standard.organizationId?.name || '-'}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {standard.order}
+                                        {getTypeBadge(org.type)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {getStatusBadge(standard.status)}
+                                        {getStatusBadge(org.status)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
-                                                onClick={() => handleView(standard)}
+                                                onClick={() => handleView(org)}
                                                 className="text-blue-600 hover:text-blue-800"
                                                 title="Xem chi tiết"
                                             >
                                                 <Eye size={18} />
                                             </button>
-                                            {(user?.role === 'admin' || user?.role === 'manager') && (
+                                            {user?.role === 'admin' && (
                                                 <>
                                                     <button
-                                                        onClick={() => handleEdit(standard)}
+                                                        onClick={() => handleEdit(org)}
                                                         className="text-green-600 hover:text-green-800"
                                                         title="Chỉnh sửa"
                                                     >
                                                         <Edit2 size={18} />
                                                     </button>
-                                                    {user?.role === 'admin' && (
-                                                        <button
-                                                            onClick={() => handleDelete(standard)}
-                                                            className="text-red-600 hover:text-red-800"
-                                                            title="Xóa"
-                                                        >
-                                                            <Trash2 size={18} />
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={() => handleDelete(org)}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
                                                 </>
                                             )}
                                         </div>
@@ -513,9 +488,9 @@ export default function StandardList() {
                     <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                             <h3 className="text-lg font-semibold">
-                                {modalMode === 'create' && 'Thêm tiêu chuẩn mới'}
-                                {modalMode === 'edit' && 'Chỉnh sửa tiêu chuẩn'}
-                                {modalMode === 'view' && 'Chi tiết tiêu chuẩn'}
+                                {modalMode === 'create' && 'Thêm tổ chức mới'}
+                                {modalMode === 'edit' && 'Chỉnh sửa tổ chức'}
+                                {modalMode === 'view' && 'Chi tiết tổ chức'}
                             </h3>
                             <button
                                 onClick={() => setShowModal(false)}
@@ -529,23 +504,22 @@ export default function StandardList() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Mã tiêu chuẩn <span className="text-red-500">*</span>
+                                        Mã tổ chức <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.code}
-                                        onChange={(e) => setFormData({...formData, code: e.target.value})}
+                                        onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                                        placeholder="VD: 01"
+                                        placeholder="VD: MOET"
                                         required
-                                        disabled={modalMode === 'view'}
+                                        disabled={modalMode === 'view' || modalMode === 'edit'}
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Mã 1-2 chữ số</p>
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Tên tiêu chuẩn <span className="text-red-500">*</span>
+                                        Tên tổ chức <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
@@ -574,41 +548,38 @@ export default function StandardList() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Chương trình <span className="text-red-500">*</span>
+                                        Cấp độ <span className="text-red-500">*</span>
                                     </label>
                                     <select
-                                        value={formData.programId}
-                                        onChange={(e) => setFormData({...formData, programId: e.target.value})}
+                                        value={formData.level}
+                                        onChange={(e) => setFormData({...formData, level: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         required
-                                        disabled={modalMode === 'view' || modalMode === 'edit'}
+                                        disabled={modalMode === 'view'}
                                     >
-                                        <option value="">-- Chọn chương trình --</option>
-                                        {programs.map(program => (
-                                            <option key={program._id} value={program._id}>
-                                                {program.name}
-                                            </option>
-                                        ))}
+                                        <option value="national">Quốc gia</option>
+                                        <option value="international">Quốc tế</option>
+                                        <option value="regional">Khu vực</option>
+                                        <option value="institutional">Cơ sở</option>
                                     </select>
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Tổ chức <span className="text-red-500">*</span>
+                                        Loại tổ chức <span className="text-red-500">*</span>
                                     </label>
                                     <select
-                                        value={formData.organizationId}
-                                        onChange={(e) => setFormData({...formData, organizationId: e.target.value})}
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({...formData, type: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         required
-                                        disabled={modalMode === 'view' || modalMode === 'edit'}
+                                        disabled={modalMode === 'view'}
                                     >
-                                        <option value="">-- Chọn tổ chức --</option>
-                                        {organizations.map(org => (
-                                            <option key={org._id} value={org._id}>
-                                                {org.name}
-                                            </option>
-                                        ))}
+                                        <option value="government">Chính phủ</option>
+                                        <option value="education">Giáo dục</option>
+                                        <option value="professional">Chuyên nghiệp</option>
+                                        <option value="international">Quốc tế</option>
+                                        <option value="other">Khác</option>
                                     </select>
                                 </div>
                             </div>
@@ -616,30 +587,55 @@ export default function StandardList() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Thứ tự
+                                        Website
                                     </label>
                                     <input
-                                        type="number"
-                                        value={formData.order}
-                                        onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
+                                        type="url"
+                                        value={formData.website}
+                                        onChange={(e) => setFormData({...formData, website: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        min="1"
+                                        placeholder="https://..."
                                         disabled={modalMode === 'view'}
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Trọng số (%)
+                                        Email liên hệ
                                     </label>
                                     <input
-                                        type="number"
-                                        value={formData.weight}
-                                        onChange={(e) => setFormData({...formData, weight: parseFloat(e.target.value)})}
+                                        type="email"
+                                        value={formData.contactEmail}
+                                        onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        min="0"
-                                        max="100"
-                                        step="0.1"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Số điện thoại
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={formData.contactPhone}
+                                        onChange={(e) => setFormData({...formData, contactPhone: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Quốc gia
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.country}
+                                        onChange={(e) => setFormData({...formData, country: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         disabled={modalMode === 'view'}
                                     />
                                 </div>
@@ -647,26 +643,13 @@ export default function StandardList() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mục tiêu
+                                    Địa chỉ
                                 </label>
                                 <textarea
-                                    value={formData.objectives}
-                                    onChange={(e) => setFormData({...formData, objectives: e.target.value})}
+                                    value={formData.address}
+                                    onChange={(e) => setFormData({...formData, address: e.target.value})}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows="3"
-                                    disabled={modalMode === 'view'}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Hướng dẫn
-                                </label>
-                                <textarea
-                                    value={formData.guidelines}
-                                    onChange={(e) => setFormData({...formData, guidelines: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows="3"
+                                    rows="2"
                                     disabled={modalMode === 'view'}
                                 />
                             </div>
@@ -681,10 +664,9 @@ export default function StandardList() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     disabled={modalMode === 'view'}
                                 >
-                                    <option value="draft">Nháp</option>
                                     <option value="active">Hoạt động</option>
                                     <option value="inactive">Không hoạt động</option>
-                                    <option value="archived">Lưu trữ</option>
+                                    <option value="suspended">Tạm ngưng</option>
                                 </select>
                             </div>
 
@@ -719,7 +701,7 @@ export default function StandardList() {
                             <h3 className="text-lg font-semibold">Xác nhận xóa</h3>
                         </div>
                         <p className="text-gray-600 mb-6">
-                            Bạn có chắc chắn muốn xóa tiêu chuẩn <strong>{selectedStandard?.name}</strong>?
+                            Bạn có chắc chắn muốn xóa tổ chức <strong>{selectedOrganization?.name}</strong>?
                             Hành động này không thể hoàn tác.
                         </p>
                         <div className="flex justify-end gap-3">
