@@ -19,10 +19,9 @@ const createUserValidation = [
     body('email')
         .notEmpty()
         .withMessage('Email là bắt buộc')
-        .isEmail()
-        .withMessage('Email không hợp lệ')
+        .trim()
         .custom((value) => {
-            const cleanEmail = value.replace('@vnua.edu.vn', '');
+            const cleanEmail = value.replace('@cmcu.edu.vn', '').replace('@cmc.edu.vn', '');
             if (!/^[a-zA-Z0-9]+$/.test(cleanEmail)) {
                 throw new Error('Email không hợp lệ');
             }
@@ -33,13 +32,22 @@ const createUserValidation = [
         .withMessage('Họ tên là bắt buộc')
         .isLength({ min: 2, max: 100 })
         .withMessage('Họ tên phải có từ 2-100 ký tự'),
+    body('password')
+        .optional()
+        .isLength({ min: 6 })
+        .withMessage('Mật khẩu phải có ít nhất 6 ký tự'),
     body('phoneNumber')
         .optional()
         .matches(/^[0-9]{10,11}$/)
         .withMessage('Số điện thoại không hợp lệ'),
     body('role')
-        .isIn(['admin', 'manager', 'staff'])
+        .optional()
+        .isIn(['admin', 'manager', 'expert', 'advisor'])
         .withMessage('Vai trò không hợp lệ'),
+    body('status')
+        .optional()
+        .isIn(['active', 'inactive', 'suspended', 'pending'])
+        .withMessage('Trạng thái không hợp lệ'),
     body('department')
         .optional()
         .isLength({ max: 100 })
@@ -48,6 +56,26 @@ const createUserValidation = [
         .optional()
         .isLength({ max: 100 })
         .withMessage('Chức vụ không được quá 100 ký tự'),
+    body('expertise')
+        .optional()
+        .isArray()
+        .withMessage('Lĩnh vực chuyên môn phải là mảng'),
+    body('mustChangePassword')
+        .optional()
+        .isBoolean()
+        .withMessage('mustChangePassword phải là boolean'),
+    body('academicYearAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền năm học phải là mảng'),
+    body('programAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền chương trình phải là mảng'),
+    body('organizationAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền tổ chức phải là mảng'),
     body('standardAccess')
         .optional()
         .isArray()
@@ -55,7 +83,11 @@ const createUserValidation = [
     body('criteriaAccess')
         .optional()
         .isArray()
-        .withMessage('Quyền tiêu chí phải là mảng')
+        .withMessage('Quyền tiêu chí phải là mảng'),
+    body('notificationSettings')
+        .optional()
+        .isObject()
+        .withMessage('Cài đặt thông báo phải là object')
 ];
 
 const updateUserValidation = [
@@ -70,7 +102,7 @@ const updateUserValidation = [
         .withMessage('Số điện thoại không hợp lệ'),
     body('role')
         .optional()
-        .isIn(['admin', 'manager', 'staff'])
+        .isIn(['admin', 'manager', 'expert', 'advisor'])
         .withMessage('Vai trò không hợp lệ'),
     body('department')
         .optional()
@@ -79,7 +111,35 @@ const updateUserValidation = [
     body('position')
         .optional()
         .isLength({ max: 100 })
-        .withMessage('Chức vụ không được quá 100 ký tự')
+        .withMessage('Chức vụ không được quá 100 ký tự'),
+    body('expertise')
+        .optional()
+        .isArray()
+        .withMessage('Lĩnh vực chuyên môn phải là mảng'),
+    body('academicYearAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền năm học phải là mảng'),
+    body('programAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền chương trình phải là mảng'),
+    body('organizationAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền tổ chức phải là mảng'),
+    body('standardAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền tiêu chuẩn phải là mảng'),
+    body('criteriaAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền tiêu chí phải là mảng'),
+    body('notificationSettings')
+        .optional()
+        .isObject()
+        .withMessage('Cài đặt thông báo phải là object')
 ];
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
@@ -88,8 +148,8 @@ router.get('/', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('role').optional().isIn(['admin', 'manager', 'staff']),
-    query('status').optional().isIn(['active', 'inactive', 'suspended']),
+    query('role').optional().isIn(['admin', 'manager', 'expert', 'advisor']),
+    query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers);
@@ -125,12 +185,24 @@ router.post('/:id/reset-password', auth, requireAdmin, [
 router.patch('/:id/status', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
     body('status')
-        .isIn(['active', 'inactive', 'suspended'])
+        .isIn(['active', 'inactive', 'suspended', 'pending'])
         .withMessage('Trạng thái không hợp lệ')
 ], validation, updateUserStatus);
 
 router.put('/:id/permissions', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
+    body('academicYearAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền năm học phải là mảng'),
+    body('programAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền chương trình phải là mảng'),
+    body('organizationAccess')
+        .optional()
+        .isArray()
+        .withMessage('Quyền tổ chức phải là mảng'),
     body('standardAccess')
         .optional()
         .isArray()

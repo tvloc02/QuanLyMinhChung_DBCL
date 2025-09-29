@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import {
@@ -68,7 +69,7 @@ export default function UsersList() {
             if (roleFilter) params.role = roleFilter
             if (statusFilter) params.status = statusFilter
 
-            const response = await api.get('/users', { params })
+            const response = await axios.get('http://localhost:5000/api/users', { params })
 
             if (response.data.success) {
                 setUsers(response.data.data.users)

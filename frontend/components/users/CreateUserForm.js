@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { AlertCircle, Save, X, Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, Save, X, Eye, EyeOff, Plus, Trash } from 'lucide-react'
 import api from '../../services/api'
 
 export default function CreateUserForm() {
@@ -9,6 +9,7 @@ export default function CreateUserForm() {
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
+    const [expertiseInput, setExpertiseInput] = useState('')
 
     const [formData, setFormData] = useState({
         email: '',
@@ -111,6 +112,23 @@ export default function CreateUserForm() {
                 }
             }
         })
+    }
+
+    const addExpertise = () => {
+        if (expertiseInput.trim()) {
+            setFormData(prev => ({
+                ...prev,
+                expertise: [...prev.expertise, expertiseInput.trim()]
+            }))
+            setExpertiseInput('')
+        }
+    }
+
+    const removeExpertise = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            expertise: prev.expertise.filter((_, i) => i !== index)
+        }))
     }
 
     const validateForm = () => {
@@ -315,6 +333,184 @@ export default function CreateUserForm() {
                                 placeholder="Chuyên viên"
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Lĩnh vực chuyên môn */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Lĩnh vực chuyên môn</h3>
+
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={expertiseInput}
+                                onChange={(e) => setExpertiseInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addExpertise())}
+                                placeholder="Nhập lĩnh vực chuyên môn"
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            <button
+                                type="button"
+                                onClick={addExpertise}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Thêm
+                            </button>
+                        </div>
+
+                        {formData.expertise.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {formData.expertise.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full"
+                                    >
+                                        <span className="text-sm">{item}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeExpertise(index)}
+                                            className="text-blue-600 hover:text-blue-800"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Phân quyền truy cập */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Phân quyền truy cập</h3>
+
+                    <div className="space-y-6">
+                        {/* Năm học */}
+                        {accessOptions.academicYears.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Năm học
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    {accessOptions.academicYears.map((item) => (
+                                        <label
+                                            key={item._id}
+                                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.academicYearAccess.includes(item._id)}
+                                                onChange={() => handleMultiSelect('academicYearAccess', item._id)}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Chương trình */}
+                        {accessOptions.programs.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Chương trình
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    {accessOptions.programs.map((item) => (
+                                        <label
+                                            key={item._id}
+                                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.programAccess.includes(item._id)}
+                                                onChange={() => handleMultiSelect('programAccess', item._id)}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tổ chức */}
+                        {accessOptions.organizations.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tổ chức
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    {accessOptions.organizations.map((item) => (
+                                        <label
+                                            key={item._id}
+                                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.organizationAccess.includes(item._id)}
+                                                onChange={() => handleMultiSelect('organizationAccess', item._id)}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tiêu chuẩn */}
+                        {accessOptions.standards.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tiêu chuẩn
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    {accessOptions.standards.map((item) => (
+                                        <label
+                                            key={item._id}
+                                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.standardAccess.includes(item._id)}
+                                                onChange={() => handleMultiSelect('standardAccess', item._id)}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tiêu chí */}
+                        {accessOptions.criteria.length > 0 && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tiêu chí
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    {accessOptions.criteria.map((item) => (
+                                        <label
+                                            key={item._id}
+                                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.criteriaAccess.includes(item._id)}
+                                                onChange={() => handleMultiSelect('criteriaAccess', item._id)}
+                                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

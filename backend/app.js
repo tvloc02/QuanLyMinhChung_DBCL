@@ -30,7 +30,7 @@ app.use('/api/', limiter);
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
+const usersRoutes = require('./routes/users');
 const academicYearRoutes = require('./routes/academicYear');
 const programRoutes = require('./routes/programs');
 const organizationRoutes = require('./routes/organizations');
@@ -50,7 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 
 // User management routes (no academic year context)
-app.use('/api/users', auth, userRoutes);
+app.use('/api/users', usersRoutes);
 
 // Notification routes (no academic year context)
 app.use('/api/notifications', auth, notificationRoutes);
