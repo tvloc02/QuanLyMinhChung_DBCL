@@ -1,4 +1,3 @@
-// frontend/components/structure/ProgramsList.js
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import {
