@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import Link from 'next/link'
 import {
     ArrowLeft,
     Save,
@@ -11,8 +10,6 @@ import {
     Info,
     Loader2,
     Calendar,
-    FileText,
-    Settings,
     Eye
 } from 'lucide-react'
 
@@ -123,7 +120,6 @@ const EditAcademicYearPage = () => {
             newErrors.name = 'Tên năm học không được quá 100 ký tự'
         }
 
-        // Validate years
         if (!formData.startYear) {
             newErrors.startYear = 'Năm bắt đầu là bắt buộc'
         } else if (formData.startYear < 2020 || formData.startYear > 2050) {
@@ -136,7 +132,6 @@ const EditAcademicYearPage = () => {
             newErrors.endYear = 'Năm kết thúc phải lớn hơn năm bắt đầu'
         }
 
-        // Validate dates
         if (!formData.startDate) {
             newErrors.startDate = 'Ngày bắt đầu là bắt buộc'
         }
@@ -147,7 +142,6 @@ const EditAcademicYearPage = () => {
             newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
         }
 
-        // Validate description length
         if (formData.description && formData.description.length > 500) {
             newErrors.description = 'Mô tả không được quá 500 ký tự'
         }
@@ -175,7 +169,6 @@ const EditAcademicYearPage = () => {
             }))
         }
 
-        // Clear error when user starts typing
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -261,11 +254,12 @@ const EditAcademicYearPage = () => {
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-4">Năm học không tồn tại hoặc đã bị xóa</p>
-                    <Link href="/academic-years/academic-years">
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                            Quay về danh sách
-                        </button>
-                    </Link>
+                    <button
+                        onClick={() => router.push('/academic-years')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                        Quay về danh sách
+                    </button>
                 </div>
             </Layout>
         )
@@ -284,12 +278,13 @@ const EditAcademicYearPage = () => {
                         <p className="text-gray-600">{originalData.name} ({formData.startYear}-{formData.endYear})</p>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <Link href={`/academic-years/${id}`}>
-                            <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                <Eye className="w-4 h-4" />
-                                <span>Xem chi tiết</span>
-                            </button>
-                        </Link>
+                        <button
+                            onClick={() => router.push(`/academic-years/${id}`)}
+                            className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            <Eye className="w-4 h-4" />
+                            <span>Xem chi tiết</span>
+                        </button>
                         {hasChanges && (
                             <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
                                 Có thay đổi chưa lưu
