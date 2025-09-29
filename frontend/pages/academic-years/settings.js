@@ -2,28 +2,24 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import Link from 'next/link'
 import {
     ArrowLeft,
     Settings,
     Save,
     RefreshCw,
-    BarChart3,
     BookOpen,
     Building2,
     Target,
     CheckSquare,
     Folder,
-    FileText,
-    Users,
     Calendar,
-    TrendingUp,
     AlertCircle,
     CheckCircle,
     Info,
     Eye,
     Download,
-    Upload
+    Upload,
+    Edit
 } from 'lucide-react'
 
 const AcademicYearSettingsPage = () => {
@@ -231,11 +227,12 @@ const AcademicYearSettingsPage = () => {
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-4">Năm học không tồn tại hoặc đã bị xóa</p>
-                    <Link href="/academic-years/academic-years">
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                            Quay về danh sách
-                        </button>
-                    </Link>
+                    <button
+                        onClick={() => router.push('/academic-years')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                        Quay về danh sách
+                    </button>
                 </div>
             </Layout>
         )
@@ -270,12 +267,13 @@ const AcademicYearSettingsPage = () => {
                                 academicYear.status === 'completed' ? 'Hoàn thành' :
                                     academicYear.status === 'draft' ? 'Nháp' : 'Lưu trữ'}
                         </span>
-                        <Link href="/academic-years/academic-years">
-                            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                <ArrowLeft className="w-4 h-4" />
-                                <span>Quay lại</span>
-                            </button>
-                        </Link>
+                        <button
+                            onClick={() => router.push('/academic-years')}
+                            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Quay lại</span>
+                        </button>
                     </div>
                 </div>
 
@@ -443,26 +441,29 @@ const AcademicYearSettingsPage = () => {
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Thao tác nhanh</h3>
 
                             <div className="space-y-3">
-                                <Link href={`/academic-years/${id}`}>
-                                    <button className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <Eye className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm font-medium text-gray-900">Xem chi tiết</span>
-                                    </button>
-                                </Link>
+                                <button
+                                    onClick={() => router.push(`/academic-years/${id}`)}
+                                    className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    <Eye className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-900">Xem chi tiết</span>
+                                </button>
 
-                                <Link href={`/academic-years/${id}/edit`}>
-                                    <button className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <Settings className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm font-medium text-gray-900">Chỉnh sửa</span>
-                                    </button>
-                                </Link>
+                                <button
+                                    onClick={() => router.push(`/academic-years/${id}/edit`)}
+                                    className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    <Edit className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-900">Chỉnh sửa</span>
+                                </button>
 
-                                <Link href={`/academic-years/copy?source=${id}`}>
-                                    <button className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <Upload className="w-4 h-4 text-gray-400" />
-                                        <span className="text-sm font-medium text-gray-900">Sao chép dữ liệu</span>
-                                    </button>
-                                </Link>
+                                <button
+                                    onClick={() => router.push(`/academic-years/copy?source=${id}`)}
+                                    className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    <Upload className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-900">Sao chép dữ liệu</span>
+                                </button>
 
                                 <button className="w-full flex items-center space-x-3 p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                     <Download className="w-4 h-4 text-gray-400" />
