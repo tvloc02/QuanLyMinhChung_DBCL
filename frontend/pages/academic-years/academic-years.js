@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
@@ -225,12 +224,13 @@ const AcademicYearsPage = () => {
                         <h1 className="text-2xl font-bold text-gray-900">Quản lý năm học</h1>
                         <p className="text-gray-600 mt-1">Quản lý và cấu hình các năm học trong hệ thống</p>
                     </div>
-                    <Link href="/academic-years/create">
-                        <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                            <Plus className="w-4 h-4" />
-                            <span>Tạo năm học mới</span>
-                        </button>
-                    </Link>
+                    <button
+                        onClick={() => router.push('/academic-years/create')}
+                        className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Tạo năm học mới</span>
+                    </button>
                 </div>
 
                 {/* Filters */}
@@ -303,11 +303,12 @@ const AcademicYearsPage = () => {
                             <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có năm học nào</h3>
                             <p className="text-gray-500 mb-4">Bắt đầu bằng cách tạo năm học đầu tiên</p>
-                            <Link href="/academic-years/create">
-                                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                                    Tạo năm học mới
-                                </button>
-                            </Link>
+                            <button
+                                onClick={() => router.push('/academic-years/create')}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                            >
+                                Tạo năm học mới
+                            </button>
                         </div>
                     ) : (
                         <>
@@ -421,18 +422,22 @@ const AcademicYearsPage = () => {
                                                     {showActionsDropdown === year._id && (
                                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
                                                             <div className="py-1">
-                                                                <Link href={`/academic-years/${year._id}`}>
-                                                                    <a className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                        <Eye className="w-4 h-4 mr-3" />
-                                                                        Xem chi tiết
-                                                                    </a>
-                                                                </Link>
-                                                                <Link href={`/academic-years/${year._id}/edit`}>
-                                                                    <a className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                        <Edit3 className="w-4 h-4 mr-3" />
-                                                                        Chỉnh sửa
-                                                                    </a>
-                                                                </Link>
+                                                                <button
+                                                                    onClick={() => router.push(`/academic-years/${year._id}`)}
+                                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    <Eye className="w-4 h-4 mr-3" />
+                                                                    Xem chi tiết
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => router.push(`/academic-years/${year._id}/edit`)}
+                                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    <Edit3 className="w-4 h-4 mr-3" />
+                                                                    Chỉnh sửa
+                                                                </button>
+
                                                                 {!year.isCurrent && (
                                                                     <button
                                                                         onClick={() => handleSetCurrent(year._id)}
@@ -442,13 +447,17 @@ const AcademicYearsPage = () => {
                                                                         Đặt làm hiện tại
                                                                     </button>
                                                                 )}
-                                                                <Link href={`/academic-years/copy?source=${year._id}`}>
-                                                                    <a className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                        <Copy className="w-4 h-4 mr-3" />
-                                                                        Sao chép dữ liệu
-                                                                    </a>
-                                                                </Link>
+
+                                                                <button
+                                                                    onClick={() => router.push(`/academic-years/copy?source=${year._id}`)}
+                                                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    <Copy className="w-4 h-4 mr-3" />
+                                                                    Sao chép dữ liệu
+                                                                </button>
+
                                                                 <div className="border-t border-gray-100"></div>
+
                                                                 <button
                                                                     onClick={() => {
                                                                         setSelectedYear(year)
