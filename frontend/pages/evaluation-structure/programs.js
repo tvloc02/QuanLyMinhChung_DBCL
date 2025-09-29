@@ -33,7 +33,7 @@ export default function ProgramsPage() {
 
     return (
         <Layout
-            title="Quản lý chương trình"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <ProgramList />

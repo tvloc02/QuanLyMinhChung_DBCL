@@ -33,7 +33,7 @@ export default function CriteriaPage() {
 
     return (
         <Layout
-            title="Quản lý tiêu chí"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <CriteriaList />
