@@ -242,18 +242,24 @@ export const scrollToElement = (elementId) => {
     }
 }
 
-// Local Storage utilities
 export const getLocalStorage = (key, defaultValue = null) => {
     if (typeof window === 'undefined') return defaultValue
 
     try {
         const item = window.localStorage.getItem(key)
-        return item ? JSON.parse(item) : defaultValue
+        if (!item) return defaultValue
+
+        try {
+            return JSON.parse(item)
+        } catch {
+            return item
+        }
     } catch (error) {
         console.error(`Error getting localStorage key "${key}":`, error)
         return defaultValue
     }
 }
+
 
 export const setLocalStorage = (key, value) => {
     if (typeof window === 'undefined') return

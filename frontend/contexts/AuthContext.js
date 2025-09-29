@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import api from "../services/api";
 
 export const AuthContext = createContext()
 
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }) => {
             setToken(savedToken)
             axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
 
-            const response = await axios.get('/api/auth/me')
+            const response = await api.get('/auth/me')
             if (response.data.success) {
                 setUser(response.data.data)
             } else {
