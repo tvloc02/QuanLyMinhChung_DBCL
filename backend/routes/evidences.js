@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth } = require('../middleware/auth');
 const { setAcademicYearContext } = require('../middleware/academicYear');
-const upload = require('../middleware/upload');
+const { upload } = require('../middleware/upload');
 const validation = require('../middleware/validation');
 const {
     getEvidences,
