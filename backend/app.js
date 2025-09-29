@@ -186,7 +186,7 @@ module.exports = app;
 1. ĐỔI TÊN FILE:
    - routes/oganizations.js → routes/organizations.js
 
-2. SỬA TRONG standard.js (routes/standard.js):
+2. SỬA TRONG standards.js (routes/standards.js):
    Dòng 5, thay đổi:
    FROM: const { setAcademicYearContext } = require('../middleware/academicYearMiddleware');
    TO:   const { setAcademicYearContext } = require('../middleware/academicYear');
@@ -197,7 +197,7 @@ module.exports = app;
 
    Vì middleware đã được apply ở app.js level
 
-4. KIỂM TRA middleware/academicYear.js có export:
+4. KIỂM TRA middleware/academicYears.js có export:
    - attachCurrentAcademicYear
    - addAcademicYearFilter
    - switchAcademicYear
