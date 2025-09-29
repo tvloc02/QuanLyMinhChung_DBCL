@@ -13,7 +13,7 @@ const {
     acceptAssignment,
     rejectAssignment,
     getExpertWorkload,
-    getAssignmentStatistics
+    getAssignmentStats
 } = require('../controllers/assignmentController');
 
 const createAssignmentValidation = [
@@ -42,7 +42,7 @@ const createAssignmentValidation = [
         .withMessage('Mức độ ưu tiên không hợp lệ')
 ];
 
-router.get('/statistics', requireManager, getAssignmentStatistics);
+router.get('/statistics', requireManager, getAssignmentStats);
 
 router.get('/expert-workload/:expertId', [
     param('expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ')
