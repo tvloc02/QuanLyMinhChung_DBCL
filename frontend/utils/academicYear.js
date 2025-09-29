@@ -7,7 +7,7 @@ export const SELECTED_YEAR_STORAGE_KEY = 'selected_academic_year'
 
 export const getCurrentAcademicYear = async () => {
     try {
-        const response = await api.get('/academic-years/current')
+        const response = await api.get('/api/academic-years/current')
         return response.data
     } catch (error) {
         console.error('Error getting current academic year:', error)
@@ -17,7 +17,7 @@ export const getCurrentAcademicYear = async () => {
 
 export const getAllAcademicYears = async () => {
     try {
-        const response = await api.get('/academic-years/all'); // ✅ nếu baseURL là http://localhost:5000/api
+        const response = await api.get('/api/academic-years/all');
         return response.data
     } catch (error) {
         console.error('Error getting all academic years:', error)
