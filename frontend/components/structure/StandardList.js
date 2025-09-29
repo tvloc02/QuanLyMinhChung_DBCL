@@ -1,771 +1,834 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import {
-    Plus,
-    Edit,
-    Trash2,
-    Search,
-    Filter,
-    BookOpen,
-    ChevronDown,
-    ChevronRight,
-    FileText,
-    Eye,
-    Building
+    Plus, Search, Filter, Edit2, Trash2, Eye,
+    X, Calendar, AlertCircle, CheckCircle, Clock,
+    ChevronLeft, ChevronRight, Copy
 } from 'lucide-react'
-import { ConfirmModal } from '../common/Modal'
-import Modal from '../common/Modal'
-import Pagination from '../common/Pagination'
-import { formatDate } from '../../utils/helpers'
-import toast from 'react-hot-toast'
-import { apiMethods } from '../../services/api'
 
-export default function StandardList() {
-    const [standards, setStandards] = useState([])
+export default function ProgramsList() {
+    const { user } = useAuth()
     const [programs, setPrograms] = useState([])
     const [loading, setLoading] = useState(true)
-    const [searchQuery, setSearchQuery] = useState('')
-    const [selectedProgram, setSelectedProgram] = useState('')
+    const [error, setError] = useState(null)
+
+    // Pagination & Filters
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
-    const [totalItems, setTotalItems] = useState(0)
-    const [showFilters, setShowFilters] = useState(false)
-    const [expandedPrograms, setExpandedPrograms] = useState(new Set())
+    const [total, setTotal] = useState(0)
+    const [search, setSearch] = useState('')
+    const [typeFilter, setTypeFilter] = useState('')
+    const [statusFilter, setStatusFilter] = useState('')
+    const [sortBy, setSortBy] = useState('createdAt')
+    const [sortOrder, setSortOrder] = useState('desc')
 
-    const [showCreateModal, setShowCreateModal] = useState(false)
-    const [showEditModal, setShowEditModal] = useState(false)
-    const [showDetailModal, setShowDetailModal] = useState(false)
-    const [deleteModal, setDeleteModal] = useState({ show: false, standardId: null })
-    const [editingStandard, setEditingStandard] = useState(null)
-    const [viewingStandard, setViewingStandard] = useState(null)
+    // Modal states
+    const [showModal, setShowModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [showCopyModal, setShowCopyModal] = useState(false)
+    const [selectedProgram, setSelectedProgram] = useState(null)
+    const [modalMode, setModalMode] = useState('create') // create, edit, view
 
+    // Form data
     const [formData, setFormData] = useState({
-        code: '',
         name: '',
+        code: '',
         description: '',
-        programId: '',
-        order: 0,
-        requirements: '',
-        expectedOutcomes: '',
-        isActive: true
+        type: 'undergraduate',
+        version: '1.0',
+        applicableYear: new Date().getFullYear(),
+        effectiveDate: '',
+        expiryDate: '',
+        objectives: '',
+        guidelines: '',
+        status: 'draft'
     })
-    const [formErrors, setFormErrors] = useState({})
-    const [submitting, setSubmitting] = useState(false)
 
-    const itemsPerPage = 10
+    const [copyFormData, setCopyFormData] = useState({
+        targetAcademicYearId: '',
+        newCode: ''
+    })
 
+    const [academicYears, setAcademicYears] = useState([])
+
+    // Fetch programs
     useEffect(() => {
-        fetchInitialData()
+        fetchPrograms()
+    }, [currentPage, search, typeFilter, statusFilter, sortBy, sortOrder])
+
+    // Fetch academic years for copy function
+    useEffect(() => {
+        fetchAcademicYears()
     }, [])
 
-    useEffect(() => {
-        fetchStandards()
-    }, [searchQuery, selectedProgram, currentPage])
-
-    const fetchInitialData = async () => {
-        try {
-            const response = await apiMethods.getPrograms()
-            if (response.data.success) {
-                setPrograms(response.data.data)
-            }
-        } catch (error) {
-            toast.error('Lỗi tải dữ liệu chương trình')
-        }
-    }
-
-    const fetchStandards = async () => {
+    const fetchPrograms = async () => {
         try {
             setLoading(true)
-            const params = {
+            const params = new URLSearchParams({
                 page: currentPage,
-                limit: itemsPerPage,
-                search: searchQuery,
-                programId: selectedProgram
-            }
+                limit: 10,
+                sortBy,
+                sortOrder
+            })
 
-            // Mock data - replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 500))
+            if (search) params.append('search', search)
+            if (typeFilter) params.append('type', typeFilter)
+            if (statusFilter) params.append('status', statusFilter)
 
-            const mockData = {
-                standards: [
-                    {
-                        id: '1',
-                        code: 'TC1',
-                        name: 'Mục tiêu chương trình',
-                        description: 'Chương trình phải có mục tiêu giáo dục được xác định rõ ràng và nhất quán với sứ mệnh của cơ sở giáo dục',
-                        programId: '1',
-                        program: {
-                            name: 'Chương trình đánh giá chất lượng giáo dục AUN-QA 2023',
-                            code: 'AUN-QA-2023'
-                        },
-                        order: 1,
-                        requirements: 'Phải có tài liệu mô tả mục tiêu chương trình đào tạo',
-                        expectedOutcomes: 'Mục tiêu chương trình được xác định rõ ràng và phù hợp',
-                        isActive: true,
-                        createdAt: '2023-01-15T00:00:00Z',
-                        updatedAt: '2024-12-25T10:00:00Z',
-                        criteriaCount: 4
-                    },
-                    {
-                        id: '2',
-                        code: 'TC2',
-                        name: 'Đầu ra chương trình',
-                        description: 'Chuẩn đầu ra của chương trình phải được xác định rõ ràng',
-                        programId: '1',
-                        program: {
-                            name: 'Chương trình đánh giá chất lượng giáo dục AUN-QA 2023',
-                            code: 'AUN-QA-2023'
-                        },
-                        order: 2,
-                        requirements: 'Chuẩn đầu ra phải được mô tả chi tiết và có thể đo lường được',
-                        expectedOutcomes: 'Sinh viên đạt được chuẩn đầu ra theo yêu cầu',
-                        isActive: true,
-                        createdAt: '2023-01-15T00:00:00Z',
-                        updatedAt: '2024-12-20T15:30:00Z',
-                        criteriaCount: 3
-                    }
-                ],
-                pagination: {
-                    total: 2,
-                    totalPages: 1,
-                    currentPage: 1
+            const response = await fetch(`/api/programs?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            }
+            })
 
-            setStandards(mockData.standards)
-            setTotalPages(mockData.pagination.totalPages)
-            setTotalItems(mockData.pagination.total)
-        } catch (error) {
-            toast.error('Lỗi tải danh sách tiêu chuẩn')
+            if (!response.ok) throw new Error('Lỗi khi tải danh sách chương trình')
+
+            const data = await response.json()
+            setPrograms(data.data.programs)
+            setTotalPages(data.data.pagination.pages)
+            setTotal(data.data.pagination.total)
+            setError(null)
+        } catch (err) {
+            setError(err.message)
         } finally {
             setLoading(false)
         }
     }
 
-    const handleCreateStandard = async (e) => {
-        e.preventDefault()
-
-        if (!validateForm()) {
-            return
-        }
-
+    const fetchAcademicYears = async () => {
         try {
-            setSubmitting(true)
-            const response = await apiMethods.createStandard(formData)
-
-            if (response.data.success) {
-                toast.success('Tạo tiêu chuẩn thành công')
-                setShowCreateModal(false)
-                resetForm()
-                fetchStandards()
+            const response = await fetch('/api/academic-years/all', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            if (response.ok) {
+                const data = await response.json()
+                setAcademicYears(data.data)
             }
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi tạo tiêu chuẩn')
-        } finally {
-            setSubmitting(false)
+        } catch (err) {
+            console.error('Lỗi khi tải năm học:', err)
         }
     }
 
-    const handleEditStandard = async (e) => {
-        e.preventDefault()
-
-        if (!validateForm()) {
-            return
-        }
-
-        try {
-            setSubmitting(true)
-            const response = await apiMethods.updateStandard(editingStandard.id, formData)
-
-            if (response.data.success) {
-                toast.success('Cập nhật tiêu chuẩn thành công')
-                setShowEditModal(false)
-                resetForm()
-                fetchStandards()
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi cập nhật tiêu chuẩn')
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
-    const handleDeleteStandard = async () => {
-        try {
-            const response = await apiMethods.deleteStandard(deleteModal.standardId)
-
-            if (response.data.success) {
-                toast.success('Xóa tiêu chuẩn thành công')
-                fetchStandards()
-            }
-        } catch (error) {
-            toast.error('Lỗi xóa tiêu chuẩn')
-        }
-        setDeleteModal({ show: false, standardId: null })
-    }
-
-    const validateForm = () => {
-        const errors = {}
-
-        if (!formData.code.trim()) {
-            errors.code = 'Mã tiêu chuẩn không được để trống'
-        }
-
-        if (!formData.name.trim()) {
-            errors.name = 'Tên tiêu chuẩn không được để trống'
-        }
-
-        if (!formData.programId) {
-            errors.programId = 'Vui lòng chọn chương trình'
-        }
-
-        if (formData.order < 0) {
-            errors.order = 'Thứ tự phải là số dương'
-        }
-
-        setFormErrors(errors)
-        return Object.keys(errors).length === 0
-    }
-
-    const resetForm = () => {
+    const handleCreate = () => {
+        setModalMode('create')
         setFormData({
-            code: '',
             name: '',
+            code: '',
             description: '',
-            programId: '',
-            order: 0,
-            requirements: '',
-            expectedOutcomes: '',
-            isActive: true
+            type: 'undergraduate',
+            version: '1.0',
+            applicableYear: new Date().getFullYear(),
+            effectiveDate: '',
+            expiryDate: '',
+            objectives: '',
+            guidelines: '',
+            status: 'draft'
         })
-        setFormErrors({})
-        setEditingStandard(null)
+        setShowModal(true)
     }
 
-    const openEditModal = (standard) => {
-        setEditingStandard(standard)
+    const handleEdit = (program) => {
+        setModalMode('edit')
+        setSelectedProgram(program)
         setFormData({
-            code: standard.code,
-            name: standard.name,
-            description: standard.description || '',
-            programId: standard.programId,
-            order: standard.order || 0,
-            requirements: standard.requirements || '',
-            expectedOutcomes: standard.expectedOutcomes || '',
-            isActive: standard.isActive !== false
+            name: program.name,
+            code: program.code,
+            description: program.description || '',
+            type: program.type,
+            version: program.version || '1.0',
+            applicableYear: program.applicableYear,
+            effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
+            expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
+            objectives: program.objectives || '',
+            guidelines: program.guidelines || '',
+            status: program.status
         })
-        setShowEditModal(true)
+        setShowModal(true)
     }
 
-    const openDetailModal = (standard) => {
-        setViewingStandard(standard)
-        setShowDetailModal(true)
+    const handleView = (program) => {
+        setModalMode('view')
+        setSelectedProgram(program)
+        setFormData({
+            name: program.name,
+            code: program.code,
+            description: program.description || '',
+            type: program.type,
+            version: program.version || '1.0',
+            applicableYear: program.applicableYear,
+            effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
+            expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
+            objectives: program.objectives || '',
+            guidelines: program.guidelines || '',
+            status: program.status
+        })
+        setShowModal(true)
     }
 
-    const openCreateModal = () => {
-        resetForm()
-        if (selectedProgram) {
-            setFormData(prev => ({ ...prev, programId: selectedProgram }))
+    const handleCopy = (program) => {
+        setSelectedProgram(program)
+        setCopyFormData({
+            targetAcademicYearId: '',
+            newCode: program.code + '_COPY'
+        })
+        setShowCopyModal(true)
+    }
+
+    const handleDelete = (program) => {
+        setSelectedProgram(program)
+        setShowDeleteModal(true)
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+
+        try {
+            const url = modalMode === 'create'
+                ? '/api/programs'
+                : `/api/programs/${selectedProgram._id}`
+
+            const method = modalMode === 'create' ? 'POST' : 'PUT'
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(formData)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Có lỗi xảy ra')
+            }
+
+            await fetchPrograms()
+            setShowModal(false)
+            alert(modalMode === 'create' ? 'Tạo chương trình thành công!' : 'Cập nhật chương trình thành công!')
+        } catch (err) {
+            alert(err.message)
         }
-        setShowCreateModal(true)
     }
 
-    const toggleProgramExpansion = (programId) => {
-        const newExpanded = new Set(expandedPrograms)
-        if (newExpanded.has(programId)) {
-            newExpanded.delete(programId)
-        } else {
-            newExpanded.add(programId)
+    const handleCopySubmit = async (e) => {
+        e.preventDefault()
+
+        try {
+            const response = await fetch(`/api/programs/${selectedProgram._id}/copy-to-year`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(copyFormData)
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Có lỗi xảy ra')
+            }
+
+            setShowCopyModal(false)
+            alert('Sao chép chương trình sang năm học khác thành công!')
+        } catch (err) {
+            alert(err.message)
         }
-        setExpandedPrograms(newExpanded)
     }
 
-    const getFilteredPrograms = () => {
-        return programs
+    const confirmDelete = async () => {
+        try {
+            const response = await fetch(`/api/programs/${selectedProgram._id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.message || 'Có lỗi xảy ra')
+            }
+
+            await fetchPrograms()
+            setShowDeleteModal(false)
+            alert('Xóa chương trình thành công!')
+        } catch (err) {
+            alert(err.message)
+        }
     }
 
-    const getStandardsByProgram = (programId) => {
-        return standards.filter(standard => standard.programId === programId)
+    const getStatusBadge = (status) => {
+        const statusConfig = {
+            draft: { label: 'Nháp', className: 'bg-gray-100 text-gray-800' },
+            active: { label: 'Hoạt động', className: 'bg-green-100 text-green-800' },
+            inactive: { label: 'Không hoạt động', className: 'bg-red-100 text-red-800' },
+            archived: { label: 'Lưu trữ', className: 'bg-yellow-100 text-yellow-800' }
+        }
+        const config = statusConfig[status] || statusConfig.draft
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
     }
 
-    const StandardForm = ({ isEdit = false }) => (
-        <form onSubmit={isEdit ? handleEditStandard : handleCreateStandard} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Mã tiêu chuẩn *
-                    </label>
-                    <input
-                        type="text"
-                        value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.code ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Nhập mã tiêu chuẩn"
-                    />
-                    {formErrors.code && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.code}</p>
-                    )}
-                </div>
+    const getTypeBadge = (type) => {
+        const typeConfig = {
+            undergraduate: { label: 'Đại học', className: 'bg-blue-100 text-blue-800' },
+            graduate: { label: 'Sau đại học', className: 'bg-purple-100 text-purple-800' },
+            institution: { label: 'Cơ sở', className: 'bg-indigo-100 text-indigo-800' },
+            other: { label: 'Khác', className: 'bg-gray-100 text-gray-800' }
+        }
+        const config = typeConfig[type] || typeConfig.other
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
+                {config.label}
+            </span>
+        )
+    }
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Chương trình *
-                    </label>
-                    <select
-                        value={formData.programId}
-                        onChange={(e) => setFormData({ ...formData, programId: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.programId ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                    >
-                        <option value="">Chọn chương trình</option>
-                        {programs.map(program => (
-                            <option key={program.id} value={program.id}>
-                                {program.code} - {program.name}
-                            </option>
-                        ))}
-                    </select>
-                    {formErrors.programId && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.programId}</p>
-                    )}
-                </div>
+    if (loading && programs.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tên tiêu chuẩn *
-                </label>
-                <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.name ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Nhập tên tiêu chuẩn"
-                />
-                {formErrors.name && (
-                    <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
-                )}
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mô tả
-                </label>
-                <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập mô tả tiêu chuẩn"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Yêu cầu
-                </label>
-                <textarea
-                    value={formData.requirements}
-                    onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập yêu cầu của tiêu chuẩn"
-                />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kết quả mong đợi
-                </label>
-                <textarea
-                    value={formData.expectedOutcomes}
-                    onChange={(e) => setFormData({ ...formData, expectedOutcomes: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập kết quả mong đợi"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Thứ tự
-                    </label>
-                    <input
-                        type="number"
-                        min="0"
-                        value={formData.order}
-                        onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            formErrors.order ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                    />
-                    {formErrors.order && (
-                        <p className="text-red-500 text-sm mt-1">{formErrors.order}</p>
-                    )}
-                </div>
-
-                <div className="flex items-center mt-6">
-                    <input
-                        type="checkbox"
-                        id="isActive"
-                        checked={formData.isActive}
-                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-                        Kích hoạt
-                    </label>
-                </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (isEdit) {
-                            setShowEditModal(false)
-                        } else {
-                            setShowCreateModal(false)
-                        }
-                        resetForm()
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                    Hủy
-                </button>
-                <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                    {submitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật' : 'Tạo mới')}
-                </button>
-            </div>
-        </form>
-    )
+        )
+    }
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            {/* Header & Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý tiêu chuẩn</h1>
-                    <p className="text-gray-600 mt-1">Quản lý các tiêu chuẩn đánh giá trong hệ thống</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Quản lý chương trình</h2>
+                    <p className="text-sm text-gray-600 mt-1">Tổng số: {total} chương trình</p>
                 </div>
-                <button
-                    onClick={openCreateModal}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm tiêu chuẩn
-                </button>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Tìm kiếm và lọc</h3>
+                {(user?.role === 'admin') && (
                     <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="text-blue-600 hover:text-blue-800"
+                        onClick={handleCreate}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                        <Filter className="h-5 w-5" />
+                        <Plus size={20} />
+                        Thêm chương trình
                     </button>
-                </div>
-
-                <div className="space-y-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Tìm kiếm theo tên, mã tiêu chuẩn..."
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-
-                    {showFilters && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Chương trình
-                            </label>
-                            <select
-                                value={selectedProgram}
-                                onChange={(e) => setSelectedProgram(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Tất cả chương trình</option>
-                                {programs.map(program => (
-                                    <option key={program.id} value={program.id}>
-                                        {program.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
 
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">
-                        Danh sách tiêu chuẩn ({totalItems})
-                    </h3>
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm..."
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value)
+                            setCurrentPage(1)
+                        }}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                 </div>
 
-                {loading ? (
-                    <div className="p-8 text-center">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600">Đang tải...</p>
-                    </div>
-                ) : (
-                    <div className="p-6">
-                        {getFilteredPrograms().map(program => {
-                            const programStandards = getStandardsByProgram(program.id)
-                            if (programStandards.length === 0) return null
+                <select
+                    value={typeFilter}
+                    onChange={(e) => {
+                        setTypeFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả loại</option>
+                    <option value="undergraduate">Đại học</option>
+                    <option value="graduate">Sau đại học</option>
+                    <option value="institution">Cơ sở</option>
+                    <option value="other">Khác</option>
+                </select>
 
-                            const isExpanded = expandedPrograms.has(program.id)
+                <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setStatusFilter(e.target.value)
+                        setCurrentPage(1)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="draft">Nháp</option>
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Không hoạt động</option>
+                    <option value="archived">Lưu trữ</option>
+                </select>
 
-                            return (
-                                <div key={program.id} className="mb-6 border border-gray-200 rounded-lg">
-                                    <div
-                                        onClick={() => toggleProgramExpansion(program.id)}
-                                        className="flex items-center justify-between p-4 bg-gray-50 cursor-pointer hover:bg-gray-100"
-                                    >
-                                        <div className="flex items-center">
-                                            {isExpanded ? (
-                                                <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
-                                            ) : (
-                                                <ChevronRight className="h-5 w-5 text-gray-500 mr-2" />
-                                            )}
-                                            <Building className="h-5 w-5 text-blue-500 mr-3" />
-                                            <div>
-                                                <h4 className="text-lg font-medium text-gray-900">
-                                                    {program.code} - {program.name}
-                                                </h4>
-                                                <p className="text-sm text-gray-600">
-                                                    {programStandards.length} tiêu chuẩn
-                                                </p>
-                                            </div>
+                <select
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                        const [newSortBy, newSortOrder] = e.target.value.split('-')
+                        setSortBy(newSortBy)
+                        setSortOrder(newSortOrder)
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="createdAt-desc">Mới nhất</option>
+                    <option value="createdAt-asc">Cũ nhất</option>
+                    <option value="name-asc">Tên A-Z</option>
+                    <option value="name-desc">Tên Z-A</option>
+                    <option value="code-asc">Mã A-Z</option>
+                    <option value="code-desc">Mã Z-A</option>
+                </select>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-800">
+                    <AlertCircle size={20} />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Mã
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tên chương trình
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Loại
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Phiên bản
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Năm áp dụng
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Trạng thái
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Thao tác
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                        {programs.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                    Không có dữ liệu
+                                </td>
+                            </tr>
+                        ) : (
+                            programs.map((program) => (
+                                <tr key={program._id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="font-mono text-sm font-medium text-gray-900">
+                                                {program.code}
+                                            </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {program.name}
                                         </div>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                setFormData(prev => ({ ...prev, programId: program.id }))
-                                                openCreateModal()
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 p-1"
-                                            title="Thêm tiêu chuẩn cho chương trình này"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </button>
-                                    </div>
-
-                                    {isExpanded && (
-                                        <div className="p-4 border-t border-gray-200">
-                                            <div className="space-y-3">
-                                                {programStandards.map(standard => (
-                                                    <div
-                                                        key={standard.id}
-                                                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                                        {program.description && (
+                                            <div className="text-sm text-gray-500 line-clamp-1">
+                                                {program.description}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {getTypeBadge(program.type)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {program.version}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {program.applicableYear}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {getStatusBadge(program.status)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleView(program)}
+                                                className="text-blue-600 hover:text-blue-800"
+                                                title="Xem chi tiết"
+                                            >
+                                                <Eye size={18} />
+                                            </button>
+                                            {(user?.role === 'admin') && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(program)}
+                                                        className="text-green-600 hover:text-green-800"
+                                                        title="Chỉnh sửa"
                                                     >
-                                                        <div className="flex items-center flex-1">
-                                                            <BookOpen className="h-5 w-5 text-gray-400 mr-3" />
-                                                            <div className="flex-1">
-                                                                <h5 className="text-lg font-medium text-gray-900">
-                                                                    {standard.code} - {standard.name}
-                                                                </h5>
-                                                                {standard.description && (
-                                                                    <p className="text-sm text-gray-600 mt-1">
-                                                                        {standard.description}
-                                                                    </p>
-                                                                )}
-                                                                <div className="flex items-center space-x-4 mt-2">
-                                                                    <span className="text-xs text-gray-500">
-                                                                        Thứ tự: {standard.order}
-                                                                    </span>
-                                                                    <span className="text-xs text-gray-500">
-                                                                        {standard.criteriaCount || 0} tiêu chí
-                                                                    </span>
-                                                                    <span className={`text-xs px-2 py-1 rounded-full ${
-                                                                        standard.isActive
-                                                                            ? 'bg-green-100 text-green-800'
-                                                                            : 'bg-gray-100 text-gray-800'
-                                                                    }`}>
-                                                                        {standard.isActive ? 'Hoạt động' : 'Vô hiệu hóa'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex space-x-2 ml-4">
-                                                            <button
-                                                                onClick={() => openDetailModal(standard)}
-                                                                className="text-blue-600 hover:text-blue-800 p-1"
-                                                                title="Xem chi tiết"
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => openEditModal(standard)}
-                                                                className="text-green-600 hover:text-green-800 p-1"
-                                                                title="Chỉnh sửa"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setDeleteModal({
-                                                                    show: true,
-                                                                    standardId: standard.id
-                                                                })}
-                                                                className="text-red-600 hover:text-red-800 p-1"
-                                                                title="Xóa"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    {(user?.role === 'admin' || user?.role === 'manager') && (
+                                                        <button
+                                                            onClick={() => handleCopy(program)}
+                                                            className="text-purple-600 hover:text-purple-800"
+                                                            title="Sao chép"
+                                                        >
+                                                            <Copy size={18} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleDelete(program)}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            )
-                        })}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                        </tbody>
+                    </table>
+                </div>
 
-                        {standards.length === 0 && (
-                            <div className="text-center py-12">
-                                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    Chưa có tiêu chuẩn nào
-                                </h3>
-                                <p className="text-gray-500 mb-4">
-                                    Bắt đầu bằng cách tạo tiêu chuẩn đầu tiên
-                                </p>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-700">
+                                Trang <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
+                            </div>
+                            <div className="flex gap-2">
                                 <button
-                                    onClick={openCreateModal}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                 >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Thêm tiêu chuẩn
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                    <ChevronRight size={20} />
                                 </button>
                             </div>
-                        )}
+                        </div>
                     </div>
-                )}
-
-                {totalPages > 1 && (
-                    <Pagination
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        totalItems={totalItems}
-                        itemsPerPage={itemsPerPage}
-                        onPageChange={setCurrentPage}
-                    />
                 )}
             </div>
 
-            <Modal
-                isOpen={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
-                title="Thêm tiêu chuẩn mới"
-                size="large"
-            >
-                <StandardForm />
-            </Modal>
-
-            <Modal
-                isOpen={showEditModal}
-                onClose={() => setShowEditModal(false)}
-                title="Chỉnh sửa tiêu chuẩn"
-                size="large"
-            >
-                <StandardForm isEdit={true} />
-            </Modal>
-
-            <Modal
-                isOpen={showDetailModal}
-                onClose={() => setShowDetailModal(false)}
-                title="Thông tin chi tiết tiêu chuẩn"
-                size="large"
-            >
-                {viewingStandard && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Mã tiêu chuẩn</label>
-                                <p className="text-sm text-gray-900 font-mono">{viewingStandard.code}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Thứ tự</label>
-                                <p className="text-sm text-gray-900">{viewingStandard.order}</p>
-                            </div>
+            {/* Create/Edit Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">
+                                {modalMode === 'create' && 'Thêm chương trình mới'}
+                                {modalMode === 'edit' && 'Chỉnh sửa chương trình'}
+                                {modalMode === 'view' && 'Chi tiết chương trình'}
+                            </h3>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={24} />
+                            </button>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-500">Tên tiêu chuẩn</label>
-                            <p className="text-sm text-gray-900">{viewingStandard.name}</p>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Mã chương trình <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.code}
+                                        onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                        placeholder="VD: CTDT-2024"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tên chương trình <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mô tả
+                                </label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Loại chương trình <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({...formData, type: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        required
+                                        disabled={modalMode === 'view'}
+                                    >
+                                        <option value="undergraduate">Đại học</option>
+                                        <option value="graduate">Sau đại học</option>
+                                        <option value="institution">Cơ sở</option>
+                                        <option value="other">Khác</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Phiên bản
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.version}
+                                        onChange={(e) => setFormData({...formData, version: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="1.0"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Năm áp dụng
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={formData.applicableYear}
+                                        onChange={(e) => setFormData({...formData, applicableYear: parseInt(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        min="2000"
+                                        max="2100"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Ngày hiệu lực
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formData.effectiveDate}
+                                        onChange={(e) => setFormData({...formData, effectiveDate: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Ngày hết hạn
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formData.expiryDate}
+                                        onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled={modalMode === 'view'}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mục tiêu
+                                </label>
+                                <textarea
+                                    value={formData.objectives}
+                                    onChange={(e) => setFormData({...formData, objectives: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Hướng dẫn
+                                </label>
+                                <textarea
+                                    value={formData.guidelines}
+                                    onChange={(e) => setFormData({...formData, guidelines: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows="3"
+                                    disabled={modalMode === 'view'}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Trạng thái
+                                </label>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    disabled={modalMode === 'view'}
+                                >
+                                    <option value="draft">Nháp</option>
+                                    <option value="active">Hoạt động</option>
+                                    <option value="inactive">Không hoạt động</option>
+                                    <option value="archived">Lưu trữ</option>
+                                </select>
+                            </div>
+
+                            {modalMode !== 'view' && (
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowModal(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        {modalMode === 'create' ? 'Tạo mới' : 'Cập nhật'}
+                                    </button>
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Copy Modal */}
+            {showCopyModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full">
+                        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Sao chép chương trình</h3>
+                            <button
+                                onClick={() => setShowCopyModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={24} />
+                            </button>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-500">Chương trình</label>
-                            <p className="text-sm text-gray-900">{viewingStandard.program?.name}</p>
+                        <form onSubmit={handleCopySubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Năm học đích <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={copyFormData.targetAcademicYearId}
+                                    onChange={(e) => setCopyFormData({...copyFormData, targetAcademicYearId: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    required
+                                >
+                                    <option value="">-- Chọn năm học --</option>
+                                    {academicYears.map(year => (
+                                        <option key={year._id} value={year._id}>
+                                            {year.name} ({year.code})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Mã chương trình mới <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={copyFormData.newCode}
+                                    onChange={(e) => setCopyFormData({...copyFormData, newCode: e.target.value.toUpperCase()})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCopyModal(false)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                >
+                                    Sao chép
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <AlertCircle size={24} />
+                            <h3 className="text-lg font-semibold">Xác nhận xóa</h3>
                         </div>
-
-                        {viewingStandard.description && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Mô tả</label>
-                                <p className="text-sm text-gray-900">{viewingStandard.description}</p>
-                            </div>
-                        )}
-
-                        {viewingStandard.requirements && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Yêu cầu</label>
-                                <p className="text-sm text-gray-900">{viewingStandard.requirements}</p>
-                            </div>
-                        )}
-
-                        {viewingStandard.expectedOutcomes && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Kết quả mong đợi</label>
-                                <p className="text-sm text-gray-900">{viewingStandard.expectedOutcomes}</p>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Ngày tạo</label>
-                                <p className="text-sm text-gray-900">{formatDate(viewingStandard.createdAt)}</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-500">Cập nhật cuối</label>
-                                <p className="text-sm text-gray-900">{formatDate(viewingStandard.updatedAt)}</p>
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-gray-200">
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-blue-600">{viewingStandard.criteriaCount || 0}</p>
-                                <p className="text-xs text-gray-600">Số tiêu chí</p>
-                            </div>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa chương trình <strong>{selectedProgram?.name}</strong>?
+                            Hành động này không thể hoàn tác.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                            >
+                                Xóa
+                            </button>
                         </div>
                     </div>
-                )}
-            </Modal>
-
-            <ConfirmModal
-                isOpen={deleteModal.show}
-                onClose={() => setDeleteModal({ show: false, standardId: null })}
-                onConfirm={handleDeleteStandard}
-                title="Xác nhận xóa tiêu chuẩn"
-                message="Bạn có chắc chắn muốn xóa tiêu chuẩn này? Thao tác này không thể hoàn tác và có thể ảnh hưởng đến các tiêu chí và minh chứng liên quan."
-                confirmText="Xóa"
-                type="danger"
-            />
+                </div>
+            )}
         </div>
     )
 }
