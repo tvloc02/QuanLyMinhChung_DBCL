@@ -90,15 +90,15 @@ export default function Sidebar({ open, onClose }) {
             icon: Briefcase,
             path: '/evaluation-structure',
             hasSubmenu: true,
-            active: router.pathname.includes('/programs') ||
-                router.pathname.includes('/organizations') ||
-                router.pathname.includes('/standards') ||
-                router.pathname.includes('/criteria'),
+            active: router.pathname.includes('/evaluation-structure/programs') ||
+                router.pathname.includes('/evaluation-structure/organizations') ||
+                router.pathname.includes('/evaluation-structure/standards') ||
+                router.pathname.includes('/evaluation-structure/criteria'),
             submenu: [
-                { name: 'Chương trình đánh giá', icon: BookOpen, path: '/programs' },
-                { name: 'Tổ chức đánh giá', icon: Building2, path: '/organizations' },
-                { name: 'Tiêu chuẩn', icon: Target, path: '/standards' },
-                { name: 'Tiêu chí', icon: CheckSquare, path: '/criteria' }
+                { name: 'Chương trình đánh giá', icon: BookOpen, path: '/evaluation-structure/programs' },
+                { name: 'Tổ chức đánh giá', icon: Building2, path: '/evaluation-structure/organizations' },
+                { name: 'Tiêu chuẩn', icon: Target, path: '/evaluation-structure/standards' },
+                { name: 'Tiêu chí', icon: CheckSquare, path: '/evaluation-structure/criteria' }
             ]
         },
 

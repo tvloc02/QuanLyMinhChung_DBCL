@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'
-import Layout from '../components/common/Layout'
-import StandardList from '../components/structure/StandardList'
-import { BarChart3 } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
+import CriteriaList from '../../components/structure/CriteriaList'
+import { FileText } from 'lucide-react'
 
-export default function StandardsPage() {
+export default function CriteriaPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
 
@@ -16,7 +16,7 @@ export default function StandardsPage() {
     }, [user, isLoading, router])
 
     const breadcrumbItems = [
-        { name: 'Quản lý tiêu chuẩn', icon: BarChart3 }
+        { name: 'Quản lý tiêu chí', icon: FileText }
     ]
 
     if (isLoading) {
@@ -33,10 +33,10 @@ export default function StandardsPage() {
 
     return (
         <Layout
-            title="Quản lý tiêu chuẩn"
+            title="Quản lý tiêu chí"
             breadcrumbItems={breadcrumbItems}
         >
-            <StandardList />
+            <CriteriaList />
         </Layout>
     )
 }
