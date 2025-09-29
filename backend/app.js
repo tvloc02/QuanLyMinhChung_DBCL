@@ -8,7 +8,8 @@ const {
     attachCurrentAcademicYear,
     addAcademicYearFilter,
     switchAcademicYear,
-    ensureAcademicYearConsistency
+    ensureAcademicYearConsistency,
+    setAcademicYearContext
 } = require('./middleware/academicYear');
 
 const app = express();

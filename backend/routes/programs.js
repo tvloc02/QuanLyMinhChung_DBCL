@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const { setAcademicYearContext } = require('../middleware/academicYear');
+const { attachCurrentAcademicYear} = require('../middleware/academicYear');
 const validation = require('../middleware/validation');
 const {
     getPrograms,
@@ -16,7 +16,7 @@ const {
 } = require('../controllers/programController');
 
 // Apply academic year context to all routes
-router.use(auth, setAcademicYearContext);
+router.use(auth, attachCurrentAcademicYear);
 
 // Validation rules
 const createProgramValidation = [
