@@ -144,7 +144,7 @@ export default function Sidebar({ open, onClose }) {
             hasSubmenu: true,
             active: router.pathname.includes('/users'),
             submenu: [
-                { name: 'Danh sách người dùng', icon: Users, path: '/users' },
+                { name: 'Danh sách người dùng', icon: Users, path: '/users/users' },
                 { name: 'Thêm người dùng', icon: UserPlus, path: '/users/create' },
                 { name: 'Chuyên gia đánh giá', icon: User, path: '/users/experts' },
                 { name: 'Cán bộ quản lý', icon: UserCheck, path: '/users/managers' },
