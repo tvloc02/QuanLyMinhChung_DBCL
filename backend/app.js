@@ -31,19 +31,19 @@ app.use('/api/', limiter);
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const academicYearRoutes = require('./routes/academicYears');
+const academicYearRoutes = require('./routes/academicYear');
 const programRoutes = require('./routes/programs');
 const organizationRoutes = require('./routes/organizations');
-const standardRoutes = require('./routes/standards');
+const standardRoutes = require('./routes/standard');
 const criteriaRoutes = require('./routes/criteria');
 const evidenceRoutes = require('./routes/evidences');
-const fileRoutes = require('./routes/files');
+const fileRoutes = require('./routes/file');
 
 // Routes without academic year context
 app.use('/api/auth', authRoutes);
 
 // Academic year management routes (no context needed)
-app.use('/api/academic-years', auth, academicYearRoutes);
+app.use('/api/academic-year', auth, academicYearRoutes);
 
 // User management routes (no academic year context)
 app.use('/api/users', auth, userRoutes);
