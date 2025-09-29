@@ -31,22 +31,29 @@ app.use('/api/', limiter);
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const academicYearRoutes = require('./routes/academicYear');
+const academicYearRoutes = require('./routes/academicYears');
 const programRoutes = require('./routes/programs');
 const organizationRoutes = require('./routes/organizations');
-const standardRoutes = require('./routes/standard');
+const standardRoutes = require('./routes/standards');
 const criteriaRoutes = require('./routes/criteria');
 const evidenceRoutes = require('./routes/evidences');
-const fileRoutes = require('./routes/file');
+const fileRoutes = require('./routes/files');
+const assignmentRoutes = require('./routes/assignments');
+const reportRoutes = require('./routes/reports');
+const evaluationRoutes = require('./routes/evaluations');
+const notificationRoutes = require('./routes/notifications');
 
 // Routes without academic year context
 app.use('/api/auth', authRoutes);
 
 // Academic year management routes (no context needed)
-app.use('/api/academic-year', auth, academicYearRoutes);
+app.use('/api/academic-years', auth, academicYearRoutes);
 
 // User management routes (no academic year context)
 app.use('/api/users', auth, userRoutes);
+
+// Notification routes (no academic year context)
+app.use('/api/notifications', auth, notificationRoutes);
 
 // Apply academic year middleware for data routes
 const academicYearMiddleware = [
@@ -89,6 +96,22 @@ app.use('/api/evidences',
 app.use('/api/files',
     ...academicYearMiddleware,
     fileRoutes
+);
+
+app.use('/api/assignments',
+    ...academicYearMiddleware,
+    assignmentRoutes
+);
+
+app.use('/api/reports',
+    ...academicYearMiddleware,
+    ensureAcademicYearConsistency(['program', 'organization']),
+    reportRoutes
+);
+
+app.use('/api/evaluations',
+    ...academicYearMiddleware,
+    evaluationRoutes
 );
 
 // Health check endpoint
@@ -155,3 +178,31 @@ app.use('*', (req, res) => {
 });
 
 module.exports = app;
+
+/* ===================================
+   THAY ĐỔI CẦN THỰC HIỆN
+   ===================================
+
+1. ĐỔI TÊN FILE:
+   - routes/oganizations.js → routes/organizations.js
+
+2. SỬA TRONG standard.js (routes/standard.js):
+   Dòng 5, thay đổi:
+   FROM: const { setAcademicYearContext } = require('../middleware/academicYearMiddleware');
+   TO:   const { setAcademicYearContext } = require('../middleware/academicYear');
+
+3. CẬP NHẬT routes/assignments.js, reports.js, evaluations.js:
+   Xóa dòng:
+   router.use(auth, setAcademicYearContext);
+
+   Vì middleware đã được apply ở app.js level
+
+4. KIỂM TRA middleware/academicYear.js có export:
+   - attachCurrentAcademicYear
+   - addAcademicYearFilter
+   - switchAcademicYear
+   - ensureAcademicYearConsistency
+
+   Nếu chưa có setAcademicYearContext, cần tạo hoặc dùng attachCurrentAcademicYear
+
+================================= */
