@@ -33,7 +33,7 @@ export default function StandardsPage() {
 
     return (
         <Layout
-            title="Quản lý tiêu chuẩn"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <StandardList />
