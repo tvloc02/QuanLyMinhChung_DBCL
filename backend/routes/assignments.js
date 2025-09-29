@@ -16,8 +16,6 @@ const {
     getAssignmentStatistics
 } = require('../controllers/assignmentController');
 
-router.use(auth, setAcademicYearContext);
-
 const createAssignmentValidation = [
     body('reportId')
         .notEmpty()
