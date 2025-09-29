@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useContext } from 'react'
-import { api } from '../hooks/useApi'
+import  api  from '../services/api'
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from './helpers'
 
 export const ACADEMIC_YEAR_STORAGE_KEY = 'current_academic_year'
