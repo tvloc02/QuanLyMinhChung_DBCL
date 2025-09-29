@@ -31,7 +31,7 @@ app.use('/api/', limiter);
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const academicYearRoutes = require('./routes/academicYears');
+const academicYearRoutes = require('./routes/academicYear');
 const programRoutes = require('./routes/programs');
 const organizationRoutes = require('./routes/organizations');
 const standardRoutes = require('./routes/standards');
@@ -197,7 +197,7 @@ module.exports = app;
 
    Vì middleware đã được apply ở app.js level
 
-4. KIỂM TRA middleware/academicYears.js có export:
+4. KIỂM TRA middleware/academicYear.js có export:
    - attachCurrentAcademicYear
    - addAcademicYearFilter
    - switchAcademicYear

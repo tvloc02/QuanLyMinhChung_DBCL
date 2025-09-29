@@ -17,7 +17,7 @@ export const getCurrentAcademicYear = async () => {
 
 export const getAllAcademicYears = async () => {
     try {
-        const response = await api.get('/academic-years/all')
+        const response = await api.get('/academic-years/all'); // ✅ nếu baseURL là http://localhost:5000/api
         return response.data
     } catch (error) {
         console.error('Error getting all academic years:', error)
