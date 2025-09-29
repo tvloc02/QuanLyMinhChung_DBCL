@@ -1,15 +1,9 @@
 const AcademicYear = require('../models/AcademicYear');
 
-/**
- * Middleware để set academic year context
- * Sẽ attach academicYearId và currentAcademicYear vào req object
- */
 const setAcademicYearContext = async (req, res, next) => {
     try {
-        // Kiểm tra nếu có academicYearId trong query params hoặc body
         let academicYearId = req.query.academicYearId || req.body.academicYearId;
 
-        // Nếu không có, lấy academic year hiện tại
         if (!academicYearId) {
             const currentYear = await AcademicYear.getCurrentYear();
             if (!currentYear) {
@@ -21,7 +15,6 @@ const setAcademicYearContext = async (req, res, next) => {
             academicYearId = currentYear._id;
             req.currentAcademicYear = currentYear;
         } else {
-            // Validate academic year exists
             const academicYear = await AcademicYear.findById(academicYearId);
             if (!academicYear) {
                 return res.status(400).json({
@@ -43,12 +36,8 @@ const setAcademicYearContext = async (req, res, next) => {
     }
 };
 
-/**
- * Middleware chỉ dành cho admin - có thể thao tác với bất kỳ academic year nào
- */
 const setAcademicYearContextForAdmin = async (req, res, next) => {
     try {
-        // Admin có thể chỉ định academicYearId cụ thể
         let academicYearId = req.query.academicYearId || req.body.academicYearId || req.params.academicYearId;
 
         if (academicYearId) {
@@ -62,7 +51,6 @@ const setAcademicYearContextForAdmin = async (req, res, next) => {
             req.currentAcademicYear = academicYear;
             req.academicYearId = academicYearId;
         } else {
-            // Nếu không chỉ định, dùng năm học hiện tại
             const currentYear = await AcademicYear.getCurrentYear();
             if (!currentYear) {
                 return res.status(400).json({
@@ -84,16 +72,11 @@ const setAcademicYearContextForAdmin = async (req, res, next) => {
     }
 };
 
-/**
- * Middleware để validate quyền truy cập academic year
- */
 const validateAcademicYearAccess = (req, res, next) => {
-    // Admin có quyền truy cập tất cả
     if (req.user.role === 'admin') {
         return next();
     }
 
-    // Các role khác chỉ được truy cập năm học hiện tại
     const currentYear = req.currentAcademicYear;
     if (!currentYear || !currentYear.isCurrent) {
         return res.status(403).json({
@@ -105,8 +88,144 @@ const validateAcademicYearAccess = (req, res, next) => {
     next();
 };
 
+const attachCurrentAcademicYear = async (req, res, next) => {
+    try {
+        let academicYearId = req.query.academicYearId || req.body.academicYearId || req.headers['x-academic-year'];
+
+        if (academicYearId) {
+            const academicYear = await AcademicYear.findById(academicYearId);
+            if (!academicYear) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Năm học không tồn tại'
+                });
+            }
+            req.currentAcademicYear = academicYear;
+            req.academicYearId = academicYearId;
+        } else {
+            const currentYear = await AcademicYear.getCurrentYear();
+            if (!currentYear) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Chưa có năm học hiện tại'
+                });
+            }
+            req.currentAcademicYear = currentYear;
+            req.academicYearId = currentYear._id;
+        }
+
+        next();
+    } catch (error) {
+        console.error('Attach Academic Year Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi xác định năm học'
+        });
+    }
+};
+
+const addAcademicYearFilter = (req, res, next) => {
+    if (!req.academicYearId && req.currentAcademicYear) {
+        req.academicYearId = req.currentAcademicYear._id;
+    }
+
+    if (req.academicYearId) {
+        if (!req.query.academicYearId) {
+            req.query.academicYearId = req.academicYearId;
+        }
+        if (!req.body.academicYearId) {
+            req.body.academicYearId = req.academicYearId;
+        }
+
+        req.academicYearFilter = { academicYear: req.academicYearId };
+    }
+
+    next();
+};
+
+const switchAcademicYear = async (req, res, next) => {
+    try {
+        const requestedYearId = req.query.academicYearId || req.body.academicYearId || req.headers['x-academic-year'];
+
+        if (requestedYearId && (req.user.role === 'admin' || req.user.role === 'manager')) {
+            const academicYear = await AcademicYear.findById(requestedYearId);
+            if (!academicYear) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Năm học không tồn tại'
+                });
+            }
+            req.currentAcademicYear = academicYear;
+            req.academicYearId = academicYear._id;
+            req.academicYearSwitched = true;
+        }
+
+        next();
+    } catch (error) {
+        console.error('Switch Academic Year Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi chuyển năm học'
+        });
+    }
+};
+
+const ensureAcademicYearConsistency = (relations = []) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.academicYearId) {
+                return next();
+            }
+
+            const body = req.body;
+            const models = {
+                program: require('../models/Program'),
+                organization: require('../models/Organization'),
+                standard: require('../models/Standard'),
+                criteria: require('../models/Criteria')
+            };
+
+            for (const relation of relations) {
+                const fieldId = `${relation}Id`;
+                const entityId = body[fieldId] || req.params[fieldId] || req.query[fieldId];
+
+                if (entityId && models[relation]) {
+                    const Model = models[relation];
+                    const entity = await Model.findById(entityId);
+
+                    if (!entity) {
+                        return res.status(404).json({
+                            success: false,
+                            message: `${relation} không tồn tại`
+                        });
+                    }
+
+                    if (entity.academicYear && entity.academicYear.toString() !== req.academicYearId.toString()) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `${relation} không thuộc năm học hiện tại`
+                        });
+                    }
+                }
+            }
+
+            next();
+        } catch (error) {
+            console.error('Ensure Academic Year Consistency Error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi kiểm tra tính nhất quán năm học'
+            });
+        }
+    };
+};
+
 module.exports = {
     setAcademicYearContext,
     setAcademicYearContextForAdmin,
-    validateAcademicYearAccess
+    validateAcademicYearAccess,
+    attachCurrentAcademicYear,
+    addAcademicYearFilter,
+    switchAcademicYear,
+    ensureAcademicYearConsistency
 };
