@@ -110,11 +110,11 @@ export default function Sidebar({ open, onClose }) {
             hasSubmenu: true,
             active: router.pathname.includes('/evidence') || router.pathname.includes('/files'),
             submenu: [
-                { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/tree' },
-                { name: 'Danh sách minh chứng', icon: Folder, path: '/evidence' },
+                { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/evidence-tree' },
+                { name: 'Danh sách minh chứng', icon: Folder, path: '/evidence/evidence' },
                 { name: 'Tìm kiếm minh chứng', icon: Search, path: '/evidence/search' },
-                { name: 'Import minh chứng', icon: Upload, path: '/evidence/import' },
-                { name: 'Quản lý files', icon: FileText, path: '/files' }
+                { name: 'Import minh chứng', icon: Upload, path: '/evidence/import-evidence' },
+                { name: 'Quản lý files', icon: FileText, path: '/evidence/files' }
             ]
         },
 
@@ -128,10 +128,10 @@ export default function Sidebar({ open, onClose }) {
                 router.pathname.includes('/assignments') ||
                 router.pathname.includes('/evaluations'),
             submenu: [
-                { name: 'Danh sách báo cáo', icon: FileText, path: '/reports' },
+                { name: 'Danh sách báo cáo', icon: FileText, path: '/reports/reports' },
                 { name: 'Tạo báo cáo mới', icon: UserPlus, path: '/reports/create' },
-                { name: 'Phân công đánh giá', icon: ClipboardCheck, path: '/assignments' },
-                { name: 'Kết quả đánh giá', icon: Award, path: '/evaluations' },
+                { name: 'Phân công đánh giá', icon: ClipboardCheck, path: '/reports/assignments' },
+                { name: 'Kết quả đánh giá', icon: Award, path: '/reports/evaluations' },
                 { name: 'Xuất báo cáo', icon: Download, path: '/reports/export' }
             ]
         },
@@ -156,8 +156,8 @@ export default function Sidebar({ open, onClose }) {
         {
             name: 'Thông báo',
             icon: Bell,
-            path: '/notifications',
-            active: router.pathname.includes('/notifications')
+            path: '/notifications/notifications',
+            active: router.pathname.includes('/notifications/notifications')
         },
 
         // Thống kê & Báo cáo
@@ -170,8 +170,8 @@ export default function Sidebar({ open, onClose }) {
             submenu: [
                 { name: 'Dashboard thống kê', icon: BarChart3, path: '/analytics/dashboard' },
                 { name: 'Báo cáo tổng hợp', icon: FileText, path: '/analytics/comprehensive' },
-                { name: 'Nhật ký hoạt động', icon: Activity, path: '/logs' },
-                { name: 'Xem hoạt động', icon: Eye, path: '/logs/view' }
+                { name: 'Nhật ký hoạt động', icon: Activity, path: '/analytics/logs' },
+                { name: 'Xem hoạt động', icon: Eye, path: '/analytics/view' }
             ]
         },
 

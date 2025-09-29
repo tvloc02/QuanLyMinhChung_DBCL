@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'
-import Layout from '../components/common/Layout'
-import OrganizationsList from '../components/structure/OrganizationsList'
-import { Building } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
+import EvidenceTree from '../../components/evidence/EvidenceTree'
+import { FolderTree } from 'lucide-react'
 
-export default function OrganizationsPage() {
+export default function EvidenceTreePage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
 
@@ -16,13 +16,13 @@ export default function OrganizationsPage() {
     }, [user, isLoading, router])
 
     const breadcrumbItems = [
-        { name: 'Quản lý tổ chức', icon: Building }
+        { name: 'Cây minh chứng', icon: FolderTree }
     ]
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="loading-spinner"></div>
             </div>
         )
     }
@@ -33,10 +33,10 @@ export default function OrganizationsPage() {
 
     return (
         <Layout
-            title=""
+            title="Cây minh chứng"
             breadcrumbItems={breadcrumbItems}
         >
-            <OrganizationsList />
+            <EvidenceTree />
         </Layout>
     )
 }

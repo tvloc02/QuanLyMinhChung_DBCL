@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'
-import Layout from '../components/common/Layout'
-import EvidenceImport from '../components/evidence/EvidenceImport'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
+import EvidenceImport from '../../components/evidence/EvidenceImport'
 import { Upload } from 'lucide-react'
 
 export default function ImportEvidencePage() {

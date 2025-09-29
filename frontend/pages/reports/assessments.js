@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'
-import Layout from '../components/common/Layout'
-import { ConfirmModal } from '../components/common/Modal'
-import Modal from '../components/common/Modal'
-import Pagination from '../components/common/Pagination'
-import { formatDate } from '../utils/helpers'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
+import { ConfirmModal } from '../../components/common/Modal'
+import Modal from '../../components/common/Modal'
+import Pagination from '../../components/common/Pagination'
+import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 import {
     Plus,

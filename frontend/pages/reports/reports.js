@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../contexts/AuthContext'
-import Layout from '../components/common/Layout'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
 import {
     BarChart3,
     PieChart,
@@ -19,7 +19,7 @@ import {
     Clock,
     Eye
 } from 'lucide-react'
-import { formatDate, formatNumber } from '../utils/helpers'
+import { formatDate, formatNumber } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
 export default function ReportsPage() {
