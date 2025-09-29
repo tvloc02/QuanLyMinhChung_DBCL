@@ -15,8 +15,6 @@ const {
     getEvaluatorStats
 } = require('../controllers/evaluationController');
 
-router.use(auth, setAcademicYearContext);
-
 const createEvaluationValidation = [
     body('assignmentId')
         .notEmpty()
