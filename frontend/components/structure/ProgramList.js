@@ -1,393 +1,317 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
 import {
-    Plus, Search, Filter, Edit2, Trash2, Eye,
-    X, Calendar, AlertCircle, CheckCircle, Clock,
-    ChevronLeft, ChevronRight, Copy
+    BookOpen, Plus, Search, Filter, Download, Upload,
+    Edit2, Trash2, Eye, MoreVertical, RefreshCw
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { apiMethods } from '../../services/api'
+import { formatDate } from '../../utils/helpers'
+import * as XLSX from 'xlsx'
+import ImportExcelModal from './ImportExcelModal'
+import ProgramModal from './ProgramModal'
 
-export default function ProgramsList() {
-    const { user } = useAuth()
+export default function ProgramList() {
     const [programs, setPrograms] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pages: 1,
+        total: 0
+    })
 
-    // Pagination & Filters
-    const [currentPage, setCurrentPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
-    const [total, setTotal] = useState(0)
+    // Filters
     const [search, setSearch] = useState('')
-    const [typeFilter, setTypeFilter] = useState('')
-    const [statusFilter, setStatusFilter] = useState('')
-    const [sortBy, setSortBy] = useState('createdAt')
-    const [sortOrder, setSortOrder] = useState('desc')
+    const [type, setType] = useState('')
+    const [status, setStatus] = useState('')
 
-    // Modal states
-    const [showModal, setShowModal] = useState(false)
-    const [showDeleteModal, setShowDeleteModal] = useState(false)
-    const [showCopyModal, setShowCopyModal] = useState(false)
+    // Modals
+    const [showImportModal, setShowImportModal] = useState(false)
+    const [showProgramModal, setShowProgramModal] = useState(false)
     const [selectedProgram, setSelectedProgram] = useState(null)
-    const [modalMode, setModalMode] = useState('create') // create, edit, view
 
-    // Form data
-    const [formData, setFormData] = useState({
-        name: '',
-        code: '',
-        description: '',
-        type: 'undergraduate',
-        version: '1.0',
-        applicableYear: new Date().getFullYear(),
-        effectiveDate: '',
-        expiryDate: '',
-        objectives: '',
-        guidelines: '',
-        status: 'draft'
-    })
-
-    const [copyFormData, setCopyFormData] = useState({
-        targetAcademicYearId: '',
-        newCode: ''
-    })
-
-    const [academicYears, setAcademicYears] = useState([])
-
-    // Fetch programs
     useEffect(() => {
-        fetchPrograms()
-    }, [currentPage, search, typeFilter, statusFilter, sortBy, sortOrder])
+        loadPrograms()
+    }, [pagination.current, search, type, status])
 
-    // Fetch academic years for copy function
-    useEffect(() => {
-        fetchAcademicYears()
-    }, [])
-
-    const fetchPrograms = async () => {
+    const loadPrograms = async () => {
         try {
             setLoading(true)
-            const params = new URLSearchParams({
-                page: currentPage,
+            const response = await apiMethods.programs.getAll({
+                page: pagination.current,
                 limit: 10,
-                sortBy,
-                sortOrder
+                search,
+                type,
+                status
             })
 
-            if (search) params.append('search', search)
-            if (typeFilter) params.append('type', typeFilter)
-            if (statusFilter) params.append('status', statusFilter)
-
-            const response = await fetch(`/api/programs?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            })
-
-            if (!response.ok) throw new Error('Lỗi khi tải danh sách chương trình')
-
-            const data = await response.json()
-            setPrograms(data.data.programs)
-            setTotalPages(data.data.pagination.pages)
-            setTotal(data.data.pagination.total)
-            setError(null)
-        } catch (err) {
-            setError(err.message)
+            if (response.data.success) {
+                setPrograms(response.data.data.programs)
+                setPagination(response.data.data.pagination)
+            }
+        } catch (error) {
+            toast.error('Không thể tải danh sách chương trình')
+            console.error(error)
         } finally {
             setLoading(false)
         }
     }
 
-    const fetchAcademicYears = async () => {
+    const handleExportExcel = () => {
         try {
-            const response = await fetch('/api/academic-years/all', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+            // Chuẩn bị dữ liệu
+            const exportData = programs.map((program, index) => ({
+                'STT': index + 1,
+                'Mã chương trình': program.code,
+                'Tên chương trình': program.name,
+                'Mô tả': program.description || '',
+                'Loại': getProgramTypeLabel(program.type),
+                'Phiên bản': program.version || '1.0',
+                'Năm áp dụng': program.applicableYear || '',
+                'Trạng thái': getStatusLabel(program.status),
+                'Ngày tạo': formatDate(program.createdAt)
+            }))
+
+            // Tạo workbook
+            const wb = XLSX.utils.book_new()
+            const ws = XLSX.utils.json_to_sheet(exportData)
+
+            // Định dạng cột
+            const colWidths = [
+                { wch: 5 },  // STT
+                { wch: 15 }, // Mã
+                { wch: 40 }, // Tên
+                { wch: 50 }, // Mô tả
+                { wch: 15 }, // Loại
+                { wch: 10 }, // Phiên bản
+                { wch: 12 }, // Năm
+                { wch: 12 }, // Trạng thái
+                { wch: 12 }  // Ngày tạo
+            ]
+            ws['!cols'] = colWidths
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Chương trình')
+            XLSX.writeFile(wb, `Danh_sach_chuong_trinh_${Date.now()}.xlsx`)
+
+            toast.success('Xuất file thành công')
+        } catch (error) {
+            toast.error('Có lỗi khi xuất file')
+            console.error(error)
+        }
+    }
+
+    const handleDownloadTemplate = () => {
+        try {
+            // Dữ liệu mẫu
+            const templateData = [
+                {
+                    'Mã chương trình (*)': 'DGCL-DH',
+                    'Tên chương trình (*)': 'Đánh giá chất lượng chương trình đào tạo đại học',
+                    'Mô tả': 'Chương trình đánh giá chất lượng theo tiêu chuẩn quốc gia',
+                    'Loại (*)': 'undergraduate',
+                    'Phiên bản': '1.0',
+                    'Năm áp dụng': '2024',
+                    'Mục tiêu': 'Đảm bảo chất lượng đào tạo',
+                    'Hướng dẫn': 'Thực hiện theo quy định'
                 }
-            })
-            if (response.ok) {
-                const data = await response.json()
-                setAcademicYears(data.data)
-            }
-        } catch (err) {
-            console.error('Lỗi khi tải năm học:', err)
-        }
-    }
+            ]
 
-    const handleCreate = () => {
-        setModalMode('create')
-        setFormData({
-            name: '',
-            code: '',
-            description: '',
-            type: 'undergraduate',
-            version: '1.0',
-            applicableYear: new Date().getFullYear(),
-            effectiveDate: '',
-            expiryDate: '',
-            objectives: '',
-            guidelines: '',
-            status: 'draft'
-        })
-        setShowModal(true)
-    }
+            const wb = XLSX.utils.book_new()
+            const ws = XLSX.utils.json_to_sheet(templateData)
 
-    const handleEdit = (program) => {
-        setModalMode('edit')
-        setSelectedProgram(program)
-        setFormData({
-            name: program.name,
-            code: program.code,
-            description: program.description || '',
-            type: program.type,
-            version: program.version || '1.0',
-            applicableYear: program.applicableYear,
-            effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
-            expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
-            objectives: program.objectives || '',
-            guidelines: program.guidelines || '',
-            status: program.status
-        })
-        setShowModal(true)
-    }
-
-    const handleView = (program) => {
-        setModalMode('view')
-        setSelectedProgram(program)
-        setFormData({
-            name: program.name,
-            code: program.code,
-            description: program.description || '',
-            type: program.type,
-            version: program.version || '1.0',
-            applicableYear: program.applicableYear,
-            effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
-            expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
-            objectives: program.objectives || '',
-            guidelines: program.guidelines || '',
-            status: program.status
-        })
-        setShowModal(true)
-    }
-
-    const handleCopy = (program) => {
-        setSelectedProgram(program)
-        setCopyFormData({
-            targetAcademicYearId: '',
-            newCode: program.code + '_COPY'
-        })
-        setShowCopyModal(true)
-    }
-
-    const handleDelete = (program) => {
-        setSelectedProgram(program)
-        setShowDeleteModal(true)
-    }
-
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-
-        try {
-            const url = modalMode === 'create'
-                ? '/api/programs'
-                : `/api/programs/${selectedProgram._id}`
-
-            const method = modalMode === 'create' ? 'POST' : 'PUT'
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(formData)
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.message || 'Có lỗi xảy ra')
-            }
-
-            await fetchPrograms()
-            setShowModal(false)
-            alert(modalMode === 'create' ? 'Tạo chương trình thành công!' : 'Cập nhật chương trình thành công!')
-        } catch (err) {
-            alert(err.message)
-        }
-    }
-
-    const handleCopySubmit = async (e) => {
-        e.preventDefault()
-
-        try {
-            const response = await fetch(`/api/programs/${selectedProgram._id}/copy-to-year`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(copyFormData)
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.message || 'Có lỗi xảy ra')
-            }
-
-            setShowCopyModal(false)
-            alert('Sao chép chương trình sang năm học khác thành công!')
-        } catch (err) {
-            alert(err.message)
-        }
-    }
-
-    const confirmDelete = async () => {
-        try {
-            const response = await fetch(`/api/programs/${selectedProgram._id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+            // Style cho header
+            const range = XLSX.utils.decode_range(ws['!ref'])
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!ws[address]) continue
+                ws[address].s = {
+                    fill: { fgColor: { rgb: "4472C4" } },
+                    font: { bold: true, color: { rgb: "FFFFFF" } },
+                    alignment: { horizontal: "center", vertical: "center" }
                 }
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.message || 'Có lỗi xảy ra')
             }
 
-            await fetchPrograms()
-            setShowDeleteModal(false)
-            alert('Xóa chương trình thành công!')
-        } catch (err) {
-            alert(err.message)
+            // Độ rộng cột
+            ws['!cols'] = [
+                { wch: 20 }, { wch: 50 }, { wch: 50 }, { wch: 15 },
+                { wch: 10 }, { wch: 12 }, { wch: 40 }, { wch: 40 }
+            ]
+
+            // Thêm sheet hướng dẫn
+            const instructionData = [
+                { 'Cột': 'Mã chương trình (*)', 'Mô tả': 'Mã chương trình (bắt buộc, chữ hoa, số, gạch ngang)', 'Ví dụ': 'DGCL-DH' },
+                { 'Cột': 'Tên chương trình (*)', 'Mô tả': 'Tên đầy đủ của chương trình (bắt buộc)', 'Ví dụ': 'Đánh giá chất lượng đào tạo' },
+                { 'Cột': 'Mô tả', 'Mô tả': 'Mô tả chi tiết về chương trình', 'Ví dụ': 'Chương trình đánh giá...' },
+                { 'Cột': 'Loại (*)', 'Mô tả': 'undergraduate/graduate/institution/other', 'Ví dụ': 'undergraduate' },
+                { 'Cột': 'Phiên bản', 'Mô tả': 'Phiên bản chương trình', 'Ví dụ': '1.0' },
+                { 'Cột': 'Năm áp dụng', 'Mô tả': 'Năm bắt đầu áp dụng (2000-2100)', 'Ví dụ': '2024' },
+                { 'Cột': 'Mục tiêu', 'Mô tả': 'Mục tiêu của chương trình', 'Ví dụ': 'Đảm bảo chất lượng' },
+                { 'Cột': 'Hướng dẫn', 'Mô tả': 'Hướng dẫn thực hiện', 'Ví dụ': 'Thực hiện theo quy định' }
+            ]
+
+            const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
+            wsInstruction['!cols'] = [{ wch: 25 }, { wch: 50 }, { wch: 30 }]
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Mẫu nhập liệu')
+            XLSX.utils.book_append_sheet(wb, wsInstruction, 'Hướng dẫn')
+
+            XLSX.writeFile(wb, 'Mau_import_chuong_trinh.xlsx')
+            toast.success('Đã tải file mẫu')
+        } catch (error) {
+            toast.error('Có lỗi khi tạo file mẫu')
+            console.error(error)
         }
     }
 
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            draft: { label: 'Nháp', className: 'bg-gray-100 text-gray-800' },
-            active: { label: 'Hoạt động', className: 'bg-green-100 text-green-800' },
-            inactive: { label: 'Không hoạt động', className: 'bg-red-100 text-red-800' },
-            archived: { label: 'Lưu trữ', className: 'bg-yellow-100 text-yellow-800' }
+    const handleImport = async (file) => {
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await apiMethods.programs.import?.(formData) ||
+                await apiMethods.programs.bulkImport?.(formData)
+
+            if (response.data.success) {
+                toast.success(`Import thành công ${response.data.data.success} chương trình`)
+                loadPrograms()
+                setShowImportModal(false)
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Import thất bại')
         }
-        const config = statusConfig[status] || statusConfig.draft
-        return (
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
-                {config.label}
-            </span>
-        )
     }
 
-    const getTypeBadge = (type) => {
-        const typeConfig = {
-            undergraduate: { label: 'Đại học', className: 'bg-blue-100 text-blue-800' },
-            graduate: { label: 'Sau đại học', className: 'bg-purple-100 text-purple-800' },
-            institution: { label: 'Cơ sở', className: 'bg-indigo-100 text-indigo-800' },
-            other: { label: 'Khác', className: 'bg-gray-100 text-gray-800' }
+    const handleDelete = async (id) => {
+        if (!confirm('Bạn có chắc muốn xóa chương trình này?')) return
+
+        try {
+            await apiMethods.programs.delete(id)
+            toast.success('Xóa thành công')
+            loadPrograms()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Xóa thất bại')
         }
-        const config = typeConfig[type] || typeConfig.other
-        return (
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.className}`}>
-                {config.label}
-            </span>
-        )
     }
 
-    if (loading && programs.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        )
+    const getProgramTypeLabel = (type) => {
+        const types = {
+            undergraduate: 'Đại học',
+            graduate: 'Sau đại học',
+            institution: 'Cơ sở giáo dục',
+            other: 'Khác'
+        }
+        return types[type] || type
+    }
+
+    const getStatusLabel = (status) => {
+        const statuses = {
+            draft: 'Nháp',
+            active: 'Hoạt động',
+            inactive: 'Không hoạt động',
+            archived: 'Lưu trữ'
+        }
+        return statuses[status] || status
+    }
+
+    const getStatusColor = (status) => {
+        const colors = {
+            draft: 'bg-gray-100 text-gray-700',
+            active: 'bg-green-100 text-green-700',
+            inactive: 'bg-red-100 text-red-700',
+            archived: 'bg-yellow-100 text-yellow-700'
+        }
+        return colors[status] || 'bg-gray-100 text-gray-700'
     }
 
     return (
         <div className="space-y-6">
-            {/* Header & Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Quản lý chương trình</h2>
-                    <p className="text-sm text-gray-600 mt-1">Tổng số: {total} chương trình</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Chương trình</h1>
+                    <p className="text-gray-600 mt-1">Quản lý các chương trình đánh giá</p>
                 </div>
-                {(user?.role === 'admin') && (
+                <div className="flex gap-2">
                     <button
-                        onClick={handleCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        onClick={handleDownloadTemplate}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                     >
-                        <Plus size={20} />
+                        <Download size={18} />
+                        Tải mẫu
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        <Upload size={18} />
+                        Import Excel
+                    </button>
+                    <button
+                        onClick={handleExportExcel}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        <Download size={18} />
+                        Export Excel
+                    </button>
+                    <button
+                        onClick={() => {
+                            setSelectedProgram(null)
+                            setShowProgramModal(true)
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    >
+                        <Plus size={18} />
                         Thêm chương trình
                     </button>
-                )}
+                </div>
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Tìm kiếm..."
-                        value={search}
-                        onChange={(e) => {
-                            setSearch(e.target.value)
-                            setCurrentPage(1)
-                        }}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+            <div className="bg-white rounded-lg shadow p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <select
+                        value={type}
+                        onChange={(e) => setType(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                        <option value="">Tất cả loại</option>
+                        <option value="undergraduate">Đại học</option>
+                        <option value="graduate">Sau đại học</option>
+                        <option value="institution">Cơ sở giáo dục</option>
+                        <option value="other">Khác</option>
+                    </select>
+
+                    <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="draft">Nháp</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                        <option value="archived">Lưu trữ</option>
+                    </select>
+
+                    <button
+                        onClick={loadPrograms}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                    >
+                        <RefreshCw size={18} />
+                        Làm mới
+                    </button>
                 </div>
-
-                <select
-                    value={typeFilter}
-                    onChange={(e) => {
-                        setTypeFilter(e.target.value)
-                        setCurrentPage(1)
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                    <option value="">Tất cả loại</option>
-                    <option value="undergraduate">Đại học</option>
-                    <option value="graduate">Sau đại học</option>
-                    <option value="institution">Cơ sở</option>
-                    <option value="other">Khác</option>
-                </select>
-
-                <select
-                    value={statusFilter}
-                    onChange={(e) => {
-                        setStatusFilter(e.target.value)
-                        setCurrentPage(1)
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="draft">Nháp</option>
-                    <option value="active">Hoạt động</option>
-                    <option value="inactive">Không hoạt động</option>
-                    <option value="archived">Lưu trữ</option>
-                </select>
-
-                <select
-                    value={`${sortBy}-${sortOrder}`}
-                    onChange={(e) => {
-                        const [newSortBy, newSortOrder] = e.target.value.split('-')
-                        setSortBy(newSortBy)
-                        setSortOrder(newSortOrder)
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                    <option value="createdAt-desc">Mới nhất</option>
-                    <option value="createdAt-asc">Cũ nhất</option>
-                    <option value="name-asc">Tên A-Z</option>
-                    <option value="name-desc">Tên Z-A</option>
-                    <option value="code-asc">Mã A-Z</option>
-                    <option value="code-desc">Mã Z-A</option>
-                </select>
             </div>
-
-            {/* Error Message */}
-            {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-800">
-                    <AlertCircle size={20} />
-                    <span>{error}</span>
-                </div>
-            )}
 
             {/* Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -405,13 +329,13 @@ export default function ProgramsList() {
                                 Loại
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Phiên bản
+                                Trạng thái
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Năm áp dụng
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Trạng thái
+                                Ngày tạo
                             </th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Thao tác
@@ -419,9 +343,17 @@ export default function ProgramsList() {
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                        {programs.length === 0 ? (
+                        {loading ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan="7" className="px-6 py-12 text-center">
+                                    <div className="flex justify-center">
+                                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : programs.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                                     Không có dữ liệu
                                 </td>
                             </tr>
@@ -429,7 +361,7 @@ export default function ProgramsList() {
                             programs.map((program) => (
                                 <tr key={program._id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="font-mono text-sm font-medium text-gray-900">
+                                            <span className="text-sm font-medium text-gray-900">
                                                 {program.code}
                                             </span>
                                     </td>
@@ -438,59 +370,44 @@ export default function ProgramsList() {
                                             {program.name}
                                         </div>
                                         {program.description && (
-                                            <div className="text-sm text-gray-500 line-clamp-1">
+                                            <div className="text-sm text-gray-500 truncate max-w-md">
                                                 {program.description}
                                             </div>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {getTypeBadge(program.type)}
+                                            <span className="text-sm text-gray-900">
+                                                {getProgramTypeLabel(program.type)}
+                                            </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {program.version}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(program.status)}`}>
+                                                {getStatusLabel(program.status)}
+                                            </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {program.applicableYear}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {getStatusBadge(program.status)}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {formatDate(program.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
-                                                onClick={() => handleView(program)}
-                                                className="text-blue-600 hover:text-blue-800"
-                                                title="Xem chi tiết"
+                                                onClick={() => {
+                                                    setSelectedProgram(program)
+                                                    setShowProgramModal(true)
+                                                }}
+                                                className="text-blue-600 hover:text-blue-900"
                                             >
-                                                <Eye size={18} />
+                                                <Edit2 size={18} />
                                             </button>
-                                            {(user?.role === 'admin') && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleEdit(program)}
-                                                        className="text-green-600 hover:text-green-800"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit2 size={18} />
-                                                    </button>
-                                                    {(user?.role === 'admin' || user?.role === 'manager') && (
-                                                        <button
-                                                            onClick={() => handleCopy(program)}
-                                                            className="text-purple-600 hover:text-purple-800"
-                                                            title="Sao chép"
-                                                        >
-                                                            <Copy size={18} />
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleDelete(program)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </>
-                                            )}
+                                            <button
+                                                onClick={() => handleDelete(program._id)}
+                                                className="text-red-600 hover:text-red-900"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -501,333 +418,54 @@ export default function ProgramsList() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-700">
-                                Trang <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                                >
-                                    <ChevronRight size={20} />
-                                </button>
-                            </div>
+                {!loading && programs.length > 0 && (
+                    <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                        <div className="text-sm text-gray-700">
+                            Hiển thị <span className="font-medium">{programs.length}</span> trong tổng số{' '}
+                            <span className="font-medium">{pagination.total}</span> chương trình
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPagination({ ...pagination, current: pagination.current - 1 })}
+                                disabled={!pagination.hasPrev}
+                                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Trước
+                            </button>
+                            <button
+                                onClick={() => setPagination({ ...pagination, current: pagination.current + 1 })}
+                                disabled={!pagination.hasNext}
+                                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Sau
+                            </button>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Create/Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                            <h3 className="text-lg font-semibold">
-                                {modalMode === 'create' && 'Thêm chương trình mới'}
-                                {modalMode === 'edit' && 'Chỉnh sửa chương trình'}
-                                {modalMode === 'view' && 'Chi tiết chương trình'}
-                            </h3>
-                            <button
-                                onClick={() => setShowModal(false)}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Mã chương trình <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.code}
-                                        onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                                        placeholder="VD: CTDT-2024"
-                                        required
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Tên chương trình <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mô tả
-                                </label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows="3"
-                                    disabled={modalMode === 'view'}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Loại chương trình <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={formData.type}
-                                        onChange={(e) => setFormData({...formData, type: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                        disabled={modalMode === 'view'}
-                                    >
-                                        <option value="undergraduate">Đại học</option>
-                                        <option value="graduate">Sau đại học</option>
-                                        <option value="institution">Cơ sở</option>
-                                        <option value="other">Khác</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Phiên bản
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.version}
-                                        onChange={(e) => setFormData({...formData, version: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="1.0"
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Năm áp dụng
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formData.applicableYear}
-                                        onChange={(e) => setFormData({...formData, applicableYear: parseInt(e.target.value)})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        min="2000"
-                                        max="2100"
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Ngày hiệu lực
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={formData.effectiveDate}
-                                        onChange={(e) => setFormData({...formData, effectiveDate: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Ngày hết hạn
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={formData.expiryDate}
-                                        onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        disabled={modalMode === 'view'}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mục tiêu
-                                </label>
-                                <textarea
-                                    value={formData.objectives}
-                                    onChange={(e) => setFormData({...formData, objectives: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows="3"
-                                    disabled={modalMode === 'view'}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Hướng dẫn
-                                </label>
-                                <textarea
-                                    value={formData.guidelines}
-                                    onChange={(e) => setFormData({...formData, guidelines: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows="3"
-                                    disabled={modalMode === 'view'}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Trạng thái
-                                </label>
-                                <select
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    disabled={modalMode === 'view'}
-                                >
-                                    <option value="draft">Nháp</option>
-                                    <option value="active">Hoạt động</option>
-                                    <option value="inactive">Không hoạt động</option>
-                                    <option value="archived">Lưu trữ</option>
-                                </select>
-                            </div>
-
-                            {modalMode !== 'view' && (
-                                <div className="flex justify-end gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                                    >
-                                        Hủy
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                                    >
-                                        {modalMode === 'create' ? 'Tạo mới' : 'Cập nhật'}
-                                    </button>
-                                </div>
-                            )}
-                        </form>
-                    </div>
-                </div>
+            {/* Modals */}
+            {showImportModal && (
+                <ImportExcelModal
+                    onClose={() => setShowImportModal(false)}
+                    onImport={handleImport}
+                    title="Import Chương trình"
+                />
             )}
 
-            {/* Copy Modal */}
-            {showCopyModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full">
-                        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                            <h3 className="text-lg font-semibold">Sao chép chương trình</h3>
-                            <button
-                                onClick={() => setShowCopyModal(false)}
-                                className="text-gray-400 hover:text-gray-600"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleCopySubmit} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Năm học đích <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={copyFormData.targetAcademicYearId}
-                                    onChange={(e) => setCopyFormData({...copyFormData, targetAcademicYearId: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
-                                >
-                                    <option value="">-- Chọn năm học --</option>
-                                    {academicYears.map(year => (
-                                        <option key={year._id} value={year._id}>
-                                            {year.name} ({year.code})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mã chương trình mới <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={copyFormData.newCode}
-                                    onChange={(e) => setCopyFormData({...copyFormData, newCode: e.target.value.toUpperCase()})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                                    required
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCopyModal(false)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                                >
-                                    Sao chép
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full p-6">
-                        <div className="flex items-center gap-3 text-red-600 mb-4">
-                            <AlertCircle size={24} />
-                            <h3 className="text-lg font-semibold">Xác nhận xóa</h3>
-                        </div>
-                        <p className="text-gray-600 mb-6">
-                            Bạn có chắc chắn muốn xóa chương trình <strong>{selectedProgram?.name}</strong>?
-                            Hành động này không thể hoàn tác.
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowDeleteModal(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={confirmDelete}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            >
-                                Xóa
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {showProgramModal && (
+                <ProgramModal
+                    program={selectedProgram}
+                    onClose={() => {
+                        setShowProgramModal(false)
+                        setSelectedProgram(null)
+                    }}
+                    onSuccess={() => {
+                        loadPrograms()
+                        setShowProgramModal(false)
+                        setSelectedProgram(null)
+                    }}
+                />
             )}
         </div>
     )

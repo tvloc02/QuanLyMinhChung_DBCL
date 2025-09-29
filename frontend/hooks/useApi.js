@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { api } from './useApi'
+import { api } from '../services/api'
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/helpers'
 
 const AuthContext = createContext(null)

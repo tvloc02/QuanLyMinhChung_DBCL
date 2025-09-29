@@ -52,7 +52,6 @@ const CreateAcademicYearPage = () => {
     const validateForm = () => {
         const newErrors = {}
 
-        // Validate years
         if (!formData.startYear) {
             newErrors.startYear = 'Năm bắt đầu là bắt buộc'
         } else if (formData.startYear < 2020 || formData.startYear > 2050) {
@@ -65,7 +64,6 @@ const CreateAcademicYearPage = () => {
             newErrors.endYear = 'Năm kết thúc phải lớn hơn năm bắt đầu'
         }
 
-        // Validate dates
         if (!formData.startDate) {
             newErrors.startDate = 'Ngày bắt đầu là bắt buộc'
         }
@@ -76,7 +74,6 @@ const CreateAcademicYearPage = () => {
             newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
         }
 
-        // Validate description length
         if (formData.description && formData.description.length > 500) {
             newErrors.description = 'Mô tả không được quá 500 ký tự'
         }
@@ -104,7 +101,6 @@ const CreateAcademicYearPage = () => {
             }))
         }
 
-        // Auto-generate name when years change
         if (name === 'startYear' || name === 'endYear') {
             const startYear = name === 'startYear' ? (parseInt(value) || '') : formData.startYear
             const endYear = name === 'endYear' ? (parseInt(value) || '') : formData.endYear
@@ -118,7 +114,6 @@ const CreateAcademicYearPage = () => {
             }
         }
 
-        // Clear error when user starts typing
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -178,7 +173,7 @@ const CreateAcademicYearPage = () => {
 
     return (
         <Layout
-            title="Tạo năm học mới"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="max-w-4xl mx-auto space-y-6">
@@ -210,7 +205,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     )}
 
-                    {/* Error Message */}
                     {error && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                             <div className="flex items-center">
@@ -223,7 +217,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     )}
 
-                    {/* Basic Information */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h2>
 
@@ -250,7 +243,6 @@ const CreateAcademicYearPage = () => {
                                 )}
                             </div>
 
-                            {/* End Year */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Năm kết thúc <span className="text-red-500">*</span>
@@ -272,7 +264,6 @@ const CreateAcademicYearPage = () => {
                                 )}
                             </div>
 
-                            {/* Name */}
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Tên năm học
@@ -298,7 +289,6 @@ const CreateAcademicYearPage = () => {
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Thời gian</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Start Date */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Ngày bắt đầu <span className="text-red-500">*</span>
@@ -317,7 +307,6 @@ const CreateAcademicYearPage = () => {
                                 )}
                             </div>
 
-                            {/* End Date */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Ngày kết thúc <span className="text-red-500">*</span>
@@ -338,7 +327,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Description */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Mô tả</h2>
 
@@ -370,7 +358,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Settings */}
                     <div className="bg-white rounded-lg shadow p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">Cài đặt</h2>
 
@@ -396,7 +383,6 @@ const CreateAcademicYearPage = () => {
                                 </div>
                             </div>
 
-                            {/* Copy Settings */}
                             <div>
                                 <h3 className="text-sm font-medium text-gray-900 mb-3">Cài đặt sao chép mặc định</h3>
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -474,7 +460,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex justify-end space-x-4">
                         <Link href="/academic-years/academic-years">
                             <button
