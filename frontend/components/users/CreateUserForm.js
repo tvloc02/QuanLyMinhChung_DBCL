@@ -11,14 +11,19 @@ export default function CreateUserForm() {
     const [generatedPassword, setGeneratedPassword] = useState('')
     const [expertiseInput, setExpertiseInput] = useState('')
 
+    const [useCustomPassword, setUseCustomPassword] = useState(false)
+
     const [formData, setFormData] = useState({
         email: '',
         fullName: '',
+        password: '', // Custom password nếu không dùng auto-generate
         phoneNumber: '',
         role: 'expert',
+        status: 'active',
         department: '',
         position: '',
         expertise: [],
+        mustChangePassword: true, // Bắt buộc đổi mật khẩu lần đầu
         academicYearAccess: [],
         programAccess: [],
         organizationAccess: [],
@@ -153,6 +158,15 @@ export default function CreateUserForm() {
             newErrors.phoneNumber = 'Số điện thoại không hợp lệ'
         }
 
+        // Validate custom password
+        if (useCustomPassword) {
+            if (!formData.password) {
+                newErrors.password = 'Mật khẩu là bắt buộc'
+            } else if (formData.password.length < 6) {
+                newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+            }
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -172,18 +186,26 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            const response = await api.post('/users', formData)
+            // Prepare data to send
+            const dataToSend = { ...formData }
+
+            // Nếu không dùng custom password, xóa field password để backend tự generate
+            if (!useCustomPassword) {
+                delete dataToSend.password
+            }
+
+            const response = await api.post('/api/users', dataToSend)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
                 setMessage({
                     type: 'success',
-                    text: `Tạo người dùng thành công! Mật khẩu mặc định: ${response.data.data.defaultPassword}`
+                    text: `Tạo người dùng thành công! ${response.data.data.defaultPassword ? 'Mật khẩu mặc định: ' + response.data.data.defaultPassword : ''}`
                 })
 
                 // Redirect sau 3 giây
                 setTimeout(() => {
-                    router.push('/users')
+                    router.push('/users/users')
                 }, 3000)
             }
         } catch (error) {
@@ -332,6 +354,84 @@ export default function CreateUserForm() {
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="Chuyên viên"
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Mật khẩu và Bảo mật */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Mật khẩu và Bảo mật</h3>
+
+                    <div className="space-y-4">
+                        {/* Tùy chọn mật khẩu */}
+                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    checked={!useCustomPassword}
+                                    onChange={() => {
+                                        setUseCustomPassword(false)
+                                        setFormData(prev => ({ ...prev, password: '' }))
+                                    }}
+                                    className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                    Sử dụng mật khẩu mặc định (tự động tạo)
+                                </span>
+                            </label>
+                        </div>
+
+                        {/* Mật khẩu mặc định info */}
+                        {!useCustomPassword && (
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-blue-800">
+                                    <strong>Mật khẩu mặc định:</strong> Sẽ được tạo theo định dạng:
+                                    <code className="ml-1 px-2 py-1 bg-blue-100 rounded">TênĐăngNhập@123</code>
+                                </p>
+                                <p className="text-xs text-blue-600 mt-1">
+                                    Ví dụ: nguyenvana → Nguyenvana@123
+                                </p>
+                            </div>
+                        )}
+
+
+                        {/* Trạng thái tài khoản */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Trạng thái tài khoản
+                            </label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="active">Hoạt động</option>
+                                <option value="inactive">Không hoạt động</option>
+                                <option value="pending">Chờ xác nhận</option>
+                                <option value="suspended">Bị khóa</option>
+                            </select>
+                        </div>
+
+                        {/* Bắt buộc đổi mật khẩu */}
+                        <div className="p-4 border border-gray-200 rounded-lg">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    name="mustChangePassword"
+                                    checked={formData.mustChangePassword}
+                                    onChange={handleChange}
+                                    className="w-4 h-4 mt-1 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                />
+                                <div>
+                                    <span className="text-sm font-medium text-gray-900">
+                                        Bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên
+                                    </span>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Người dùng sẽ phải đổi mật khẩu ngay sau khi đăng nhập lần đầu
+                                    </p>
+                                </div>
+                            </label>
                         </div>
                     </div>
                 </div>
