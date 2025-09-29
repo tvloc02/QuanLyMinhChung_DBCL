@@ -63,28 +63,22 @@ const academicYearMiddleware = [
     addAcademicYearFilter // Add academic year to queries
 ];
 
-// Routes WITH academic year context
+// FIX: Routes WITH academic year context
+// Các route /all không cần middleware academicYear vì dùng cho dropdown
 app.use('/api/programs',
-    ...academicYearMiddleware,
-    ensureAcademicYearConsistency(['program']),
-    programRoutes
+    programRoutes  // Middleware sẽ được apply trong từng route cụ thể
 );
 
 app.use('/api/organizations',
-    ...academicYearMiddleware,
-    organizationRoutes
+    organizationRoutes  // Middleware sẽ được apply trong từng route cụ thể
 );
 
 app.use('/api/standards',
-    ...academicYearMiddleware,
-    ensureAcademicYearConsistency(['program', 'organization']),
-    standardRoutes
+    standardRoutes  // Middleware sẽ được apply trong từng route cụ thể
 );
 
 app.use('/api/criteria',
-    ...academicYearMiddleware,
-    ensureAcademicYearConsistency(['program', 'organization', 'standard']),
-    criteriaRoutes
+    criteriaRoutes  // Middleware sẽ được apply trong từng route cụ thể
 );
 
 app.use('/api/evidences',
@@ -173,36 +167,8 @@ app.use((err, req, res, next) => {
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
-        message: 'API endpoint không tồn tại'
+        message: `API endpoint không tồn tại: ${req.originalUrl}`
     });
 });
 
 module.exports = app;
-
-/* ===================================
-   THAY ĐỔI CẦN THỰC HIỆN
-   ===================================
-
-1. ĐỔI TÊN FILE:
-   - routes/oganizations.js → routes/organizations.js
-
-2. SỬA TRONG standards.js (routes/standards.js):
-   Dòng 5, thay đổi:
-   FROM: const { setAcademicYearContext } = require('../middleware/academicYearMiddleware');
-   TO:   const { setAcademicYearContext } = require('../middleware/academicYear');
-
-3. CẬP NHẬT routes/assignments.js, reports.js, evaluations.js:
-   Xóa dòng:
-   router.use(auth, setAcademicYearContext);
-
-   Vì middleware đã được apply ở app.js level
-
-4. KIỂM TRA middleware/academicYear.js có export:
-   - attachCurrentAcademicYear
-   - addAcademicYearFilter
-   - switchAcademicYear
-   - ensureAcademicYearConsistency
-
-   Nếu chưa có setAcademicYearContext, cần tạo hoặc dùng attachCurrentAcademicYear
-
-================================= */
