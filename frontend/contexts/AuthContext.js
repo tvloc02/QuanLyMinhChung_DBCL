@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
             setToken(savedToken)
             axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
 
-            const response = await api.get('/auth/me')
+            const response = await axios.get('/api/auth/me')
             if (response.data.success) {
                 setUser(response.data.data)
             } else {
