@@ -15,8 +15,6 @@ const {
     linkEvidences
 } = require('../controllers/reportController');
 
-router.use(auth, setAcademicYearContext);
-
 const createReportValidation = [
     body('title')
         .notEmpty()
