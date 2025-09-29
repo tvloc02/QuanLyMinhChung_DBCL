@@ -126,8 +126,7 @@ const copyDataValidation = [
         .withMessage('Cài đặt sao chép phải là object')
 ];
 
-// Routes
-router.get('/current', auth, getCurrentAcademicYear);
+router.get('/current', getCurrentAcademicYear);
 
 router.get('/statistics/:id',
     auth,
@@ -158,7 +157,7 @@ router.get('/', auth, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getAcademicYears);
 
-router.get('/all', auth, getAllAcademicYears);
+router.get('/all', getAllAcademicYears);
 
 router.get('/:id', auth, [
     param('id').isMongoId().withMessage('ID năm học không hợp lệ')
