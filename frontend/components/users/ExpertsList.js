@@ -4,7 +4,7 @@ import {
     Search, Mail, Phone, Award, ChevronLeft,
     ChevronRight, RefreshCw, Shield
 } from 'lucide-react'
-import api from '../../utils/api'
+import api from '../../services/api'
 
 export default function ExpertsList() {
     const router = useRouter()

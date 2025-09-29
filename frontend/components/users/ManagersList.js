@@ -4,7 +4,7 @@ import {
     Search, Mail, Phone, Briefcase, ChevronLeft,
     ChevronRight, RefreshCw, Calendar
 } from 'lucide-react'
-import api from '../../utils/api'
+import api from '../../services/api'
 
 export default function ManagersList() {
     const router = useRouter()

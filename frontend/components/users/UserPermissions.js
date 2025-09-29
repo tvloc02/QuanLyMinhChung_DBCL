@@ -4,7 +4,7 @@ import {
     AlertCircle, Save, X, Shield, Calendar,
     BookOpen, Building, FileText, List, RefreshCw
 } from 'lucide-react'
-import api from '../../utils/api'
+import api from '../../services/api'
 
 export default function UserPermissions({ userId }) {
     const router = useRouter()
