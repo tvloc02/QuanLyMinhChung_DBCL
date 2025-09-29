@@ -10,9 +10,7 @@ const {
     createReport,
     updateReport,
     deleteReport,
-    publishReport,
-    generateReportCode,
-    linkEvidences
+    publishReport
 } = require('../controllers/reportController');
 
 const createReportValidation = [
@@ -49,11 +47,13 @@ const createReportValidation = [
         .withMessage('ID tiêu chí không hợp lệ')
 ];
 
+/*
 router.post('/generate-code', [
     body('type').notEmpty().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
     body('standardCode').optional(),
     body('criteriaCode').optional()
 ], validation, generateReportCode);
+*/
 
 router.get('/', [
     query('page').optional().isInt({ min: 1 }),
@@ -88,9 +88,9 @@ router.delete('/:id', requireAdmin, [
 router.post('/:id/publish', requireManager, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
 ], validation, publishReport);
-
+/*
 router.post('/:id/link-evidences', requireManager, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
 ], validation, linkEvidences);
-
+*/
 module.exports = router;
