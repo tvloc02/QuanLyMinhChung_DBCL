@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { formatDate, formatNumber } from '../../utils/helpers'
 import toast from 'react-hot-toast'
-import { apiMethods } from '../../lib/api'
+import { apiMethods } from '../../services/api'
 import {
     FileText,
     Plus,
