@@ -38,26 +38,30 @@ export default function ProgramList() {
         try {
             setLoading(true)
 
-            // Tạo params object, chỉ thêm các giá trị không rỗng
             const params = {
                 page: pagination.current,
-                limit: 10
-            };
+                limit: 10,
+                ...(search && { search }),
+                ...(type && { type }),
+                ...(status && { status })
+            }
 
-            if (search) params.search = search;
-            if (type) params.type = type;
-            if (status) params.status = status;
+            console.log('📤 Calling API with params:', params) // Debug
 
-            const response = await apiMethods.programs.getAll(params);
+            const response = await apiMethods.programs.getAll(params)
 
+            console.log('📥 API Response:', response) // Debug
 
             if (response.data.success) {
                 setPrograms(response.data.data.programs)
                 setPagination(response.data.data.pagination)
+            } else {
+                console.log('❌ Response not success:', response.data)
             }
         } catch (error) {
+            console.error('💥 Full error:', error) // Xem chi tiết lỗi
+            console.error('💥 Error response:', error.response) // Xem response từ server
             toast.error('Không thể tải danh sách chương trình')
-            console.error(error)
         } finally {
             setLoading(false)
         }
