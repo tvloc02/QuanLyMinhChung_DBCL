@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { formatDate, formatNumber } from '../../utils/helpers'
 import toast from 'react-hot-toast'
-import axios from 'axios'
+import { apiMethods } from '../../lib/api'
 import {
     FileText,
     Plus,
@@ -20,8 +20,6 @@ import {
     FolderTree,
     RefreshCw
 } from 'lucide-react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 export default function EvidencePage() {
     const { user, isLoading } = useAuth()
@@ -51,21 +49,16 @@ export default function EvidencePage() {
         try {
             setLoading(true)
 
-            const token = localStorage.getItem('token')
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-
             // Fetch statistics
-            const statsResponse = await axios.get(`${API_URL}/evidences/statistics`, config)
+            const statsResponse = await apiMethods.evidences.getStatistics()
 
             // Fetch recent evidences
-            const evidencesResponse = await axios.get(
-                `${API_URL}/evidences?page=1&limit=5&sortBy=createdAt&sortOrder=desc`,
-                config
-            )
+            const evidencesResponse = await apiMethods.evidences.getAll({
+                page: 1,
+                limit: 5,
+                sortBy: 'createdAt',
+                sortOrder: 'desc'
+            })
 
             setStatistics(statsResponse.data.data)
             setRecentEvidences(evidencesResponse.data.data.evidences || [])
@@ -162,7 +155,7 @@ export default function EvidencePage() {
 
     return (
         <Layout
-            title=""
+            title="Tổng quan minh chứng"
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">
