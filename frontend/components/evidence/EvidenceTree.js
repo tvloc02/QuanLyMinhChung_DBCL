@@ -41,9 +41,10 @@ export default function EvidenceTree() {
     const fetchPrograms = async () => {
         try {
             const response = await apiMethods.programs.getAll()
-            setPrograms(response.data.data.programs || [])
-            if (response.data.data.programs?.length > 0) {
-                setSelectedProgram(response.data.data.programs[0]._id)
+            const programsData = response.data.data.programs || response.data.data || []
+            setPrograms(programsData)
+            if (programsData.length > 0) {
+                setSelectedProgram(programsData[0]._id)
             }
         } catch (error) {
             console.error('Fetch programs error:', error)
@@ -54,9 +55,10 @@ export default function EvidenceTree() {
     const fetchOrganizations = async () => {
         try {
             const response = await apiMethods.organizations.getAll()
-            setOrganizations(response.data.data.organizations || [])
-            if (response.data.data.organizations?.length > 0) {
-                setSelectedOrganization(response.data.data.organizations[0]._id)
+            const organizationsData = response.data.data.organizations || response.data.data || []
+            setOrganizations(organizationsData)
+            if (organizationsData.length > 0) {
+                setSelectedOrganization(organizationsData[0]._id)
             }
         } catch (error) {
             console.error('Fetch organizations error:', error)
@@ -67,14 +69,15 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.evidences.getTree(
-                selectedProgram,
-                selectedOrganization
-            )
-            setTreeData(response.data.data.tree || {})
+            const response = await apiMethods.evidences.getTree({
+                programId: selectedProgram,
+                organizationId: selectedOrganization
+            })
+            setTreeData(response.data.data.tree || response.data.data || {})
         } catch (error) {
             console.error('Fetch tree data error:', error)
             toast.error('Lỗi khi tải cây minh chứng')
+            setTreeData({})
         } finally {
             setLoading(false)
         }
@@ -91,9 +94,11 @@ export default function EvidenceTree() {
         const allNodes = {}
         Object.keys(treeData).forEach(standardKey => {
             allNodes[standardKey] = true
-            Object.keys(treeData[standardKey].criteria).forEach(criteriaKey => {
-                allNodes[`${standardKey}-${criteriaKey}`] = true
-            })
+            if (treeData[standardKey]?.criteria) {
+                Object.keys(treeData[standardKey].criteria).forEach(criteriaKey => {
+                    allNodes[`${standardKey}-${criteriaKey}`] = true
+                })
+            }
         })
         setExpandedNodes(allNodes)
     }
@@ -108,7 +113,7 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
-            const response = await apiMethods.evidences.export({
+            const response = await apiMethods.evidences.exportData({
                 programId: selectedProgram,
                 organizationId: selectedOrganization,
                 format: 'xlsx'
@@ -138,20 +143,24 @@ export default function EvidenceTree() {
             const standard = tree[standardKey]
             const filteredCriteria = {}
 
-            Object.keys(standard.criteria).forEach(criteriaKey => {
-                const criteria = standard.criteria[criteriaKey]
-                const filteredEvidences = criteria.evidences.filter(evidence =>
-                    evidence.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    evidence.code.toLowerCase().includes(searchTerm.toLowerCase())
-                )
+            if (standard?.criteria) {
+                Object.keys(standard.criteria).forEach(criteriaKey => {
+                    const criteria = standard.criteria[criteriaKey]
+                    if (criteria?.evidences) {
+                        const filteredEvidences = criteria.evidences.filter(evidence =>
+                            evidence.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            evidence.code?.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
 
-                if (filteredEvidences.length > 0) {
-                    filteredCriteria[criteriaKey] = {
-                        ...criteria,
-                        evidences: filteredEvidences
+                        if (filteredEvidences.length > 0) {
+                            filteredCriteria[criteriaKey] = {
+                                ...criteria,
+                                evidences: filteredEvidences
+                            }
+                        }
                     }
-                }
-            })
+                })
+            }
 
             if (Object.keys(filteredCriteria).length > 0) {
                 filtered[standardKey] = {
@@ -226,8 +235,8 @@ export default function EvidenceTree() {
                     <div className="flex items-end space-x-2">
                         <button
                             onClick={fetchTreeData}
-                            disabled={loading}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 inline-flex items-center justify-center"
+                            disabled={loading || !selectedProgram || !selectedOrganization}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
                         >
                             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Tải lại
@@ -241,13 +250,15 @@ export default function EvidenceTree() {
                 <div className="flex space-x-2">
                     <button
                         onClick={expandAll}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                        disabled={Object.keys(filteredTreeData).length === 0}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Mở rộng tất cả
                     </button>
                     <button
                         onClick={collapseAll}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                        disabled={Object.keys(filteredTreeData).length === 0}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Thu gọn tất cả
                     </button>
@@ -255,7 +266,8 @@ export default function EvidenceTree() {
 
                 <button
                     onClick={handleExport}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                    disabled={!selectedProgram || !selectedOrganization}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Download className="h-4 w-4 mr-2" />
                     Export Excel
@@ -268,6 +280,11 @@ export default function EvidenceTree() {
                     <div className="flex flex-col justify-center items-center py-12">
                         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                         <p className="text-gray-600">Đang tải cây minh chứng...</p>
+                    </div>
+                ) : !selectedProgram || !selectedOrganization ? (
+                    <div className="p-12 text-center">
+                        <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức</p>
                     </div>
                 ) : Object.keys(filteredTreeData).length === 0 ? (
                     <div className="p-12 text-center">
@@ -284,31 +301,27 @@ export default function EvidenceTree() {
 
                             return (
                                 <div key={standardKey} className="mb-4">
-                                    {/* Standard Level */}
                                     <div
                                         className="flex items-center space-x-2 p-3 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"
                                         onClick={() => toggleNode(standardKey)}
                                     >
                                         {isStandardExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-blue-600" />
+                                            <ChevronDown className="h-5 w-5 text-blue-600 flex-shrink-0" />
                                         ) : (
-                                            <ChevronRight className="h-5 w-5 text-blue-600" />
+                                            <ChevronRight className="h-5 w-5 text-blue-600 flex-shrink-0" />
                                         )}
                                         {isStandardExpanded ? (
-                                            <FolderOpen className="h-5 w-5 text-blue-600" />
+                                            <FolderOpen className="h-5 w-5 text-blue-600 flex-shrink-0" />
                                         ) : (
-                                            <Folder className="h-5 w-5 text-blue-600" />
+                                            <Folder className="h-5 w-5 text-blue-600 flex-shrink-0" />
                                         )}
-                                        <span className="font-semibold text-gray-900">
-                                            {standardKey}
-                                        </span>
+                                        <span className="font-semibold text-gray-900">{standardKey}</span>
                                         <span className="text-sm text-gray-500">
-                                            ({Object.keys(standard.criteria).length} tiêu chí)
+                                            ({standard?.criteria ? Object.keys(standard.criteria).length : 0} tiêu chí)
                                         </span>
                                     </div>
 
-                                    {/* Criteria Level */}
-                                    {isStandardExpanded && (
+                                    {isStandardExpanded && standard?.criteria && (
                                         <div className="ml-8 mt-2 space-y-2">
                                             {Object.keys(standard.criteria).map(criteriaKey => {
                                                 const criteria = standard.criteria[criteriaKey]
@@ -317,52 +330,48 @@ export default function EvidenceTree() {
 
                                                 return (
                                                     <div key={criteriaKey}>
-                                                        {/* Criteria Node */}
                                                         <div
                                                             className="flex items-center space-x-2 p-2 bg-green-50 hover:bg-green-100 rounded-lg cursor-pointer transition-colors"
                                                             onClick={() => toggleNode(criteriaNodeKey)}
                                                         >
                                                             {isCriteriaExpanded ? (
-                                                                <ChevronDown className="h-4 w-4 text-green-600" />
+                                                                <ChevronDown className="h-4 w-4 text-green-600 flex-shrink-0" />
                                                             ) : (
-                                                                <ChevronRight className="h-4 w-4 text-green-600" />
+                                                                <ChevronRight className="h-4 w-4 text-green-600 flex-shrink-0" />
                                                             )}
                                                             {isCriteriaExpanded ? (
-                                                                <FolderOpen className="h-4 w-4 text-green-600" />
+                                                                <FolderOpen className="h-4 w-4 text-green-600 flex-shrink-0" />
                                                             ) : (
-                                                                <Folder className="h-4 w-4 text-green-600" />
+                                                                <Folder className="h-4 w-4 text-green-600 flex-shrink-0" />
                                                             )}
-                                                            <span className="font-medium text-gray-900">
-                                                                {criteriaKey}
-                                                            </span>
+                                                            <span className="font-medium text-gray-900">{criteriaKey}</span>
                                                             <span className="text-sm text-gray-500">
-                                                                ({criteria.evidences.length} minh chứng)
+                                                                ({criteria?.evidences?.length || 0} minh chứng)
                                                             </span>
                                                         </div>
 
-                                                        {/* Evidence Level */}
-                                                        {isCriteriaExpanded && (
+                                                        {isCriteriaExpanded && criteria?.evidences && (
                                                             <div className="ml-8 mt-2 space-y-1">
                                                                 {criteria.evidences.map(evidence => (
                                                                     <div
                                                                         key={evidence._id}
                                                                         className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg group"
                                                                     >
-                                                                        <div className="flex items-center space-x-2 flex-1">
-                                                                            <FileText className="h-4 w-4 text-gray-400" />
-                                                                            <span className="text-sm text-gray-700 font-mono">
+                                                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                                                            <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                                            <span className="text-sm text-gray-700 font-mono flex-shrink-0">
                                                                                 {evidence.code}
                                                                             </span>
-                                                                            <span className="text-sm text-gray-900">
+                                                                            <span className="text-sm text-gray-900 truncate">
                                                                                 {evidence.name}
                                                                             </span>
-                                                                            <span className="text-xs text-gray-500">
-                                                                                ({evidence.fileCount} files)
+                                                                            <span className="text-xs text-gray-500 flex-shrink-0">
+                                                                                ({evidence.fileCount || 0} files)
                                                                             </span>
                                                                         </div>
                                                                         <button
                                                                             onClick={() => handleViewEvidence(evidence._id)}
-                                                                            className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all"
+                                                                            className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all flex-shrink-0"
                                                                             title="Xem chi tiết"
                                                                         >
                                                                             <Eye className="h-4 w-4" />
@@ -391,14 +400,14 @@ export default function EvidenceTree() {
                             Tổng số: <strong>{Object.keys(filteredTreeData).length}</strong> tiêu chuẩn,
                             <strong className="ml-1">
                                 {Object.values(filteredTreeData).reduce((acc, std) =>
-                                    acc + Object.keys(std.criteria).length, 0
+                                    acc + (std?.criteria ? Object.keys(std.criteria).length : 0), 0
                                 )}
                             </strong> tiêu chí,
                             <strong className="ml-1">
                                 {Object.values(filteredTreeData).reduce((acc, std) =>
-                                        acc + Object.values(std.criteria).reduce((acc2, crit) =>
-                                            acc2 + crit.evidences.length, 0
-                                        ), 0
+                                        acc + (std?.criteria ? Object.values(std.criteria).reduce((acc2, crit) =>
+                                            acc2 + (crit?.evidences?.length || 0), 0
+                                        ) : 0), 0
                                 )}
                             </strong> minh chứng
                         </span>
