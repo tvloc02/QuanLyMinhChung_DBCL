@@ -83,11 +83,6 @@ export default function CriteriaList() {
             const response = await apiMethods.criteria.getAll({
                 page: pagination.current,
                 limit: 10,
-                search,
-                standardId,
-                programId,
-                status,
-                type
             })
 
             if (response.data.success) {
