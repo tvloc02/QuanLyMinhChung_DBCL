@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { formatDate, formatFileSize } from '../../utils/helpers'
 import toast from 'react-hot-toast'
-import axios from 'axios'
+import { apiMethods } from '../../lib/api'
 import {
     FileText,
     Upload,
@@ -20,8 +20,6 @@ import {
     Presentation
 } from 'lucide-react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
-
 export default function FilesPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
@@ -31,7 +29,6 @@ export default function FilesPage() {
     const [evidence, setEvidence] = useState(null)
     const [files, setFiles] = useState([])
     const [uploading, setUploading] = useState(false)
-    const [selectedFiles, setSelectedFiles] = useState([])
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -54,15 +51,7 @@ export default function FilesPage() {
         try {
             setLoading(true)
 
-            const token = localStorage.getItem('token')
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-
-            // Fetch evidence details
-            const response = await axios.get(`${API_URL}/evidences/${evidenceId}`, config)
+            const response = await apiMethods.evidences.getById(evidenceId)
 
             setEvidence(response.data.data)
             setFiles(response.data.data.files || [])
@@ -85,23 +74,7 @@ export default function FilesPage() {
         try {
             setUploading(true)
 
-            const token = localStorage.getItem('token')
-            const formData = new FormData()
-
-            filesToUpload.forEach(file => {
-                formData.append('files', file)
-            })
-
-            const response = await axios.post(
-                `${API_URL}/files/upload/${evidenceId}`,
-                formData,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
-                }
-            )
+            const response = await apiMethods.files.upload(evidenceId, filesToUpload)
 
             if (response.data.success) {
                 toast.success(response.data.message)
@@ -117,19 +90,8 @@ export default function FilesPage() {
 
     const handleDownload = async (fileId, fileName) => {
         try {
-            const token = localStorage.getItem('token')
+            const response = await apiMethods.files.download(fileId)
 
-            const response = await axios.get(
-                `${API_URL}/files/download/${fileId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    },
-                    responseType: 'blob'
-                }
-            )
-
-            // Create download link
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
@@ -152,14 +114,7 @@ export default function FilesPage() {
         }
 
         try {
-            const token = localStorage.getItem('token')
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-
-            const response = await axios.delete(`${API_URL}/files/${fileId}`, config)
+            const response = await apiMethods.files.delete(fileId)
 
             if (response.data.success) {
                 toast.success(response.data.message)
