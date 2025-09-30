@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import axios from 'axios'
 import {
     BookOpen, Plus, Search, Filter, Download, Upload,
     Edit2, Trash2, Eye, MoreVertical, RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { apiMethods } from '../../services/api'
+import {api, apiMethods} from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
@@ -36,13 +37,19 @@ export default function ProgramList() {
     const loadPrograms = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.programs.getAll({
+
+            // Tạo params object, chỉ thêm các giá trị không rỗng
+            const params = {
                 page: pagination.current,
-                limit: 10,
-                search,
-                type,
-                status
-            })
+                limit: 10
+            };
+
+            if (search) params.search = search;
+            if (type) params.type = type;
+            if (status) params.status = status;
+
+            const response = await apiMethods.programs.getAll(params);
+
 
             if (response.data.success) {
                 setPrograms(response.data.data.programs)
