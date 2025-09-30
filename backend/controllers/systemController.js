@@ -81,7 +81,8 @@ const getMailConfig = async (req, res) => {
         console.error('Get mail config error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi lấy cấu hình email'
+            message: 'Lỗi khi lấy cấu hình email',
+            error: error.message
         });
     }
 };
