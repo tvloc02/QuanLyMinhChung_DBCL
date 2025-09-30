@@ -112,7 +112,6 @@ export default function Sidebar({ open, onClose }) {
             submenu: [
                 { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/evidence-tree' },
                 { name: 'Danh sách minh chứng', icon: Folder, path: '/evidence/evidence' },
-                { name: 'Tìm kiếm minh chứng', icon: Search, path: '/evidence/search' },
                 { name: 'Import minh chứng', icon: Upload, path: '/evidence/import-evidence' },
                 { name: 'Quản lý files', icon: FileText, path: '/evidence/files' }
             ]
