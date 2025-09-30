@@ -184,7 +184,7 @@ export default function Sidebar({ open, onClose }) {
             icon: Settings,
             path: '/system',
             hasSubmenu: true,
-            active: router.pathname.includes('/system'),
+            active: router.pathname.includes('/system/system'),
             submenu: [
                 { name: 'Cài đặt chung', icon: Settings, path: '/system/general' },
                 { name: 'Sao lưu & Phục hồi', icon: Archive, path: '/system/backup' },
