@@ -36,7 +36,7 @@ import {
     MessageSquare,
     Download,
     Eye,
-    Folder, Mail
+    Folder, Mail, Plus
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose }) {
@@ -112,6 +112,7 @@ export default function Sidebar({ open, onClose }) {
             submenu: [
                 { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/evidence-tree' },
                 { name: 'Danh sách minh chứng', icon: Folder, path: '/evidence/evidence' },
+                { name: 'Thêm minh chứng mới', icon: Plus, path: '/evidence/create' },
                 { name: 'Import minh chứng', icon: Upload, path: '/evidence/import-evidence' },
                 { name: 'Quản lý files', icon: FileText, path: '/evidence/files' }
             ]
