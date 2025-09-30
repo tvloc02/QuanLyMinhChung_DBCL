@@ -150,17 +150,17 @@ export const apiMethods = {
 
     // Evidences
     evidences: {
-        getAll: (params) => api.get('/evidences', { params }),
-        getById: (id) => api.get(`/evidences/${id}`),
-        create: (data) => api.post('/evidences', data),
-        update: (id, data) => api.put(`/evidences/${id}`, data),
-        delete: (id) => api.delete(`/evidences/${id}`),
-        bulkDelete: (ids) => api.post('/evidences/bulk-delete', { ids }),
-        search: (params) => api.get('/evidences/search', { params }),
+        getAll: (params) => api.get('/api/evidences', { params }),
+        getById: (id) => api.get(`/api/evidences/${id}`),
+        create: (data) => api.post('/api/evidences', data),
+        update: (id, data) => api.put(`/api/evidences/${id}`, data),
+        delete: (id) => api.delete(`/api/evidences/${id}`),
+        bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
+        search: (params) => api.get('/api/evidences/search', { params }),
         getTree: (programId, organizationId) =>
-            api.get(`/evidences/tree/${programId}/${organizationId}`),
+            api.get(`/api/evidences/tree/${programId}/${organizationId}`),
         generateCode: (standardCode, criteriaCode) =>
-            api.post('/evidences/generate-code', { standardCode, criteriaCode }),
+            api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
         copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
             api.post(`/evidences/${id}/copy`, {
                 targetAcademicYearId,
