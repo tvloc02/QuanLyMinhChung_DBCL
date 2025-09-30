@@ -36,7 +36,7 @@ import {
     MessageSquare,
     Download,
     Eye,
-    Folder
+    Folder, Mail
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose }) {
@@ -176,19 +176,7 @@ export default function Sidebar({ open, onClose }) {
         },
 
         // Dữ liệu đơn vị
-        {
-            name: 'Dữ liệu đơn vị',
-            icon: Database,
-            path: '/unit-data',
-            hasSubmenu: true,
-            active: router.pathname.includes('/unit-data'),
-            submenu: [
-                { name: 'Khoa', icon: GraduationCap, path: '/unit-data/faculties' },
-                { name: 'Ngành học', icon: BookOpen, path: '/unit-data/majors' },
-                { name: 'Nhân sự', icon: UserCheck, path: '/unit-data/personnel' },
-                { name: 'Phòng ban', icon: Building2, path: '/unit-data/departments' }
-            ]
-        },
+
 
         // Cấu hình hệ thống
         {
@@ -201,7 +189,7 @@ export default function Sidebar({ open, onClose }) {
                 { name: 'Cài đặt chung', icon: Settings, path: '/system/general' },
                 { name: 'Sao lưu & Phục hồi', icon: Archive, path: '/system/backup' },
                 { name: 'Nhật ký hệ thống', icon: Activity, path: '/system/logs' },
-                { name: 'Bảo trì', icon: Settings, path: '/system/maintenance' }
+                { name: 'Cấu hình mail', icon: Mail, path: '/system/mail' }
             ]
         }
     ]
