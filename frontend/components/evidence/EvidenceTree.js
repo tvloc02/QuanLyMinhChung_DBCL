@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import axios from 'axios'
+import { apiMethods } from '../../lib/api'
 import toast from 'react-hot-toast'
 import {
     ChevronDown,
@@ -15,8 +15,6 @@ import {
     BookOpen,
     Building2
 } from 'lucide-react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 export default function EvidenceTree() {
     const router = useRouter()
@@ -42,10 +40,7 @@ export default function EvidenceTree() {
 
     const fetchPrograms = async () => {
         try {
-            const token = localStorage.getItem('token')
-            const response = await axios.get(`${API_URL}/programs`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+            const response = await apiMethods.programs.getAll()
             setPrograms(response.data.data.programs || [])
             if (response.data.data.programs?.length > 0) {
                 setSelectedProgram(response.data.data.programs[0]._id)
@@ -58,10 +53,7 @@ export default function EvidenceTree() {
 
     const fetchOrganizations = async () => {
         try {
-            const token = localStorage.getItem('token')
-            const response = await axios.get(`${API_URL}/organizations`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
+            const response = await apiMethods.organizations.getAll()
             setOrganizations(response.data.data.organizations || [])
             if (response.data.data.organizations?.length > 0) {
                 setSelectedOrganization(response.data.data.organizations[0]._id)
@@ -75,12 +67,9 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
-            const token = localStorage.getItem('token')
-            const response = await axios.get(
-                `${API_URL}/evidences/tree?programId=${selectedProgram}&organizationId=${selectedOrganization}`,
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
+            const response = await apiMethods.evidences.getTree(
+                selectedProgram,
+                selectedOrganization
             )
             setTreeData(response.data.data.tree || {})
         } catch (error) {
@@ -119,14 +108,11 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
-            const token = localStorage.getItem('token')
-            const response = await axios.get(
-                `${API_URL}/evidences/export?programId=${selectedProgram}&organizationId=${selectedOrganization}&format=xlsx`,
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                    responseType: 'blob'
-                }
-            )
+            const response = await apiMethods.evidences.export({
+                programId: selectedProgram,
+                organizationId: selectedOrganization,
+                format: 'xlsx'
+            })
 
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
