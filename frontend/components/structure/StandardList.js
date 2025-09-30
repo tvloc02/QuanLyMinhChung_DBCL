@@ -60,10 +60,6 @@ export default function StandardList() {
             const response = await apiMethods.standards.getAll({
                 page: pagination.current,
                 limit: 10,
-                search,
-                programId,
-                organizationId,
-                status
             })
 
             if (response.data.success) {
