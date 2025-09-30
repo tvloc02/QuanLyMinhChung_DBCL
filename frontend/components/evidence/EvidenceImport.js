@@ -1,456 +1,552 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import axios from 'axios'
+import toast from 'react-hot-toast'
 import {
     Upload,
-    File,
-    CheckCircle,
-    X,
     Download,
+    FileSpreadsheet,
+    CheckCircle,
+    XCircle,
     AlertCircle,
-    Folder,
-    Plus,
-    ChevronRight
+    BookOpen,
+    Building2,
+    FileText,
+    X
 } from 'lucide-react'
-import { useDropzone } from 'react-dropzone'
-import toast from 'react-hot-toast'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 export default function EvidenceImport() {
-    const [currentStep, setCurrentStep] = useState(1)
+    const router = useRouter()
+    const [step, setStep] = useState(1) // 1: Select file, 2: Import, 3: Results
+    const [programs, setPrograms] = useState([])
+    const [organizations, setOrganizations] = useState([])
     const [selectedProgram, setSelectedProgram] = useState('')
     const [selectedOrganization, setSelectedOrganization] = useState('')
-    const [treeFile, setTreeFile] = useState(null)
-    const [evidenceFiles, setEvidenceFiles] = useState([])
-    const [importProgress, setImportProgress] = useState(0)
-    const [isImporting, setIsImporting] = useState(false)
+    const [selectedFile, setSelectedFile] = useState(null)
+    const [importing, setImporting] = useState(false)
+    const [importResults, setImportResults] = useState(null)
+    const [dragActive, setDragActive] = useState(false)
 
-    const steps = [
-        { id: 1, name: 'Import cây thư mục', description: 'Tải lên file Excel chứa cây minh chứng' },
-        { id: 2, name: 'Tổng hợp minh chứng', description: 'Tải lên các file/folder minh chứng' },
-        { id: 3, name: 'Thêm minh chứng tự động', description: 'Hệ thống tự động tạo minh chứng' }
-    ]
+    useEffect(() => {
+        fetchPrograms()
+        fetchOrganizations()
+    }, [])
 
-    // Tree file dropzone
-    const {
-        getRootProps: getTreeRootProps,
-        getInputProps: getTreeInputProps,
-        isDragActive: isTreeDragActive
-    } = useDropzone({
-        accept: {
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-            'application/vnd.ms-excel': ['.xls']
-        },
-        multiple: false,
-        onDrop: (acceptedFiles) => {
-            if (acceptedFiles.length > 0) {
-                setTreeFile(acceptedFiles[0])
-                toast.success('Đã tải lên file cây minh chứng')
+    const fetchPrograms = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await axios.get(`${API_URL}/programs`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            setPrograms(response.data.data.programs || [])
+            if (response.data.data.programs?.length > 0) {
+                setSelectedProgram(response.data.data.programs[0]._id)
             }
-        },
-        onDropRejected: () => {
-            toast.error('Chỉ chấp nhận file Excel (.xlsx, .xls)')
+        } catch (error) {
+            console.error('Fetch programs error:', error)
+            toast.error('Lỗi khi tải danh sách chương trình')
         }
-    })
-
-    // Evidence files dropzone
-    const {
-        getRootProps: getEvidenceRootProps,
-        getInputProps: getEvidenceInputProps,
-        isDragActive: isEvidenceDragActive
-    } = useDropzone({
-        multiple: true,
-        onDrop: (acceptedFiles) => {
-            const newFiles = acceptedFiles.map(file => ({
-                id: Math.random().toString(36).substr(2, 9),
-                file,
-                status: 'pending',
-                matchedCode: null
-            }))
-            setEvidenceFiles(prev => [...prev, ...newFiles])
-            toast.success(`Đã thêm ${acceptedFiles.length} file`)
-        }
-    })
-
-    const handleProgramChange = (e) => {
-        setSelectedProgram(e.target.value)
-        setSelectedOrganization('')
     }
 
-    const handleUploadTreeFile = async () => {
-        if (!treeFile || !selectedProgram || !selectedOrganization) {
-            toast.error('Vui lòng chọn chương trình, tổ chức và file cây minh chứng')
+    const fetchOrganizations = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await axios.get(`${API_URL}/organizations`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            setOrganizations(response.data.data.organizations || [])
+            if (response.data.data.organizations?.length > 0) {
+                setSelectedOrganization(response.data.data.organizations[0]._id)
+            }
+        } catch (error) {
+            console.error('Fetch organizations error:', error)
+            toast.error('Lỗi khi tải danh sách tổ chức')
+        }
+    }
+
+    const handleDownloadTemplate = async () => {
+        if (!selectedProgram || !selectedOrganization) {
+            toast.error('Vui lòng chọn chương trình và tổ chức')
             return
         }
 
         try {
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            toast.success('Tải lên file cây minh chứng thành công')
-            setCurrentStep(2)
+            const token = localStorage.getItem('token')
+            const response = await axios.post(
+                `${API_URL}/evidences/generate-template`,
+                {
+                    programId: selectedProgram,
+                    organizationId: selectedOrganization
+                },
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    responseType: 'blob'
+                }
+            )
+
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `evidence-import-template-${Date.now()}.xlsx`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+
+            toast.success('Tải template thành công')
         } catch (error) {
-            toast.error('Lỗi tải lên file cây minh chứng')
+            console.error('Download template error:', error)
+            toast.error('Lỗi khi tải template')
         }
     }
 
-    const handleRemoveTreeFile = () => {
-        setTreeFile(null)
+    const handleDrag = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.type === 'dragenter' || e.type === 'dragover') {
+            setDragActive(true)
+        } else if (e.type === 'dragleave') {
+            setDragActive(false)
+        }
     }
 
-    const handleRemoveEvidenceFile = (fileId) => {
-        setEvidenceFiles(prev => prev.filter(f => f.id !== fileId))
+    const handleDrop = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragActive(false)
+
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileSelect(e.dataTransfer.files[0])
+        }
     }
 
-    const handleStartImport = async () => {
-        if (evidenceFiles.length === 0) {
-            toast.error('Vui lòng tải lên ít nhất một file minh chứng')
+    const handleFileSelect = (file) => {
+        // Validate file type
+        const validTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'text/csv'
+        ]
+
+        if (!validTypes.includes(file.type)) {
+            toast.error('Vui lòng chọn file Excel (.xlsx) hoặc CSV')
+            return
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('File quá lớn. Kích thước tối đa là 10MB')
+            return
+        }
+
+        setSelectedFile(file)
+        setStep(2)
+    }
+
+    const handleFileInputChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileSelect(e.target.files[0])
+        }
+    }
+
+    const handleImport = async () => {
+        if (!selectedFile || !selectedProgram || !selectedOrganization) {
+            toast.error('Vui lòng điền đầy đủ thông tin')
             return
         }
 
         try {
-            setIsImporting(true)
-            setCurrentStep(3)
+            setImporting(true)
 
-            // Simulate import progress
-            for (let i = 0; i <= 100; i += 10) {
-                await new Promise(resolve => setTimeout(resolve, 200))
-                setImportProgress(i)
+            const formData = new FormData()
+            formData.append('file', selectedFile)
+            formData.append('programId', selectedProgram)
+            formData.append('organizationId', selectedOrganization)
+
+            const token = localStorage.getItem('token')
+            const response = await axios.post(
+                `${API_URL}/evidences/import`,
+                formData,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'multipart/form-data'
+                    }
+                }
+            )
+
+            if (response.data.success) {
+                setImportResults(response.data.data)
+                setStep(3)
+                toast.success(response.data.message)
+            } else {
+                toast.error(response.data.message)
             }
-
-            toast.success(`Import thành công ${evidenceFiles.length} minh chứng`)
         } catch (error) {
-            toast.error('Lỗi import minh chứng')
+            console.error('Import error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi import dữ liệu')
         } finally {
-            setIsImporting(false)
+            setImporting(false)
         }
     }
 
-    const downloadSampleFile = () => {
-        // Mock download sample file
-        toast.success('Đang tải xuống file mẫu...')
+    const handleReset = () => {
+        setStep(1)
+        setSelectedFile(null)
+        setImportResults(null)
     }
 
-    const renderStepIndicator = () => (
-        <div className="mb-8">
-            <nav aria-label="Progress">
-                <ol className="flex items-center">
-                    {steps.map((step, stepIdx) => (
-                        <li key={step.id} className={`${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''} relative`}>
-                            <div className="flex items-center">
-                                <div className="flex items-center">
-                                    <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
-                                        step.id < currentStep
-                                            ? 'border-green-500 bg-green-500'
-                                            : step.id === currentStep
-                                                ? 'border-blue-500 bg-blue-500'
-                                                : 'border-gray-300 bg-white'
-                                    }`}>
-                                        {step.id < currentStep ? (
-                                            <CheckCircle className="h-6 w-6 text-white" />
-                                        ) : (
-                                            <span className={`text-sm font-medium ${
-                                                step.id === currentStep ? 'text-white' : 'text-gray-500'
-                                            }`}>
-                                                {step.id}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="ml-4 min-w-0 flex-1">
-                                        <p className={`text-sm font-medium ${
-                                            step.id <= currentStep ? 'text-gray-900' : 'text-gray-500'
-                                        }`}>
-                                            {step.name}
-                                        </p>
-                                        <p className={`text-sm ${
-                                            step.id <= currentStep ? 'text-gray-600' : 'text-gray-400'
-                                        }`}>
-                                            {step.description}
-                                        </p>
-                                    </div>
-                                </div>
-                                {stepIdx !== steps.length - 1 && (
-                                    <div className="absolute top-5 right-0 hidden h-0.5 w-8 bg-gray-300 sm:block sm:w-20" />
-                                )}
-                            </div>
-                        </li>
-                    ))}
-                </ol>
-            </nav>
-        </div>
-    )
+    const handleViewEvidences = () => {
+        router.push('/evidence-management')
+    }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
-            {renderStepIndicator()}
-
-            {/* Step 1: Import Tree File */}
-            {currentStep === 1 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                        Bước 1: Import cây thư mục minh chứng
-                    </h2>
-
-                    {/* Program and Organization Selection */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tên chương trình đánh giá *
-                            </label>
-                            <select
-                                value={selectedProgram}
-                                onChange={handleProgramChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                required
-                            >
-                                <option value="">Chọn chương trình</option>
-                                <option value="prog1">Chương trình đánh giá chất lượng giáo dục</option>
-                                <option value="prog2">Chương trình kiểm định chất lượng</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tổ chức - Cấp đánh giá *
-                            </label>
-                            <select
-                                value={selectedOrganization}
-                                onChange={(e) => setSelectedOrganization(e.target.value)}
-                                disabled={!selectedProgram}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                required
-                            >
-                                <option value="">Chọn tổ chức</option>
-                                <option value="org1">Trung tâm kiểm định chất lượng - VNUA</option>
-                                <option value="org2">Ban đảm bảo chất lượng</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Sample File Download */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            File mẫu
-                        </label>
-                        <button
-                            onClick={downloadSampleFile}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                            <Download className="h-4 w-4 mr-2" />
-                            Tải file mẫu
-                        </button>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Tải xuống file mẫu Excel để nhập cây minh chứng
-                        </p>
-                    </div>
-
-                    {/* Tree File Upload */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Chọn tệp tin *
-                        </label>
-                        <div
-                            {...getTreeRootProps()}
-                            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                                isTreeDragActive
-                                    ? 'border-blue-400 bg-blue-50'
-                                    : 'border-gray-300 hover:border-gray-400'
-                            }`}
-                        >
-                            <input {...getTreeInputProps()} />
-                            <Upload className="h-8 w-8 text-gray-400 mx-auto mb-4" />
-                            <p className="text-sm text-gray-600">
-                                {isTreeDragActive
-                                    ? 'Thả file vào đây...'
-                                    : 'Kéo thả file Excel vào đây hoặc click để chọn file'}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Chỉ chấp nhận file .xlsx, .xls
-                            </p>
-                        </div>
-
-                        {treeFile && (
-                            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <File className="h-5 w-5 text-green-600 mr-2" />
-                                        <span className="text-sm font-medium text-green-800">
-                                            {treeFile.name}
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={handleRemoveTreeFile}
-                                        className="text-green-600 hover:text-green-800"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
+        <div className="space-y-6">
+            {/* Progress Steps */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className={`flex items-center space-x-2 ${
+                            step >= 1 ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                            }`}>
+                                1
                             </div>
-                        )}
-                    </div>
-
-                    <div className="flex justify-end">
-                        <button
-                            onClick={handleUploadTreeFile}
-                            disabled={!treeFile || !selectedProgram || !selectedOrganization}
-                            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Tiếp tục
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                        </button>
+                            <span className="font-medium">Chọn file</span>
+                        </div>
+                        <div className="w-12 h-0.5 bg-gray-300"></div>
+                        <div className={`flex items-center space-x-2 ${
+                            step >= 2 ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                            }`}>
+                                2
+                            </div>
+                            <span className="font-medium">Import</span>
+                        </div>
+                        <div className="w-12 h-0.5 bg-gray-300"></div>
+                        <div className={`flex items-center space-x-2 ${
+                            step >= 3 ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                            }`}>
+                                3
+                            </div>
+                            <span className="font-medium">Kết quả</span>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Step 2: Upload Evidence Files */}
-            {currentStep === 2 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                        Bước 2: Tổng hợp minh chứng
-                    </h2>
+            {/* Step 1: Select File */}
+            {step === 1 && (
+                <>
+                    {/* Selection Form */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin import</h3>
 
-                    <div className="mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <BookOpen className="h-4 w-4 inline mr-1" />
+                                    Chương trình <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={selectedProgram}
+                                    onChange={(e) => setSelectedProgram(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Chọn chương trình</option>
+                                    {programs.map(program => (
+                                        <option key={program._id} value={program._id}>
+                                            {program.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <Building2 className="h-4 w-4 inline mr-1" />
+                                    Tổ chức <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={selectedOrganization}
+                                    onChange={(e) => setSelectedOrganization(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Chọn tổ chức</option>
+                                    {organizations.map(org => (
+                                        <option key={org._id} value={org._id}>
+                                            {org.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleDownloadTemplate}
+                                disabled={!selectedProgram || !selectedOrganization}
+                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                Tải template Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* File Upload */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn file import</h3>
+
                         <div
-                            {...getEvidenceRootProps()}
-                            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                                isEvidenceDragActive
-                                    ? 'border-blue-400 bg-blue-50'
+                            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                                dragActive
+                                    ? 'border-blue-500 bg-blue-50'
                                     : 'border-gray-300 hover:border-gray-400'
                             }`}
+                            onDragEnter={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDragOver={handleDrag}
+                            onDrop={handleDrop}
                         >
-                            <input {...getEvidenceInputProps()} />
-                            <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                Tải lên file/folder minh chứng
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                {isEvidenceDragActive
-                                    ? 'Thả file vào đây...'
-                                    : 'Kéo thả nhiều file hoặc folder vào đây, hoặc click để chọn'}
+                            <FileSpreadsheet className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <p className="text-lg font-medium text-gray-900 mb-2">
+                                Kéo thả file vào đây
                             </p>
-                            <div className="text-xs text-gray-500">
-                                <p>• File/Folder được lưu tên = Mã minh chứng - Tên minh chứng</p>
-                                <p>• Mã minh chứng phải trùng với mã trong cây thư mục</p>
-                                <p>• Hỗ trợ tất cả định dạng file</p>
+                            <p className="text-sm text-gray-500 mb-4">
+                                hoặc
+                            </p>
+                            <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer">
+                                <Upload className="h-4 w-4 mr-2" />
+                                Chọn file
+                                <input
+                                    type="file"
+                                    onChange={handleFileInputChange}
+                                    accept=".xlsx,.xls,.csv"
+                                    className="hidden"
+                                />
+                            </label>
+                            <p className="text-xs text-gray-500 mt-4">
+                                Hỗ trợ: Excel (.xlsx), CSV - Tối đa 10MB
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <h4 className="text-sm font-semibold text-blue-900 mb-3">
+                            <AlertCircle className="h-4 w-4 inline mr-1" />
+                            Hướng dẫn import
+                        </h4>
+                        <ul className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                            <li>Tải template Excel về máy bằng nút "Tải template Excel"</li>
+                            <li>Điền thông tin minh chứng vào file template theo đúng format</li>
+                            <li>Các trường có dấu (*) là bắt buộc phải điền</li>
+                            <li>Mã tiêu chuẩn và mã tiêu chí phải tồn tại trong hệ thống</li>
+                            <li>Upload file đã điền để bắt đầu import</li>
+                            <li>Tối đa 1000 bản ghi trong mỗi lần import</li>
+                        </ul>
+                    </div>
+                </>
+            )}
+
+            {/* Step 2: Import */}
+            {step === 2 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Xác nhận import</h3>
+
+                    <div className="space-y-4 mb-6">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                                <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                                <div>
+                                    <p className="font-medium text-gray-900">{selectedFile?.name}</p>
+                                    <p className="text-sm text-gray-500">
+                                        {(selectedFile?.size / 1024).toFixed(2)} KB
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setStep(1)}
+                                className="text-red-600 hover:bg-red-50 p-2 rounded"
+                                title="Xóa file"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Chương trình</p>
+                                <p className="font-medium text-gray-900">
+                                    {programs.find(p => p._id === selectedProgram)?.name}
+                                </p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Tổ chức</p>
+                                <p className="font-medium text-gray-900">
+                                    {organizations.find(o => o._id === selectedOrganization)?.name}
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Uploaded Files List */}
-                    {evidenceFiles.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">
-                                Danh sách file đã tải lên ({evidenceFiles.length})
-                            </h3>
-                            <div className="space-y-2 max-h-60 overflow-y-auto">
-                                {evidenceFiles.map(({ id, file, status, matchedCode }) => (
-                                    <div key={id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                        <div className="flex items-center flex-1 min-w-0">
-                                            <File className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {file.name}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                                                    {matchedCode && ` • Khớp với: ${matchedCode}`}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            {status === 'matched' && (
-                                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                            )}
-                                            {status === 'error' && (
-                                                <AlertCircle className="h-4 w-4 text-red-500" />
-                                            )}
-                                            <button
-                                                onClick={() => handleRemoveEvidenceFile(id)}
-                                                className="text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex justify-between">
+                    <div className="flex justify-end space-x-3">
                         <button
-                            onClick={() => setCurrentStep(1)}
-                            className="btn-outline"
+                            onClick={() => setStep(1)}
+                            disabled={importing}
+                            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
                         >
                             Quay lại
                         </button>
                         <button
-                            onClick={handleStartImport}
-                            disabled={evidenceFiles.length === 0}
-                            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={handleImport}
+                            disabled={importing}
+                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
-                            Bắt đầu import
-                            <ChevronRight className="h-4 w-4 ml-1" />
+                            {importing ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Đang import...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Bắt đầu import
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Step 3: Import Progress */}
-            {currentStep === 3 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                        Bước 3: Thêm minh chứng tự động
-                    </h2>
+            {/* Step 3: Results */}
+            {step === 3 && importResults && (
+                <>
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-6">Kết quả import</h3>
 
-                    <div className="text-center">
-                        {isImporting ? (
-                            <>
-                                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    Đang import minh chứng...
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-4">
-                                    Hệ thống đang tự động so sánh và tạo minh chứng
-                                </p>
-                                <div className="max-w-md mx-auto">
-                                    <div className="bg-gray-200 rounded-full h-2 mb-2">
-                                        <div
-                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                            style={{ width: `${importProgress}%` }}
-                                        ></div>
+                        {/* Summary */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div className="p-4 bg-blue-50 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-blue-600 mb-1">Tổng số</p>
+                                        <p className="text-2xl font-bold text-blue-900">
+                                            {importResults.total}
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-gray-500">{importProgress}%</p>
+                                    <FileText className="h-8 w-8 text-blue-600" />
                                 </div>
-                            </>
-                        ) : (
-                            <>
-                                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    Import thành công!
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-6">
-                                    Đã import thành công {evidenceFiles.length} minh chứng vào hệ thống
-                                </p>
-                                <div className="space-x-4">
-                                    <button
-                                        onClick={() => window.location.href = '/evidence-management'}
-                                        className="btn-primary"
-                                    >
-                                        Xem danh sách minh chứng
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setCurrentStep(1)
-                                            setTreeFile(null)
-                                            setEvidenceFiles([])
-                                            setImportProgress(0)
-                                        }}
-                                        className="btn-outline"
-                                    >
-                                        Import tiếp
-                                    </button>
+                            </div>
+
+                            <div className="p-4 bg-green-50 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-green-600 mb-1">Thành công</p>
+                                        <p className="text-2xl font-bold text-green-900">
+                                            {importResults.success}
+                                        </p>
+                                    </div>
+                                    <CheckCircle className="h-8 w-8 text-green-600" />
                                 </div>
-                            </>
+                            </div>
+
+                            <div className="p-4 bg-red-50 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-red-600 mb-1">Thất bại</p>
+                                        <p className="text-2xl font-bold text-red-900">
+                                            {importResults.failed}
+                                        </p>
+                                    </div>
+                                    <XCircle className="h-8 w-8 text-red-600" />
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-yellow-50 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-yellow-600 mb-1">Bỏ qua</p>
+                                        <p className="text-2xl font-bold text-yellow-900">
+                                            {importResults.skipped}
+                                        </p>
+                                    </div>
+                                    <AlertCircle className="h-8 w-8 text-yellow-600" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Errors */}
+                        {importResults.errors && importResults.errors.length > 0 && (
+                            <div className="mb-6">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                    Lỗi chi tiết ({importResults.errors.length})
+                                </h4>
+                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                                    {importResults.errors.map((error, index) => (
+                                        <div
+                                            key={index}
+                                            className="p-3 border-b border-gray-200 last:border-b-0 text-sm text-red-600"
+                                        >
+                                            {error}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
+
+                        {/* Success Items */}
+                        {importResults.successItems && importResults.successItems.length > 0 && (
+                            <div className="mb-6">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                    Đã import thành công ({importResults.successItems.length})
+                                </h4>
+                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                                    {importResults.successItems.slice(0, 10).map((item, index) => (
+                                        <div
+                                            key={index}
+                                            className="p-3 border-b border-gray-200 last:border-b-0 text-sm"
+                                        >
+                                            <span className="font-mono text-blue-600">{item.code}</span>
+                                            {' - '}
+                                            <span className="text-gray-900">{item.name}</span>
+                                        </div>
+                                    ))}
+                                    {importResults.successItems.length > 10 && (
+                                        <div className="p-3 text-sm text-gray-500 text-center">
+                                            ... và {importResults.successItems.length - 10} minh chứng khác
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                            >
+                                Import file khác
+                            </button>
+                            <button
+                                onClick={handleViewEvidences}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            >
+                                Xem danh sách minh chứng
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </>
             )}
         </div>
     )
