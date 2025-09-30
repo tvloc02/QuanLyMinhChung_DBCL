@@ -116,39 +116,36 @@ export const apiMethods = {
         getByAcademicYear: (academicYearId) => axios.get(`http://localhost:5000/api/programs/academic-year/${academicYearId}`)
     },
 
-    // Organizations
     organizations: {
-        getAll: (params) => api.get('/organizations', { params }),
-        getById: (id) => api.get(`/organizations/${id}`),
-        create: (data) => api.post('/organizations', data),
-        update: (id, data) => api.put(`/organizations/${id}`, data),
-        delete: (id) => api.delete(`/organizations/${id}`),
-        getByAcademicYear: (academicYearId) => api.get(`/organizations/academic-year/${academicYearId}`)
+        getAll: (params) => api.get('/api/organizations', { params }),
+        getById: (id) => api.get(`/api/organizations/${id}`),
+        create: (data) => api.post('/api/organizations', data),
+        update: (id, data) => api.put(`/api/organizations/${id}`, data),
+        delete: (id) => api.delete(`/api/organizations/${id}`),
+        getByAcademicYear: (academicYearId) => api.get(`/api/organizations/academic-year/${academicYearId}`)
     },
 
-    // Standards
     standards: {
-        getAll: (params) => api.get('/standards', { params }),
-        getById: (id) => api.get(`/standards/${id}`),
-        create: (data) => api.post('/standards', data),
-        update: (id, data) => api.put(`/standards/${id}`, data),
-        delete: (id) => api.delete(`/standards/${id}`),
+        getAll: (params) => api.get('/api/standards', { params }),
+        getById: (id) => api.get(`/api/standards/${id}`),
+        create: (data) => api.post('/api/standards', data),
+        update: (id, data) => api.put(`/api/standards/${id}`, data),
+        delete: (id) => api.delete(`/api/standards/${id}`),
         getByProgram: (programId, organizationId) =>
-            api.get(`/standards/program/${programId}/organization/${organizationId}`),
-        getByAcademicYear: (academicYearId) => api.get(`/standards/academic-year/${academicYearId}`)
+            api.get(`/api/standards/program/${programId}/organization/${organizationId}`),
+        getByAcademicYear: (academicYearId) => api.get(`/api/standards/academic-year/${academicYearId}`)
     },
 
-    // Criteria
     criteria: {
-        getAll: (params) => api.get('/criteria', { params }),
-        getById: (id) => api.get(`/criteria/${id}`),
-        create: (data) => api.post('/criteria', data),
-        update: (id, data) => api.put(`/criteria/${id}`, data),
-        delete: (id) => api.delete(`/criteria/${id}`),
-        getByStandard: (standardId) => api.get(`/criteria/standard/${standardId}`),
+        getAll: (params) => api.get('/api/criteria', { params }),
+        getById: (id) => api.get(`/api/criteria/${id}`),
+        create: (data) => api.post('/api/criteria', data),
+        update: (id, data) => api.put(`/api/criteria/${id}`, data),
+        delete: (id) => api.delete(`/api/criteria/${id}`),
+        getByStandard: (standardId) => api.get(`/api/criteria/standard/${standardId}`),
         getByProgram: (programId, organizationId) =>
-            api.get(`/criteria/program/${programId}/organization/${organizationId}`),
-        getByAcademicYear: (academicYearId) => api.get(`/criteria/academic-year/${academicYearId}`)
+            api.get(`/api/criteria/program/${programId}/organization/${organizationId}`),
+        getByAcademicYear: (academicYearId) => api.get(`/api/criteria/academic-year/${academicYearId}`)
     },
 
     // Evidences

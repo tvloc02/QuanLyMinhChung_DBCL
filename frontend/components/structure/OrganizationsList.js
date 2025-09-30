@@ -31,10 +31,6 @@ export default function OrganizationsList() {
             const response = await apiMethods.organizations.getAll({
                 page: pagination.current,
                 limit: 10,
-                search,
-                level,
-                type,
-                status
             })
 
             if (response.data.success) {
