@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const  Organization  = require('../models/Program');
+const Organization  = require('../models/Program');
 
 const getOrganizations = async (req, res) => {
     try {
