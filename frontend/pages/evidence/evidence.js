@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { formatDate, formatNumber } from '../../utils/helpers'
 import toast from 'react-hot-toast'
+import axios from 'axios'
 import {
     FileText,
     Plus,
     Upload,
-    Search,
     Eye,
     CheckCircle,
     Clock,
@@ -16,14 +16,12 @@ import {
     XCircle,
     TrendingUp,
     BarChart3,
-    Users,
-    Calendar,
     BookOpen,
     FolderTree,
-    Download,
-    Filter,
     RefreshCw
 } from 'lucide-react'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 export default function EvidencePage() {
     const { user, isLoading } = useAuth()
@@ -32,7 +30,6 @@ export default function EvidencePage() {
     const [loading, setLoading] = useState(true)
     const [statistics, setStatistics] = useState(null)
     const [recentEvidences, setRecentEvidences] = useState([])
-    const [chartData, setChartData] = useState(null)
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -53,42 +50,28 @@ export default function EvidencePage() {
     const fetchData = async () => {
         try {
             setLoading(true)
-            await new Promise(resolve => setTimeout(resolve, 800))
 
-            const mockStatistics = {
-                overview: {
-                    totalEvidences: 0,
-                    pendingApproval: 0,
-                    approvedEvidences: 0,
-                    rejectedEvidences: 0,
-                    draftEvidences: 0
-                },
-                byStatus: {
-                    approved: 0,
-                    pending: 0,
-                    rejected: 0,
-                    draft: 0
-                },
-                byProgram: [
-                    { name: '', count: 0, percentage: 0 },
-                    { name: '', count: 0, percentage: 0 },
-                    { name: '', count: 0, percentage: 0 },
-                    { name: '', count: 0, percentage: 0 }
-                ],
-                monthlyTrend: [
-                    { month: '', evidences: 0, approved: 0 },
-                    { month: '', evidences: 0, approved: 0 },
-                    { month: '', evidences: 0, approved: 0 },
-                    { month: '', evidences: 0, approved: 0 },
-                    { month: '', evidences: 0, approved: 0 },
-                    { month: '', evidences: 0, approved: 0 }
-                ]
+            const token = localStorage.getItem('token')
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
             }
 
-            setStatistics(mockStatistics)
-            setRecentEvidences(mockRecentEvidences)
+            // Fetch statistics
+            const statsResponse = await axios.get(`${API_URL}/evidences/statistics`, config)
+
+            // Fetch recent evidences
+            const evidencesResponse = await axios.get(
+                `${API_URL}/evidences?page=1&limit=5&sortBy=createdAt&sortOrder=desc`,
+                config
+            )
+
+            setStatistics(statsResponse.data.data)
+            setRecentEvidences(evidencesResponse.data.data.evidences || [])
         } catch (error) {
-            toast.error('Lỗi tải dữ liệu tổng quan')
+            console.error('Fetch data error:', error)
+            toast.error('Lỗi khi tải dữ liệu tổng quan')
         } finally {
             setLoading(false)
         }
@@ -96,13 +79,13 @@ export default function EvidencePage() {
 
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'approved':
+            case 'active':
                 return <CheckCircle className="h-4 w-4 text-green-500" />
             case 'pending':
                 return <Clock className="h-4 w-4 text-yellow-500" />
-            case 'rejected':
+            case 'inactive':
                 return <XCircle className="h-4 w-4 text-red-500" />
-            case 'draft':
+            case 'archived':
                 return <AlertCircle className="h-4 w-4 text-gray-500" />
             default:
                 return <Eye className="h-4 w-4 text-gray-500" />
@@ -111,25 +94,25 @@ export default function EvidencePage() {
 
     const getStatusLabel = (status) => {
         const labels = {
-            approved: 'Đã phê duyệt',
+            active: 'Đang hoạt động',
             pending: 'Chờ xử lý',
-            rejected: 'Từ chối',
-            draft: 'Nháp'
+            inactive: 'Ngừng hoạt động',
+            archived: 'Lưu trữ'
         }
         return labels[status] || status
     }
 
     const getStatusColor = (status) => {
         const colors = {
-            approved: 'bg-green-100 text-green-800',
+            active: 'bg-green-100 text-green-800',
             pending: 'bg-yellow-100 text-yellow-800',
-            rejected: 'bg-red-100 text-red-800',
-            draft: 'bg-gray-100 text-gray-800'
+            inactive: 'bg-red-100 text-red-800',
+            archived: 'bg-gray-100 text-gray-800'
         }
         return colors[status] || 'bg-gray-100 text-gray-800'
     }
 
-    const StatCard = ({ title, value, icon: Icon, color, change, trend, onClick }) => (
+    const StatCard = ({ title, value, icon: Icon, color, onClick }) => (
         <div
             className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${
                 onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
@@ -139,17 +122,7 @@ export default function EvidencePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <p className="text-sm font-medium text-gray-600">{title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatNumber(value)}</p>
-                    {change && (
-                        <div className={`flex items-center mt-2 text-sm ${
-                            trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
-                        }`}>
-                            <TrendingUp className={`h-4 w-4 mr-1 ${
-                                trend === 'down' ? 'rotate-180' : ''
-                            }`} />
-                            <span>{change}</span>
-                        </div>
-                    )}
+                    <p className="text-3xl font-bold text-gray-900">{formatNumber(value || 0)}</p>
                 </div>
                 <div className={`p-3 rounded-full ${color}`}>
                     <Icon className="h-6 w-6 text-white" />
@@ -203,21 +176,23 @@ export default function EvidencePage() {
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={fetchData}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                            disabled={loading}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                         >
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Làm mới
                         </button>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600 ml-3">Đang tải dữ liệu...</p>
+                    <div className="flex flex-col justify-center items-center py-12">
+                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 ) : (
                     <>
+                        {/* Quick Actions */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <QuickAction
                                 title="Thêm minh chứng"
@@ -238,128 +213,49 @@ export default function EvidencePage() {
                                 description="Cấu trúc phân cấp"
                                 icon={FolderTree}
                                 color="bg-purple-500"
-                                onClick={() => router.push('/evidence-tree')}
+                                onClick={() => router.push('/evidence/evidence-tree')}
                             />
                             <QuickAction
                                 title="Import minh chứng"
                                 description="Nhập từ file Excel"
                                 icon={Upload}
                                 color="bg-orange-500"
-                                onClick={() => router.push('/import-evidence')}
+                                onClick={() => router.push('/evidence/import-evidence')}
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                        {/* Statistics Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard
                                 title="Tổng minh chứng"
-                                value={statistics?.overview.totalEvidences}
+                                value={statistics?.totalEvidences || 0}
                                 icon={FileText}
                                 color="bg-blue-500"
-                                trend="up"
                                 onClick={() => router.push('/evidence-management')}
                             />
                             <StatCard
-                                title="Chờ phê duyệt"
-                                value={statistics?.overview.pendingApproval}
-                                icon={Clock}
-                                color="bg-yellow-500"
-                                trend="down"
-                                onClick={() => router.push('/evidence-management?status=pending')}
-                            />
-                            <StatCard
-                                title="Đã phê duyệt"
-                                value={statistics?.overview.approvedEvidences}
+                                title="Đang hoạt động"
+                                value={statistics?.activeEvidences || 0}
                                 icon={CheckCircle}
                                 color="bg-green-500"
-                                trend="up"
-                                onClick={() => router.push('/evidence-management?status=approved')}
+                                onClick={() => router.push('/evidence-management?status=active')}
                             />
                             <StatCard
-                                title="Từ chối"
-                                value={statistics?.overview.rejectedEvidences}
+                                title="Ngừng hoạt động"
+                                value={statistics?.inactiveEvidences || 0}
                                 icon={XCircle}
                                 color="bg-red-500"
-                                onClick={() => router.push('/evidence-management?status=rejected')}
+                                onClick={() => router.push('/evidence-management?status=inactive')}
                             />
                             <StatCard
-                                title="Nháp"
-                                value={statistics?.overview.draftEvidences}
-                                icon={AlertCircle}
-                                color="bg-gray-500"
-                                onClick={() => router.push('/evidence-management?status=draft')}
+                                title="Tổng files"
+                                value={statistics?.totalFiles || 0}
+                                icon={FileText}
+                                color="bg-purple-500"
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Phân bố trạng thái</h3>
-                                    <BarChart3 className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-4">
-                                    {Object.entries(statistics?.byStatus || {}).map(([status, count]) => (
-                                        <div key={status} className="flex items-center justify-between">
-                                            <div className="flex items-center space-x-2">
-                                                {getStatusIcon(status)}
-                                                <span className="text-sm text-gray-600">{getStatusLabel(status)}</span>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <div className="w-32 bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className={`h-2 rounded-full ${
-                                                            status === 'approved' ? 'bg-green-500' :
-                                                                status === 'pending' ? 'bg-yellow-500' :
-                                                                    status === 'rejected' ? 'bg-red-500' : 'bg-gray-500'
-                                                        }`}
-                                                        style={{
-                                                            width: `${(count / statistics?.overview.totalEvidences * 100)}%`
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                                                    {formatNumber(count)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Theo chương trình</h3>
-                                    <BookOpen className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-4">
-                                    {statistics?.byProgram.map((program, index) => (
-                                        <div key={index} className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {program.name}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {program.percentage}% tổng số
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <div className="w-24 bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className="bg-blue-500 h-2 rounded-full"
-                                                        style={{ width: `${program.percentage}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-sm font-medium text-gray-900 w-12 text-right">
-                                                    {formatNumber(program.count)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
+                        {/* Recent Evidences */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                             <div className="px-6 py-4 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
@@ -376,96 +272,71 @@ export default function EvidencePage() {
                             </div>
 
                             <div className="divide-y divide-gray-200">
-                                {recentEvidences.map((evidence) => (
-                                    <div key={evidence.id} className="p-6 hover:bg-gray-50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-start space-x-3 flex-1">
-                                                <div className="p-2 bg-blue-100 rounded-lg">
-                                                    <FileText className="h-5 w-5 text-blue-600" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center space-x-2 mb-1">
-                                                        <h4 className="text-sm font-medium text-gray-900 truncate">
-                                                            {evidence.name}
-                                                        </h4>
-                                                        <span className="text-xs text-gray-500 font-mono">
-                                                            ({evidence.code})
-                                                        </span>
+                                {recentEvidences.length === 0 ? (
+                                    <div className="p-6 text-center text-gray-500">
+                                        Chưa có minh chứng nào
+                                    </div>
+                                ) : (
+                                    recentEvidences.map((evidence) => (
+                                        <div key={evidence._id} className="p-6 hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-start space-x-3 flex-1">
+                                                    <div className="p-2 bg-blue-100 rounded-lg">
+                                                        <FileText className="h-5 w-5 text-blue-600" />
                                                     </div>
-                                                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                                        <span>{evidence.submittedBy}</span>
-                                                        <span>•</span>
-                                                        <span>{evidence.program}</span>
-                                                        <span>•</span>
-                                                        <span>{formatDate(evidence.submittedAt, { format: 'datetime' })}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center space-x-2 mb-1">
+                                                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                                                                {evidence.name}
+                                                            </h4>
+                                                            <span className="text-xs text-gray-500 font-mono">
+                                                                ({evidence.code})
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                                            <span>{evidence.createdBy?.fullName || 'N/A'}</span>
+                                                            <span>•</span>
+                                                            <span>{evidence.programId?.name || 'N/A'}</span>
+                                                            <span>•</span>
+                                                            <span>{formatDate(evidence.createdAt)}</span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-1">
+                                                            {evidence.standardId?.name} - {evidence.criteriaId?.name}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-gray-600 mt-1">
-                                                        {evidence.criteriaName}
-                                                    </p>
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center space-x-3">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    getStatusColor(evidence.status)
-                                                }`}>
-                                                    {getStatusLabel(evidence.status)}
-                                                </span>
-                                                <button
-                                                    onClick={() => router.push(`/evidence-management?view=${evidence.id}`)}
-                                                    className="text-blue-600 hover:text-blue-800 p-1"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
+                                                <div className="flex items-center space-x-3">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                        getStatusColor(evidence.status)
+                                                    }`}>
+                                                        {getStatusLabel(evidence.status)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => router.push(`/evidence-management?view=${evidence._id}`)}
+                                                        className="text-blue-600 hover:text-blue-800 p-1"
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Xu hướng theo tháng</h3>
-                                <TrendingUp className="h-5 w-5 text-gray-400" />
-                            </div>
-
-                            <div className="grid grid-cols-6 gap-4">
-                                {statistics?.monthlyTrend.map((month, index) => (
-                                    <div key={index} className="text-center">
-                                        <div className="mb-2">
-                                            <div className="relative h-24 bg-gray-100 rounded">
-                                                <div
-                                                    className="absolute bottom-0 left-0 right-0 bg-blue-500 rounded-b"
-                                                    style={{ height: `${(month.evidences / 200 * 100)}%` }}
-                                                ></div>
-                                                <div
-                                                    className="absolute bottom-0 left-0 right-0 bg-green-500 rounded-b"
-                                                    style={{ height: `${(month.approved / 200 * 100)}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs font-medium text-gray-700">{month.month}</p>
-                                        <div className="text-xs text-gray-500">
-                                            <span className="text-blue-600">{month.evidences}</span>
-                                            /
-                                            <span className="text-green-600">{month.approved}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="flex items-center justify-center space-x-6 mt-4 text-xs">
-                                <div className="flex items-center space-x-1">
-                                    <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                                    <span>Tổng minh chứng</span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                    <div className="w-3 h-3 bg-green-500 rounded"></div>
-                                    <span>Đã phê duyệt</span>
+                        {/* Academic Year Info */}
+                        {statistics?.academicYear && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center space-x-2">
+                                    <BookOpen className="h-5 w-5 text-blue-600" />
+                                    <span className="text-sm font-medium text-blue-900">
+                                        Năm học hiện tại: {statistics.academicYear.name} ({statistics.academicYear.code})
+                                    </span>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 )}
             </div>
