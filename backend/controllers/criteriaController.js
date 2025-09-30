@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const Criteria = require('../models/Program');
-const Standard = require('../models/Program');
+const Criteria = require('../models/Criteria');
+const Standard = require('../models/Standard');
 const Program = require('../models/Program');
-const Organization = require('../models/Program');
+const Organization = require('../models/Organization');
 
 const getCriteria = async (req, res) => {
     try {
