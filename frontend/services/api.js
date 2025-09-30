@@ -108,12 +108,12 @@ export const apiMethods = {
 
     // Programs
     programs: {
-        getAll: (params) => api.get('/programs', { params }),
-        getById: (id) => api.get(`/programs/${id}`),
-        create: (data) => api.post('/programs', data),
-        update: (id, data) => api.put(`/programs/${id}`, data),
-        delete: (id) => api.delete(`/programs/${id}`),
-        getByAcademicYear: (academicYearId) => api.get(`/programs/academic-year/${academicYearId}`)
+        getAll: (params) => axios.get('http://localhost:5000/api/programs', { params }),
+        getById: (id) => axios.get(`http://localhost:5000/api/programs/${id}`),
+        create: (data) => axios.post('http://localhost:5000/api/programs', data),
+        update: (id, data) => axios.put(`http://localhost:5000/api/programs/${id}`, data),
+        delete: (id) => axios.delete(`http://localhost:5000/api/programs/${id}`),
+        getByAcademicYear: (academicYearId) => axios.get(`http://localhost:5000/api/programs/academic-year/${academicYearId}`)
     },
 
     // Organizations
