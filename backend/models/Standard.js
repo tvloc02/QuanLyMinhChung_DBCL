@@ -51,12 +51,6 @@ const standardSchema = new mongoose.Schema({
         min: [1, 'Thứ tự phải lớn hơn 0']
     },
 
-    weight: {
-        type: Number,
-        min: [0, 'Trọng số không được âm'],
-        max: [100, 'Trọng số không được vượt quá 100']
-    },
-
     objectives: {
         type: String,
         trim: true,
