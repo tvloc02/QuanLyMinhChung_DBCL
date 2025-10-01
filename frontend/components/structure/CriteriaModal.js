@@ -11,8 +11,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         description: '',
         standardId: '',
         order: 1,
-        weight: '',
-        type: 'mandatory',
         requirements: '',
         guidelines: '',
         indicators: [],
@@ -28,8 +26,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 description: criteria.description || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
                 order: criteria.order || 1,
-                weight: criteria.weight || '',
-                type: criteria.type || 'mandatory',
                 requirements: criteria.requirements || '',
                 guidelines: criteria.guidelines || '',
                 indicators: criteria.indicators || [],
@@ -95,10 +91,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
 
-        if (formData.weight && (formData.weight < 0 || formData.weight > 100)) {
-            newErrors.weight = 'Trọng số phải từ 0-100'
-        }
-
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -145,7 +137,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mã tiêu chí <span className="text-red-500">*</span>
@@ -176,41 +168,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 min="1"
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Trọng số (%)
-                            </label>
-                            <input
-                                type="number"
-                                name="weight"
-                                value={formData.weight}
-                                onChange={handleChange}
-                                min="0"
-                                max="100"
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.weight ? 'border-red-500' : 'border-gray-300'
-                                }`}
-                                placeholder="0-100"
-                            />
-                            {errors.weight && <p className="mt-1 text-sm text-red-600">{errors.weight}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Loại <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="type"
-                                value={formData.type}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="mandatory">Bắt buộc</option>
-                                <option value="optional">Tùy chọn</option>
-                                <option value="conditional">Có điều kiện</option>
-                            </select>
                         </div>
                     </div>
 
