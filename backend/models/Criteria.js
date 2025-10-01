@@ -21,10 +21,9 @@ const criteriaSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function(code) {
-                // Format: x.y (ví dụ: 1.01, 1.1, 10.25)
-                return /^\d{1,2}\.\d{1,2}$/.test(code);
+                return /^\d{1,2}$/.test(code);
             },
-            message: 'Mã tiêu chí phải có định dạng x.y (VD: 1.01, 1.1, 10.25)'
+            message: 'Mã tiêu chí phải là số từ 1-99 (VD: 1, 01, 12)'
         }
     },
 
