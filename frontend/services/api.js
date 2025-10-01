@@ -145,7 +145,13 @@ export const apiMethods = {
         getByStandard: (standardId) => api.get(`/api/criteria/standard/${standardId}`),
         getByProgram: (programId, organizationId) =>
             api.get(`/api/criteria/program/${programId}/organization/${organizationId}`),
-        getByAcademicYear: (academicYearId) => api.get(`/api/criteria/academic-year/${academicYearId}`)
+        getByAcademicYear: (academicYearId) => api.get(`/api/criteria/academic-year/${academicYearId}`),
+        import: (formData) => api.post('/api/criteria/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        }),
+        bulkImport: (formData) => api.post('/api/criteria/bulk-import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
     },
 
     // Evidences

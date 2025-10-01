@@ -215,7 +215,9 @@ export default function CriteriaList() {
                 loadCriteria()
                 setShowImportModal(false)
             }
-        } catch (error) {
+                } catch (error) {
+            console.log(file)
+            console.log(formData.get('file'))
             toast.error(error.response?.data?.message || 'Import thất bại')
         }
     }
