@@ -159,7 +159,6 @@ const createCriteria = async (req, res) => {
             description,
             standardId,
             order,
-            weight,
             type,
             requirements,
             guidelines,
@@ -200,7 +199,6 @@ const createCriteria = async (req, res) => {
             programId: standard.programId._id,
             organizationId: standard.organizationId._id,
             order: order || 1,
-            weight,
             type: type || 'mandatory',
             requirements: requirements?.trim(),
             guidelines: guidelines?.trim(),
@@ -272,7 +270,7 @@ const updateCriteria = async (req, res) => {
         }
 
         const allowedFields = [
-            'name', 'description', 'order', 'weight', 'type',
+            'name', 'description', 'order', 'type',
             'requirements', 'guidelines', 'indicators', 'status'
         ];
 
