@@ -194,7 +194,7 @@ export default function FilesPage() {
 
     return (
         <Layout
-            title="Quản lý files minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">

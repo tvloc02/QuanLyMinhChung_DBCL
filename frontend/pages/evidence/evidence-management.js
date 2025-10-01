@@ -33,7 +33,7 @@ export default function EvidenceManagementPage() {
 
     return (
         <Layout
-            title="Quản lý minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <EvidenceManagement />

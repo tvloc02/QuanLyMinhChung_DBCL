@@ -18,7 +18,7 @@ import {
     Trash
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
-
+import MoveEvidenceModal from './MoveEvidenceModal.js'
 
 export default function EvidenceManagement() {
     const router = useRouter()
