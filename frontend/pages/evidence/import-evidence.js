@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
+import { debounce } from '../../utils/debounce'
 import EvidenceImport from '../../components/evidence/EvidenceImport'
 import { Upload } from 'lucide-react'
 
