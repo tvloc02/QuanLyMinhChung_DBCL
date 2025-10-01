@@ -13,7 +13,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         requirements: '',
         guidelines: '',
         indicators: [],
-        status: 'draft'
+        status: 'draft',
+        autoGenerateCode: true
     })
     const [errors, setErrors] = useState({})
     const [selectedStandard, setSelectedStandard] = useState(null)
@@ -28,7 +29,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 requirements: criteria.requirements || '',
                 guidelines: criteria.guidelines || '',
                 indicators: criteria.indicators || [],
-                status: criteria.status || 'draft'
+                status: criteria.status || 'draft',
+                autoGenerateCode: false // Khi edit, không auto
             })
 
             // Tìm standard được chọn
@@ -69,8 +71,13 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     const handleCodeChange = (e) => {
         let value = e.target.value
 
-        // Chỉ cho phép nhập số và dấu chấm
-        value = value.replace(/[^\d.]/g, '')
+        // Chỉ cho phép nhập số
+        value = value.replace(/[^\d]/g, '')
+
+        // Giới hạn 2 chữ số
+        if (value.length > 2) {
+            value = value.slice(0, 2)
+        }
 
         setFormData(prev => ({ ...prev, code: value }))
         if (errors.code) {
@@ -121,18 +128,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
 
-        if (!formData.code.trim()) {
-            newErrors.code = 'Mã tiêu chí là bắt buộc'
-        } else if (!/^\d{1,2}\.\d{1,2}$/.test(formData.code)) {
-            newErrors.code = 'Mã phải có định dạng x.y (VD: 1.01, 1.1, 10.25)'
-        } else if (selectedStandard) {
-            // Kiểm tra phần x phải khớp với mã tiêu chuẩn
-            const standardCode = selectedStandard.code.toString().padStart(2, '0')
-            const codePrefix = formData.code.split('.')[0].padStart(2, '0')
-
-            if (standardCode !== codePrefix) {
-                newErrors.code = `Mã tiêu chí phải bắt đầu bằng ${standardCode}. (tiêu chuẩn đã chọn)`
-            }
+        // Chỉ validate code nếu không auto và có nhập code
+        if (!formData.autoGenerateCode && formData.code && !/^\d{1,2}$/.test(formData.code)) {
+            newErrors.code = 'Mã phải là số từ 1-99'
         }
 
         setErrors(newErrors)
@@ -161,11 +159,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         } finally {
             setLoading(false)
         }
-    }
-
-    const getStandardCodePrefix = () => {
-        if (!selectedStandard) return ''
-        return selectedStandard.code.toString().padStart(2, '0')
     }
 
     return (
@@ -205,44 +198,49 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
                     </div>
 
-                    {/* Mã tiêu chí với prefix */}
+                    {/* Mã tiêu chí */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mã tiêu chí <span className="text-red-500">*</span>
+                            Mã tiêu chí {!formData.autoGenerateCode && <span className="text-red-500">*</span>}
                         </label>
-                        <div className="flex items-start gap-2">
-                            <div className="flex-1">
-                                <div className="flex items-center">
-                                    {selectedStandard && (
-                                        <div className="flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-l-lg border-r-0">
-                                            <span className="text-blue-700 font-semibold text-sm">
-                                                {getStandardCodePrefix()}.
-                                            </span>
-                                        </div>
-                                    )}
-                                    <input
-                                        type="text"
-                                        name="code"
-                                        value={formData.code}
-                                        onChange={handleCodeChange}
-                                        disabled={!!criteria || !selectedStandard}
-                                        className={`flex-1 px-4 py-2 border focus:ring-2 focus:ring-blue-500 ${
-                                            selectedStandard ? 'rounded-r-lg' : 'rounded-lg'
-                                        } ${errors.code ? 'border-red-500' : 'border-gray-300'} ${
-                                            criteria || !selectedStandard ? 'bg-gray-100' : ''
-                                        }`}
-                                        placeholder={selectedStandard ? "VD: 1.01 hoặc 1.1" : "Chọn tiêu chuẩn trước"}
-                                    />
-                                </div>
-                                {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
+
+                        {!criteria && (
+                            <div className="flex items-center gap-2 mb-2">
+                                <input
+                                    type="checkbox"
+                                    id="autoGenerateCode"
+                                    checked={formData.autoGenerateCode}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        autoGenerateCode: e.target.checked,
+                                        code: e.target.checked ? '' : prev.code
+                                    }))}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="autoGenerateCode" className="text-sm text-gray-600 cursor-pointer">
+                                    Tự động tạo mã tiêu chí
+                                </label>
                             </div>
-                            <div className="pt-2">
-                                <div className="flex items-start gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1.5 rounded border border-gray-200">
-                                    <Info size={14} className="mt-0.5 flex-shrink-0" />
-                                    <span>Format: x.y (VD: 1.01, 10.5)</span>
-                                </div>
-                            </div>
-                        </div>
+                        )}
+
+                        <input
+                            type="text"
+                            name="code"
+                            value={formData.code}
+                            onChange={handleCodeChange}
+                            disabled={!!criteria || formData.autoGenerateCode}
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                errors.code ? 'border-red-500' : 'border-gray-300'
+                            } ${criteria || formData.autoGenerateCode ? 'bg-gray-100' : ''}`}
+                            placeholder={formData.autoGenerateCode ? "Sẽ tự động tạo" : "VD: 1, 01, 12"}
+                        />
+                        {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
+                        {formData.autoGenerateCode && !criteria && (
+                            <p className="mt-1 text-xs text-blue-600">
+                                <Info size={12} className="inline mr-1" />
+                                Mã sẽ tự động tăng dần dựa trên tiêu chí cuối cùng của tiêu chuẩn đã chọn
+                            </p>
+                        )}
                     </div>
 
                     {/* Tên tiêu chí */}
