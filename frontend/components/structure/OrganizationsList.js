@@ -11,27 +11,28 @@ export default function OrganizationsList() {
     const [organizations, setOrganizations] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 })
-
     const [search, setSearch] = useState('')
-    const [level, setLevel] = useState('')
-    const [type, setType] = useState('')
     const [status, setStatus] = useState('')
-
     const [showImportModal, setShowImportModal] = useState(false)
     const [showOrgModal, setShowOrgModal] = useState(false)
     const [selectedOrg, setSelectedOrg] = useState(null)
 
     useEffect(() => {
         loadOrganizations()
-    }, [pagination.current, search, level, type, status])
+    }, [pagination.current, search, status])
 
     const loadOrganizations = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.organizations.getAll({
+            const params = {
                 page: pagination.current,
-                limit: 10,
-            })
+                limit: 10
+            };
+
+            if (search) params.search = search;
+            if (status) params.status = status;
+
+            const response = await apiMethods.organizations.getAll(params);
 
             if (response.data.success) {
                 setOrganizations(response.data.data.organizations)
@@ -46,25 +47,297 @@ export default function OrganizationsList() {
 
     const handleDownloadTemplate = () => {
         try {
+            const wb = XLSX.utils.book_new()
+
+            // ===== SHEET 1: Giới thiệu =====
+            const introData = [
+                [''],
+                ['HỆ THỐNG QUẢN LÝ ĐÁNH GIÁ CHẤT LƯỢNG'],
+                ['FILE MẪU IMPORT TỔ CHỨC - CẤP ĐÁNH GIÁ'],
+                [''],
+                ['Hướng dẫn sử dụng:'],
+                ['1. Điền thông tin vào sheet "Dữ liệu nhập"'],
+                ['2. Các cột có dấu (*) là BẮT BUỘC'],
+                ['3. Xem sheet "Hướng dẫn chi tiết" để biết thêm thông tin'],
+                ['4. Sau khi điền xong, lưu file và import vào hệ thống'],
+                [''],
+                ['Lưu ý:'],
+                ['- Mã tổ chức phải VIẾT HOA, chỉ chứa chữ cái, số, gạch ngang (-)'],
+                ['- Email và số điện thoại phải đúng định dạng'],
+                ['- Không được để trống các trường bắt buộc'],
+                [''],
+                ['Ngày tạo:', new Date().toLocaleDateString('vi-VN')],
+            ]
+
+            const wsIntro = XLSX.utils.aoa_to_sheet(introData)
+            wsIntro['!cols'] = [{ wch: 80 }]
+
+            if (wsIntro['A2']) wsIntro['A2'].s = { font: { bold: true, sz: 16, color: { rgb: "1F4E78" } }, alignment: { horizontal: "center" } }
+            if (wsIntro['A3']) wsIntro['A3'].s = { font: { bold: true, sz: 14, color: { rgb: "E26B0A" } }, alignment: { horizontal: "center" } }
+
+            XLSX.utils.book_append_sheet(wb, wsIntro, 'Giới thiệu')
+
+            // ===== SHEET 2: Dữ liệu nhập =====
             const templateData = [
                 {
                     'Mã tổ chức (*)': 'MOET',
                     'Tên tổ chức (*)': 'Bộ Giáo dục và Đào tạo',
-                    'Mô tả': 'Cơ quan quản lý nhà nước về giáo dục',
-                    'Cấp độ (*)': 'national',
-                    'Loại (*)': 'government',
+                    'Mô tả': 'Cơ quan quản lý nhà nước về giáo dục và đào tạo',
                     'Website': 'https://moet.gov.vn',
                     'Email liên hệ': 'contact@moet.gov.vn',
-                    'Số điện thoại': '0243 869 8113',
+                    'Số điện thoại': '024 3869 8113',
                     'Địa chỉ': '49 Đại Cồ Việt, Hai Bà Trưng, Hà Nội',
                     'Quốc gia': 'Vietnam'
                 }
             ]
 
-            const wb = XLSX.utils.book_new()
-            const ws = XLSX.utils.json_to_sheet(templateData)
+            const wsData = XLSX.utils.json_to_sheet(templateData)
 
-            // Style header
+            wsData['!cols'] = [
+                { wch: 15 },  // Mã
+                { wch: 40 },  // Tên
+                { wch: 50 },  // Mô tả
+                { wch: 25 },  // Website
+                { wch: 25 },  // Email
+                { wch: 15 },  // Phone
+                { wch: 45 },  // Địa chỉ
+                { wch: 15 }   // Quốc gia
+            ]
+
+            const headerStyle = {
+                fill: { fgColor: { rgb: "4472C4" } },
+                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+                alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                border: {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                }
+            }
+
+            const range = XLSX.utils.decode_range(wsData['!ref'])
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!wsData[address]) continue
+                wsData[address].s = headerStyle
+            }
+
+            const dataStyle = {
+                border: {
+                    top: { style: "thin", color: { rgb: "D9D9D9" } },
+                    bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+                    left: { style: "thin", color: { rgb: "D9D9D9" } },
+                    right: { style: "thin", color: { rgb: "D9D9D9" } }
+                },
+                alignment: { vertical: "top", wrapText: true }
+            }
+
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const address = XLSX.utils.encode_col(C) + (R + 1)
+                    if (!wsData[address]) continue
+                    wsData[address].s = dataStyle
+                }
+            }
+
+            wsData['!rows'] = [{ hpt: 30 }]
+
+            XLSX.utils.book_append_sheet(wb, wsData, 'Dữ liệu nhập')
+
+            // ===== SHEET 3: Hướng dẫn chi tiết =====
+            const instructionData = [
+                {
+                    'Tên cột': 'Mã tổ chức (*)',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Có',
+                    'Mô tả chi tiết': 'Mã tổ chức phải VIẾT HOA, tối đa 20 ký tự, chỉ chứa chữ cái (A-Z), số (0-9), dấu gạch ngang (-) và gạch dưới (_)',
+                    'Ví dụ hợp lệ': 'MOET, BGD-DT, ABET',
+                    'Ví dụ không hợp lệ': 'moet (chữ thường), BGD DT (có dấu cách)'
+                },
+                {
+                    'Tên cột': 'Tên tổ chức (*)',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Có',
+                    'Mô tả chi tiết': 'Tên đầy đủ của tổ chức, tối đa 300 ký tự',
+                    'Ví dụ hợp lệ': 'Bộ Giáo dục và Đào tạo',
+                    'Ví dụ không hợp lệ': ''
+                },
+                {
+                    'Tên cột': 'Mô tả',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Mô tả chi tiết về tổ chức, chức năng nhiệm vụ. Tối đa 2000 ký tự',
+                    'Ví dụ hợp lệ': 'Cơ quan quản lý nhà nước về giáo dục',
+                    'Ví dụ không hợp lệ': ''
+                },
+                {
+                    'Tên cột': 'Website',
+                    'Kiểu dữ liệu': 'URL',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Địa chỉ website của tổ chức, phải bắt đầu bằng http:// hoặc https://',
+                    'Ví dụ hợp lệ': 'https://moet.gov.vn',
+                    'Ví dụ không hợp lệ': 'moet.gov.vn (thiếu https://)'
+                },
+                {
+                    'Tên cột': 'Email liên hệ',
+                    'Kiểu dữ liệu': 'Email',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Email liên hệ chính thức của tổ chức',
+                    'Ví dụ hợp lệ': 'contact@moet.gov.vn',
+                    'Ví dụ không hợp lệ': 'contact@moet (thiếu domain đầy đủ)'
+                },
+                {
+                    'Tên cột': 'Số điện thoại',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Số điện thoại liên hệ, có thể chứa số, dấu cách, dấu gạch ngang, dấu ngoặc',
+                    'Ví dụ hợp lệ': '024 3869 8113, (024) 3869-8113',
+                    'Ví dụ không hợp lệ': 'abc123 (chứa chữ cái)'
+                },
+                {
+                    'Tên cột': 'Địa chỉ',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Địa chỉ trụ sở chính của tổ chức. Tối đa 500 ký tự',
+                    'Ví dụ hợp lệ': '49 Đại Cồ Việt, Hai Bà Trưng, Hà Nội',
+                    'Ví dụ không hợp lệ': ''
+                },
+                {
+                    'Tên cột': 'Quốc gia',
+                    'Kiểu dữ liệu': 'Văn bản',
+                    'Bắt buộc': 'Không',
+                    'Mô tả chi tiết': 'Tên quốc gia. Mặc định là Vietnam nếu không điền',
+                    'Ví dụ hợp lệ': 'Vietnam, Thailand, Singapore',
+                    'Ví dụ không hợp lệ': ''
+                }
+            ]
+
+            const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
+            wsInstruction['!cols'] = [
+                { wch: 25 },
+                { wch: 15 },
+                { wch: 10 },
+                { wch: 60 },
+                { wch: 35 },
+                { wch: 35 }
+            ]
+
+            const instrHeaderStyle = {
+                fill: { fgColor: { rgb: "70AD47" } },
+                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+                alignment: { horizontal: "center", vertical: "center", wrapText: true }
+            }
+
+            const instrRange = XLSX.utils.decode_range(wsInstruction['!ref'])
+            for (let C = instrRange.s.c; C <= instrRange.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!wsInstruction[address]) continue
+                wsInstruction[address].s = instrHeaderStyle
+            }
+
+            XLSX.utils.book_append_sheet(wb, wsInstruction, 'Hướng dẫn chi tiết')
+
+            // ===== SHEET 4: Lỗi thường gặp =====
+            const errorsData = [
+                {
+                    'STT': '1',
+                    'Lỗi': 'Mã tổ chức đã tồn tại',
+                    'Nguyên nhân': 'Mã tổ chức bị trùng với mã đã có trong hệ thống',
+                    'Cách khắc phục': 'Thay đổi mã tổ chức thành mã khác chưa sử dụng'
+                },
+                {
+                    'STT': '2',
+                    'Lỗi': 'Mã tổ chức không hợp lệ',
+                    'Nguyên nhân': 'Mã chứa ký tự đặc biệt hoặc chữ thường',
+                    'Cách khắc phục': 'Chỉ sử dụng chữ HOA, số, dấu gạch ngang (-) và gạch dưới (_)'
+                },
+                {
+                    'STT': '3',
+                    'Lỗi': 'Thiếu trường bắt buộc',
+                    'Nguyên nhân': 'Không điền đủ các trường có dấu (*)',
+                    'Cách khắc phục': 'Điền đầy đủ: Mã tổ chức, Tên tổ chức'
+                },
+                {
+                    'STT': '4',
+                    'Lỗi': 'Email không hợp lệ',
+                    'Nguyên nhân': 'Email sai định dạng',
+                    'Cách khắc phục': 'Nhập email đúng định dạng: example@domain.com'
+                },
+                {
+                    'STT': '5',
+                    'Lỗi': 'Website không hợp lệ',
+                    'Nguyên nhân': 'URL không bắt đầu bằng http:// hoặc https://',
+                    'Cách khắc phục': 'Thêm https:// vào đầu URL'
+                }
+            ]
+
+            const wsErrors = XLSX.utils.json_to_sheet(errorsData)
+            wsErrors['!cols'] = [
+                { wch: 5 },
+                { wch: 30 },
+                { wch: 45 },
+                { wch: 60 }
+            ]
+
+            const errorHeaderStyle = {
+                fill: { fgColor: { rgb: "C00000" } },
+                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+                alignment: { horizontal: "center", vertical: "center" }
+            }
+
+            const errorRange = XLSX.utils.decode_range(wsErrors['!ref'])
+            for (let C = errorRange.s.c; C <= errorRange.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!wsErrors[address]) continue
+                wsErrors[address].s = errorHeaderStyle
+            }
+
+            XLSX.utils.book_append_sheet(wb, wsErrors, 'Lỗi thường gặp')
+
+            XLSX.writeFile(wb, 'Mau_import_to_chuc.xlsx')
+            toast.success('Đã tải file mẫu thành công')
+        } catch (error) {
+            toast.error('Có lỗi khi tạo file mẫu')
+            console.error(error)
+        }
+    }
+
+    const handleExportExcel = () => {
+        try {
+            const exportData = organizations.map((org, index) => ({
+                'STT': index + 1,
+                'Mã tổ chức': org.code,
+                'Tên tổ chức': org.name,
+                'Mô tả': org.description || '',
+                'Website': org.website || '',
+                'Email': org.contactEmail || '',
+                'Điện thoại': org.contactPhone || '',
+                'Địa chỉ': org.address || '',
+                'Quốc gia': org.country || 'Vietnam',
+                'Trạng thái': getStatusLabel(org.status),
+                'Người tạo': org.createdBy?.fullName || '',
+                'Ngày tạo': formatDate(org.createdAt)
+            }))
+
+            const wb = XLSX.utils.book_new()
+            const ws = XLSX.utils.json_to_sheet(exportData)
+
+            ws['!cols'] = [
+                { wch: 5 },   // STT
+                { wch: 15 },  // Mã
+                { wch: 40 },  // Tên
+                { wch: 50 },  // Mô tả
+                { wch: 25 },  // Website
+                { wch: 25 },  // Email
+                { wch: 15 },  // Phone
+                { wch: 40 },  // Địa chỉ
+                { wch: 15 },  // Quốc gia
+                { wch: 12 },  // Trạng thái
+                { wch: 25 },  // Người tạo
+                { wch: 12 }   // Ngày tạo
+            ]
+
             const range = XLSX.utils.decode_range(ws['!ref'])
             for (let C = range.s.c; C <= range.e.c; ++C) {
                 const address = XLSX.utils.encode_col(C) + "1"
@@ -75,62 +348,6 @@ export default function OrganizationsList() {
                     alignment: { horizontal: "center", vertical: "center" }
                 }
             }
-
-            ws['!cols'] = [
-                { wch: 15 }, { wch: 40 }, { wch: 50 }, { wch: 15 }, { wch: 15 },
-                { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 40 }, { wch: 15 }
-            ]
-
-            // Sheet hướng dẫn
-            const instructionData = [
-                { 'Cột': 'Mã tổ chức (*)', 'Mô tả': 'Mã viết tắt (chữ hoa, số, gạch ngang)', 'Ví dụ': 'MOET' },
-                { 'Cột': 'Tên tổ chức (*)', 'Mô tả': 'Tên đầy đủ của tổ chức', 'Ví dụ': 'Bộ Giáo dục và Đào tạo' },
-                { 'Cột': 'Mô tả', 'Mô tả': 'Mô tả về tổ chức', 'Ví dụ': 'Cơ quan quản lý...' },
-                { 'Cột': 'Cấp độ (*)', 'Mô tả': 'national/international/regional/institutional', 'Ví dụ': 'national' },
-                { 'Cột': 'Loại (*)', 'Mô tả': 'government/education/professional/international/other', 'Ví dụ': 'government' },
-                { 'Cột': 'Website', 'Mô tả': 'Địa chỉ website', 'Ví dụ': 'https://moet.gov.vn' },
-                { 'Cột': 'Email liên hệ', 'Mô tả': 'Email liên hệ', 'Ví dụ': 'contact@moet.gov.vn' },
-                { 'Cột': 'Số điện thoại', 'Mô tả': 'Số điện thoại liên hệ', 'Ví dụ': '0243 869 8113' },
-                { 'Cột': 'Địa chỉ', 'Mô tả': 'Địa chỉ trụ sở', 'Ví dụ': '49 Đại Cồ Việt...' },
-                { 'Cột': 'Quốc gia', 'Mô tả': 'Tên quốc gia', 'Ví dụ': 'Vietnam' }
-            ]
-
-            const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
-            wsInstruction['!cols'] = [{ wch: 20 }, { wch: 50 }, { wch: 30 }]
-
-            XLSX.utils.book_append_sheet(wb, ws, 'Mẫu nhập liệu')
-            XLSX.utils.book_append_sheet(wb, wsInstruction, 'Hướng dẫn')
-
-            XLSX.writeFile(wb, 'Mau_import_to_chuc.xlsx')
-            toast.success('Đã tải file mẫu')
-        } catch (error) {
-            toast.error('Có lỗi khi tạo file mẫu')
-        }
-    }
-
-    const handleExportExcel = () => {
-        try {
-            const exportData = organizations.map((org, index) => ({
-                'STT': index + 1,
-                'Mã': org.code,
-                'Tên tổ chức': org.name,
-                'Mô tả': org.description || '',
-                'Cấp độ': getLevelLabel(org.level),
-                'Loại': getTypeLabel(org.type),
-                'Website': org.website || '',
-                'Email': org.contactEmail || '',
-                'Điện thoại': org.contactPhone || '',
-                'Địa chỉ': org.address || '',
-                'Trạng thái': getStatusLabel(org.status),
-                'Ngày tạo': formatDate(org.createdAt)
-            }))
-
-            const wb = XLSX.utils.book_new()
-            const ws = XLSX.utils.json_to_sheet(exportData)
-            ws['!cols'] = [
-                { wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 50 }, { wch: 12 }, { wch: 15 },
-                { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 40 }, { wch: 12 }, { wch: 12 }
-            ]
 
             XLSX.utils.book_append_sheet(wb, ws, 'Tổ chức')
             XLSX.writeFile(wb, `Danh_sach_to_chuc_${Date.now()}.xlsx`)
@@ -154,7 +371,20 @@ export default function OrganizationsList() {
                 setShowImportModal(false)
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Import thất bại')
+            const errorMsg = error.response?.data?.message || 'Import thất bại'
+            const details = error.response?.data?.details
+
+            if (details && Array.isArray(details)) {
+                const errorList = details.map((err, idx) =>
+                    `\n${idx + 1}. Dòng ${err.row}: ${err.field ? `[${err.field}] ` : ''}${err.message}`
+                ).join('')
+                toast.error(`${errorMsg}${errorList}`, {
+                    duration: 8000,
+                    style: { maxWidth: '600px' }
+                })
+            } else {
+                toast.error(errorMsg, { duration: 5000 })
+            }
         }
     }
 
@@ -168,27 +398,6 @@ export default function OrganizationsList() {
         } catch (error) {
             toast.error(error.response?.data?.message || 'Xóa thất bại')
         }
-    }
-
-    const getLevelLabel = (level) => {
-        const levels = {
-            national: 'Quốc gia',
-            international: 'Quốc tế',
-            regional: 'Khu vực',
-            institutional: 'Cơ sở'
-        }
-        return levels[level] || level
-    }
-
-    const getTypeLabel = (type) => {
-        const types = {
-            government: 'Chính phủ',
-            education: 'Giáo dục',
-            professional: 'Chuyên nghiệp',
-            international: 'Quốc tế',
-            other: 'Khác'
-        }
-        return types[type] || type
     }
 
     const getStatusLabel = (status) => {
@@ -253,7 +462,7 @@ export default function OrganizationsList() {
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -264,31 +473,6 @@ export default function OrganizationsList() {
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-
-                    <select
-                        value={level}
-                        onChange={(e) => setLevel(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Tất cả cấp độ</option>
-                        <option value="national">Quốc gia</option>
-                        <option value="international">Quốc tế</option>
-                        <option value="regional">Khu vực</option>
-                        <option value="institutional">Cơ sở</option>
-                    </select>
-
-                    <select
-                        value={type}
-                        onChange={(e) => setType(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Tất cả loại</option>
-                        <option value="government">Chính phủ</option>
-                        <option value="education">Giáo dục</option>
-                        <option value="professional">Chuyên nghiệp</option>
-                        <option value="international">Quốc tế</option>
-                        <option value="other">Khác</option>
-                    </select>
 
                     <select
                         value={status}
@@ -319,8 +503,6 @@ export default function OrganizationsList() {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên tổ chức</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cấp độ</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Liên hệ</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
@@ -329,7 +511,7 @@ export default function OrganizationsList() {
                         <tbody className="bg-white divide-y divide-gray-200">
                         {loading ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-12 text-center">
+                                <td colSpan="5" className="px-6 py-12 text-center">
                                     <div className="flex justify-center">
                                         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
@@ -337,7 +519,7 @@ export default function OrganizationsList() {
                             </tr>
                         ) : organizations.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                                     Không có dữ liệu
                                 </td>
                             </tr>
@@ -355,16 +537,10 @@ export default function OrganizationsList() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {getLevelLabel(org.level)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {getTypeLabel(org.type)}
-                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(org.status)}`}>
-                                                {getStatusLabel(org.status)}
-                                            </span>
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(org.status)}`}>
+                                            {getStatusLabel(org.status)}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4">
                                         {org.contactEmail && (
