@@ -164,7 +164,9 @@ export const apiMethods = {
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
         getTree: (programId, organizationId) =>
-            api.get(`/api/evidences/tree/${programId}/${organizationId}`),
+            api.get('/api/evidences/tree', {
+                params: { programId, organizationId }
+            }),
         getStatistics: () => api.get('/api/evidences/statistics'),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
