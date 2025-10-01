@@ -36,13 +36,6 @@ const createProgramValidation = [
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Mô tả không được quá 2000 ký tự'),
-    body('type')
-        .isIn(['undergraduate', 'graduate', 'institution', 'other'])
-        .withMessage('Loại chương trình không hợp lệ'),
-    body('version')
-        .optional()
-        .isLength({ max: 10 })
-        .withMessage('Phiên bản không được quá 10 ký tự'),
     body('applicableYear')
         .optional()
         .isInt({ min: 2000, max: 2100 })
@@ -102,7 +95,6 @@ router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('type').optional().isIn(['undergraduate', 'graduate', 'institution', 'other']),
     query('status').optional().isIn(['draft', 'active', 'inactive', 'archived']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code', 'applicableYear']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
