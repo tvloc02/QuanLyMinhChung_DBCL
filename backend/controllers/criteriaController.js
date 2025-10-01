@@ -158,13 +158,30 @@ const createCriteria = async (req, res) => {
             code,
             description,
             standardId,
-            type,
             requirements,
             guidelines,
-            indicators
+            indicators,
+            status,
+            autoGenerateCode
         } = req.body;
 
         const academicYearId = req.academicYearId;
+
+        // Validate academicYearId
+        if (!academicYearId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không xác định được năm học hiện tại'
+            });
+        }
+
+        // Validate standardId
+        if (!standardId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tiêu chuẩn là bắt buộc'
+            });
+        }
 
         const standard = await Standard.findOne({ _id: standardId, academicYearId })
             .populate('programId organizationId');
@@ -176,40 +193,67 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Validate mã tiêu chí phải bắt đầu bằng mã tiêu chuẩn
-        const standardCode = standard.code.toString().padStart(2, '0');
-        if (!code.startsWith(standardCode + '.')) {
+        // Xử lý mã tiêu chí
+        let criteriaCode = code;
+
+        // Nếu chọn tự động tạo mã hoặc không nhập mã
+        if (autoGenerateCode || !criteriaCode) {
+            // Tìm mã lớn nhất trong tiêu chuẩn này
+            const lastCriteria = await Criteria.findOne({
+                academicYearId,
+                standardId
+            })
+                .sort({ code: -1 })
+                .select('code');
+
+            if (lastCriteria) {
+                // Tăng mã lên 1
+                const lastCode = parseInt(lastCriteria.code);
+                criteriaCode = (lastCode + 1).toString().padStart(2, '0');
+            } else {
+                // Mã đầu tiên
+                criteriaCode = '01';
+            }
+        } else {
+            // Định dạng mã do người dùng nhập
+            criteriaCode = criteriaCode.toString().padStart(2, '0');
+        }
+
+        // Validate code format
+        if (!/^\d{1,2}$/.test(criteriaCode)) {
             return res.status(400).json({
                 success: false,
-                message: `Mã tiêu chí phải bắt đầu bằng ${standardCode}.`
+                message: 'Mã tiêu chí phải là số từ 1-99'
             });
         }
 
+        // Check duplicate
         const existingCriteria = await Criteria.findOne({
             academicYearId,
             standardId,
-            code: code
+            code: criteriaCode
         });
 
         if (existingCriteria) {
             return res.status(400).json({
                 success: false,
-                message: `Mã tiêu chí ${code} đã tồn tại trong tiêu chuẩn này`
+                message: `Mã tiêu chí ${criteriaCode} đã tồn tại trong tiêu chuẩn này. Vui lòng chọn mã khác.`
             });
         }
 
+        // Create criteria
         const criteria = new Criteria({
             academicYearId,
             name: name.trim(),
-            code: code,
-            description: description?.trim(),
+            code: criteriaCode,
+            description: description?.trim() || '',
             standardId,
             programId: standard.programId._id,
             organizationId: standard.organizationId._id,
-            type: type || 'mandatory',
-            requirements: requirements?.trim(),
-            guidelines: guidelines?.trim(),
-            indicators: indicators || [],
+            requirements: requirements?.trim() || '',
+            guidelines: guidelines?.trim() || '',
+            indicators: Array.isArray(indicators) ? indicators : [],
+            status: status || 'draft',
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -232,9 +276,28 @@ const createCriteria = async (req, res) => {
 
     } catch (error) {
         console.error('Create criteria error:', error);
+
+        // Chi tiết lỗi cho developer
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: 'Dữ liệu không hợp lệ',
+                details: messages
+            });
+        }
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã tiêu chí đã tồn tại trong tiêu chuẩn này'
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo tiêu chí'
+            message: 'Lỗi hệ thống khi tạo tiêu chí',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -256,27 +319,24 @@ const updateCriteria = async (req, res) => {
         }
 
         if (updateData.code && updateData.code !== criteria.code) {
-            // Validate mã tiêu chí phải bắt đầu bằng mã tiêu chuẩn
-            const standardCode = criteria.standardId.code.toString().padStart(2, '0');
-            if (!updateData.code.startsWith(standardCode + '.')) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Mã tiêu chí phải bắt đầu bằng ${standardCode}.`
-                });
-            }
+            // Format mã
+            const newCode = updateData.code.toString().padStart(2, '0');
 
             const existingCriteria = await Criteria.findOne({
                 academicYearId,
                 standardId: criteria.standardId,
-                code: updateData.code,
+                code: newCode,
                 _id: { $ne: id }
             });
+
             if (existingCriteria) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã tiêu chí ${updateData.code} đã tồn tại trong tiêu chuẩn này`
+                    message: `Mã tiêu chí ${newCode} đã tồn tại trong tiêu chuẩn này`
                 });
             }
+
+            updateData.code = newCode;
         }
 
         const isInUse = await criteria.isInUse();
@@ -288,7 +348,7 @@ const updateCriteria = async (req, res) => {
         }
 
         const allowedFields = [
-            'name', 'description', 'type',
+            'name', 'description',
             'requirements', 'guidelines', 'indicators', 'status'
         ];
 
