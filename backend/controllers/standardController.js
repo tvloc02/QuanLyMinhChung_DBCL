@@ -75,75 +75,6 @@ const getStandards = async (req, res) => {
     }
 };
 
-const getStandardsByProgramAndOrg = async (req, res) => {
-    try {
-        const { programId, organizationId } = req.query;
-        const academicYearId = req.academicYearId;
-
-        if (!programId || !organizationId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu programId hoặc organizationId'
-            });
-        }
-
-        const standards = await Standard.find({
-            academicYearId,
-            programId,
-            organizationId,
-            status: 'active'
-        })
-            .populate('programId', 'name code')
-            .populate('organizationId', 'name code')
-            .sort({ order: 1, code: 1 });
-
-        res.json({
-            success: true,
-            data: standards
-        });
-
-    } catch (error) {
-        console.error('Get standards by program and org error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách tiêu chuẩn'
-        });
-    }
-};
-
-const getStandardById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const standard = await Standard.findOne({ _id: id, academicYearId })
-            .populate('academicYearId', 'name code')
-            .populate('programId', 'name code')
-            .populate('organizationId', 'name code')
-            .populate('createdBy', 'fullName email')
-            .populate('updatedBy', 'fullName email');
-
-        if (!standard) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: standard
-        });
-
-    } catch (error) {
-        console.error('Get standard by ID error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy thông tin tiêu chuẩn'
-        });
-    }
-};
-
 const createStandard = async (req, res) => {
     try {
         const {
@@ -153,7 +84,6 @@ const createStandard = async (req, res) => {
             programId,
             organizationId,
             order,
-            weight,
             objectives,
             guidelines,
             evaluationCriteria
@@ -202,7 +132,6 @@ const createStandard = async (req, res) => {
             programId,
             organizationId,
             order: order || 1,
-            weight,
             objectives: objectives?.trim(),
             guidelines: guidelines?.trim(),
             evaluationCriteria: evaluationCriteria || [],
@@ -234,163 +163,159 @@ const createStandard = async (req, res) => {
     }
 };
 
-const updateStandard = async (req, res) => {
+// ==================== criteriaController.js ====================
+const Criteria = require('../models/Criteria');
+
+const getCriteria = async (req, res) => {
     try {
-        const { id } = req.params;
-        const updateData = req.body;
+        const {
+            page = 1,
+            limit = 10,
+            search,
+            standardId,
+            programId,
+            organizationId,
+            status,
+            sortBy = 'order',
+            sortOrder = 'asc'
+        } = req.query;
+
         const academicYearId = req.academicYearId;
 
-        const standard = await Standard.findOne({ _id: id, academicYearId });
-        if (!standard) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
-            });
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+
+        let query = { academicYearId };
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { code: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
         }
 
-        if (updateData.code && updateData.code !== standard.code) {
-            const existingStandard = await Standard.findOne({
-                academicYearId,
-                programId: standard.programId,
-                organizationId: standard.organizationId,
-                code: updateData.code.toString().padStart(2, '0'),
-                _id: { $ne: id }
-            });
-            if (existingStandard) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Mã tiêu chuẩn ${updateData.code} đã tồn tại`
-                });
-            }
-        }
+        if (standardId) query.standardId = standardId;
+        if (programId) query.programId = programId;
+        if (organizationId) query.organizationId = organizationId;
+        if (status) query.status = status;
 
-        const isInUse = await standard.isInUse();
-        if (isInUse && (updateData.code || updateData.programId || updateData.organizationId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không thể thay đổi mã hoặc chương trình/tổ chức của tiêu chuẩn đang được sử dụng'
-            });
-        }
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-        const allowedFields = [
-            'name', 'description', 'order', 'weight', 'objectives',
-            'guidelines', 'evaluationCriteria', 'status'
-        ];
-
-        allowedFields.forEach(field => {
-            if (updateData[field] !== undefined) {
-                standard[field] = updateData[field];
-            }
-        });
-
-        if (updateData.code) {
-            standard.code = updateData.code.toString().padStart(2, '0');
-        }
-
-        standard.updatedBy = req.user.id;
-        await standard.save();
-
-        await standard.populate([
-            { path: 'academicYearId', select: 'name code' },
-            { path: 'programId', select: 'name code' },
-            { path: 'organizationId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+        const [criteria, total] = await Promise.all([
+            Criteria.find(query)
+                .populate('academicYearId', 'name code')
+                .populate('standardId', 'name code')
+                .populate('programId', 'name code')
+                .populate('organizationId', 'name code')
+                .populate('createdBy', 'fullName email')
+                .sort(sortOptions)
+                .skip(skip)
+                .limit(limitNum),
+            Criteria.countDocuments(query)
         ]);
-
-        res.json({
-            success: true,
-            message: 'Cập nhật tiêu chuẩn thành công',
-            data: standard
-        });
-
-    } catch (error) {
-        console.error('Update standard error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi cập nhật tiêu chuẩn'
-        });
-    }
-};
-
-const deleteStandard = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const standard = await Standard.findOne({ _id: id, academicYearId });
-        if (!standard) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy tiêu chuẩn trong năm học này'
-            });
-        }
-
-        const isInUse = await standard.isInUse();
-        if (isInUse) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không thể xóa tiêu chuẩn đang được sử dụng'
-            });
-        }
-
-        await Standard.findByIdAndDelete(id);
-
-        res.json({
-            success: true,
-            message: 'Xóa tiêu chuẩn thành công'
-        });
-
-    } catch (error) {
-        console.error('Delete standard error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi xóa tiêu chuẩn'
-        });
-    }
-};
-
-const getStandardStatistics = async (req, res) => {
-    try {
-        const academicYearId = req.academicYearId;
-
-        const stats = await Standard.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
-            {
-                $group: {
-                    _id: '$status',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const statusStats = stats.reduce((acc, item) => {
-            acc[item._id] = item.count;
-            return acc;
-        }, {});
 
         res.json({
             success: true,
             data: {
-                statusStats,
+                criteria,
+                pagination: {
+                    current: pageNum,
+                    pages: Math.ceil(total / limitNum),
+                    total,
+                    hasNext: pageNum * limitNum < total,
+                    hasPrev: pageNum > 1
+                },
                 academicYear: req.currentAcademicYear
             }
         });
 
     } catch (error) {
-        console.error('Get standard statistics error:', error);
+        console.error('Get criteria error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê tiêu chuẩn'
+            message: 'Lỗi hệ thống khi lấy danh sách tiêu chí'
         });
     }
 };
 
-module.exports = {
-    getStandards,
-    getStandardsByProgramAndOrg,
-    getStandardById,
-    createStandard,
-    updateStandard,
-    deleteStandard,
-    getStandardStatistics
+const createCriteria = async (req, res) => {
+    try {
+        const {
+            name,
+            code,
+            description,
+            standardId,
+            order,
+            requirements,
+            guidelines,
+            indicators
+        } = req.body;
+
+        const academicYearId = req.academicYearId;
+
+        const standard = await Standard.findOne({ _id: standardId, academicYearId })
+            .populate('programId organizationId');
+
+        if (!standard) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tiêu chuẩn không tồn tại trong năm học này'
+            });
+        }
+
+        const existingCriteria = await Criteria.findOne({
+            academicYearId,
+            standardId,
+            code: code.toString().padStart(2, '0')
+        });
+
+        if (existingCriteria) {
+            return res.status(400).json({
+                success: false,
+                message: `Mã tiêu chí ${code} đã tồn tại trong tiêu chuẩn này`
+            });
+        }
+
+        const criteria = new Criteria({
+            academicYearId,
+            name: name.trim(),
+            code: code.toString().padStart(2, '0'),
+            description: description?.trim(),
+            standardId,
+            programId: standard.programId._id,
+            organizationId: standard.organizationId._id,
+            order: order || 1,
+            requirements: requirements?.trim(),
+            guidelines: guidelines?.trim(),
+            indicators: indicators || [],
+            createdBy: req.user.id,
+            updatedBy: req.user.id
+        });
+
+        await criteria.save();
+
+        await criteria.populate([
+            { path: 'academicYearId', select: 'name code' },
+            { path: 'standardId', select: 'name code' },
+            { path: 'programId', select: 'name code' },
+            { path: 'organizationId', select: 'name code' },
+            { path: 'createdBy', select: 'fullName email' }
+        ]);
+
+        res.status(201).json({
+            success: true,
+            message: 'Tạo tiêu chí thành công',
+            data: criteria
+        });
+
+    } catch (error) {
+        console.error('Create criteria error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi tạo tiêu chí'
+        });
+    }
 };
