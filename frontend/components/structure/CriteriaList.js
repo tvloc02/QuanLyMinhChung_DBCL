@@ -107,8 +107,9 @@ export default function CriteriaList() {
                 ['5. Sau khi điền xong, lưu file và import vào hệ thống'],
                 [''],
                 ['Lưu ý:'],
-                ['- Mã tiêu chí phải là số từ 1-99 (VD: 1, 01, 12)'],
+                ['- Mã tiêu chí phải có định dạng x.y (VD: 1.01, 1.1, 10.25)'],
                 ['- Mã tiêu chuẩn phải TỒN TẠI trong hệ thống'],
+                ['- Phần x trong mã tiêu chí phải KHỚP với mã tiêu chuẩn đã chọn'],
                 ['- Không được để trống các trường bắt buộc'],
                 [''],
                 ['Ngày tạo:', new Date().toLocaleDateString('vi-VN')],
@@ -125,11 +126,10 @@ export default function CriteriaList() {
             // ===== SHEET 2: Dữ liệu nhập =====
             const templateData = [
                 {
-                    'Mã tiêu chí (*)': '1',
+                    'Mã tiêu chí (*)': '1.01',
                     'Tên tiêu chí (*)': 'Mục tiêu chương trình đào tạo được xây dựng phù hợp',
                     'Mô tả': 'Mục tiêu thể hiện rõ định hướng phát triển và đáp ứng yêu cầu của xã hội',
                     'Mã tiêu chuẩn (*)': '1',
-                    'Thứ tự': '1',
                     'Yêu cầu': 'Có văn bản mô tả mục tiêu rõ ràng, có sự tham gia của các bên liên quan',
                     'Hướng dẫn': 'Kiểm tra tính nhất quán giữa mục tiêu với sứ mệnh và tầm nhìn'
                 }
@@ -142,7 +142,6 @@ export default function CriteriaList() {
                 { wch: 55 },  // Tên
                 { wch: 60 },  // Mô tả
                 { wch: 15 },  // Mã tiêu chuẩn
-                { wch: 10 },  // Thứ tự
                 { wch: 50 },  // Yêu cầu
                 { wch: 50 }   // Hướng dẫn
             ]
@@ -192,11 +191,11 @@ export default function CriteriaList() {
             const instructionData = [
                 {
                     'Tên cột': 'Mã tiêu chí (*)',
-                    'Kiểu dữ liệu': 'Số',
+                    'Kiểu dữ liệu': 'Văn bản',
                     'Bắt buộc': 'Có',
-                    'Mô tả chi tiết': 'Mã số tiêu chí, từ 1-99. Hệ thống tự động thêm số 0 ở đầu nếu là 1 chữ số',
-                    'Ví dụ hợp lệ': '1, 01, 12, 25',
-                    'Ví dụ không hợp lệ': 'TC1 (chứa chữ), 100 (vượt quá 99)'
+                    'Mô tả chi tiết': 'Mã tiêu chí có định dạng x.y, trong đó x là mã tiêu chuẩn, y là số thứ tự tiêu chí',
+                    'Ví dụ hợp lệ': '1.01, 1.1, 10.25, 2.03',
+                    'Ví dụ không hợp lệ': '1 (thiếu .y), TC1.01 (chứa chữ), 1.100 (y vượt quá 99)'
                 },
                 {
                     'Tên cột': 'Tên tiêu chí (*)',
@@ -218,17 +217,9 @@ export default function CriteriaList() {
                     'Tên cột': 'Mã tiêu chuẩn (*)',
                     'Kiểu dữ liệu': 'Số',
                     'Bắt buộc': 'Có',
-                    'Mô tả chi tiết': 'Mã tiêu chuẩn cha đã được tạo trong hệ thống. Xem sheet "DS Tiêu chuẩn"',
-                    'Ví dụ hợp lệ': '1, 01, 02',
-                    'Ví dụ không hợp lệ': '100 (chưa tồn tại)'
-                },
-                {
-                    'Tên cột': 'Thứ tự',
-                    'Kiểu dữ liệu': 'Số',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Thứ tự hiển thị của tiêu chí, phải là số nguyên dương. Mặc định là 1',
-                    'Ví dụ hợp lệ': '1, 2, 3, 10',
-                    'Ví dụ không hợp lệ': '-1, 0, 1.5'
+                    'Mô tả chi tiết': 'Mã tiêu chuẩn cha đã được tạo trong hệ thống. Phải khớp với phần x trong mã tiêu chí. Xem sheet "DS Tiêu chuẩn"',
+                    'Ví dụ hợp lệ': '1, 01, 02, 10',
+                    'Ví dụ không hợp lệ': '100 (chưa tồn tại), 5 (khi mã tiêu chí là 1.01)'
                 },
                 {
                     'Tên cột': 'Yêu cầu',
@@ -297,28 +288,34 @@ export default function CriteriaList() {
                     'STT': '1',
                     'Lỗi': 'Mã tiêu chí đã tồn tại',
                     'Nguyên nhân': 'Mã tiêu chí bị trùng trong cùng tiêu chuẩn',
-                    'Cách khắc phục': 'Thay đổi mã tiêu chí thành mã khác'
+                    'Cách khắc phục': 'Thay đổi phần số sau dấu chấm thành số khác (VD: 1.01 -> 1.02)'
                 },
                 {
                     'STT': '2',
                     'Lỗi': 'Mã tiêu chí không hợp lệ',
-                    'Nguyên nhân': 'Mã không phải là số hoặc vượt quá 99',
-                    'Cách khắc phục': 'Nhập mã là số từ 1-99'
+                    'Nguyên nhân': 'Mã không đúng định dạng x.y hoặc x,y vượt quá 99',
+                    'Cách khắc phục': 'Nhập mã đúng định dạng x.y (VD: 1.01, 1.1, 10.25)'
                 },
                 {
                     'STT': '3',
+                    'Lỗi': 'Mã tiêu chí không khớp với tiêu chuẩn',
+                    'Nguyên nhân': 'Phần x trong mã tiêu chí không khớp với mã tiêu chuẩn',
+                    'Cách khắc phục': 'Nếu chọn tiêu chuẩn mã 1, thì mã tiêu chí phải là 1.xx'
+                },
+                {
+                    'STT': '4',
                     'Lỗi': 'Thiếu trường bắt buộc',
                     'Nguyên nhân': 'Không điền đủ các trường có dấu (*)',
                     'Cách khắc phục': 'Điền đầy đủ: Mã tiêu chí, Tên tiêu chí, Mã tiêu chuẩn'
                 },
                 {
-                    'STT': '4',
+                    'STT': '5',
                     'Lỗi': 'Tiêu chuẩn không tồn tại',
                     'Nguyên nhân': 'Mã tiêu chuẩn chưa được tạo trong hệ thống',
                     'Cách khắc phục': 'Tạo tiêu chuẩn trước hoặc sử dụng mã đã có trong sheet "DS Tiêu chuẩn"'
                 },
                 {
-                    'STT': '5',
+                    'STT': '6',
                     'Lỗi': 'Vượt quá độ dài cho phép',
                     'Nguyên nhân': 'Nội dung vượt quá số ký tự quy định',
                     'Cách khắc phục': 'Rút gọn: Tên (500 ký tự), Mô tả (3000 ký tự), Yêu cầu (2000 ký tự)'
@@ -328,7 +325,7 @@ export default function CriteriaList() {
             const wsErrors = XLSX.utils.json_to_sheet(errorsData)
             wsErrors['!cols'] = [
                 { wch: 5 },
-                { wch: 30 },
+                { wch: 35 },
                 { wch: 45 },
                 { wch: 60 }
             ]
@@ -363,9 +360,8 @@ export default function CriteriaList() {
                 'Mã': c.code,
                 'Tên tiêu chí': c.name,
                 'Mô tả': c.description || '',
-                'Tiêu chuẩn': c.standardId?.name || '',
+                'Tiêu chuẩn': `${c.standardId?.code} - ${c.standardId?.name}` || '',
                 'Chương trình': c.programId?.name || '',
-                'Thứ tự': c.order,
                 'Trạng thái': getStatusLabel(c.status),
                 'Người tạo': c.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(c.createdAt)
@@ -376,12 +372,11 @@ export default function CriteriaList() {
 
             ws['!cols'] = [
                 { wch: 5 },   // STT
-                { wch: 10 },  // Mã
+                { wch: 12 },  // Mã
                 { wch: 55 },  // Tên
                 { wch: 60 },  // Mô tả
-                { wch: 40 },  // Tiêu chuẩn
+                { wch: 50 },  // Tiêu chuẩn
                 { wch: 35 },  // Chương trình
-                { wch: 8 },   // Thứ tự
                 { wch: 12 },  // Trạng thái
                 { wch: 25 },  // Người tạo
                 { wch: 12 }   // Ngày tạo
@@ -547,7 +542,9 @@ export default function CriteriaList() {
                     >
                         <option value="">Tất cả tiêu chuẩn</option>
                         {standards.map(s => (
-                            <option key={s._id} value={s._id}>{s.name}</option>
+                            <option key={s._id} value={s._id}>
+                                {s.code} - {s.name}
+                            </option>
                         ))}
                     </select>
 
@@ -582,7 +579,6 @@ export default function CriteriaList() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên tiêu chí</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiêu chuẩn</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Thứ tự</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
                         </tr>
@@ -590,7 +586,7 @@ export default function CriteriaList() {
                         <tbody className="bg-white divide-y divide-gray-200">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-12 text-center">
+                                <td colSpan="5" className="px-6 py-12 text-center">
                                     <div className="flex justify-center">
                                         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
@@ -598,7 +594,7 @@ export default function CriteriaList() {
                             </tr>
                         ) : criteria.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                                     Không có dữ liệu
                                 </td>
                             </tr>
@@ -617,12 +613,11 @@ export default function CriteriaList() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className="text-sm text-gray-900">
+                                        <div className="text-sm text-gray-900">
+                                            <span className="font-semibold">{item.standardId?.code}</span>
+                                            {' - '}
                                             {item.standardId?.name || '-'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap text-sm text-gray-900">
-                                        {item.order}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
