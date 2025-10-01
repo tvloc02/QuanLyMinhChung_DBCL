@@ -38,12 +38,6 @@ const createOrganizationValidation = [
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Mô tả không được quá 2000 ký tự'),
-    body('level')
-        .isIn(['national', 'international', 'regional', 'institutional'])
-        .withMessage('Cấp độ không hợp lệ'),
-    body('type')
-        .isIn(['government', 'education', 'professional', 'international', 'other'])
-        .withMessage('Loại tổ chức không hợp lệ'),
     body('website')
         .optional()
         .isURL()
@@ -83,7 +77,6 @@ router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('level').optional().isIn(['national', 'international', 'regional', 'institutional']),
     query('type').optional().isIn(['government', 'education', 'professional', 'international', 'other']),
     query('status').optional().isIn(['active', 'inactive', 'suspended']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
