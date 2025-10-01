@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-//const { setAcademicYearContext } = require('../middleware/academicYear');
 const { attachCurrentAcademicYear } = require('../middleware/academicYear');
 const validation = require('../middleware/validation');
 const {
@@ -14,9 +13,6 @@ const {
     deleteCriteria,
     getCriteriaStatistics
 } = require('../controllers/criteriaController');
-
-// Apply academic year context to all routes
-//router.use(auth, setAcademicYearContext);
 
 router.use(auth, attachCurrentAcademicYear);
 
@@ -30,8 +26,8 @@ const createCriteriaValidation = [
     body('code')
         .notEmpty()
         .withMessage('Mã tiêu chí là bắt buộc')
-        .matches(/^\d{1,2}$/)
-        .withMessage('Mã tiêu chí phải là 1-2 chữ số'),
+        .matches(/^\d{1,2}\.\d{1,2}$/)
+        .withMessage('Mã tiêu chí phải có định dạng x.y (VD: 1.01, 1.1)'),
     body('description')
         .optional()
         .isLength({ max: 3000 })
@@ -41,10 +37,6 @@ const createCriteriaValidation = [
         .withMessage('Tiêu chuẩn là bắt buộc')
         .isMongoId()
         .withMessage('ID tiêu chuẩn không hợp lệ'),
-    body('order')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('Thứ tự phải lớn hơn 0'),
     body('requirements')
         .optional()
         .isLength({ max: 2000 })
@@ -94,7 +86,7 @@ router.get('/', [
     query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
     query('status').optional().isIn(['draft', 'active', 'inactive', 'archived']),
-    query('sortBy').optional().isIn(['order', 'code', 'name', 'createdAt', 'updatedAt']),
+    query('sortBy').optional().isIn(['code', 'name', 'createdAt', 'updatedAt']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getCriteria);
 
