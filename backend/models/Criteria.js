@@ -57,13 +57,6 @@ const criteriaSchema = new mongoose.Schema({
         min: [1, 'Thứ tự phải lớn hơn 0']
     },
 
-
-    type: {
-        type: String,
-        enum: ['mandatory', 'optional', 'conditional'],
-        default: 'mandatory'
-    },
-
     requirements: {
         type: String,
         trim: true,
