@@ -37,7 +37,7 @@ export default function ExpertsList() {
 
             if (searchTerm) params.search = searchTerm
 
-            const response = await api.get('/users', { params })
+            const response = await api.get('/api/users', { params })
 
             if (response.data.success) {
                 setExperts(response.data.data.users)
