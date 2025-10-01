@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Organization  = require('../models/Organization');
+const Organization = require('../models/Organization');
 
 const getOrganizations = async (req, res) => {
     try {
@@ -7,8 +7,6 @@ const getOrganizations = async (req, res) => {
             page = 1,
             limit = 10,
             search,
-            level,
-            type,
             status,
             sortBy = 'createdAt',
             sortOrder = 'desc'
@@ -30,8 +28,6 @@ const getOrganizations = async (req, res) => {
             ];
         }
 
-        if (level) query.level = level;
-        if (type) query.type = type;
         if (status) query.status = status;
 
         const sortOptions = {};
@@ -80,7 +76,7 @@ const getAllOrganizations = async (req, res) => {
             academicYearId,
             status: 'active'
         })
-            .select('name code level type')
+            .select('name code')
             .sort({ name: 1 });
 
         res.json({
@@ -134,8 +130,6 @@ const createOrganization = async (req, res) => {
             name,
             code,
             description,
-            level,
-            type,
             website,
             contactEmail,
             contactPhone,
@@ -162,8 +156,6 @@ const createOrganization = async (req, res) => {
             name: name.trim(),
             code: code.toUpperCase().trim(),
             description: description?.trim(),
-            level: level || 'national',
-            type: type || 'education',
             website: website?.trim(),
             contactEmail: contactEmail?.trim(),
             contactPhone: contactPhone?.trim(),
@@ -224,15 +216,15 @@ const updateOrganization = async (req, res) => {
         }
 
         const isInUse = await organization.isInUse();
-        if (isInUse && (updateData.code || updateData.level || updateData.type)) {
+        if (isInUse && updateData.code) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể thay đổi mã, cấp hoặc loại của tổ chức đang được sử dụng'
+                message: 'Không thể thay đổi mã tổ chức đang được sử dụng'
             });
         }
 
         const allowedFields = [
-            'name', 'description', 'level', 'type', 'website',
+            'name', 'description', 'website',
             'contactEmail', 'contactPhone', 'address', 'country', 'status'
         ];
 
@@ -325,32 +317,10 @@ const getOrganizationStatistics = async (req, res) => {
             return acc;
         }, {});
 
-        const levelStats = await Organization.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
-            {
-                $group: {
-                    _id: '$level',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const typeStats = await Organization.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
-            {
-                $group: {
-                    _id: '$type',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
         res.json({
             success: true,
             data: {
                 statusStats,
-                levelStats,
-                typeStats,
                 academicYear: req.currentAcademicYear
             }
         });
