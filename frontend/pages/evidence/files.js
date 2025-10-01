@@ -10,9 +10,6 @@ import {
     Upload,
     Download,
     Trash2,
-    Eye,
-    Search,
-    Filter,
     RefreshCw,
     File,
     FileImage,
@@ -52,40 +49,74 @@ export default function FilesPage() {
             setLoading(true)
 
             const response = await apiMethods.evidences.getById(evidenceId)
+            const data = response.data?.data || response.data
 
-            setEvidence(response.data.data)
-            setFiles(response.data.data.files || [])
+            setEvidence(data)
+            setFiles(data?.files || [])
         } catch (error) {
             console.error('Fetch data error:', error)
-            toast.error('Lỗi khi tải dữ liệu')
+            toast.error(error.response?.data?.message || 'Lỗi khi tải dữ liệu')
         } finally {
             setLoading(false)
         }
     }
 
     const handleFileSelect = (e) => {
-        const files = Array.from(e.target.files)
-        if (files.length > 0) {
-            handleUpload(files)
+        const selectedFiles = Array.from(e.target.files)
+        if (selectedFiles.length > 0) {
+            handleUpload(selectedFiles)
         }
+        // Reset input
+        e.target.value = ''
     }
 
     const handleUpload = async (filesToUpload) => {
-        try {
-            setUploading(true)
-
-            const response = await apiMethods.files.upload(evidenceId, filesToUpload)
-
-            if (response.data.success) {
-                toast.success(response.data.message)
-                fetchData()
-            }
-        } catch (error) {
-            console.error('Upload error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi upload file')
-        } finally {
-            setUploading(false)
+        // Validation
+        if (filesToUpload.length > 10) {
+            toast.error('Chỉ được upload tối đa 10 files mỗi lần')
+            return
         }
+
+        const maxSize = 50 * 1024 * 1024 // 50MB
+        const oversizedFiles = filesToUpload.filter(file => file.size > maxSize)
+        if (oversizedFiles.length > 0) {
+            toast.error(`File "${oversizedFiles[0].name}" vượt quá 50MB`)
+            return
+        }
+
+        // Upload files one by one
+        setUploading(true)
+        let successCount = 0
+        let failCount = 0
+
+        for (const file of filesToUpload) {
+            try {
+                const response = await apiMethods.files.upload(file, evidenceId)
+
+                if (response.data?.success) {
+                    successCount++
+                } else {
+                    failCount++
+                }
+            } catch (error) {
+                console.error('Upload error:', error)
+                failCount++
+            }
+        }
+
+        setUploading(false)
+
+        // Show results
+        if (successCount > 0 && failCount === 0) {
+            toast.success(`Upload thành công ${successCount} file`)
+        } else if (successCount > 0 && failCount > 0) {
+            toast.success(`Upload thành công ${successCount} file, thất bại ${failCount} file`)
+        } else {
+            toast.error('Upload thất bại')
+        }
+
+        // Refresh data
+        fetchData()
     }
 
     const handleDownload = async (fileId, fileName) => {
@@ -104,7 +135,7 @@ export default function FilesPage() {
             toast.success('Tải file thành công')
         } catch (error) {
             console.error('Download error:', error)
-            toast.error('Lỗi khi tải file')
+            toast.error(error.response?.data?.message || 'Lỗi khi tải file')
         }
     }
 
@@ -116,8 +147,8 @@ export default function FilesPage() {
         try {
             const response = await apiMethods.files.delete(fileId)
 
-            if (response.data.success) {
-                toast.success(response.data.message)
+            if (response.data?.success) {
+                toast.success(response.data.message || 'Xóa file thành công')
                 fetchData()
             }
         } catch (error) {
@@ -188,7 +219,7 @@ export default function FilesPage() {
                             Làm mới
                         </button>
 
-                        <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 cursor-pointer disabled:opacity-50">
+                        <label className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                             <Upload className="h-4 w-4 mr-2" />
                             {uploading ? 'Đang upload...' : 'Upload files'}
                             <input
@@ -274,6 +305,7 @@ export default function FilesPage() {
                                                 multiple
                                                 onChange={handleFileSelect}
                                                 className="hidden"
+                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
                                             />
                                         </label>
                                     </div>
@@ -287,14 +319,14 @@ export default function FilesPage() {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="text-sm font-medium text-gray-900 truncate">
-                                                            {file.originalName}
+                                                            {file.originalName || file.filename}
                                                         </h4>
                                                         <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
                                                             <span>{formatFileSize(file.size)}</span>
                                                             <span>•</span>
                                                             <span>{file.uploadedBy?.fullName || 'N/A'}</span>
                                                             <span>•</span>
-                                                            <span>{formatDate(file.uploadedAt)}</span>
+                                                            <span>{formatDate(file.uploadedAt || file.createdAt)}</span>
                                                             <span>•</span>
                                                             <span>{file.downloadCount || 0} lượt tải</span>
                                                         </div>
@@ -302,7 +334,7 @@ export default function FilesPage() {
                                                 </div>
                                                 <div className="flex items-center space-x-2">
                                                     <button
-                                                        onClick={() => handleDownload(file._id, file.storedName)}
+                                                        onClick={() => handleDownload(file._id, file.originalName || file.filename)}
                                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                                                         title="Tải xuống"
                                                     >
