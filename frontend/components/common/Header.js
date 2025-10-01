@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
+import { apiMethods } from '../../services/api'
 import {
     Bell,
     User,
@@ -13,21 +15,43 @@ import {
     Check,
     AlertCircle,
     Loader2,
-    Plus
+    Plus,
+    Eye,
+    CheckCheck,
+    Clock,
+    AlertTriangle,
+    Info
 } from 'lucide-react'
 
 export default function Header({ onMenuClick, sidebarOpen }) {
     const { user, logout } = useAuth()
+    const router = useRouter()
     const [userDropdownOpen, setUserDropdownOpen] = useState(false)
     const [academicYearDropdownOpen, setAcademicYearDropdownOpen] = useState(false)
+    const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false)
+
     const [currentAcademicYear, setCurrentAcademicYear] = useState(null)
     const [academicYears, setAcademicYears] = useState([])
     const [loading, setLoading] = useState(true)
     const [changing, setChanging] = useState(false)
     const [error, setError] = useState(null)
 
+    // Notification states
+    const [notifications, setNotifications] = useState([])
+    const [unreadCount, setUnreadCount] = useState(0)
+    const [notificationsLoading, setNotificationsLoading] = useState(false)
+
     useEffect(() => {
         fetchAcademicYears()
+        fetchNotifications()
+        fetchUnreadCount()
+
+        // Auto-refresh notifications every 30 seconds
+        const interval = setInterval(() => {
+            fetchUnreadCount()
+        }, 30000)
+
+        return () => clearInterval(interval)
     }, [])
 
     const fetchAcademicYears = async () => {
@@ -35,7 +59,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             setLoading(true)
             setError(null)
 
-            // Fetch all academic years
             const response = await fetch('/api/academic-years/all', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -46,8 +69,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                 const result = await response.json()
                 if (result.success) {
                     setAcademicYears(result.data || [])
-
-                    // Find current academic year
                     const current = result.data?.find(year => year.isCurrent)
                     if (current) {
                         setCurrentAcademicYear(current)
@@ -62,7 +83,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             console.error('Error fetching academic years:', error)
             setError(error.message)
 
-            // Fallback to get current year only
             try {
                 const currentResponse = await fetch('/api/academic-years/current', {
                     headers: {
@@ -85,6 +105,137 @@ export default function Header({ onMenuClick, sidebarOpen }) {
         }
     }
 
+    const fetchNotifications = async () => {
+        try {
+            setNotificationsLoading(true)
+            const response = await apiMethods.notifications.getAll({
+                page: 1,
+                limit: 5,
+                unreadOnly: false
+            })
+
+            if (response.data.success) {
+                setNotifications(response.data.data.notifications)
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error)
+        } finally {
+            setNotificationsLoading(false)
+        }
+    }
+
+    const fetchUnreadCount = async () => {
+        try {
+            const response = await apiMethods.notifications.getUnreadCount()
+            if (response.data.success) {
+                setUnreadCount(response.data.data.unreadCount)
+            }
+        } catch (error) {
+            console.error('Error fetching unread count:', error)
+        }
+    }
+
+    const handleNotificationClick = async (notification) => {
+        // Mark as read if unread
+        if (notification.isUnread) {
+            try {
+                await apiMethods.notifications.markAsRead(notification._id)
+                fetchUnreadCount()
+                fetchNotifications()
+            } catch (error) {
+                console.error('Error marking as read:', error)
+            }
+        }
+
+        // Close dropdown
+        setNotificationDropdownOpen(false)
+
+        // Navigate to action URL
+        const actionUrl = getActionUrl(notification)
+        if (actionUrl) {
+            router.push(actionUrl)
+        }
+    }
+
+    const handleMarkAsRead = async (e, notificationId) => {
+        e.stopPropagation()
+        try {
+            await apiMethods.notifications.markAsRead(notificationId)
+            fetchUnreadCount()
+            fetchNotifications()
+        } catch (error) {
+            console.error('Error marking as read:', error)
+        }
+    }
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            await apiMethods.notifications.markAllAsRead()
+            fetchUnreadCount()
+            fetchNotifications()
+            setNotificationDropdownOpen(false)
+        } catch (error) {
+            console.error('Error marking all as read:', error)
+        }
+    }
+
+    const getActionUrl = (notification) => {
+        if (notification.data?.url) return notification.data.url
+
+        switch (notification.type) {
+            case 'assignment_new':
+            case 'assignment_reminder':
+            case 'assignment_overdue':
+            case 'assignment_cancelled':
+                return notification.data?.assignmentId
+                    ? `/assignments/${notification.data.assignmentId}`
+                    : null
+
+            case 'evaluation_submitted':
+            case 'evaluation_reviewed':
+                return notification.data?.evaluationId
+                    ? `/evaluations/${notification.data.evaluationId}`
+                    : null
+
+            case 'report_published':
+            case 'report_updated':
+                return notification.data?.reportId
+                    ? `/reports/${notification.data.reportId}`
+                    : null
+
+            default:
+                return null
+        }
+    }
+
+    const getPriorityIcon = (priority) => {
+        switch (priority) {
+            case 'urgent':
+                return <AlertCircle className="h-4 w-4 text-red-600" />
+            case 'high':
+                return <AlertTriangle className="h-4 w-4 text-orange-600" />
+            default:
+                return <Info className="h-4 w-4 text-blue-600" />
+        }
+    }
+
+    const formatNotificationTime = (date) => {
+        const now = new Date()
+        const notifDate = new Date(date)
+        const diffInMinutes = Math.floor((now - notifDate) / 60000)
+
+        if (diffInMinutes < 1) return 'Vừa xong'
+        if (diffInMinutes < 60) return `${diffInMinutes} phút trước`
+
+        const diffInHours = Math.floor(diffInMinutes / 60)
+        if (diffInHours < 24) return `${diffInHours} giờ trước`
+
+        const diffInDays = Math.floor(diffInHours / 24)
+        if (diffInDays < 7) return `${diffInDays} ngày trước`
+
+        return notifDate.toLocaleDateString('vi-VN')
+    }
+
     const handleAcademicYearChange = async (selectedYear) => {
         if (selectedYear._id === currentAcademicYear?._id) {
             setAcademicYearDropdownOpen(false)
@@ -95,7 +246,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             setChanging(true)
             setError(null)
 
-            // Use correct API endpoint from backend
             const response = await fetch(`/api/academic-years/${selectedYear._id}/set-current`, {
                 method: 'POST',
                 headers: {
@@ -107,7 +257,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             const result = await response.json()
 
             if (response.ok && result.success) {
-                // Update local state
                 setCurrentAcademicYear(selectedYear)
                 setAcademicYears(years =>
                     years.map(year => ({
@@ -118,7 +267,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
 
                 setAcademicYearDropdownOpen(false)
 
-                // Show success message
                 const successDiv = document.createElement('div')
                 successDiv.innerHTML = `
                     <div class="fixed top-4 right-4 bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg z-50">
@@ -135,7 +283,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                 `
                 document.body.appendChild(successDiv)
 
-                // Reload after short delay to show success message
                 setTimeout(() => {
                     window.location.reload()
                 }, 1500)
@@ -146,7 +293,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             console.error('Error changing academic year:', error)
             setError(error.message)
 
-            // Show error message
             const errorDiv = document.createElement('div')
             errorDiv.innerHTML = `
                 <div class="fixed top-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg z-50">
@@ -208,6 +354,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             if (!event.target.closest('.dropdown-container')) {
                 setUserDropdownOpen(false)
                 setAcademicYearDropdownOpen(false)
+                setNotificationDropdownOpen(false)
             }
         }
 
@@ -288,7 +435,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
 
                         {academicYearDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
-                                {/* Header */}
                                 <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -305,7 +451,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     </div>
                                 </div>
 
-                                {/* Content */}
                                 <div className="max-h-64 overflow-y-auto">
                                     {loading ? (
                                         <div className="flex items-center justify-center py-8">
@@ -371,7 +516,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     )}
                                 </div>
 
-                                {/* Footer */}
                                 {academicYears.length > 0 && (
                                     <div className="px-4 py-2 border-t border-gray-100 bg-gray-50">
                                         <div className="flex items-center justify-between text-xs text-gray-500">
@@ -390,10 +534,136 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     </div>
 
                     {/* Notification Bell */}
-                    <button className="p-2 text-gray-500 hover:text-gray-600 relative">
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
-                    </button>
+                    <div className="relative dropdown-container">
+                        <button
+                            onClick={() => {
+                                setNotificationDropdownOpen(!notificationDropdownOpen)
+                                if (!notificationDropdownOpen) {
+                                    fetchNotifications()
+                                }
+                            }}
+                            className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-lg relative transition-colors"
+                        >
+                            <Bell className="h-5 w-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {notificationDropdownOpen && (
+                            <div className="absolute right-0 mt-2 w-96 bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-[32rem] overflow-hidden">
+                                {/* Header */}
+                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">Thông báo</p>
+                                            {unreadCount > 0 && (
+                                                <p className="text-xs text-gray-500">{unreadCount} thông báo chưa đọc</p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            {unreadCount > 0 && (
+                                                <button
+                                                    onClick={handleMarkAllAsRead}
+                                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                                    title="Đánh dấu tất cả đã đọc"
+                                                >
+                                                    <CheckCheck className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => router.push('/notifications')}
+                                                className="text-xs text-gray-600 hover:text-gray-700"
+                                            >
+                                                Xem tất cả →
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Content */}
+                                <div className="max-h-96 overflow-y-auto">
+                                    {notificationsLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                                            <span className="ml-2 text-sm text-gray-500">Đang tải...</span>
+                                        </div>
+                                    ) : notifications.length === 0 ? (
+                                        <div className="px-4 py-12 text-center">
+                                            <Bell className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                            <p className="text-sm text-gray-500 mb-1">Không có thông báo mới</p>
+                                            <p className="text-xs text-gray-400">Các thông báo của bạn sẽ xuất hiện ở đây</p>
+                                        </div>
+                                    ) : (
+                                        notifications.map((notification) => (
+                                            <div
+                                                key={notification._id}
+                                                onClick={() => handleNotificationClick(notification)}
+                                                className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors ${
+                                                    notification.isUnread ? 'bg-blue-50' : ''
+                                                }`}
+                                            >
+                                                <div className="flex items-start space-x-3">
+                                                    <div className="flex-shrink-0 mt-1">
+                                                        {getPriorityIcon(notification.priority)}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between mb-1">
+                                                            <p className={`text-sm font-medium ${
+                                                                notification.isUnread ? 'text-gray-900' : 'text-gray-700'
+                                                            }`}>
+                                                                {notification.title}
+                                                            </p>
+                                                            {notification.isUnread && (
+                                                                <div className="flex-shrink-0 ml-2">
+                                                                    <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                                            {notification.message}
+                                                        </p>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center text-xs text-gray-500">
+                                                                <Clock className="h-3 w-3 mr-1" />
+                                                                {formatNotificationTime(notification.createdAt)}
+                                                            </div>
+                                                            {notification.isUnread && (
+                                                                <button
+                                                                    onClick={(e) => handleMarkAsRead(e, notification._id)}
+                                                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                                                    title="Đánh dấu đã đọc"
+                                                                >
+                                                                    <Eye className="h-3 w-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Footer */}
+                                {notifications.length > 0 && (
+                                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+                                        <button
+                                            onClick={() => {
+                                                setNotificationDropdownOpen(false)
+                                                router.push('/notifications')
+                                            }}
+                                            className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                            Xem tất cả thông báo
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                     {/* User Dropdown */}
                     <div className="relative dropdown-container">
