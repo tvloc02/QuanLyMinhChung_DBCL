@@ -12,7 +12,6 @@ export default function StandardModal({ standard, programs, organizations, onClo
         programId: '',
         organizationId: '',
         order: 1,
-        weight: '',
         objectives: '',
         guidelines: '',
         status: 'draft'
@@ -28,7 +27,6 @@ export default function StandardModal({ standard, programs, organizations, onClo
                 programId: standard.programId?._id || standard.programId || '',
                 organizationId: standard.organizationId?._id || standard.organizationId || '',
                 order: standard.order || 1,
-                weight: standard.weight || '',
                 objectives: standard.objectives || '',
                 guidelines: standard.guidelines || '',
                 status: standard.status || 'draft'
@@ -63,10 +61,6 @@ export default function StandardModal({ standard, programs, organizations, onClo
 
         if (!formData.organizationId) {
             newErrors.organizationId = 'Tổ chức là bắt buộc'
-        }
-
-        if (formData.weight && (formData.weight < 0 || formData.weight > 100)) {
-            newErrors.weight = 'Trọng số phải từ 0-100'
         }
 
         setErrors(newErrors)
@@ -115,7 +109,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mã tiêu chuẩn <span className="text-red-500">*</span>
@@ -146,25 +140,6 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 min="1"
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Trọng số (%)
-                            </label>
-                            <input
-                                type="number"
-                                name="weight"
-                                value={formData.weight}
-                                onChange={handleChange}
-                                min="0"
-                                max="100"
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.weight ? 'border-red-500' : 'border-gray-300'
-                                }`}
-                                placeholder="0-100"
-                            />
-                            {errors.weight && <p className="mt-1 text-sm text-red-600">{errors.weight}</p>}
                         </div>
                     </div>
 
