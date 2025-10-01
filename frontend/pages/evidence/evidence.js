@@ -250,7 +250,7 @@ export default function EvidencePage() {
                                 value={statistics.totalEvidences}
                                 icon={FileText}
                                 color="bg-blue-500"
-                                onClick={() => router.push('/evidence-management')}
+                                onClick={() => router.push('/evidence/evidence')}
                             />
                             <StatCard
                                 title="Đang hoạt động"
