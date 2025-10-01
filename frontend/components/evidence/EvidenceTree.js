@@ -69,10 +69,10 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.evidences.getTree({
-                programId: selectedProgram,
-                organizationId: selectedOrganization
-            })
+            const response = await apiMethods.evidences.getTree(
+                selectedProgram,
+                selectedOrganization
+            )
             setTreeData(response.data.data.tree || response.data.data || {})
         } catch (error) {
             console.error('Fetch tree data error:', error)
