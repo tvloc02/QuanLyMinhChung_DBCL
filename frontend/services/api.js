@@ -265,13 +265,13 @@ export const apiMethods = {
 
     // Notifications
     notifications: {
-        getAll: (params) => api.get('/notifications', { params }),
-        getById: (id) => api.get(`/notifications/${id}`),
-        markAsRead: (id) => api.post(`/notifications/${id}/read`),
-        markAllAsRead: () => api.post('/notifications/mark-all-read'),
-        delete: (id) => api.delete(`/notifications/${id}`),
-        getUnreadCount: () => api.get('/notifications/unread-count'),
-        getStats: () => api.get('/notifications/stats')
+        getAll: (params) => api.get('/api/notifications', { params }),
+        getById: (id) => api.get(`/api/notifications/${id}`),
+        markAsRead: (id) => api.post(`/api/notifications/${id}/read`),
+        markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
+        delete: (id) => api.delete(`/api/notifications/${id}`),
+        getUnreadCount: () => api.get('/api/notifications/unread-count'),
+        getStats: () => api.get('/api/notifications/stats')
     },
 
     // Activity Logs

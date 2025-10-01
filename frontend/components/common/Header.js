@@ -574,7 +574,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                 </button>
                                             )}
                                             <button
-                                                onClick={() => router.push('/notifications')}
+                                                onClick={() => router.push('/notifications/notifications')}
                                                 className="text-xs text-gray-600 hover:text-gray-700"
                                             >
                                                 Xem tất cả →
