@@ -35,18 +35,6 @@ const programSchema = new mongoose.Schema({
         maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
     },
 
-    type: {
-        type: String,
-        enum: ['undergraduate', 'graduate', 'institution', 'other'],
-        default: 'undergraduate'
-    },
-
-    version: {
-        type: String,
-        default: '1.0',
-        maxlength: [10, 'Phiên bản không được quá 10 ký tự']
-    },
-
     applicableYear: {
         type: Number,
         default: function() {
