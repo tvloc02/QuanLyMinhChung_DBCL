@@ -9,8 +9,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
         name: '',
         code: '',
         description: '',
-        type: 'undergraduate',
-        version: '1.0',
         applicableYear: new Date().getFullYear(),
         effectiveDate: '',
         expiryDate: '',
@@ -26,8 +24,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                 name: program.name || '',
                 code: program.code || '',
                 description: program.description || '',
-                type: program.type || 'undergraduate',
-                version: program.version || '1.0',
                 applicableYear: program.applicableYear || new Date().getFullYear(),
                 effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
                 expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
@@ -101,7 +97,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900">
                         {program ? 'Chỉnh sửa chương trình' : 'Thêm chương trình mới'}
@@ -111,10 +106,8 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                     </button>
                 </div>
 
-                {/* Body */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Mã chương trình */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mã chương trình <span className="text-red-500">*</span>
@@ -135,26 +128,22 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             )}
                         </div>
 
-                        {/* Loại chương trình */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Loại chương trình <span className="text-red-500">*</span>
+                                Năm áp dụng
                             </label>
-                            <select
-                                name="type"
-                                value={formData.type}
+                            <input
+                                type="number"
+                                name="applicableYear"
+                                value={formData.applicableYear}
                                 onChange={handleChange}
+                                min="2000"
+                                max="2100"
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="undergraduate">Đại học</option>
-                                <option value="graduate">Sau đại học</option>
-                                <option value="institution">Cơ sở giáo dục</option>
-                                <option value="other">Khác</option>
-                            </select>
+                            />
                         </div>
                     </div>
 
-                    {/* Tên chương trình */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Tên chương trình <span className="text-red-500">*</span>
@@ -174,7 +163,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                         )}
                     </div>
 
-                    {/* Mô tả */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Mô tả
@@ -189,59 +177,7 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Phiên bản */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Phiên bản
-                            </label>
-                            <input
-                                type="text"
-                                name="version"
-                                value={formData.version}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                placeholder="1.0"
-                            />
-                        </div>
-
-                        {/* Năm áp dụng */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Năm áp dụng
-                            </label>
-                            <input
-                                type="number"
-                                name="applicableYear"
-                                value={formData.applicableYear}
-                                onChange={handleChange}
-                                min="2000"
-                                max="2100"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-
-                        {/* Trạng thái */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Trạng thái
-                            </label>
-                            <select
-                                name="status"
-                                value={formData.status}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="draft">Nháp</option>
-                                <option value="active">Hoạt động</option>
-                                <option value="inactive">Không hoạt động</option>
-                                <option value="archived">Lưu trữ</option>
-                            </select>
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Ngày hiệu lực */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Ngày hiệu lực
@@ -255,7 +191,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             />
                         </div>
 
-                        {/* Ngày hết hạn */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Ngày hết hạn
@@ -275,7 +210,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    {/* Mục tiêu */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Mục tiêu
@@ -290,7 +224,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                         />
                     </div>
 
-                    {/* Hướng dẫn */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Hướng dẫn thực hiện
@@ -304,9 +237,25 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             placeholder="Nhập hướng dẫn thực hiện"
                         />
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Trạng thái
+                        </label>
+                        <select
+                            name="status"
+                            value={formData.status}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="draft">Nháp</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                            <option value="archived">Lưu trữ</option>
+                        </select>
+                    </div>
                 </form>
 
-                {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
                     <button
                         type="button"
