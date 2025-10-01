@@ -35,18 +35,6 @@ const organizationSchema = new mongoose.Schema({
         maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
     },
 
-    level: {
-        type: String,
-        enum: ['national', 'international', 'regional', 'institutional'],
-        default: 'national'
-    },
-
-    type: {
-        type: String,
-        enum: ['government', 'education', 'professional', 'international', 'other'],
-        default: 'education'
-    },
-
     website: {
         type: String,
         validate: {
