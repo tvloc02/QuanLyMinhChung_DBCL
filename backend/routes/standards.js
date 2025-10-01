@@ -50,10 +50,6 @@ const createStandardValidation = [
         .optional()
         .isInt({ min: 1 })
         .withMessage('Thứ tự phải lớn hơn 0'),
-    body('weight')
-        .optional()
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('Trọng số phải từ 0-100'),
     body('objectives')
         .optional()
         .isLength({ max: 2000 })
