@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const  Program  = require('../models/Program');
+const Program = require('../models/Program');
 
 const getPrograms = async (req, res) => {
     try {
@@ -7,7 +7,6 @@ const getPrograms = async (req, res) => {
             page = 1,
             limit = 10,
             search,
-            type,
             status,
             sortBy = 'createdAt',
             sortOrder = 'desc'
@@ -29,7 +28,6 @@ const getPrograms = async (req, res) => {
             ];
         }
 
-        if (type) query.type = type;
         if (status) query.status = status;
 
         const sortOptions = {};
@@ -78,7 +76,7 @@ const getAllPrograms = async (req, res) => {
             academicYearId,
             status: 'active'
         })
-            .select('name code type')
+            .select('name code')
             .sort({ name: 1 });
 
         res.json({
@@ -132,8 +130,6 @@ const createProgram = async (req, res) => {
             name,
             code,
             description,
-            type,
-            version,
             applicableYear,
             effectiveDate,
             expiryDate,
@@ -160,8 +156,6 @@ const createProgram = async (req, res) => {
             name: name.trim(),
             code: code.toUpperCase().trim(),
             description: description?.trim(),
-            type,
-            version,
             applicableYear: applicableYear || new Date().getFullYear(),
             effectiveDate: effectiveDate ? new Date(effectiveDate) : undefined,
             expiryDate: expiryDate ? new Date(expiryDate) : undefined,
@@ -222,10 +216,10 @@ const updateProgram = async (req, res) => {
         }
 
         const isInUse = await program.isInUse();
-        if (isInUse && (updateData.code || updateData.type)) {
+        if (isInUse && updateData.code) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể thay đổi mã hoặc loại chương trình đang được sử dụng'
+                message: 'Không thể thay đổi mã chương trình đang được sử dụng'
             });
         }
 
@@ -380,21 +374,10 @@ const getProgramStatistics = async (req, res) => {
             return acc;
         }, {});
 
-        const typeStats = await Program.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
-            {
-                $group: {
-                    _id: '$type',
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
         res.json({
             success: true,
             data: {
                 statusStats,
-                typeStats,
                 academicYear: req.currentAcademicYear
             }
         });
