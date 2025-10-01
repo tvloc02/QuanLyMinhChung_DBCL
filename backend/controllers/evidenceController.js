@@ -485,11 +485,13 @@ const getStatistics = async (req, res) => {
         const { programId, organizationId, standardId, criteriaId } = req.query;
         const academicYearId = req.academicYearId;
 
-        let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
-        if (programId) matchStage.programId = mongoose.Types.ObjectId(programId);
-        if (organizationId) matchStage.organizationId = mongoose.Types.ObjectId(organizationId);
-        if (standardId) matchStage.standardId = mongoose.Types.ObjectId(standardId);
-        if (criteriaId) matchStage.criteriaId = mongoose.Types.ObjectId(criteriaId);
+        // Sử dụng trực tiếp ObjectId từ model hoặc tạo object query đơn giản hơn
+        let matchStage = { academicYearId };
+
+        if (programId) matchStage.programId = programId;
+        if (organizationId) matchStage.organizationId = organizationId;
+        if (standardId) matchStage.standardId = standardId;
+        if (criteriaId) matchStage.criteriaId = criteriaId;
 
         const stats = await Evidence.aggregate([
             { $match: matchStage },

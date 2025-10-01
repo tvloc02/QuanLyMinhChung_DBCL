@@ -181,7 +181,7 @@ export default function EvidencePage() {
 
     return (
         <Layout
-            title="Tổng quan minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">
@@ -282,7 +282,7 @@ export default function EvidencePage() {
                                         Minh chứng gần đây
                                     </h3>
                                     <button
-                                        onClick={() => router.push('/evidence-management')}
+                                        onClick={() => router.push('/evidence/evidence-management')}
                                         className="text-sm text-blue-600 hover:text-blue-800"
                                     >
                                         Xem tất cả →
