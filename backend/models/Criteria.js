@@ -21,9 +21,10 @@ const criteriaSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function(code) {
-                return /^\d{1,2}$/.test(code);
+                // Format: x.y (ví dụ: 1.01, 1.1, 10.25)
+                return /^\d{1,2}\.\d{1,2}$/.test(code);
             },
-            message: 'Mã tiêu chí phải là 1-2 chữ số (VD: 1, 01, 12)'
+            message: 'Mã tiêu chí phải có định dạng x.y (VD: 1.01, 1.1, 10.25)'
         }
     },
 
@@ -49,12 +50,6 @@ const criteriaSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
-    },
-
-    order: {
-        type: Number,
-        default: 1,
-        min: [1, 'Thứ tự phải lớn hơn 0']
     },
 
     requirements: {
@@ -134,10 +129,9 @@ const criteriaSchema = new mongoose.Schema({
 });
 
 criteriaSchema.index({ academicYearId: 1, standardId: 1, code: 1 }, { unique: true });
-criteriaSchema.index({ academicYearId: 1, standardId: 1, order: 1 });
+criteriaSchema.index({ academicYearId: 1, standardId: 1 });
 criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 criteriaSchema.index({ academicYearId: 1, status: 1 });
-criteriaSchema.index({ academicYearId: 1, type: 1 });
 criteriaSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 criteriaSchema.pre('save', function(next) {
@@ -149,10 +143,6 @@ criteriaSchema.pre('save', function(next) {
 
 criteriaSchema.virtual('fullName').get(function() {
     return `Tiêu chí ${this.code}: ${this.name}`;
-});
-
-criteriaSchema.virtual('fullCode').get(function() {
-    return `${this.standardId?.code || 'XX'}.${this.code}`;
 });
 
 criteriaSchema.virtual('url').get(function() {
@@ -188,7 +178,7 @@ criteriaSchema.statics.findByStandard = function(standardId, academicYearId) {
         standardId,
         status: 'active'
     })
-        .sort({ order: 1, code: 1 });
+        .sort({ code: 1 });
 };
 
 criteriaSchema.statics.findByProgramAndOrganization = function(programId, organizationId, academicYearId) {
@@ -199,7 +189,7 @@ criteriaSchema.statics.findByProgramAndOrganization = function(programId, organi
         status: 'active'
     })
         .populate('standardId', 'name code')
-        .sort({ 'standardId.code': 1, order: 1, code: 1 });
+        .sort({ 'standardId.code': 1, code: 1 });
 };
 
 criteriaSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
