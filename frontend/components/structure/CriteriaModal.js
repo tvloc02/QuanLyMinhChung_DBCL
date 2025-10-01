@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Trash2 } from 'lucide-react'
+import { X, Save, Plus, Trash2, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -10,13 +10,13 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         code: '',
         description: '',
         standardId: '',
-        order: 1,
         requirements: '',
         guidelines: '',
         indicators: [],
         status: 'draft'
     })
     const [errors, setErrors] = useState({})
+    const [selectedStandard, setSelectedStandard] = useState(null)
 
     useEffect(() => {
         if (criteria) {
@@ -25,20 +25,56 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 code: criteria.code || '',
                 description: criteria.description || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
-                order: criteria.order || 1,
                 requirements: criteria.requirements || '',
                 guidelines: criteria.guidelines || '',
                 indicators: criteria.indicators || [],
                 status: criteria.status || 'draft'
             })
+
+            // Tìm standard được chọn
+            if (criteria.standardId) {
+                const standard = standards.find(s =>
+                    s._id === (criteria.standardId?._id || criteria.standardId)
+                )
+                setSelectedStandard(standard)
+            }
         }
-    }, [criteria])
+    }, [criteria, standards])
 
     const handleChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
+        }
+    }
+
+    const handleStandardChange = (e) => {
+        const standardId = e.target.value
+        const standard = standards.find(s => s._id === standardId)
+
+        setSelectedStandard(standard)
+        setFormData(prev => ({
+            ...prev,
+            standardId,
+            // Reset code nếu đổi tiêu chuẩn và chưa có code cũ
+            code: criteria ? prev.code : ''
+        }))
+
+        if (errors.standardId) {
+            setErrors(prev => ({ ...prev, standardId: '' }))
+        }
+    }
+
+    const handleCodeChange = (e) => {
+        let value = e.target.value
+
+        // Chỉ cho phép nhập số và dấu chấm
+        value = value.replace(/[^\d.]/g, '')
+
+        setFormData(prev => ({ ...prev, code: value }))
+        if (errors.code) {
+            setErrors(prev => ({ ...prev, code: '' }))
         }
     }
 
@@ -81,14 +117,22 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             newErrors.name = 'Tên tiêu chí là bắt buộc'
         }
 
-        if (!formData.code.trim()) {
-            newErrors.code = 'Mã tiêu chí là bắt buộc'
-        } else if (!/^\d{1,2}$/.test(formData.code)) {
-            newErrors.code = 'Mã phải là 1-2 chữ số'
-        }
-
         if (!formData.standardId) {
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
+        }
+
+        if (!formData.code.trim()) {
+            newErrors.code = 'Mã tiêu chí là bắt buộc'
+        } else if (!/^\d{1,2}\.\d{1,2}$/.test(formData.code)) {
+            newErrors.code = 'Mã phải có định dạng x.y (VD: 1.01, 1.1, 10.25)'
+        } else if (selectedStandard) {
+            // Kiểm tra phần x phải khớp với mã tiêu chuẩn
+            const standardCode = selectedStandard.code.toString().padStart(2, '0')
+            const codePrefix = formData.code.split('.')[0].padStart(2, '0')
+
+            if (standardCode !== codePrefix) {
+                newErrors.code = `Mã tiêu chí phải bắt đầu bằng ${standardCode}. (tiêu chuẩn đã chọn)`
+            }
         }
 
         setErrors(newErrors)
@@ -103,16 +147,11 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         try {
             setLoading(true)
 
-            const submitData = {
-                ...formData,
-                code: formData.code.padStart(2, '0')
-            }
-
             if (criteria) {
-                await apiMethods.criteria.update(criteria._id, submitData)
+                await apiMethods.criteria.update(criteria._id, formData)
                 toast.success('Cập nhật tiêu chí thành công')
             } else {
-                await apiMethods.criteria.create(submitData)
+                await apiMethods.criteria.create(formData)
                 toast.success('Tạo tiêu chí thành công')
             }
 
@@ -122,6 +161,11 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         } finally {
             setLoading(false)
         }
+    }
+
+    const getStandardCodePrefix = () => {
+        if (!selectedStandard) return ''
+        return selectedStandard.code.toString().padStart(2, '0')
     }
 
     return (
@@ -137,40 +181,71 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Mã tiêu chí <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="code"
-                                value={formData.code}
-                                onChange={handleChange}
-                                disabled={!!criteria}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.code ? 'border-red-500' : 'border-gray-300'
-                                } ${criteria ? 'bg-gray-100' : ''}`}
-                                placeholder="VD: 1, 01"
-                            />
-                            {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
-                        </div>
+                    {/* Tiêu chuẩn */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Tiêu chuẩn <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            name="standardId"
+                            value={formData.standardId}
+                            onChange={handleStandardChange}
+                            disabled={!!criteria}
+                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                errors.standardId ? 'border-red-500' : 'border-gray-300'
+                            } ${criteria ? 'bg-gray-100' : ''}`}
+                        >
+                            <option value="">Chọn tiêu chuẩn</option>
+                            {standards.map(s => (
+                                <option key={s._id} value={s._id}>
+                                    {s.code} - {s.name}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Thứ tự
-                            </label>
-                            <input
-                                type="number"
-                                name="order"
-                                value={formData.order}
-                                onChange={handleChange}
-                                min="1"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            />
+                    {/* Mã tiêu chí với prefix */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Mã tiêu chí <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                                <div className="flex items-center">
+                                    {selectedStandard && (
+                                        <div className="flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-l-lg border-r-0">
+                                            <span className="text-blue-700 font-semibold text-sm">
+                                                {getStandardCodePrefix()}.
+                                            </span>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="text"
+                                        name="code"
+                                        value={formData.code}
+                                        onChange={handleCodeChange}
+                                        disabled={!!criteria || !selectedStandard}
+                                        className={`flex-1 px-4 py-2 border focus:ring-2 focus:ring-blue-500 ${
+                                            selectedStandard ? 'rounded-r-lg' : 'rounded-lg'
+                                        } ${errors.code ? 'border-red-500' : 'border-gray-300'} ${
+                                            criteria || !selectedStandard ? 'bg-gray-100' : ''
+                                        }`}
+                                        placeholder={selectedStandard ? "VD: 1.01 hoặc 1.1" : "Chọn tiêu chuẩn trước"}
+                                    />
+                                </div>
+                                {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
+                            </div>
+                            <div className="pt-2">
+                                <div className="flex items-start gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1.5 rounded border border-gray-200">
+                                    <Info size={14} className="mt-0.5 flex-shrink-0" />
+                                    <span>Format: x.y (VD: 1.01, 10.5)</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
+                    {/* Tên tiêu chí */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Tên tiêu chí <span className="text-red-500">*</span>
@@ -188,6 +263,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
 
+                    {/* Mô tả */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Mô tả
@@ -202,48 +278,25 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tiêu chuẩn <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="standardId"
-                                value={formData.standardId}
-                                onChange={handleChange}
-                                disabled={!!criteria}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.standardId ? 'border-red-500' : 'border-gray-300'
-                                } ${criteria ? 'bg-gray-100' : ''}`}
-                            >
-                                <option value="">Chọn tiêu chuẩn</option>
-                                {standards.map(s => (
-                                    <option key={s._id} value={s._id}>
-                                        {s.code} - {s.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Trạng thái
-                            </label>
-                            <select
-                                name="status"
-                                value={formData.status}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="draft">Nháp</option>
-                                <option value="active">Hoạt động</option>
-                                <option value="inactive">Không hoạt động</option>
-                                <option value="archived">Lưu trữ</option>
-                            </select>
-                        </div>
+                    {/* Trạng thái */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Trạng thái
+                        </label>
+                        <select
+                            name="status"
+                            value={formData.status}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="draft">Nháp</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                            <option value="archived">Lưu trữ</option>
+                        </select>
                     </div>
 
+                    {/* Yêu cầu */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Yêu cầu
@@ -258,6 +311,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         />
                     </div>
 
+                    {/* Hướng dẫn */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Hướng dẫn đánh giá
