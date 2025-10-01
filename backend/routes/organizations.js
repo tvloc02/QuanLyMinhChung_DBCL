@@ -77,7 +77,6 @@ router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('type').optional().isIn(['government', 'education', 'professional', 'international', 'other']),
     query('status').optional().isIn(['active', 'inactive', 'suspended']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
