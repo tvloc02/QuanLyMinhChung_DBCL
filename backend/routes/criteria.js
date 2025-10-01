@@ -24,10 +24,13 @@ const createCriteriaValidation = [
         .isLength({ max: 500 })
         .withMessage('Tên tiêu chí không được quá 500 ký tự'),
     body('code')
-        .notEmpty()
-        .withMessage('Mã tiêu chí là bắt buộc')
-        .matches(/^\d{1,2}\.\d{1,2}$/)
-        .withMessage('Mã tiêu chí phải có định dạng x.y (VD: 1.01, 1.1)'),
+        .optional()
+        .matches(/^\d{1,2}$/)
+        .withMessage('Mã tiêu chí phải là số từ 1-99'),
+    body('autoGenerateCode')
+        .optional()
+        .isBoolean()
+        .withMessage('autoGenerateCode phải là boolean'),
     body('description')
         .optional()
         .isLength({ max: 3000 })
