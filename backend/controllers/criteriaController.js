@@ -17,7 +17,7 @@ const getCriteria = async (req, res) => {
             organizationId,
             status,
             type,
-            sortBy = 'order',
+            sortBy = 'code',
             sortOrder = 'asc'
         } = req.query;
 
@@ -101,7 +101,7 @@ const getCriteriaByStandard = async (req, res) => {
             status: 'active'
         })
             .populate('standardId', 'name code')
-            .sort({ order: 1, code: 1 });
+            .sort({ code: 1 });
 
         res.json({
             success: true,
@@ -158,7 +158,6 @@ const createCriteria = async (req, res) => {
             code,
             description,
             standardId,
-            order,
             type,
             requirements,
             guidelines,
@@ -177,10 +176,19 @@ const createCriteria = async (req, res) => {
             });
         }
 
+        // Validate mã tiêu chí phải bắt đầu bằng mã tiêu chuẩn
+        const standardCode = standard.code.toString().padStart(2, '0');
+        if (!code.startsWith(standardCode + '.')) {
+            return res.status(400).json({
+                success: false,
+                message: `Mã tiêu chí phải bắt đầu bằng ${standardCode}.`
+            });
+        }
+
         const existingCriteria = await Criteria.findOne({
             academicYearId,
             standardId,
-            code: code.toString().padStart(2, '0')
+            code: code
         });
 
         if (existingCriteria) {
@@ -193,12 +201,11 @@ const createCriteria = async (req, res) => {
         const criteria = new Criteria({
             academicYearId,
             name: name.trim(),
-            code: code.toString().padStart(2, '0'),
+            code: code,
             description: description?.trim(),
             standardId,
             programId: standard.programId._id,
             organizationId: standard.organizationId._id,
-            order: order || 1,
             type: type || 'mandatory',
             requirements: requirements?.trim(),
             guidelines: guidelines?.trim(),
@@ -238,7 +245,9 @@ const updateCriteria = async (req, res) => {
         const updateData = req.body;
         const academicYearId = req.academicYearId;
 
-        const criteria = await Criteria.findOne({ _id: id, academicYearId });
+        const criteria = await Criteria.findOne({ _id: id, academicYearId })
+            .populate('standardId', 'code');
+
         if (!criteria) {
             return res.status(404).json({
                 success: false,
@@ -247,10 +256,19 @@ const updateCriteria = async (req, res) => {
         }
 
         if (updateData.code && updateData.code !== criteria.code) {
+            // Validate mã tiêu chí phải bắt đầu bằng mã tiêu chuẩn
+            const standardCode = criteria.standardId.code.toString().padStart(2, '0');
+            if (!updateData.code.startsWith(standardCode + '.')) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Mã tiêu chí phải bắt đầu bằng ${standardCode}.`
+                });
+            }
+
             const existingCriteria = await Criteria.findOne({
                 academicYearId,
                 standardId: criteria.standardId,
-                code: updateData.code.toString().padStart(2, '0'),
+                code: updateData.code,
                 _id: { $ne: id }
             });
             if (existingCriteria) {
@@ -270,7 +288,7 @@ const updateCriteria = async (req, res) => {
         }
 
         const allowedFields = [
-            'name', 'description', 'order', 'type',
+            'name', 'description', 'type',
             'requirements', 'guidelines', 'indicators', 'status'
         ];
 
@@ -281,7 +299,7 @@ const updateCriteria = async (req, res) => {
         });
 
         if (updateData.code) {
-            criteria.code = updateData.code.toString().padStart(2, '0');
+            criteria.code = updateData.code;
         }
 
         criteria.updatedBy = req.user.id;
