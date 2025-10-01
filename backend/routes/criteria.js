@@ -45,14 +45,6 @@ const createCriteriaValidation = [
         .optional()
         .isInt({ min: 1 })
         .withMessage('Thứ tự phải lớn hơn 0'),
-    body('weight')
-        .optional()
-        .isFloat({ min: 0, max: 100 })
-        .withMessage('Trọng số phải từ 0-100'),
-    body('type')
-        .optional()
-        .isIn(['mandatory', 'optional', 'conditional'])
-        .withMessage('Loại tiêu chí không hợp lệ'),
     body('requirements')
         .optional()
         .isLength({ max: 2000 })
@@ -102,7 +94,6 @@ router.get('/', [
     query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
     query('status').optional().isIn(['draft', 'active', 'inactive', 'archived']),
-    query('type').optional().isIn(['mandatory', 'optional', 'conditional']),
     query('sortBy').optional().isIn(['order', 'code', 'name', 'createdAt', 'updatedAt']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getCriteria);
