@@ -165,6 +165,7 @@ export const apiMethods = {
         search: (params) => api.get('/api/evidences/search', { params }),
         getTree: (programId, organizationId) =>
             api.get(`/api/evidences/tree/${programId}/${organizationId}`),
+        getStatistics: () => api.get('/api/evidences/statistics'),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
         copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
@@ -200,15 +201,15 @@ export const apiMethods = {
             const formData = new FormData()
             formData.append('file', file)
             formData.append('evidenceId', evidenceId)
-            return api.post('/files/upload', formData, {
+            return api.post('/api/files/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
         },
-        getById: (id) => api.get(`/files/${id}`),
-        download: (id) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
-        delete: (id) => api.delete(`/files/${id}`),
-        getByEvidence: (evidenceId) => api.get(`/files/evidence/${evidenceId}`)
+        getById: (id) => api.get(`/api/files/${id}`),
+        download: (id) => api.get(`/api/files/${id}/download`, { responseType: 'blob' }),
+        delete: (id) => api.delete(`/api/files/${id}`),
+        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`)
     },
 
     // Reports

@@ -14,11 +14,9 @@ import {
     Clock,
     AlertCircle,
     XCircle,
-    TrendingUp,
-    BarChart3,
-    BookOpen,
     FolderTree,
-    RefreshCw
+    RefreshCw,
+    BookOpen
 } from 'lucide-react'
 
 export default function EvidencePage() {
@@ -26,7 +24,13 @@ export default function EvidencePage() {
     const router = useRouter()
 
     const [loading, setLoading] = useState(true)
-    const [statistics, setStatistics] = useState(null)
+    const [statistics, setStatistics] = useState({
+        totalEvidences: 0,
+        activeEvidences: 0,
+        inactiveEvidences: 0,
+        totalFiles: 0,
+        academicYear: null
+    })
     const [recentEvidences, setRecentEvidences] = useState([])
 
     useEffect(() => {
@@ -50,18 +54,40 @@ export default function EvidencePage() {
             setLoading(true)
 
             // Fetch statistics
-            const statsResponse = await apiMethods.evidences.getStatistics()
+            try {
+                const statsResponse = await apiMethods.evidences.getStatistics()
+                const stats = statsResponse.data?.data || statsResponse.data || {}
+                setStatistics({
+                    totalEvidences: stats.totalEvidences || 0,
+                    activeEvidences: stats.activeEvidences || 0,
+                    inactiveEvidences: stats.inactiveEvidences || 0,
+                    totalFiles: stats.totalFiles || 0,
+                    academicYear: stats.academicYear || null
+                })
+            } catch (statError) {
+                console.error('Statistics error:', statError)
+                // Không hiển thị toast error cho statistics, chỉ log
+            }
 
             // Fetch recent evidences
-            const evidencesResponse = await apiMethods.evidences.getAll({
-                page: 1,
-                limit: 5,
-                sortBy: 'createdAt',
-                sortOrder: 'desc'
-            })
+            try {
+                const evidencesResponse = await apiMethods.evidences.getAll({
+                    page: 1,
+                    limit: 5,
+                    sortBy: 'createdAt',
+                    sortOrder: 'desc'
+                })
 
-            setStatistics(statsResponse.data.data)
-            setRecentEvidences(evidencesResponse.data.data.evidences || [])
+                const evidences = evidencesResponse.data?.data?.evidences ||
+                    evidencesResponse.data?.evidences ||
+                    evidencesResponse.data?.data ||
+                    []
+                setRecentEvidences(Array.isArray(evidences) ? evidences : [])
+            } catch (evidenceError) {
+                console.error('Evidences error:', evidenceError)
+                setRecentEvidences([])
+            }
+
         } catch (error) {
             console.error('Fetch data error:', error)
             toast.error('Lỗi khi tải dữ liệu tổng quan')
@@ -192,7 +218,7 @@ export default function EvidencePage() {
                                 description="Tạo minh chứng mới"
                                 icon={Plus}
                                 color="bg-blue-500"
-                                onClick={() => router.push('/evidence-management?action=create')}
+                                onClick={() => router.push('/evidence/create')}
                             />
                             <QuickAction
                                 title="Quản lý minh chứng"
@@ -221,28 +247,28 @@ export default function EvidencePage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard
                                 title="Tổng minh chứng"
-                                value={statistics?.totalEvidences || 0}
+                                value={statistics.totalEvidences}
                                 icon={FileText}
                                 color="bg-blue-500"
                                 onClick={() => router.push('/evidence-management')}
                             />
                             <StatCard
                                 title="Đang hoạt động"
-                                value={statistics?.activeEvidences || 0}
+                                value={statistics.activeEvidences}
                                 icon={CheckCircle}
                                 color="bg-green-500"
                                 onClick={() => router.push('/evidence-management?status=active')}
                             />
                             <StatCard
                                 title="Ngừng hoạt động"
-                                value={statistics?.inactiveEvidences || 0}
+                                value={statistics.inactiveEvidences}
                                 icon={XCircle}
                                 color="bg-red-500"
                                 onClick={() => router.push('/evidence-management?status=inactive')}
                             />
                             <StatCard
                                 title="Tổng files"
-                                value={statistics?.totalFiles || 0}
+                                value={statistics.totalFiles}
                                 icon={FileText}
                                 color="bg-purple-500"
                             />
@@ -293,9 +319,11 @@ export default function EvidencePage() {
                                                             <span>•</span>
                                                             <span>{formatDate(evidence.createdAt)}</span>
                                                         </div>
-                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-1">
-                                                            {evidence.standardId?.name} - {evidence.criteriaId?.name}
-                                                        </p>
+                                                        {(evidence.standardId?.name || evidence.criteriaId?.name) && (
+                                                            <p className="text-xs text-gray-600 mt-1 line-clamp-1">
+                                                                {evidence.standardId?.name} {evidence.criteriaId?.name ? `- ${evidence.criteriaId.name}` : ''}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center space-x-3">
@@ -320,7 +348,7 @@ export default function EvidencePage() {
                         </div>
 
                         {/* Academic Year Info */}
-                        {statistics?.academicYear && (
+                        {statistics.academicYear && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <div className="flex items-center space-x-2">
                                     <BookOpen className="h-5 w-5 text-blue-600" />
