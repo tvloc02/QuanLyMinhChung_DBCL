@@ -15,6 +15,15 @@ const auth = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.userId)
+            .populate({
+                path: 'userGroups',
+                match: { status: 'active' },
+                populate: {
+                    path: 'permissions',
+                    match: { status: 'active' }
+                }
+            })
+            .populate('individualPermissions.permission')
             .populate('standardAccess', 'name code')
             .populate('criteriaAccess', 'name code')
             .select('-password -resetPasswordToken -resetPasswordExpires');
@@ -60,6 +69,134 @@ const auth = async (req, res, next) => {
     }
 };
 
+
+// Kiểm tra quyền cụ thể
+const requirePermission = (permissionCode) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Chưa xác thực'
+                });
+            }
+
+            const hasPermission = await req.user.hasPermission(permissionCode);
+
+            if (!hasPermission) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Không có quyền: ${permissionCode}`,
+                    requiredPermission: permissionCode
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Permission check error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi khi kiểm tra quyền'
+            });
+        }
+    };
+};
+
+const requireAllPermissions = (permissionCodes) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Chưa xác thực'
+                });
+            }
+
+            const hasAll = await req.user.hasAllPermissions(permissionCodes);
+
+            if (!hasAll) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không đủ quyền truy cập',
+                    requiredPermissions: permissionCodes
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Permission check error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi khi kiểm tra quyền'
+            });
+        }
+    };
+};
+
+const requireAnyPermission = (permissionCodes) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Chưa xác thực'
+                });
+            }
+
+            const hasAny = await req.user.hasAnyPermission(permissionCodes);
+
+            if (!hasAny) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không có quyền truy cập',
+                    requiredAnyOf: permissionCodes
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Permission check error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi khi kiểm tra quyền'
+            });
+        }
+    };
+};
+
+const requireModulePermission = (module, action = null) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Chưa xác thực'
+                });
+            }
+
+            const hasPermission = await req.user.hasModulePermission(module, action);
+
+            if (!hasPermission) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Không có quyền truy cập module: ${module}${action ? '.' + action : ''}`,
+                    requiredModule: module,
+                    requiredAction: action
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Module permission check error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi khi kiểm tra quyền module'
+            });
+        }
+    };
+};
+
+
 const requireAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({
@@ -79,6 +216,7 @@ const requireManager = (req, res, next) => {
     }
     next();
 };
+
 
 const checkStandardAccess = (standardId) => {
     return (req, res, next) => {
@@ -114,10 +252,27 @@ const checkCriteriaAccess = (criteriaId) => {
     };
 };
 
+const attachPermissions = async (req, res, next) => {
+    try {
+        if (req.user) {
+            req.userPermissions = await req.user.getAllPermissions();
+        }
+        next();
+    } catch (error) {
+        console.error('Attach permissions error:', error);
+        next();
+    }
+};
+
 module.exports = {
     auth,
+    requirePermission,
+    requireAllPermissions,
+    requireAnyPermission,
+    requireModulePermission,
     requireAdmin,
     requireManager,
     checkStandardAccess,
-    checkCriteriaAccess
+    checkCriteriaAccess,
+    attachPermissions
 };
