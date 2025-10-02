@@ -56,7 +56,7 @@ export default function PermissionsManagement() {
     const fetchPermissions = async () => {
         try {
             setLoading(true)
-            const response = await api.get('/permissions/by-module')
+            const response = await api.get('/api/permissions/by-module')
             if (response.data.success) {
                 setPermissions(response.data.data)
             }
