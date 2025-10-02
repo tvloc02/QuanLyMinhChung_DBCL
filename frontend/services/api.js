@@ -103,7 +103,14 @@ export const apiMethods = {
             return api.post('/users/bulk-import', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
-        }
+        },
+        // User permissions management
+        getPermissions: (id) => api.get(`/users/${id}/permissions`),
+        addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
+        removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
+        grantPermission: (id, permissionId) => api.post(`/users/${id}/permissions/grant`, { permissionId }),
+        denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
+        removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
     },
 
     // Programs
