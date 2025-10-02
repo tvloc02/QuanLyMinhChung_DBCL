@@ -357,7 +357,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     }, [])
 
     return (
-        <header className="bg-white shadow-sm border-b relative z-50" style={{ borderColor: '#E2E8F0' }}>
+        <header className="bg-white shadow-sm border-b sticky top-0 z-50" style={{ borderColor: '#E2E8F0' }}>
             <div className="flex items-center justify-between px-6 py-4">
                 {/* Left side */}
                 <div className="flex items-center space-x-4">
@@ -374,7 +374,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                             <span className="text-white font-bold text-base">TĐG</span>
                         </div>
                         <div className="hidden sm:block">
-                            <h1 className="text-lg font-bold" style={{ color: '#1E293B' }}>CMC University</h1>
+                            <h1 className="text-lg font-bold" style={{ color: '#0F172A' }}>CMC University</h1>
                             <p className="text-sm" style={{ color: '#64748B' }}>Hệ thống đánh giá chất lượng</p>
                         </div>
                     </div>
@@ -427,7 +427,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                             )}
 
                             <div className="hidden lg:block text-left min-w-0">
-                                <p className="text-sm font-semibold truncate" style={{ color: '#1E293B' }}>
+                                <p className="text-sm font-semibold truncate" style={{ color: '#0F172A' }}>
                                     {loading ? 'Đang tải...' : currentAcademicYear?.name || 'Chọn năm học'}
                                 </p>
                                 {currentAcademicYear && !loading && (
@@ -456,7 +456,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 }}>
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold" style={{ color: '#1E293B' }}>Chọn năm học</p>
+                                            <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Chọn năm học</p>
                                             <p className="text-xs" style={{ color: '#64748B' }}>Dữ liệu sẽ được cập nhật theo năm học đã chọn</p>
                                         </div>
                                         <a
@@ -518,7 +518,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center space-x-2 mb-1">
-                                                            <p className="text-sm font-semibold truncate" style={{ color: '#1E293B' }}>
+                                                            <p className="text-sm font-semibold truncate" style={{ color: '#0F172A' }}>
                                                                 {year.name}
                                                             </p>
                                                             {currentAcademicYear?._id === year._id && (
@@ -594,7 +594,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 }}>
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold" style={{ color: '#1E293B' }}>Thông báo</p>
+                                            <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Thông báo</p>
                                             {unreadCount > 0 && (
                                                 <p className="text-xs" style={{ color: '#64748B' }}>{unreadCount} thông báo chưa đọc</p>
                                             )}
@@ -651,7 +651,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                         <div className="flex items-start justify-between mb-1">
                                                             <p className={`text-sm font-semibold ${
                                                                 notification.isUnread ? 'text-gray-900' : 'text-gray-700'
-                                                            }`} style={notification.isUnread ? { color: '#1E293B' } : { color: '#64748B' }}>
+                                                            }`} style={notification.isUnread ? { color: '#0F172A' } : { color: '#475569' }}>
                                                                 {notification.title}
                                                             </p>
                                                             {notification.isUnread && (
@@ -721,7 +721,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 </span>
                             </div>
                             <div className="hidden sm:block text-left">
-                                <p className="text-sm font-semibold" style={{ color: '#1E293B' }}>
+                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>
                                     {user?.fullName || user?.name || user?.email || 'User'}
                                 </p>
                                 <p className="text-xs" style={{ color: '#64748B' }}>
@@ -741,12 +741,12 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                      boxShadow: '0 10px 40px rgba(15, 23, 42, 0.1)'
                                  }}>
                                 <a href="/profile" className="flex items-center px-4 py-3 text-sm hover:bg-gray-50 transition-colors rounded-lg mx-2"
-                                   style={{ color: '#1E293B' }}>
+                                   style={{ color: '#0F172A' }}>
                                     <User className="h-4 w-4 mr-3" style={{ color: '#64748B' }} />
                                     Thông tin tài khoản
                                 </a>
                                 <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-gray-50 transition-colors rounded-lg mx-2"
-                                   style={{ color: '#1E293B' }}>
+                                   style={{ color: '#0F172A' }}>
                                     <Settings className="h-4 w-4 mr-3" style={{ color: '#64748B' }} />
                                     Cài đặt
                                 </a>
@@ -782,7 +782,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                             ) : (
                                 <Calendar className="h-4 w-4" style={{ color: '#5B52E1' }} />
                             )}
-                            <span className="text-sm font-semibold" style={{ color: '#1E293B' }}>
+                            <span className="text-sm font-semibold" style={{ color: '#0F172A' }}>
                                 {loading ? 'Đang tải...' : currentAcademicYear?.name || 'Chọn năm học'}
                             </span>
                         </div>
@@ -801,7 +801,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 borderColor: '#E2E8F0',
                                 background: '#F8FAFC'
                             }}>
-                                <p className="text-sm font-semibold" style={{ color: '#1E293B' }}>Chọn năm học</p>
+                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Chọn năm học</p>
                             </div>
 
                             <div className="max-h-48 overflow-y-auto">
@@ -828,7 +828,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             >
                                                 <div>
                                                     <div className="flex items-center space-x-2">
-                                                        <p className="text-sm font-semibold" style={{ color: '#1E293B' }}>
+                                                        <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>
                                                             {year.name}
                                                         </p>
                                                         {currentAcademicYear?._id === year._id && (
