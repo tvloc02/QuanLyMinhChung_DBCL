@@ -96,7 +96,7 @@ export const apiMethods = {
         delete: (id) => api.delete(`/users/${id}`),
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
-        getStats: () => api.get('/users/stats'),
+        getStats: () => api.get('/users/statistics'),
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
@@ -112,6 +112,7 @@ export const apiMethods = {
         denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
         removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
     },
+
 
     // Programs
     programs: {
@@ -301,6 +302,7 @@ export const apiMethods = {
         getHealth: () => api.get('/system/health')
     },
 
+    // Permissions
     permissions: {
         getAll: (params) => api.get('/permissions', { params }),
         getByModule: () => api.get('/permissions/by-module'),
@@ -311,19 +313,20 @@ export const apiMethods = {
         seed: () => api.post('/permissions/seed')
     },
 
+    // User Groups - FIXED: Removed /api prefix
     userGroups: {
-        getAll: (params) => api.get('/api/user-groups', { params }),
-        getById: (id) => api.get(`/api/user-groups/${id}`),
-        create: (data) => api.post('/api/user-groups', data),
-        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
-        delete: (id) => api.delete(`/api/user-groups/${id}`),
-        seed: () => api.post('/api/user-groups/seed'),
+        getAll: (params) => api.get('/user-groups', { params }),
+        getById: (id) => api.get(`/user-groups/${id}`),
+        create: (data) => api.post('/user-groups', data),
+        update: (id, data) => api.put(`/user-groups/${id}`, data),
+        delete: (id) => api.delete(`/user-groups/${id}`),
+        seed: () => api.post('/user-groups/seed'),
 
-        addPermissions: (id, permissionIds) => api.post(`/api/user-groups/${id}/permissions`, { permissionIds }),
-        removePermissions: (id, permissionIds) => api.delete(`/api/user-groups/${id}/permissions`, { data: { permissionIds } }),
+        addPermissions: (id, permissionIds) => api.post(`/user-groups/${id}/permissions`, { permissionIds }),
+        removePermissions: (id, permissionIds) => api.delete(`/user-groups/${id}/permissions`, { data: { permissionIds } }),
 
-        addMembers: (id, userIds) => api.post(`/api/user-groups/${id}/members`, { userIds }),
-        removeMembers: (id, userIds) => api.delete(`/api/user-groups/${id}/members`, { data: { userIds } })
+        addMembers: (id, userIds) => api.post(`/user-groups/${id}/members`, { userIds }),
+        removeMembers: (id, userIds) => api.delete(`/user-groups/${id}/members`, { data: { userIds } })
     },
 }
 

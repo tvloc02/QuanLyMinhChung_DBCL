@@ -46,7 +46,7 @@ router.post('/user-groups',
     userGroupController.createUserGroup
 );
 
-router.put('/:id',
+router.put('/user-groups/:id',
     auth,
     requirePermission('USERS.MANAGE'),
     [
@@ -60,7 +60,7 @@ router.put('/:id',
     userGroupController.updateUserGroup
 );
 
-router.delete('/:id',
+router.delete('/user-groups/:id',
     auth,
     requirePermission('USERS.MANAGE'),
     [param('id').isMongoId()],
@@ -68,7 +68,7 @@ router.delete('/:id',
     userGroupController.deleteUserGroup
 );
 
-router.post('/:id/permissions',
+router.post('/user-groups/:id/permissions',
     auth,
     requirePermission('USERS.MANAGE'),
     [
@@ -79,7 +79,7 @@ router.post('/:id/permissions',
     userGroupController.addPermissionsToGroup
 );
 
-router.delete('/:id/permissions',
+router.delete('/user-groups/:id/permissions',
     auth,
     requirePermission('USERS.MANAGE'),
     [
@@ -90,7 +90,7 @@ router.delete('/:id/permissions',
     userGroupController.removePermissionsFromGroup
 );
 
-router.post('/:id/members',
+router.post('/user-groups/:id/members',
     auth,
     requirePermission('USERS.MANAGE'),
     [
@@ -101,7 +101,7 @@ router.post('/:id/members',
     userGroupController.addMembersToGroup
 );
 
-router.delete('/:id/members',
+router.delete('/user-groups/:id/members',
     auth,
     requirePermission('USERS.MANAGE'),
     [
