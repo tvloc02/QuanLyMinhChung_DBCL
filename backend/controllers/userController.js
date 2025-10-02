@@ -267,49 +267,6 @@ const denyUserPermission = async (req, res) => {
     }
 };
 
-const removeUserPermission = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { permissionId } = req.body;
-
-        if (!permissionId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Quyền không hợp lệ'
-            });
-        }
-
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        await user.removeIndividualPermission(permissionId);
-
-        await ActivityLog.logUserAction(req.user.id, 'user_permission_remove',
-            `Xóa quyền cá nhân của ${user.fullName}`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName
-            });
-
-        res.json({
-            success: true,
-            message: 'Xóa quyền cá nhân thành công'
-        });
-
-    } catch (error) {
-        console.error('Remove user permission error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xóa quyền cá nhân'
-        });
-    }
-};
-
 const getUsers = async (req, res) => {
     try {
         const {
@@ -507,9 +464,64 @@ const createUser = async (req, res) => {
     }
 };
 
+const removeUserPermission = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { permissionId } = req.body;
+
+        if (!permissionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Quyền không hợp lệ'
+            });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
+        user.individualPermissions = user.individualPermissions.filter(
+            ip => ip.permission.toString() !== permissionId.toString()
+        );
+
+        await user.save();
+
+        await ActivityLog.logUserAction(req.user.id, 'user_permission_remove',
+            `Xóa quyền cá nhân của ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName
+            });
+
+        res.json({
+            success: true,
+            message: 'Xóa quyền cá nhân thành công'
+        });
+
+    } catch (error) {
+        console.error('Remove user permission error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_permission_remove', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa quyền cá nhân'
+        });
+    }
+};
+
 module.exports = {
     getUsers,
     createUser,
+    getUserById,
+    updateUser,
+    deleteUser,
+    resetUserPassword,
+    updateUserStatus,
+    updateUserPermissions,
+    getUserStatistics,
     getUserPermissions,
     addUserToGroups,
     removeUserFromGroups,
