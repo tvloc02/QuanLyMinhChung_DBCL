@@ -16,19 +16,20 @@ export default function Breadcrumb({ items = [] }) {
                 {breadcrumbItems.map((item, index) => (
                     <li key={index} className="flex items-center">
                         {index > 0 && (
-                            <ChevronRight className="flex-shrink-0 h-4 w-4 text-gray-400 mx-2" />
+                            <ChevronRight className="flex-shrink-0 h-4 w-4 mx-2" style={{ color: '#94A3B8' }} />
                         )}
                         {index === breadcrumbItems.length - 1 ? (
-                            <span className="flex items-center text-sm font-medium text-gray-500">
-                {item.icon && <item.icon className="flex-shrink-0 h-4 w-4 mr-1" />}
+                            <span className="flex items-center text-sm font-semibold" style={{ color: '#5B52E1' }}>
+                                {item.icon && <item.icon className="flex-shrink-0 h-4 w-4 mr-1.5" />}
                                 {item.name}
-              </span>
+                            </span>
                         ) : (
                             <button
                                 onClick={() => router.push(item.href)}
-                                className="flex items-center text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                                className="flex items-center text-sm font-medium hover:text-blue-600 transition-colors rounded-lg px-2 py-1 hover:bg-gray-50"
+                                style={{ color: '#64748B' }}
                             >
-                                {item.icon && <item.icon className="flex-shrink-0 h-4 w-4 mr-1" />}
+                                {item.icon && <item.icon className="flex-shrink-0 h-4 w-4 mr-1.5" />}
                                 {item.name}
                             </button>
                         )}
