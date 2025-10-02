@@ -25,7 +25,7 @@ export default function UserGroupsManagement() {
     const fetchGroups = async () => {
         try {
             setLoading(true)
-            const response = await api.get('/user-groups')
+            const response = await api.get('/api/user-groups')
             if (response.data.success) {
                 setGroups(response.data.data.groups)
             }
