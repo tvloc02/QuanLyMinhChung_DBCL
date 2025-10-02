@@ -292,7 +292,32 @@ export const apiMethods = {
         getDashboard: () => api.get('/system/dashboard'),
         backup: () => api.post('/system/backup'),
         getHealth: () => api.get('/system/health')
-    }
+    },
+
+    permissions: {
+        getAll: (params) => api.get('/permissions', { params }),
+        getByModule: () => api.get('/permissions/by-module'),
+        getById: (id) => api.get(`/permissions/${id}`),
+        create: (data) => api.post('/permissions', data),
+        update: (id, data) => api.put(`/permissions/${id}`, data),
+        delete: (id) => api.delete(`/permissions/${id}`),
+        seed: () => api.post('/permissions/seed')
+    },
+
+    userGroups: {
+        getAll: (params) => api.get('/user-groups', { params }),
+        getById: (id) => api.get(`/user-groups/${id}`),
+        create: (data) => api.post('/user-groups', data),
+        update: (id, data) => api.put(`/user-groups/${id}`, data),
+        delete: (id) => api.delete(`/user-groups/${id}`),
+        seed: () => api.post('/user-groups/seed'),
+
+        addPermissions: (id, permissionIds) => api.post(`/user-groups/${id}/permissions`, { permissionIds }),
+        removePermissions: (id, permissionIds) => api.delete(`/user-groups/${id}/permissions`, { data: { permissionIds } }),
+
+        addMembers: (id, userIds) => api.post(`/user-groups/${id}/members`, { userIds }),
+        removeMembers: (id, userIds) => api.delete(`/user-groups/${id}/members`, { data: { userIds } })
+    },
 }
 
 // Utility functions
