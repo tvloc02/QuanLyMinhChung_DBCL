@@ -148,7 +148,9 @@ export default function Sidebar({ open, onClose }) {
                 { name: 'Thêm người dùng', icon: UserPlus, path: '/users/create' },
                 { name: 'Chuyên gia đánh giá', icon: User, path: '/users/experts' },
                 { name: 'Cán bộ quản lý', icon: UserCheck, path: '/users/managers' },
-                { name: 'Phân quyền', icon: Shield, path: '/users/permissions' }
+                { name: 'Phân quyền', icon: Shield, path: '/users/permissions' },
+                { name: 'Nhóm người dùng', icon: Users, path: '/admin/group-users' },
+                { name: 'Phân quyền', icon: Shield, path: '/admin/permissions' }
             ]
         },
 
