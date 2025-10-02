@@ -25,7 +25,7 @@ export default function UserGroupsManagement() {
     const fetchGroups = async () => {
         try {
             setLoading(true)
-            const response = await api.get('/api/user-groups')
+            const response = await api.get('/user-groups')
             if (response.data.success) {
                 setGroups(response.data.data.groups)
             }
@@ -39,7 +39,7 @@ export default function UserGroupsManagement() {
 
     const fetchPermissions = async () => {
         try {
-            const response = await api.get('/api/permissions/by-module')
+            const response = await api.get('/permissions/by-module')
             if (response.data.success) {
                 setPermissions(response.data.data)
             }
@@ -50,7 +50,7 @@ export default function UserGroupsManagement() {
 
     const fetchUsers = async () => {
         try {
-            const response = await api.get('/api/users', { params: { limit: 1000 } })
+            const response = await api.get('/users', { params: { limit: 1000 } })
             if (response.data.success) {
                 setAllUsers(response.data.data.users)
             }

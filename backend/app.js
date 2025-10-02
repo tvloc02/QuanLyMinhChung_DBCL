@@ -43,6 +43,11 @@ const assignmentRoutes = require('./routes/assignments');
 const reportRoutes = require('./routes/reports');
 const evaluationRoutes = require('./routes/evaluations');
 const notificationRoutes = require('./routes/notifications');
+const userGroupRoutes = require('./routes/userGroup');
+const PermissionRoutes = require('./models/Permission');
+
+app.use('/api/user-groups', userGroupRoutes);
+app.use('/api/permissions', auth, PermissionRoutes);
 
 // Routes without academic year context
 app.use('/api/auth', authRoutes);
