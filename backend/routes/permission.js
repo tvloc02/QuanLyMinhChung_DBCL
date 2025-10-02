@@ -82,3 +82,5 @@ router.delete('/permissions/:id',
     validation,
     permissionController.deletePermission
 );
+
+module.exports = router;
