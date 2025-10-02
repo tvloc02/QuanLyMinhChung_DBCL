@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { debounce } from '../../utils/debounce'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import {
@@ -9,7 +8,8 @@ import {
     Save,
     AlertCircle,
     CheckCircle,
-    Info
+    Info,
+    Sparkles
 } from 'lucide-react'
 
 const CreateAcademicYearPage = () => {
@@ -161,8 +161,8 @@ const CreateAcademicYearPage = () => {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+                <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
         )
     }
@@ -172,57 +172,70 @@ const CreateAcademicYearPage = () => {
     }
 
     return (
-        <Layout
-            title=""
-            breadcrumbItems={breadcrumbItems}
-        >
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Tạo năm học mới</h1>
-                        <p className="text-gray-600">Thiết lập thông tin cho năm học mới</p>
+                {/* Header với gradient và icon */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                                <Sparkles className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold mb-1">Tạo năm học mới</h1>
+                                <p className="text-indigo-100">Thiết lập thông tin cho năm học mới</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => router.push('/academic-years')}
+                            className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Quay lại</span>
+                        </button>
                     </div>
-                    <button
-                        onClick={() => router.push('/academic-years')}
-                        className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span>Quay lại</span>
-                    </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Success Message */}
                     {success && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
                             <div className="flex items-center">
-                                <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
-                                <div>
-                                    <h3 className="text-green-800 font-medium">Tạo năm học thành công!</h3>
-                                    <p className="text-green-700 text-sm">Đang chuyển hướng về danh sách năm học...</p>
+                                <div className="flex-shrink-0">
+                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                        <CheckCircle className="w-6 h-6 text-green-600" />
+                                    </div>
+                                </div>
+                                <div className="ml-3">
+                                    <h3 className="text-green-800 font-semibold">Tạo năm học thành công!</h3>
+                                    <p className="text-green-700 text-sm mt-1">Đang chuyển hướng về danh sách năm học...</p>
                                 </div>
                             </div>
                         </div>
                     )}
 
+                    {/* Error Message */}
                     {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
                             <div className="flex items-center">
-                                <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
-                                <div>
-                                    <h3 className="text-red-800 font-medium">Có lỗi xảy ra</h3>
-                                    <p className="text-red-700 text-sm">{error}</p>
+                                <div className="flex-shrink-0">
+                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                        <AlertCircle className="w-6 h-6 text-red-600" />
+                                    </div>
+                                </div>
+                                <div className="ml-3">
+                                    <h3 className="text-red-800 font-semibold">Có lỗi xảy ra</h3>
+                                    <p className="text-red-700 text-sm mt-1">{error}</p>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h2>
+                    {/* Thông tin cơ bản */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Thông tin cơ bản</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Start Year */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Năm bắt đầu <span className="text-red-500">*</span>
@@ -234,13 +247,16 @@ const CreateAcademicYearPage = () => {
                                     onChange={handleChange}
                                     min="2020"
                                     max="2050"
-                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.startYear ? 'border-red-300' : 'border-gray-300'
+                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.startYear ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
                                     placeholder="2024"
                                 />
                                 {errors.startYear && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.startYear}</p>
+                                    <p className="text-red-600 text-sm mt-1 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.startYear}
+                                    </p>
                                 )}
                             </div>
 
@@ -255,13 +271,16 @@ const CreateAcademicYearPage = () => {
                                     onChange={handleChange}
                                     min="2021"
                                     max="2051"
-                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.endYear ? 'border-red-300' : 'border-gray-300'
+                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.endYear ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
                                     placeholder="2025"
                                 />
                                 {errors.endYear && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.endYear}</p>
+                                    <p className="text-red-600 text-sm mt-1 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.endYear}
+                                    </p>
                                 )}
                             </div>
 
@@ -275,19 +294,20 @@ const CreateAcademicYearPage = () => {
                                     value={formData.name}
                                     onChange={handleChange}
                                     maxLength="100"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                     placeholder="Tên sẽ được tạo tự động từ năm bắt đầu và kết thúc"
                                 />
-                                <p className="text-gray-500 text-sm mt-1">
+                                <p className="text-gray-500 text-sm mt-2 flex items-center">
+                                    <Info className="w-4 h-4 mr-1" />
                                     Để trống để tự động tạo tên từ năm bắt đầu và kết thúc
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Duration */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Thời gian</h2>
+                    {/* Thời gian */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Thời gian</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -299,12 +319,15 @@ const CreateAcademicYearPage = () => {
                                     name="startDate"
                                     value={formData.startDate}
                                     onChange={handleChange}
-                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.startDate ? 'border-red-300' : 'border-gray-300'
+                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.startDate ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
                                 />
                                 {errors.startDate && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>
+                                    <p className="text-red-600 text-sm mt-1 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.startDate}
+                                    </p>
                                 )}
                             </div>
 
@@ -317,19 +340,23 @@ const CreateAcademicYearPage = () => {
                                     name="endDate"
                                     value={formData.endDate}
                                     onChange={handleChange}
-                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.endDate ? 'border-red-300' : 'border-gray-300'
+                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.endDate ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
                                 />
                                 {errors.endDate && (
-                                    <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>
+                                    <p className="text-red-600 text-sm mt-1 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.endDate}
+                                    </p>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Mô tả</h2>
+                    {/* Mô tả */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Mô tả</h2>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -341,14 +368,17 @@ const CreateAcademicYearPage = () => {
                                 onChange={handleChange}
                                 rows="4"
                                 maxLength="500"
-                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                    errors.description ? 'border-red-300' : 'border-gray-300'
+                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.description ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                                 placeholder="Mô tả chi tiết về năm học này..."
                             />
-                            <div className="flex justify-between items-center mt-1">
+                            <div className="flex justify-between items-center mt-2">
                                 {errors.description ? (
-                                    <p className="text-red-600 text-sm">{errors.description}</p>
+                                    <p className="text-red-600 text-sm flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.description}
+                                    </p>
                                 ) : (
                                     <div></div>
                                 )}
@@ -359,113 +389,74 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">Cài đặt</h2>
+                    {/* Cài đặt */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Cài đặt</h2>
 
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {/* Set as Current */}
-                            <div className="flex items-start">
+                            <div className="flex items-start p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
                                 <div className="flex items-center h-5">
                                     <input
                                         type="checkbox"
                                         name="isCurrent"
                                         checked={formData.isCurrent}
                                         onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                        className="w-5 h-5 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500"
                                     />
                                 </div>
                                 <div className="ml-3">
                                     <label className="text-sm font-medium text-gray-900">
                                         Đặt làm năm học hiện tại
                                     </label>
-                                    <p className="text-sm text-gray-500">
+                                    <p className="text-sm text-gray-600 mt-1">
                                         Năm học này sẽ được đặt làm năm học mặc định trong hệ thống
                                     </p>
                                 </div>
                             </div>
 
+                            {/* Copy Settings */}
                             <div>
                                 <h3 className="text-sm font-medium text-gray-900 mb-3">Cài đặt sao chép mặc định</h3>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
                                     <div className="flex items-start">
                                         <Info className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                            <p className="text-blue-800 text-sm">
-                                                Các cài đặt này sẽ được sử dụng mặc định khi sao chép dữ liệu từ năm học khác
-                                            </p>
-                                        </div>
+                                        <p className="text-blue-800 text-sm">
+                                            Các cài đặt này sẽ được sử dụng mặc định khi sao chép dữ liệu từ năm học khác
+                                        </p>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { key: 'programs', label: 'Chương trình đánh giá' },
+                                        { key: 'organizations', label: 'Tổ chức đánh giá' },
+                                        { key: 'standards', label: 'Tiêu chuẩn' },
+                                        { key: 'criteria', label: 'Tiêu chí' },
+                                        { key: 'evidenceTemplates', label: 'Mẫu minh chứng' }
+                                    ].map(item => (
+                                        <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-all">
                                             <input
                                                 type="checkbox"
-                                                name="copySettings.programs"
-                                                checked={formData.copySettings.programs}
+                                                name={`copySettings.${item.key}`}
+                                                checked={formData.copySettings[item.key]}
                                                 onChange={handleChange}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500"
                                             />
-                                            <label className="ml-2 text-sm text-gray-900">Chương trình đánh giá</label>
-                                        </div>
-
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                name="copySettings.organizations"
-                                                checked={formData.copySettings.organizations}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                                            />
-                                            <label className="ml-2 text-sm text-gray-900">Tổ chức đánh giá</label>
-                                        </div>
-
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                name="copySettings.standards"
-                                                checked={formData.copySettings.standards}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                                            />
-                                            <label className="ml-2 text-sm text-gray-900">Tiêu chuẩn</label>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                name="copySettings.criteria"
-                                                checked={formData.copySettings.criteria}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                                            />
-                                            <label className="ml-2 text-sm text-gray-900">Tiêu chí</label>
-                                        </div>
-
-                                        <div className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                name="copySettings.evidenceTemplates"
-                                                checked={formData.copySettings.evidenceTemplates}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                                            />
-                                            <label className="ml-2 text-sm text-gray-900">Mẫu minh chứng</label>
-                                        </div>
-                                    </div>
+                                            <span className="ml-3 text-sm text-gray-900">{item.label}</span>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* Actions */}
                     <div className="flex justify-end space-x-4">
                         <button
                             type="button"
                             onClick={() => router.push('/academic-years')}
-                            className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all font-medium"
                             disabled={loading}
                         >
                             Hủy
@@ -473,16 +464,16 @@ const CreateAcademicYearPage = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                         >
                             {loading ? (
                                 <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                     <span>Đang tạo...</span>
                                 </>
                             ) : (
                                 <>
-                                    <Save className="w-4 h-4" />
+                                    <Save className="w-5 h-5" />
                                     <span>Tạo năm học</span>
                                 </>
                             )}
