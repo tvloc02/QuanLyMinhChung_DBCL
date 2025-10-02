@@ -3,7 +3,7 @@ const ActivityLog = require('../models/ActivityLog');
 const fs = require('fs').promises;
 const path = require('path');
 const archiver = require('archiver');
-const { sendWelcomeEmail } = require('../services/emailService');
+const nodemailer = require('nodemailer');
 
 // Get system info
 const getSystemInfo = async (req, res) => {
@@ -16,21 +16,15 @@ const getSystemInfo = async (req, res) => {
             totalUsers,
             totalEvidences
         ] = await Promise.all([
-            // Count backups (would need Backup model)
-            0, // Placeholder
-            // Count soft deleted items
+            0,
             ActivityLog.countDocuments({ action: { $regex: '_delete$' } }),
-            // Today's activities
             ActivityLog.countDocuments({
                 createdAt: {
                     $gte: new Date(new Date().setHours(0, 0, 0, 0))
                 }
             }),
-            // Last backup
-            null, // Placeholder
-            // Total users
+            null,
             mongoose.model('User').countDocuments(),
-            // Total evidences
             mongoose.model('Evidence').countDocuments()
         ]);
 
@@ -47,7 +41,7 @@ const getSystemInfo = async (req, res) => {
                 totalUsers,
                 totalEvidences,
                 lastBackup,
-                storageUsed: 'N/A', // Would need disk usage calculation
+                storageUsed: 'N/A',
                 emailConfigured: !!(process.env.SMTP_HOST && process.env.SMTP_USER)
             }
         });
@@ -73,12 +67,14 @@ const getMailConfig = async (req, res) => {
             emailProvider: process.env.EMAIL_PROVIDER || 'custom'
         };
 
+        console.log('✅ Mail config retrieved successfully');
+
         res.json({
             success: true,
             data: config
         });
     } catch (error) {
-        console.error('Get mail config error:', error);
+        console.error('❌ Get mail config error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi lấy cấu hình email',
@@ -100,16 +96,63 @@ const updateMailConfig = async (req, res) => {
             emailProvider
         } = req.body;
 
-        // In production, you would write these to a config file or database
-        // For now, we'll just validate and return success
-        if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+        if (!smtpHost || !smtpPort || !smtpUser) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng điền đầy đủ thông tin cấu hình'
             });
         }
 
-        // Log the configuration change
+        // Update environment variables
+        process.env.SMTP_HOST = smtpHost;
+        process.env.SMTP_PORT = smtpPort;
+        process.env.SMTP_SECURE = smtpSecure ? 'true' : 'false';
+        process.env.SMTP_USER = smtpUser;
+        if (smtpPass && smtpPass !== '********') {
+            process.env.SMTP_PASS = smtpPass;
+        }
+        process.env.SMTP_FROM = smtpFrom || smtpUser;
+        process.env.EMAIL_PROVIDER = emailProvider || 'custom';
+
+        // Update .env file
+        const envPath = path.join(__dirname, '../../.env');
+        try {
+            let envContent = '';
+            try {
+                envContent = await fs.readFile(envPath, 'utf8');
+            } catch (err) {
+                console.log('.env file not found, creating new one');
+            }
+
+            const envLines = envContent.split('\n');
+            const envVars = {
+                SMTP_HOST: smtpHost,
+                SMTP_PORT: smtpPort,
+                SMTP_SECURE: smtpSecure ? 'true' : 'false',
+                SMTP_USER: smtpUser,
+                SMTP_FROM: smtpFrom || smtpUser,
+                EMAIL_PROVIDER: emailProvider || 'custom'
+            };
+
+            if (smtpPass && smtpPass !== '********') {
+                envVars.SMTP_PASS = smtpPass;
+            }
+
+            Object.keys(envVars).forEach(key => {
+                const index = envLines.findIndex(line => line.startsWith(`${key}=`));
+                if (index !== -1) {
+                    envLines[index] = `${key}=${envVars[key]}`;
+                } else {
+                    envLines.push(`${key}=${envVars[key]}`);
+                }
+            });
+
+            await fs.writeFile(envPath, envLines.join('\n'));
+            console.log('✅ .env file updated successfully');
+        } catch (fileError) {
+            console.error('⚠️ Error updating .env file:', fileError);
+        }
+
         await ActivityLog.log({
             userId: req.user._id,
             action: 'system_maintenance',
@@ -126,10 +169,11 @@ const updateMailConfig = async (req, res) => {
             message: 'Cập nhật cấu hình email thành công'
         });
     } catch (error) {
-        console.error('Update mail config error:', error);
+        console.error('❌ Update mail config error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi cập nhật cấu hình email'
+            message: 'Lỗi khi cập nhật cấu hình email',
+            error: error.message
         });
     }
 };
@@ -137,51 +181,115 @@ const updateMailConfig = async (req, res) => {
 // Test email configuration
 const testEmail = async (req, res) => {
     try {
-        const { testEmail } = req.body;
+        const { testEmail: emailAddress, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure } = req.body;
 
-        if (!testEmail) {
+        console.log('📧 Testing email with config:', {
+            smtpHost,
+            smtpPort,
+            smtpUser,
+            emailAddress
+        });
+
+        if (!emailAddress) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng cung cấp địa chỉ email'
             });
         }
 
-        // Temporarily update env variables for testing
-        const originalEnv = {
-            SMTP_HOST: process.env.SMTP_HOST,
-            SMTP_PORT: process.env.SMTP_PORT,
-            SMTP_USER: process.env.SMTP_USER,
-            SMTP_PASS: process.env.SMTP_PASS,
-            SMTP_FROM: process.env.SMTP_FROM,
-            EMAIL_PROVIDER: process.env.EMAIL_PROVIDER
+        if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng điền đầy đủ cấu hình SMTP'
+            });
+        }
+
+        // Create transporter with provided config
+        const transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: parseInt(smtpPort),
+            secure: smtpSecure || parseInt(smtpPort) === 465,
+            auth: {
+                user: smtpUser,
+                pass: smtpPass
+            },
+            debug: true,
+            logger: true
+        });
+
+        console.log('🔌 Verifying SMTP connection...');
+
+        // Verify connection
+        await transporter.verify();
+        console.log('✅ SMTP connection verified');
+
+        // Send test email
+        const mailOptions = {
+            from: smtpFrom || smtpUser,
+            to: emailAddress,
+            subject: 'Email kiểm tra cấu hình - CMC University',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb;">✅ Email kiểm tra cấu hình</h2>
+                    <p>Xin chào,</p>
+                    <p>Đây là email kiểm tra cấu hình SMTP từ hệ thống <strong>CMC University</strong>.</p>
+                    <p>Nếu bạn nhận được email này, cấu hình email của bạn đã hoạt động đúng!</p>
+                    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0; color: #374151;">
+                            <strong>Thông tin cấu hình:</strong><br>
+                            SMTP Host: ${smtpHost}<br>
+                            SMTP Port: ${smtpPort}<br>
+                            SMTP User: ${smtpUser}
+                        </p>
+                    </div>
+                    <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 12px;">
+                        Email này được gửi tự động từ hệ thống vào lúc ${new Date().toLocaleString('vi-VN')}.<br>
+                        Vui lòng không trả lời email này.
+                    </p>
+                </div>
+            `
         };
 
-        // Update with test config
-        Object.assign(process.env, req.body);
+        console.log('📤 Sending test email...');
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent successfully:', info.messageId);
 
-        try {
-            // Send test email
-            const emailService = require('../services/emailService');
-            await emailService.sendWelcomeEmail(
-                testEmail,
-                'Người nhận thử nghiệm',
-                'Test123',
-                process.env.CLIENT_URL || 'http://localhost:3000'
-            );
+        // Log successful test
+        await ActivityLog.log({
+            userId: req.user._id,
+            action: 'system_maintenance',
+            description: `Gửi email thử thành công đến ${emailAddress}`,
+            targetType: 'System',
+            severity: 'low',
+            result: 'success'
+        });
 
-            res.json({
-                success: true,
-                message: 'Gửi email thử thành công'
-            });
-        } finally {
-            // Restore original env
-            Object.assign(process.env, originalEnv);
-        }
+        res.json({
+            success: true,
+            message: `Email thử đã được gửi đến ${emailAddress}. Vui lòng kiểm tra hộp thư!`,
+            messageId: info.messageId
+        });
+
     } catch (error) {
-        console.error('Test email error:', error);
+        console.error('❌ Test email error:', error);
+
+        let errorMessage = 'Lỗi khi gửi email thử';
+
+        if (error.code === 'EAUTH') {
+            errorMessage = 'Xác thực SMTP thất bại. Vui lòng kiểm tra tên đăng nhập và mật khẩu';
+        } else if (error.code === 'ECONNECTION') {
+            errorMessage = 'Không thể kết nối đến máy chủ SMTP. Vui lòng kiểm tra host và port';
+        } else if (error.code === 'ETIMEDOUT') {
+            errorMessage = 'Kết nối bị timeout. Vui lòng kiểm tra cấu hình mạng';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
         res.status(500).json({
             success: false,
-            message: error.message || 'Lỗi khi gửi email thử'
+            message: errorMessage,
+            error: error.code || error.message
         });
     }
 };
@@ -196,12 +304,10 @@ const createBackup = async (req, res) => {
         const filename = `backup-${timestamp}.zip`;
         const filepath = path.join(backupDir, filename);
 
-        // Create write stream
         const output = require('fs').createWriteStream(filepath);
         const archive = archiver('zip', { zlib: { level: 9 } });
 
         output.on('close', async () => {
-            // Log backup creation
             await ActivityLog.log({
                 userId: req.user._id,
                 action: 'system_backup',
@@ -230,7 +336,6 @@ const createBackup = async (req, res) => {
 
         archive.pipe(output);
 
-        // Add database dump (simplified - in production use mongodump)
         const collections = await mongoose.connection.db.listCollections().toArray();
         for (const collection of collections) {
             const data = await mongoose.connection.db
@@ -291,10 +396,8 @@ const getBackups = async (req, res) => {
             })
         );
 
-        // Sort by date descending
         backups.sort((a, b) => b.createdAt - a.createdAt);
 
-        // Pagination
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + parseInt(limit);
         const paginatedBackups = backups.slice(startIndex, endIndex);
@@ -332,7 +435,6 @@ const downloadBackup = async (req, res) => {
 
         res.download(filepath, filename);
 
-        // Log download
         await ActivityLog.log({
             userId: req.user._id,
             action: 'file_download',
@@ -359,7 +461,6 @@ const restoreBackup = async (req, res) => {
 
         await fs.access(filepath);
 
-        // Log restore action
         await ActivityLog.log({
             userId: req.user._id,
             action: 'system_restore',
@@ -418,16 +519,12 @@ const deleteBackup = async (req, res) => {
 // Get deleted items
 const getDeletedItems = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search, type } = req.query;
-
-        // In a real implementation, you would have a soft delete mechanism
-        // For now, we'll return empty data
         res.json({
             success: true,
             data: {
                 items: [],
                 pagination: {
-                    current: parseInt(page),
+                    current: 1,
                     pages: 0,
                     total: 0,
                     hasNext: false,
@@ -449,8 +546,6 @@ const restoreItem = async (req, res) => {
     try {
         const { type, id } = req.params;
 
-        // In a real implementation, you would restore the soft-deleted item
-        // For now, we'll just log the action
         await ActivityLog.log({
             userId: req.user._id,
             action: 'data_migration',
@@ -479,7 +574,6 @@ const permanentDeleteItem = async (req, res) => {
     try {
         const { type, id } = req.params;
 
-        // In a real implementation, you would permanently delete the item
         await ActivityLog.log({
             userId: req.user._id,
             action: 'data_migration',
