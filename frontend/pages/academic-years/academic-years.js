@@ -5,7 +5,6 @@ import Layout from '../../components/common/Layout'
 import {
     Plus,
     Search,
-    MoreVertical,
     Edit3,
     Trash2,
     Copy,
@@ -17,8 +16,7 @@ import {
     Eye,
     ArrowUpDown,
     ChevronLeft,
-    ChevronRight,
-    Info
+    ChevronRight
 } from 'lucide-react'
 
 const AcademicYearsPage = () => {
@@ -35,7 +33,6 @@ const AcademicYearsPage = () => {
     const [pagination, setPagination] = useState({})
     const [selectedYear, setSelectedYear] = useState(null)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
-    const [showActionsDropdown, setShowActionsDropdown] = useState(null)
     const [hoveredAction, setHoveredAction] = useState(null)
 
     const breadcrumbItems = [
@@ -176,28 +173,61 @@ const AcademicYearsPage = () => {
         )
     }
 
-    const ActionButton = ({ icon: Icon, tooltip, onClick, danger }) => (
-        <div className="relative group">
-            <button
-                onClick={onClick}
-                onMouseEnter={() => setHoveredAction(tooltip)}
-                onMouseLeave={() => setHoveredAction(null)}
-                className={`p-2 rounded-lg transition-all ${
-                    danger
-                        ? 'hover:bg-red-50 text-gray-400 hover:text-red-600'
-                        : 'hover:bg-indigo-50 text-gray-400 hover:text-indigo-600'
-                }`}
-            >
-                <Icon className="w-4 h-4" />
-            </button>
-            {hoveredAction === tooltip && (
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 shadow-lg">
-                    {tooltip}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                </div>
-            )}
-        </div>
-    )
+    const ActionButton = ({ icon: Icon, tooltip, onClick, color = 'blue' }) => {
+        const colorStyles = {
+            blue: {
+                bg: 'bg-blue-50',
+                hover: 'hover:bg-blue-100',
+                text: 'text-blue-600',
+                border: 'border-blue-200'
+            },
+            green: {
+                bg: 'bg-green-50',
+                hover: 'hover:bg-green-100',
+                text: 'text-green-600',
+                border: 'border-green-200'
+            },
+            red: {
+                bg: 'bg-red-50',
+                hover: 'hover:bg-red-100',
+                text: 'text-red-600',
+                border: 'border-red-200'
+            },
+            yellow: {
+                bg: 'bg-yellow-50',
+                hover: 'hover:bg-yellow-100',
+                text: 'text-yellow-600',
+                border: 'border-yellow-200'
+            },
+            purple: {
+                bg: 'bg-purple-50',
+                hover: 'hover:bg-purple-100',
+                text: 'text-purple-600',
+                border: 'border-purple-200'
+            }
+        }
+
+        const style = colorStyles[color] || colorStyles.blue
+
+        return (
+            <div className="relative group">
+                <button
+                    onClick={onClick}
+                    onMouseEnter={() => setHoveredAction(tooltip)}
+                    onMouseLeave={() => setHoveredAction(null)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border ${style.bg} ${style.hover} ${style.text} ${style.border}`}
+                >
+                    <Icon className="w-4 h-4" />
+                </button>
+                {hoveredAction === tooltip && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 shadow-lg">
+                        {tooltip}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     if (isLoading) {
         return (
@@ -228,10 +258,13 @@ const AcademicYearsPage = () => {
         )
     }
 
+    const hasNextPage = pagination.hasNext || false
+    const hasPrevPage = pagination.hasPrev || false
+    const totalPages = pagination.pages || 1
+
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header with gradient */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div>
@@ -248,11 +281,9 @@ const AcademicYearsPage = () => {
                     </div>
                 </div>
 
-                {/* Filters Card */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Search */}
                             <div className="md:col-span-1">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -266,7 +297,6 @@ const AcademicYearsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Status Filter */}
                             <div>
                                 <select
                                     value={statusFilter}
@@ -281,7 +311,6 @@ const AcademicYearsPage = () => {
                                 </select>
                             </div>
 
-                            {/* Sort */}
                             <div>
                                 <select
                                     value={`${sortBy}-${sortOrder}`}
@@ -304,15 +333,13 @@ const AcademicYearsPage = () => {
                     </div>
                 </div>
 
-                {/* Error */}
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                         <p className="text-red-800">{error}</p>
                     </div>
                 )}
 
-                {/* Academic Years List */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     {academicYears.length === 0 ? (
                         <div className="p-12 text-center">
                             <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -326,10 +353,10 @@ const AcademicYearsPage = () => {
                             </button>
                         </div>
                     ) : (
-                        <>
-                            {/* Table Header */}
-                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                                <div className="grid grid-cols-12 gap-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <div className="overflow-x-auto">
+                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <div className="grid grid-cols-12 gap-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[900px]">
+                                    <div className="col-span-1 text-center">STT</div>
                                     <div className="col-span-4">
                                         <button
                                             onClick={() => handleSort('name')}
@@ -339,7 +366,7 @@ const AcademicYearsPage = () => {
                                             <ArrowUpDown className="w-3 h-3" />
                                         </button>
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-2">
                                         <button
                                             onClick={() => handleSort('startYear')}
                                             className="flex items-center space-x-1 hover:text-indigo-600 transition-colors"
@@ -348,23 +375,27 @@ const AcademicYearsPage = () => {
                                             <ArrowUpDown className="w-3 h-3" />
                                         </button>
                                     </div>
-                                    <div className="col-span-3">Trạng thái</div>
-                                    <div className="col-span-2 text-center">Thao tác</div>
+                                    <div className="col-span-2">Trạng thái</div>
+                                    <div className="col-span-3 text-center">Thao tác</div>
                                 </div>
                             </div>
 
-                            {/* Table Body */}
-                            <div className="divide-y divide-gray-100">
-                                {academicYears.map((year) => (
-                                    <div key={year._id} className="px-6 py-5 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
-                                        <div className="grid grid-cols-12 gap-4 items-center">
-                                            {/* Name */}
+                            <div>
+                                {academicYears.map((year, index) => (
+                                    <div key={year._id} className="px-6 py-4 border-b border-gray-100 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
+                                        <div className="grid grid-cols-12 gap-4 items-center min-w-[900px]">
+                                            <div className="col-span-1 text-center">
+                                                <span className="text-sm font-medium text-gray-600">
+                                                    {((currentPage - 1) * 10) + index + 1}
+                                                </span>
+                                            </div>
+
                                             <div className="col-span-4">
                                                 <div className="flex items-center space-x-3">
                                                     {year.isCurrent && (
                                                         <div className="relative flex-shrink-0">
-                                                            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                                                            <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
+                                                            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                                                            <div className="absolute inset-0 w-2.5 h-2.5 bg-green-500 rounded-full animate-ping"></div>
                                                         </div>
                                                     )}
                                                     <div>
@@ -386,8 +417,7 @@ const AcademicYearsPage = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Duration */}
-                                            <div className="col-span-3">
+                                            <div className="col-span-2">
                                                 <div className="text-sm font-medium text-gray-900 mb-1">
                                                     {year.startYear} - {year.endYear}
                                                 </div>
@@ -396,24 +426,24 @@ const AcademicYearsPage = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Status */}
-                                            <div className="col-span-3">
+                                            <div className="col-span-2">
                                                 <StatusBadge status={year.status} />
                                             </div>
 
-                                            {/* Actions */}
-                                            <div className="col-span-2">
-                                                <div className="flex items-center justify-center space-x-1">
+                                            <div className="col-span-3">
+                                                <div className="flex items-center justify-center space-x-2">
                                                     <ActionButton
                                                         icon={Eye}
                                                         tooltip="Xem chi tiết"
                                                         onClick={() => router.push(`/academic-years/${year._id}`)}
+                                                        color="blue"
                                                     />
 
                                                     <ActionButton
                                                         icon={Edit3}
                                                         tooltip="Chỉnh sửa"
-                                                        onClick={() => router.push(`/academic-years/${year._id}/edit`)}
+                                                        onClick={() => router.push(`/academic-years/edit/${year._id}`)}
+                                                        color="green"
                                                     />
 
                                                     {!year.isCurrent && (
@@ -421,6 +451,7 @@ const AcademicYearsPage = () => {
                                                             icon={CheckCircle}
                                                             tooltip="Đặt làm hiện tại"
                                                             onClick={() => handleSetCurrent(year._id)}
+                                                            color="purple"
                                                         />
                                                     )}
 
@@ -428,6 +459,7 @@ const AcademicYearsPage = () => {
                                                         icon={Copy}
                                                         tooltip="Sao chép dữ liệu"
                                                         onClick={() => router.push(`/academic-years/copy?source=${year._id}`)}
+                                                        color="yellow"
                                                     />
 
                                                     <ActionButton
@@ -437,7 +469,7 @@ const AcademicYearsPage = () => {
                                                             setSelectedYear(year)
                                                             setShowDeleteModal(true)
                                                         }}
-                                                        danger
+                                                        color="red"
                                                     />
                                                 </div>
                                             </div>
@@ -446,8 +478,7 @@ const AcademicYearsPage = () => {
                                 ))}
                             </div>
 
-                            {/* Pagination */}
-                            {pagination.pages > 1 && (
+                            {totalPages > 1 && (
                                 <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
                                     <div className="flex items-center justify-between">
                                         <div className="text-sm text-gray-600">
@@ -456,17 +487,17 @@ const AcademicYearsPage = () => {
                                         <div className="flex items-center space-x-2">
                                             <button
                                                 onClick={() => setCurrentPage(currentPage - 1)}
-                                                disabled={!pagination.hasPrev}
+                                                disabled={!hasPrevPage}
                                                 className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 hover:border-indigo-300 transition-all"
                                             >
                                                 <ChevronLeft className="w-5 h-5" />
                                             </button>
                                             <span className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg">
-                                                {pagination.current} / {pagination.pages}
+                                                {pagination.current} / {totalPages}
                                             </span>
                                             <button
                                                 onClick={() => setCurrentPage(currentPage + 1)}
-                                                disabled={!pagination.hasNext}
+                                                disabled={!hasNextPage}
                                                 className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 hover:border-indigo-300 transition-all"
                                             >
                                                 <ChevronRight className="w-5 h-5" />
@@ -475,11 +506,10 @@ const AcademicYearsPage = () => {
                                     </div>
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
 
-                {/* Delete Modal */}
                 {showDeleteModal && selectedYear && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
                         <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
