@@ -8,12 +8,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
     const [formData, setFormData] = useState({
         name: '',
         code: '',
-        description: '',
         programId: '',
         organizationId: '',
         order: 1,
         objectives: '',
-        guidelines: '',
         status: 'draft'
     })
     const [errors, setErrors] = useState({})
@@ -23,12 +21,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
             setFormData({
                 name: standard.name || '',
                 code: standard.code || '',
-                description: standard.description || '',
                 programId: standard.programId?._id || standard.programId || '',
                 organizationId: standard.organizationId?._id || standard.organizationId || '',
                 order: standard.order || 1,
                 objectives: standard.objectives || '',
-                guidelines: standard.guidelines || '',
                 status: standard.status || 'draft'
             })
         }
@@ -160,19 +156,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mô tả
-                        </label>
-                        <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập mô tả về tiêu chuẩn"
-                        />
-                    </div>
+
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -232,19 +216,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
                         />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hướng dẫn đánh giá
-                        </label>
-                        <textarea
-                            name="guidelines"
-                            value={formData.guidelines}
-                            onChange={handleChange}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập hướng dẫn đánh giá"
-                        />
-                    </div>
+
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
