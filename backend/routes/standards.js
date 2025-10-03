@@ -42,10 +42,6 @@ const createStandardValidation = [
         .withMessage('Tổ chức - Cấp đánh giá là bắt buộc')
         .isMongoId()
         .withMessage('ID tổ chức không hợp lệ'),
-    body('order')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('Thứ tự phải lớn hơn 0'),
     body('objectives')
         .optional()
         .isLength({ max: 2000 })

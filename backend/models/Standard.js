@@ -41,11 +41,6 @@ const standardSchema = new mongoose.Schema({
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
 
-    order: {
-        type: Number,
-        default: 1,
-        min: [1, 'Thứ tự phải lớn hơn 0']
-    },
 
     objectives: {
         type: String,
