@@ -13,7 +13,7 @@ const {
     deleteProgram,
     getProgramStatistics,
     copyProgramToAnotherYear
-} = require('../controllers/programController');
+} = require('../controllers/evidence/programController');
 
 // Apply academic year context to all routes
 router.use(auth, attachCurrentAcademicYear);

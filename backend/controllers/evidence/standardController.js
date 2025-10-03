@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const Standard = require('../models/Evidence/Standard');
-const Program = require('../models/Evidence/Program');
-const Organization = require('../models/Evidence/Organization');
+const Standard = require('../../models/Evidence/Standard');
+const Program = require('../../models/Evidence/Program');
+const Organization = require('../../models/Evidence/Organization');
 
 const getStandards = async (req, res) => {
     try {

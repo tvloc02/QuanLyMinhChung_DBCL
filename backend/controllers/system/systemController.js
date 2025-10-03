@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const ActivityLog = require('../models/system/ActivityLog');
+const ActivityLog = require('../../models/system/ActivityLog');
 const fs = require('fs').promises;
 const path = require('path');
 const archiver = require('archiver');

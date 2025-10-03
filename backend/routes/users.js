@@ -19,7 +19,7 @@ const {
     grantUserPermission,
     denyUserPermission,
     removeUserPermission
-} = require('../controllers/userController');
+} = require('../controllers/user/userController');
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
 

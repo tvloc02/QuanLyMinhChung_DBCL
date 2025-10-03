@@ -12,7 +12,7 @@ const {
     updateCriteria,
     deleteCriteria,
     getCriteriaStatistics
-} = require('../controllers/criteriaController');
+} = require('../controllers/evidence/criteriaController');
 
 router.use(auth, attachCurrentAcademicYear);
 

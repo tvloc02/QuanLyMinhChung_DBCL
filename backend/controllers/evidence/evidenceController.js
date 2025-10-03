@@ -1,9 +1,9 @@
-const Evidence = require('../models/Evidence/Evidence');
-const File = require('../models/Evidence/File');
-const AcademicYear = require('../models/system/AcademicYear');
-const exportService = require('../services/exportService');
-const importService = require('../services/importService');
-const searchService = require('../services/searchService');
+const Evidence = require('../../models/Evidence/Evidence');
+const File = require('../../models/Evidence/File');
+const AcademicYear = require('../../models/system/AcademicYear');
+const exportService = require('../../services/exportService');
+const importService = require('../../services/importService');
+const searchService = require('../../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
@@ -11,7 +11,7 @@ const fs = require('fs');
 let Standard, Criteria;
 
 try {
-    const ProgramModel = require('../models/Evidence/Program');
+    const ProgramModel = require('../../models/Evidence/Program');
     if (ProgramModel.Standard && ProgramModel.Criteria) {
         Standard = ProgramModel.Standard;
         Criteria = ProgramModel.Criteria;
@@ -21,8 +21,8 @@ try {
     }
 } catch (e) {
     try {
-        Standard = require('../models/Evidence/Standard');
-        Criteria = require('../models/Evidence/Criteria');
+        Standard = require('../../models/Evidence/Standard');
+        Criteria = require('../../models/Evidence/Criteria');
     } catch (e2) {
         console.error('Cannot load Standard and Criteria models:', e2);
     }

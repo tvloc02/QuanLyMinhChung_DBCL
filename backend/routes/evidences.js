@@ -18,7 +18,7 @@ const {
     copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences
-} = require('../controllers/evidenceController');
+} = require('../controllers/evidence/evidenceController');
 
 // Apply academic year context to all routes
 router.use(auth, setAcademicYearContext);

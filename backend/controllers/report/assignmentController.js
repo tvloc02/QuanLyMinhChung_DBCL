@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const Assignment = require('../models/report/Assignment');
-const Report = require('../models/report/Report');
-const User = require('../models/User/User');
+const Assignment = require('../../models/report/Assignment');
+const Report = require('../../models/report/Report');
+const User = require('../../models/User/User');
 
 const getAssignments = async (req, res) => {
     try {

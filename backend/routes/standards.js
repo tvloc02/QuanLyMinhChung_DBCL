@@ -13,7 +13,7 @@ const {
     updateStandard,
     deleteStandard,
     getStandardStatistics
-} = require('../controllers/standardController');
+} = require('../controllers/evidence/standardController');
 
 // Apply academic year context to all routes
 //router.use(auth, setAcademicYearContext);

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { auth } = require('../middleware/auth');
-const systemController = require('../controllers/systemController');
+const systemController = require('../controllers/system/systemController');
 
 // Middleware to check admin role
 const requireAdmin = (req, res, next) => {

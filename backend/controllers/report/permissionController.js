@@ -1,5 +1,5 @@
-const Permission = require('../models/User/Permission');
-const ActivityLog = require('../models/system/ActivityLog');
+const Permission = require('../../models/User/Permission');
+const ActivityLog = require('../../models/system/ActivityLog');
 
 // Lấy danh sách permissions
 const getPermissions = async (req, res) => {
@@ -244,7 +244,7 @@ const deletePermission = async (req, res) => {
         }
 
         // Kiểm tra xem quyền có đang được sử dụng không
-        const UserGroup = require('../models/User/UserGroup');
+        const UserGroup = require('../../models/User/UserGroup');
         const groupsUsingPermission = await UserGroup.countDocuments({
             permissions: id
         });

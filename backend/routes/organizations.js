@@ -13,7 +13,7 @@ const {
     updateOrganization,
     deleteOrganization,
     getOrganizationStatistics
-} = require('../controllers/organizationController');
+} = require('../controllers/evidence/organizationController');
 
 // Apply academic year context to all routes
 //router.use(auth, setAcademicYearContext);

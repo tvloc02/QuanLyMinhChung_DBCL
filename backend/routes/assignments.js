@@ -14,7 +14,7 @@ const {
     rejectAssignment,
     getExpertWorkload,
     getAssignmentStats
-} = require('../controllers/assignmentController');
+} = require('../controllers/report/assignmentController');
 
 const createAssignmentValidation = [
     body('reportId')

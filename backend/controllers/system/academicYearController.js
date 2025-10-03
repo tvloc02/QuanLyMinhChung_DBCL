@@ -1,10 +1,10 @@
-const AcademicYear = require('../models/system/AcademicYear');
-const ActivityLog = require('../models/system/ActivityLog');
-const Program = require('../models/Evidence/Program');
-const Organization = require('../models/Evidence/Organization');
-const Standard = require('../models/Evidence/Standard');
-const Criteria = require('../models/Evidence/Criteria');
-const Evidence = require('../models/Evidence/Evidence');
+const AcademicYear = require('../../models/system/AcademicYear');
+const ActivityLog = require('../../models/system/ActivityLog');
+const Program = require('../../models/Evidence/Program');
+const Organization = require('../../models/Evidence/Organization');
+const Standard = require('../../models/Evidence/Standard');
+const Criteria = require('../../models/Evidence/Criteria');
+const Evidence = require('../../models/Evidence/Evidence');
 const mongoose = require('mongoose');
 
 const getAcademicYears = async (req, res) => {

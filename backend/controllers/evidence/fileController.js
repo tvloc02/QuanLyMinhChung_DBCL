@@ -1,5 +1,5 @@
-const File = require('../models/Evidence/File');
-const Evidence = require('../models/Evidence/Evidence');
+const File = require('../../models/Evidence/File');
+const Evidence = require('../../models/Evidence/Evidence');
 const path = require('path');
 const fs = require('fs');
 

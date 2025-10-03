@@ -9,7 +9,7 @@ const {
     markAllAsRead,
     deleteNotification,
     getNotificationStats
-} = require('../controllers/notificationController');
+} = require('../controllers/system/notificationController');
 
 router.use(auth);
 

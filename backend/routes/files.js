@@ -9,7 +9,7 @@ const {
     downloadFile,
     deleteFile,
     getFileInfo
-} = require('../controllers/fileController');
+} = require('../controllers/evidence/fileController');
 
 // Upload files to evidence
 router.post('/upload/:evidenceId',

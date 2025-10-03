@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const multer = require('multer');
-const Criteria = require('../models/Evidence/Criteria');
-const Standard = require('../models/Evidence/Standard');
-const Program = require('../models/Evidence/Program');
-const Organization = require('../models/Evidence/Organization');
+const Criteria = require('../../models/Evidence/Criteria');
+const Standard = require('../../models/Evidence/Standard');
+const Program = require('../../models/Evidence/Program');
+const Organization = require('../../models/Evidence/Organization');
 
 const getCriteria = async (req, res) => {
     try {

@@ -11,7 +11,7 @@ const {
     updateReport,
     deleteReport,
     publishReport
-} = require('../controllers/reportController');
+} = require('../controllers/report/reportController');
 
 const createReportValidation = [
     body('title')

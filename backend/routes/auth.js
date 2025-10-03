@@ -11,7 +11,7 @@ const {
     changePassword,
     getCurrentUser,
     updateProfile
-} = require('../controllers/authController');
+} = require('../controllers/user/authController');
 
 const validateLogin = [
     body('email')

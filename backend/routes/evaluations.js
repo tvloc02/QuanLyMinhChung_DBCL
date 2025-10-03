@@ -13,7 +13,7 @@ const {
     reviewEvaluation,
     finalizeEvaluation,
     getEvaluatorStats
-} = require('../controllers/evaluationController');
+} = require('../controllers/report/evaluationController');
 
 const createEvaluationValidation = [
     body('assignmentId')

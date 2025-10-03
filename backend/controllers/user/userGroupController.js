@@ -1,7 +1,7 @@
-const UserGroup = require('../models/User/UserGroup');
-const User = require('../models/User/User');
-const Permission = require('../models/User/Permission');
-const ActivityLog = require('../models/system/ActivityLog');
+const UserGroup = require('../../models/User/UserGroup');
+const User = require('../../models/User/User');
+const Permission = require('../../models/User/Permission');
+const ActivityLog = require('../../models/system/ActivityLog');
 
 // Lấy danh sách nhóm người dùng
 const getUserGroups = async (req, res) => {

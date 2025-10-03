@@ -15,7 +15,7 @@ const {
     copyDataFromYear,
     getAcademicYearStatistics,
     getAvailableYearsForCopy
-} = require('../controllers/academicYearController');
+} = require('../controllers/system/academicYearController');
 
 // Validation rules
 const createAcademicYearValidation = [

@@ -1,9 +1,9 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User/User');
-const ActivityLog = require('../models/system/ActivityLog');
-const emailService = require('../services/emailService');
+const User = require('../../models/User/User');
+const ActivityLog = require('../../models/system/ActivityLog');
+const emailService = require('../../services/emailService');
 
 const generateToken = (userId) => {
     return jwt.sign({ userId }, process.env.JWT_SECRET, {
