@@ -114,14 +114,19 @@ export default function CreateReportPage() {
     const fetchInitialData = async () => {
         try {
             setLoading(true)
-            const [programsData, orgsData] = await Promise.all([
-                programService.getPrograms({ limit: 100 }),
-                organizationService.getOrganizations({ limit: 100 })
+
+            // ✅ DÙNG apiMethods TRỰC TIẾP GIỐNG FILE EVIDENCE
+            const [programsRes, orgsRes] = await Promise.all([
+                apiMethods.programs.getAll(),
+                apiMethods.organizations.getAll()
             ])
 
-            setPrograms(programsData.data?.programs || [])
-            setOrganizations(orgsData.data?.organizations || [])
+            // ✅ XỬ LÝ RESPONSE GIỐNG FILE EVIDENCE
+            setPrograms(programsRes.data.data.programs || [])
+            setOrganizations(orgsRes.data.data.organizations || [])
+
         } catch (error) {
+            console.error('Fetch initial data error:', error)
             toast.error('Lỗi tải dữ liệu ban đầu')
         } finally {
             setLoading(false)
@@ -129,34 +134,56 @@ export default function CreateReportPage() {
     }
 
     const fetchStandards = async () => {
+        if (!formData.programId || !formData.organizationId) {
+            return
+        }
+
         try {
-            const response = await programService.getStandards(formData.programId)
-            setStandards(response.data?.standards || response.data || [])
+            // ✅ DÙNG apiMethods GIỐNG FILE EVIDENCE
+            const response = await apiMethods.standards.getAll({
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                status: 'active'
+            })
+
+            const standards = response.data.data.standards || response.data.data || []
+            setStandards(standards)
+
         } catch (error) {
-            console.error('Lỗi tải tiêu chuẩn:', error)
+            console.error('Fetch standards error:', error)
             toast.error('Lỗi khi tải danh sách tiêu chuẩn')
         }
     }
 
     const fetchCriteria = async () => {
+        if (!formData.standardId) {
+            return
+        }
+
         try {
-            const response = await programService.getCriteria(formData.standardId)
+            // ✅ DÙNG apiMethods GIỐNG FILE EVIDENCE
+            const response = await apiMethods.criteria.getAll({
+                standardId: formData.standardId,
+                status: 'active'
+            })
 
             let criteriaData = []
-            if (response.data) {
-                if (Array.isArray(response.data.criterias)) {
-                    criteriaData = response.data.criterias
-                } else if (Array.isArray(response.data.criteria)) {
-                    criteriaData = response.data.criteria
-                } else if (Array.isArray(response.data)) {
-                    criteriaData = response.data
+            if (response.data.data) {
+                if (Array.isArray(response.data.data.criterias)) {
+                    criteriaData = response.data.data.criterias
+                } else if (Array.isArray(response.data.data.criteria)) {
+                    criteriaData = response.data.data.criteria
+                } else if (Array.isArray(response.data.data)) {
+                    criteriaData = response.data.data
                 }
             }
 
             setCriteria(criteriaData)
+
         } catch (error) {
-            console.error('Lỗi tải tiêu chí:', error)
+            console.error('Fetch criteria error:', error)
             toast.error('Lỗi khi tải danh sách tiêu chí')
+            setCriteria([])
         }
     }
 
