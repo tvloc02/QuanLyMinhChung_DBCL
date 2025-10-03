@@ -74,10 +74,6 @@ const CreateAcademicYearPage = () => {
             newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
         }
 
-        if (formData.description && formData.description.length > 500) {
-            newErrors.description = 'Mô tả không được quá 500 ký tự'
-        }
-
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -354,40 +350,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Mô tả */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Mô tả</h2>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Mô tả năm học
-                            </label>
-                            <textarea
-                                name="description"
-                                value={formData.description}
-                                onChange={handleChange}
-                                rows="4"
-                                maxLength="500"
-                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                    errors.description ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                }`}
-                                placeholder="Mô tả chi tiết về năm học này..."
-                            />
-                            <div className="flex justify-between items-center mt-2">
-                                {errors.description ? (
-                                    <p className="text-red-600 text-sm flex items-center">
-                                        <AlertCircle className="w-4 h-4 mr-1" />
-                                        {errors.description}
-                                    </p>
-                                ) : (
-                                    <div></div>
-                                )}
-                                <p className="text-gray-500 text-sm">
-                                    {formData.description.length}/500
-                                </p>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* Cài đặt */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -412,40 +374,6 @@ const CreateAcademicYearPage = () => {
                                     <p className="text-sm text-gray-600 mt-1">
                                         Năm học này sẽ được đặt làm năm học mặc định trong hệ thống
                                     </p>
-                                </div>
-                            </div>
-
-                            {/* Copy Settings */}
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-900 mb-3">Cài đặt sao chép mặc định</h3>
-                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-                                    <div className="flex items-start">
-                                        <Info className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                                        <p className="text-blue-800 text-sm">
-                                            Các cài đặt này sẽ được sử dụng mặc định khi sao chép dữ liệu từ năm học khác
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {[
-                                        { key: 'programs', label: 'Chương trình đánh giá' },
-                                        { key: 'organizations', label: 'Tổ chức đánh giá' },
-                                        { key: 'standards', label: 'Tiêu chuẩn' },
-                                        { key: 'criteria', label: 'Tiêu chí' },
-                                        { key: 'evidenceTemplates', label: 'Mẫu minh chứng' }
-                                    ].map(item => (
-                                        <label key={item.key} className="flex items-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-all">
-                                            <input
-                                                type="checkbox"
-                                                name={`copySettings.${item.key}`}
-                                                checked={formData.copySettings[item.key]}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <span className="ml-3 text-sm text-gray-900">{item.label}</span>
-                                        </label>
-                                    ))}
                                 </div>
                             </div>
                         </div>

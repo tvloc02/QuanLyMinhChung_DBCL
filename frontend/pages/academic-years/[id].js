@@ -171,7 +171,7 @@ const AcademicYearDetailPage = () => {
 
     if (loading) {
         return (
-            <Layout title="Chi tiết năm học" breadcrumbItems={breadcrumbItems}>
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 </div>
@@ -181,7 +181,7 @@ const AcademicYearDetailPage = () => {
 
     if (!user || !academicYear) {
         return (
-            <Layout title="Chi tiết năm học" breadcrumbItems={breadcrumbItems}>
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="text-center py-12">
                     <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>

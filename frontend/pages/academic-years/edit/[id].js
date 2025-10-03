@@ -1,6 +1,3 @@
-// File: frontend/pages/academic-years/edit/[id].js
-// Đây là đường dẫn đúng để URL /academic-years/edit/:id hoạt động
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../../contexts/AuthContext'
@@ -228,7 +225,7 @@ const EditAcademicYearPage = () => {
 
     if (fetchingData) {
         return (
-            <Layout title="Chỉnh sửa năm học" breadcrumbItems={breadcrumbItems}>
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
@@ -241,7 +238,7 @@ const EditAcademicYearPage = () => {
 
     if (!user || !originalData) {
         return (
-            <Layout title="Chỉnh sửa năm học" breadcrumbItems={breadcrumbItems}>
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="text-center py-12">
                     <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
@@ -258,7 +255,7 @@ const EditAcademicYearPage = () => {
     }
 
     return (
-        <Layout title="Chỉnh sửa năm học" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
