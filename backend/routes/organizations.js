@@ -34,14 +34,6 @@ const createOrganizationValidation = [
         .withMessage('Mã tổ chức không được quá 20 ký tự')
         .matches(/^[A-Z0-9\-_]+$/)
         .withMessage('Mã tổ chức chỉ được chứa chữ hoa, số, dấu gạch ngang và gạch dưới'),
-    body('description')
-        .optional()
-        .isLength({ max: 2000 })
-        .withMessage('Mô tả không được quá 2000 ký tự'),
-    body('website')
-        .optional()
-        .isURL()
-        .withMessage('Website không hợp lệ'),
     body('contactEmail')
         .optional()
         .isEmail()
@@ -49,15 +41,7 @@ const createOrganizationValidation = [
     body('contactPhone')
         .optional()
         .matches(/^[\d\s\-\+\(\)]+$/)
-        .withMessage('Số điện thoại không hợp lệ'),
-    body('address')
-        .optional()
-        .isLength({ max: 500 })
-        .withMessage('Địa chỉ không được quá 500 ký tự'),
-    body('country')
-        .optional()
-        .isLength({ max: 100 })
-        .withMessage('Tên quốc gia không được quá 100 ký tự')
+        .withMessage('Số điện thoại không hợp lệ')
 ];
 
 const updateOrganizationValidation = [
