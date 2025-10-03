@@ -74,12 +74,6 @@ const evidenceSchema = new mongoose.Schema({
         trim: true
     },
 
-    documentType: {
-        type: String,
-        enum: ['Quyết định', 'Thông tư', 'Nghị định', 'Luật', 'Báo cáo', 'Kế hoạch', 'Khác'],
-        default: 'Khác'
-    },
-
     status: {
         type: String,
         enum: ['active', 'inactive', 'pending', 'archived'],
@@ -304,7 +298,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
         status,
         dateFrom,
         dateTo,
-        documentType
     } = searchParams;
 
     let query = {};
@@ -328,7 +321,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     if (criteriaId) query.criteriaId = criteriaId;
 
     if (status) query.status = status;
-    if (documentType) query.documentType = documentType;
 
     if (dateFrom || dateTo) {
         query.createdAt = {};
