@@ -27,8 +27,7 @@ const getAcademicYears = async (req, res) => {
         if (search) {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
-                { code: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
+                { code: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -167,7 +166,6 @@ const createAcademicYear = async (req, res) => {
             endYear,
             startDate,
             endDate,
-            description,
             isCurrent,
             copySettings
         } = req.body;
@@ -189,7 +187,6 @@ const createAcademicYear = async (req, res) => {
             endYear,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
-            description,
             isCurrent: isCurrent || false,
             copySettings: copySettings || {},
             createdBy: req.user.id,
