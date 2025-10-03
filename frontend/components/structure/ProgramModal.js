@@ -8,12 +8,10 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
     const [formData, setFormData] = useState({
         name: '',
         code: '',
-        description: '',
         applicableYear: new Date().getFullYear(),
         effectiveDate: '',
         expiryDate: '',
         objectives: '',
-        guidelines: '',
         status: 'draft'
     })
     const [errors, setErrors] = useState({})
@@ -23,12 +21,10 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
             setFormData({
                 name: program.name || '',
                 code: program.code || '',
-                description: program.description || '',
                 applicableYear: program.applicableYear || new Date().getFullYear(),
                 effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
                 expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
                 objectives: program.objectives || '',
-                guidelines: program.guidelines || '',
                 status: program.status || 'draft'
             })
         }
@@ -221,20 +217,6 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             rows={3}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             placeholder="Nhập mục tiêu của chương trình"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hướng dẫn thực hiện
-                        </label>
-                        <textarea
-                            name="guidelines"
-                            value={formData.guidelines}
-                            onChange={handleChange}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập hướng dẫn thực hiện"
                         />
                     </div>
 

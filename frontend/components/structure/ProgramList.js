@@ -87,10 +87,8 @@ export default function ProgramList() {
                 {
                     'Mã chương trình (*)': 'DGCL-DH',
                     'Tên chương trình (*)': 'Đánh giá chất lượng chương trình đào tạo đại học',
-                    'Mô tả': 'Chương trình đánh giá chất lượng theo tiêu chuẩn quốc gia',
                     'Năm áp dụng': '2024',
                     'Mục tiêu': 'Đảm bảo chất lượng đào tạo đáp ứng chuẩn đầu ra',
-                    'Hướng dẫn': 'Thực hiện theo quy định của Bộ GD&ĐT'
                 }
             ]
 
@@ -100,10 +98,8 @@ export default function ProgramList() {
             wsData['!cols'] = [
                 { wch: 20 },  // Mã chương trình
                 { wch: 55 },  // Tên chương trình
-                { wch: 50 },  // Mô tả
                 { wch: 12 },  // Năm áp dụng
                 { wch: 45 },  // Mục tiêu
-                { wch: 45 }   // Hướng dẫn
             ]
 
             // Style cho header
@@ -157,7 +153,6 @@ export default function ProgramList() {
                     'Tên cột': 'Mã chương trình (*)',
                     'Kiểu dữ liệu': 'Văn bản',
                     'Bắt buộc': 'Có',
-                    'Mô tả chi tiết': 'Mã chương trình phải VIẾT HOA, tối đa 20 ký tự, chỉ chứa chữ cái (A-Z), số (0-9), dấu gạch ngang (-) và gạch dưới (_)',
                     'Ví dụ hợp lệ': 'DGCL-DH, CTDT-2024, KĐCLGD',
                     'Ví dụ không hợp lệ': 'dgcl-dh (chữ thường), DGCL DH (có dấu cách)'
                 },
@@ -167,14 +162,6 @@ export default function ProgramList() {
                     'Bắt buộc': 'Có',
                     'Mô tả chi tiết': 'Tên đầy đủ của chương trình đánh giá, tối đa 300 ký tự',
                     'Ví dụ hợp lệ': 'Đánh giá chất lượng chương trình đào tạo đại học',
-                    'Ví dụ không hợp lệ': ''
-                },
-                {
-                    'Tên cột': 'Mô tả',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Mô tả chi tiết về chương trình, mục đích, phạm vi áp dụng. Tối đa 2000 ký tự',
-                    'Ví dụ hợp lệ': 'Chương trình đánh giá chất lượng theo tiêu chuẩn...',
                     'Ví dụ không hợp lệ': ''
                 },
                 {
@@ -193,14 +180,6 @@ export default function ProgramList() {
                     'Ví dụ hợp lệ': 'Đảm bảo chất lượng đào tạo đáp ứng chuẩn đầu ra',
                     'Ví dụ không hợp lệ': ''
                 },
-                {
-                    'Tên cột': 'Hướng dẫn',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Hướng dẫn thực hiện chương trình. Tối đa 3000 ký tự',
-                    'Ví dụ hợp lệ': 'Thực hiện theo quy định của Bộ GD&ĐT',
-                    'Ví dụ không hợp lệ': ''
-                }
             ]
 
             const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
@@ -208,7 +187,6 @@ export default function ProgramList() {
                 { wch: 25 },  // Tên cột
                 { wch: 15 },  // Kiểu dữ liệu
                 { wch: 10 },  // Bắt buộc
-                { wch: 60 },  // Mô tả chi tiết
                 { wch: 35 },  // Ví dụ hợp lệ
                 { wch: 35 }   // Ví dụ không hợp lệ
             ]
@@ -301,7 +279,6 @@ export default function ProgramList() {
                 'STT': index + 1,
                 'Mã chương trình': program.code,
                 'Tên chương trình': program.name,
-                'Mô tả': program.description || '',
                 'Năm áp dụng': program.applicableYear || '',
                 'Trạng thái': getStatusLabel(program.status),
                 'Người tạo': program.createdBy?.fullName || '',
@@ -315,7 +292,6 @@ export default function ProgramList() {
                 { wch: 5 },   // STT
                 { wch: 15 },  // Mã
                 { wch: 50 },  // Tên
-                { wch: 60 },  // Mô tả
                 { wch: 12 },  // Năm
                 { wch: 15 },  // Trạng thái
                 { wch: 25 },  // Người tạo
