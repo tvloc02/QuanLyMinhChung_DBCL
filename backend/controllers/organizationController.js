@@ -23,8 +23,7 @@ const getOrganizations = async (req, res) => {
         if (search) {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
-                { code: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
+                { code: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -129,7 +128,6 @@ const createOrganization = async (req, res) => {
         const {
             name,
             code,
-            description,
             website,
             contactEmail,
             contactPhone,
@@ -155,12 +153,8 @@ const createOrganization = async (req, res) => {
             academicYearId,
             name: name.trim(),
             code: code.toUpperCase().trim(),
-            description: description?.trim(),
-            website: website?.trim(),
             contactEmail: contactEmail?.trim(),
             contactPhone: contactPhone?.trim(),
-            address: address?.trim(),
-            country: country || 'Vietnam',
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -224,8 +218,8 @@ const updateOrganization = async (req, res) => {
         }
 
         const allowedFields = [
-            'name', 'description', 'website',
-            'contactEmail', 'contactPhone', 'address', 'country', 'status'
+            'name',
+            'contactEmail', 'contactPhone', 'status'
         ];
 
         allowedFields.forEach(field => {
