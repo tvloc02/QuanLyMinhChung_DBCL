@@ -49,12 +49,6 @@ const academicYearSchema = new mongoose.Schema({
         required: [true, 'Ngày kết thúc là bắt buộc']
     },
 
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [500, 'Mô tả không được quá 500 ký tự']
-    },
-
     status: {
         type: String,
         enum: ['draft', 'active', 'completed', 'archived'],
@@ -144,7 +138,6 @@ academicYearSchema.index({ code: 1 });
 academicYearSchema.index({ startYear: 1, endYear: 1 });
 academicYearSchema.index({ status: 1 });
 academicYearSchema.index({ isCurrent: 1 });
-academicYearSchema.index({ name: 'text', description: 'text' });
 
 academicYearSchema.pre('validate', function(next) {
     if (this.endYear <= this.startYear) {
@@ -201,13 +194,12 @@ academicYearSchema.virtual('url').get(function() {
     return `/academic-years/${this._id}`;
 });
 
-academicYearSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+academicYearSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
     const ActivityLog = require('./ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this._id,
         action,
-        description,
         targetType: 'AcademicYear',
         targetId: this._id,
         targetName: this.displayName,
