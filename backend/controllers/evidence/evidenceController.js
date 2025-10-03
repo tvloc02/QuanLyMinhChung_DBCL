@@ -729,6 +729,133 @@ const importEvidences = async (req, res) => {
     }
 };
 
+const incrementEvidenceDownload = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        await evidence.incrementDownload(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Tăng lượt tải thành công',
+            data: evidence.downloadStats
+        });
+
+    } catch (error) {
+        console.error('Increment download error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi tăng lượt tải'
+        });
+    }
+};
+
+const validateEvidenceFileName = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { fileName } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        try {
+            evidence.validateFileName(fileName);
+            res.json({
+                success: true,
+                message: 'Tên file hợp lệ'
+            });
+        } catch (err) {
+            res.status(400).json({
+                success: false,
+                message: err.message
+            });
+        }
+
+    } catch (error) {
+        console.error('Validate file name error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi kiểm tra tên file'
+        });
+    }
+};
+
+const moveEvidence = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { targetStandardId, targetCriteriaId, newCode } = req.body;
+        const academicYearId = req.academicYearId;
+
+        // Tìm minh chứng trong năm học hiện tại
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng trong năm học này'
+            });
+        }
+
+        // Kiểm tra quyền
+        if (req.user.role !== 'admin' &&
+            !req.user.hasStandardAccess(evidence.standardId) &&
+            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền di chuyển minh chứng này'
+            });
+        }
+
+        // Kiểm tra trùng mã mới
+        const existingEvidence = await Evidence.findOne({
+            code: newCode,
+            academicYearId,
+            _id: { $ne: id }
+        });
+        if (existingEvidence) {
+            return res.status(400).json({
+                success: false,
+                message: `Mã minh chứng ${newCode} đã tồn tại trong năm học này`
+            });
+        }
+
+        // Gọi method moveTo từ model
+        const movedEvidence = await evidence.moveTo(
+            targetStandardId,
+            targetCriteriaId,
+            newCode,
+            req.user.id
+        );
+
+        res.json({
+            success: true,
+            message: 'Di chuyển minh chứng thành công',
+            data: movedEvidence
+        });
+
+    } catch (error) {
+        console.error('Move evidence error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi di chuyển minh chứng'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -741,5 +868,8 @@ module.exports = {
     getStatistics,
     copyEvidenceToAnotherYear,
     exportEvidences,
-    importEvidences
+    importEvidences,
+    incrementEvidenceDownload,
+    validateEvidenceFileName,
+    moveEvidence
 };
