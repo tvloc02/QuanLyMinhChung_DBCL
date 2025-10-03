@@ -7,7 +7,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // Import và test programs route
-const programRoutes = require('./routes/programs');
+const programRoutes = require('./routes/evidence/programs');
 app.use('/api/programs', programRoutes);
 
 app.listen(5001, () => {

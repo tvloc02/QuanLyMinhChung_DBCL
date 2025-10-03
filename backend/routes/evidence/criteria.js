@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const { attachCurrentAcademicYear } = require('../middleware/academicYear');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
+const validation = require('../../middleware/validation');
 const {
     getCriteria,
     getCriteriaByStandard,
@@ -12,7 +12,7 @@ const {
     updateCriteria,
     deleteCriteria,
     getCriteriaStatistics
-} = require('../controllers/evidence/criteriaController');
+} = require('../../controllers/evidence/criteriaController');
 
 router.use(auth, attachCurrentAcademicYear);
 

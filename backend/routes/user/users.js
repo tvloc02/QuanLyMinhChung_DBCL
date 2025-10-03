@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const validation = require('../../middleware/validation');
 const {
     getUsers,
     getUserById,
@@ -19,7 +19,7 @@ const {
     grantUserPermission,
     denyUserPermission,
     removeUserPermission
-} = require('../controllers/user/userController');
+} = require('../../controllers/user/userController');
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
 

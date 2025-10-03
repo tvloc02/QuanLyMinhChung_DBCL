@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const { setAcademicYearContext } = require('../middleware/academicYear');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const { setAcademicYearContext } = require('../../middleware/academicYear');
+const validation = require('../../middleware/validation');
 const {
     getAssignments,
     getAssignmentById,
@@ -14,7 +14,7 @@ const {
     rejectAssignment,
     getExpertWorkload,
     getAssignmentStats
-} = require('../controllers/report/assignmentController');
+} = require('../../controllers/report/assignmentController');
 
 const createAssignmentValidation = [
     body('reportId')

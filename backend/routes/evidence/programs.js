@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const { attachCurrentAcademicYear} = require('../middleware/academicYear');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const { attachCurrentAcademicYear} = require('../../middleware/academicYear');
+const validation = require('../../middleware/validation');
 const {
     getPrograms,
     getAllPrograms,
@@ -13,7 +13,7 @@ const {
     deleteProgram,
     getProgramStatistics,
     copyProgramToAnotherYear
-} = require('../controllers/evidence/programController');
+} = require('../../controllers/evidence/programController');
 
 // Apply academic year context to all routes
 router.use(auth, attachCurrentAcademicYear);

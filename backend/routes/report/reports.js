@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const { setAcademicYearContext } = require('../middleware/academicYear');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const { setAcademicYearContext } = require('../../middleware/academicYear');
+const validation = require('../../middleware/validation');
 const {
     getReports,
     getReportById,
@@ -11,7 +11,7 @@ const {
     updateReport,
     deleteReport,
     publishReport
-} = require('../controllers/report/reportController');
+} = require('../../controllers/report/reportController');
 
 const createReportValidation = [
     body('title')

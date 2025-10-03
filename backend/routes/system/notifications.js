@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { query, param, body } = require('express-validator');
-const { auth } = require('../middleware/auth');
-const validation = require('../middleware/validation');
+const { auth } = require('../../middleware/auth');
+const validation = require('../../middleware/validation');
 const {
     getNotifications,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     getNotificationStats
-} = require('../controllers/system/notificationController');
+} = require('../../controllers/system/notificationController');
 
 router.use(auth);
 

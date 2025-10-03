@@ -30,22 +30,22 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const usersRoutes = require('./routes/users');
-const academicYearRoutes = require('./routes/academicYear');
-const programRoutes = require('./routes/programs');
-const organizationRoutes = require('./routes/organizations');
-const standardRoutes = require('./routes/standards');
-const criteriaRoutes = require('./routes/criteria');
-const evidenceRoutes = require('./routes/evidences');
-const fileRoutes = require('./routes/files');
-const assignmentRoutes = require('./routes/assignments');
-const reportRoutes = require('./routes/reports');
-const evaluationRoutes = require('./routes/evaluations');
-const notificationRoutes = require('./routes/notifications');
-const userGroupRoutes = require('./routes/userGroup');
+const authRoutes = require('./routes/user/auth');
+const usersRoutes = require('./routes/user/users');
+const academicYearRoutes = require('./routes/system/academicYear');
+const programRoutes = require('./routes/evidence/programs');
+const organizationRoutes = require('./routes/evidence/organizations');
+const standardRoutes = require('./routes/evidence/standards');
+const criteriaRoutes = require('./routes/evidence/criteria');
+const evidenceRoutes = require('./routes/evidence/evidences');
+const fileRoutes = require('./routes/evidence/files');
+const assignmentRoutes = require('./routes/report/assignments');
+const reportRoutes = require('./routes/report/reports');
+const evaluationRoutes = require('./routes/report/evaluations');
+const notificationRoutes = require('./routes/system/notifications');
+const userGroupRoutes = require('./routes/user/userGroup');
 const PermissionRoutes = require('./models/User/Permission');
-const systemRoutes = require('./routes/system');
+const systemRoutes = require('./routes/system/system');
 app.use('/api/system', systemRoutes);
 
 app.use('/api/user-groups', userGroupRoutes);

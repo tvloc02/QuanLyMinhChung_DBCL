@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
-const validation = require('../middleware/validation');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const validation = require('../../middleware/validation');
 const {
     getAcademicYears,
     getAllAcademicYears,
@@ -15,7 +15,7 @@ const {
     copyDataFromYear,
     getAcademicYearStatistics,
     getAvailableYearsForCopy
-} = require('../controllers/system/academicYearController');
+} = require('../../controllers/system/academicYearController');
 
 // Validation rules
 const createAcademicYearValidation = [

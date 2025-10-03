@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth } = require('../middleware/auth');
-const { setAcademicYearContext } = require('../middleware/academicYear');
-const { upload } = require('../middleware/upload');
-const validation = require('../middleware/validation');
+const { auth } = require('../../middleware/auth');
+const { setAcademicYearContext } = require('../../middleware/academicYear');
+const { upload } = require('../../middleware/upload');
+const validation = require('../../middleware/validation');
 const {
     getEvidences,
     getEvidenceById,
@@ -18,7 +18,7 @@ const {
     copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences
-} = require('../controllers/evidence/evidenceController');
+} = require('../../controllers/evidence/evidenceController');
 
 // Apply academic year context to all routes
 router.use(auth, setAcademicYearContext);

@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, param, query } = require('express-validator');
-const { auth, requirePermission } = require('../middleware/auth');
-const validation = require('../middleware/validation');
-const userGroupController = require('../controllers/user/userGroupController');
+const { auth, requirePermission } = require('../../middleware/auth');
+const validation = require('../../middleware/validation');
+const userGroupController = require('../../controllers/user/userGroupController');
 
 router.get('/',
     auth,

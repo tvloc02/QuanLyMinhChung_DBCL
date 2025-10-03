@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { param, query } = require('express-validator');
-const { auth } = require('../middleware/auth');
-const { upload, handleUploadError } = require('../middleware/upload');
-const validation = require('../middleware/validation');
+const { auth } = require('../../middleware/auth');
+const { upload, handleUploadError } = require('../../middleware/upload');
+const validation = require('../../middleware/validation');
 const {
     uploadFiles,
     downloadFile,
     deleteFile,
     getFileInfo
-} = require('../controllers/evidence/fileController');
+} = require('../../controllers/evidence/fileController');
 
 // Upload files to evidence
 router.post('/upload/:evidenceId',
@@ -67,8 +67,8 @@ router.get('/evidence/:evidenceId',
             const { evidenceId } = req.params;
             const { page = 1, limit = 20 } = req.query;
 
-            const File = require('../models/Evidence/File');
-            const Evidence = require('../models/Evidence/Evidence');
+            const File = require('../../models/Evidence/File');
+            const Evidence = require('../../models/Evidence/Evidence');
 
             // Kiểm tra evidence tồn tại và quyền truy cập
             const evidence = await Evidence.findById(evidenceId);
@@ -135,7 +135,7 @@ router.get('/stream/:id',
     async (req, res) => {
         try {
             const { id } = req.params;
-            const File = require('../models/Evidence/File');
+            const File = require('../../models/Evidence/File');
             const fs = require('fs');
             const path = require('path');
 

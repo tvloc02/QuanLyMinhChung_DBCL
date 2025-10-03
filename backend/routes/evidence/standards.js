@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../middleware/auth');
+const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
 //const { setAcademicYearContext } = require('../middleware/academicYear');
-const { attachCurrentAcademicYear } = require('../middleware/academicYear');
-const validation = require('../middleware/validation');
+const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
+const validation = require('../../middleware/validation');
 const {
     getStandards,
     getStandardsByProgramAndOrg,
@@ -13,7 +13,7 @@ const {
     updateStandard,
     deleteStandard,
     getStandardStatistics
-} = require('../controllers/evidence/standardController');
+} = require('../../controllers/evidence/standardController');
 
 // Apply academic year context to all routes
 //router.use(auth, setAcademicYearContext);
