@@ -110,10 +110,23 @@ const evidenceSchema = new mongoose.Schema({
 
     tags: [String],
 
+    bulkImportBatch: {
+        batchId: String,
+        importedAt: Date,
+        importedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    },
+
+    downloadStats: {
+        totalDownloads: { type: Number, default: 0 },
+        lastDownloadedAt: Date,
+        lastDownloadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    },
+
     createdAt: {
         type: Date,
         default: Date.now
     },
+
     updatedAt: {
         type: Date,
         default: Date.now
@@ -171,8 +184,37 @@ evidenceSchema.pre('save', function(next) {
     next();
 });
 
+evidenceSchema.virtual('parsedCode').get(function() {
+    const parts = this.code.split('.');
+    return {
+        boxNumber: parseInt(parts[0].substring(1)),
+        standardCode: parts[1],
+        criteriaCode: parts[2],
+        sequenceNumber: parts[3],
+        prefix: parts[0]
+    };
+});
+
+evidenceSchema.virtual('fileName').get(function() {
+    return `${this.code}-${this.name}`;
+});
+
+evidenceSchema.methods.validateFileName = function(fileName) {
+    const expectedPrefix = `${this.code}-`;
+    if (!fileName.startsWith(expectedPrefix)) {
+        throw new Error(`File name phải bắt đầu bằng ${expectedPrefix}`);
+    }
+
+    const fullPath = `${this.filePath || ''}/${fileName}`;
+    if (fullPath.length > 255) {
+        throw new Error('Đường dẫn + tên file không được quá 255 ký tự');
+    }
+
+    return true;
+};
+
 evidenceSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
-    const ActivityLog = require('../system/ActivityLog');
+    const ActivityLog = require('./ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,
@@ -183,6 +225,22 @@ evidenceSchema.methods.addActivityLog = async function(action, userId, descripti
         targetName: `${this.code} - ${this.name}`,
         ...additionalData
     });
+};
+
+evidenceSchema.methods.incrementDownload = async function(userId) {
+    this.downloadStats.totalDownloads += 1;
+    this.downloadStats.lastDownloadedAt = new Date();
+    this.downloadStats.lastDownloadedBy = userId;
+
+    await this.save();
+
+    await this.addActivityLog('evidence_download', userId,
+        `Tải xuống minh chứng ${this.code}`, {
+            severity: 'low',
+            metadata: { totalDownloads: this.downloadStats.totalDownloads }
+        });
+
+    return this;
 };
 
 evidenceSchema.statics.generateCode = async function(academicYearId, standardCode, criteriaCode, boxNumber = 1) {
@@ -211,18 +269,8 @@ evidenceSchema.statics.generateCode = async function(academicYearId, standardCod
 
         const newCode = `${codePrefix}.${nextNumber.toString().padStart(2, '0')}`;
 
-        console.log('Generated evidence code:', {
-            academicYearId,
-            standardCode: formattedStandardCode,
-            criteriaCode: formattedCriteriaCode,
-            boxNumber,
-            lastEvidence: existingEvidences[0]?.code,
-            newCode
-        });
-
         return newCode;
     } catch (error) {
-        console.error('Error generating evidence code:', error);
         throw new Error('Lỗi khi tạo mã minh chứng');
     }
 };
@@ -414,10 +462,6 @@ evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, pr
 
     return tree;
 };
-
-evidenceSchema.virtual('fileName').get(function() {
-    return `${this.code}-${this.name}`;
-});
 
 evidenceSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
