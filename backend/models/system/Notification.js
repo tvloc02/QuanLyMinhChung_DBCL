@@ -23,6 +23,9 @@ const notificationSchema = new mongoose.Schema({
             'evaluation_reviewed',
             'report_published',
             'report_updated',
+            'report_access_granted',
+            'report_comment_added',
+            'report_review_requested',
             'system_maintenance',
             'deadline_approaching',
             'user_mentioned',
@@ -78,9 +81,7 @@ const notificationSchema = new mongoose.Schema({
     },
 
     readAt: Date,
-
     clickedAt: Date,
-
     dismissedAt: Date,
 
     channels: {
@@ -119,9 +120,7 @@ const notificationSchema = new mongoose.Schema({
     },
 
     expiresAt: Date,
-
     groupKey: String,
-
     templateId: String,
     templateVars: mongoose.Schema.Types.Mixed,
 
@@ -186,6 +185,9 @@ notificationSchema.virtual('typeText').get(function() {
         'evaluation_reviewed': 'Đánh giá đã xem xét',
         'report_published': 'Báo cáo được xuất bản',
         'report_updated': 'Báo cáo được cập nhật',
+        'report_access_granted': 'Cấp quyền xem báo cáo',
+        'report_comment_added': 'Nhận xét mới',
+        'report_review_requested': 'Yêu cầu xem xét báo cáo',
         'system_maintenance': 'Bảo trì hệ thống',
         'deadline_approaching': 'Gần hạn chót',
         'user_mentioned': 'Được nhắc đến',
@@ -275,6 +277,9 @@ notificationSchema.methods.getActionUrl = function() {
 
         case 'report_published':
         case 'report_updated':
+        case 'report_access_granted':
+        case 'report_comment_added':
+        case 'report_review_requested':
             return this.data?.reportId ? `/reports/${this.data.reportId}` : null;
 
         default:
