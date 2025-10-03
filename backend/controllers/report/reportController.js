@@ -623,6 +623,99 @@ const getReportStats = async (req, res) => {
     }
 };
 
+const addReviewer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reviewerId, reviewerType } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Không có quyền phân quyền' });
+        }
+
+        await report.addReviewer(reviewerId, reviewerType, req.user.id);
+        res.json({ success: true, message: 'Thêm reviewer thành công', data: report.accessControl });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khi thêm reviewer' });
+    }
+};
+
+const removeReviewer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reviewerId, reviewerType } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+
+        await report.removeReviewer(reviewerId, reviewerType);
+        res.json({ success: true, message: 'Xóa reviewer thành công', data: report.accessControl });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khi xóa reviewer' });
+    }
+};
+
+const addComment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { comment, section } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+
+        const access = report.canAccess(req.user.id, req.user.role);
+        if (!access.canComment) {
+            return res.status(403).json({ success: false, message: 'Không có quyền bình luận' });
+        }
+
+        await report.addComment(req.user.id, access.role || 'expert', comment, section);
+        res.json({ success: true, message: 'Thêm nhận xét thành công', data: report.reviewerComments });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khi thêm nhận xét' });
+    }
+};
+
+const resolveComment = async (req, res) => {
+    try {
+        const { id, commentId } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Không có quyền xử lý nhận xét' });
+        }
+
+        await report.resolveComment(commentId, req.user.id);
+        res.json({ success: true, message: 'Đã xử lý nhận xét', data: report.reviewerComments });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khi xử lý nhận xét' });
+    }
+};
+
+const validateEvidenceLinks = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+
+        const result = await report.validateEvidenceLinks();
+        res.json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi khi kiểm tra liên kết minh chứng' });
+    }
+};
+
+
+
 module.exports = {
     getReports,
     getReportById,
@@ -633,5 +726,10 @@ module.exports = {
     downloadReport,
     getReportVersions,
     getReportEvidences,
-    getReportStats
+    getReportStats,
+    addReviewer,
+    removeReviewer,
+    addComment,
+    resolveComment,
+    validateEvidenceLinks,
 };
