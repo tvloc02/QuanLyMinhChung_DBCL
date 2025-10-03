@@ -76,9 +76,7 @@ export default function Sidebar({ open, onClose }) {
             submenu: [
                 { name: 'Danh sách năm học', icon: Calendar, path: '/academic-years/academic-years' },
                 { name: 'Tạo năm học mới', icon: UserPlus, path: '/academic-years/create' },
-                { name: 'Điều chỉnh học', icon: UserPlus, path: '/academic-years/edit' },
                 { name: 'Sao chép năm học', icon: Archive, path: '/academic-years/copy' },
-                { name: 'Cài đặt năm học', icon: Settings, path: '/academic-years/settings' }
             ]
         },
         {

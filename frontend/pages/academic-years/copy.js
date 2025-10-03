@@ -214,7 +214,7 @@ const CopyAcademicYearPage = () => {
 
     if (fetchingData) {
         return (
-            <Layout title="Sao chép dữ liệu năm học" breadcrumbItems={breadcrumbItems}>
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
@@ -230,7 +230,7 @@ const CopyAcademicYearPage = () => {
     }
 
     return (
-        <Layout title="Sao chép dữ liệu năm học" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header với gradient */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">

@@ -259,7 +259,7 @@ const EditAcademicYearPage = () => {
 
     return (
         <Layout title="Chỉnh sửa năm học" breadcrumbItems={breadcrumbItems}>
-            <div className="w-full max-w-5xl mx-auto space-y-6 px-4">
+            <div className="space-y-6">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
                     <div className="flex items-center justify-between">
