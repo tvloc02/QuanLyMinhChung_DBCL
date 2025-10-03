@@ -238,7 +238,45 @@ export const apiMethods = {
         publish: (id) => api.post(`/reports/${id}/publish`),
         addVersion: (id, content, changeNote) =>
             api.post(`/reports/${id}/versions`, { content, changeNote }),
+        getVersions: (id) => api.get(`/reports/${id}/versions`),
+
         linkEvidences: (id) => api.post(`/reports/${id}/link-evidences`),
+        getEvidences: (id) => api.get(`/reports/${id}/evidences`),
+        validateEvidenceLinks: (id) => api.post(`/reports/${id}/validate-evidence-links`),
+
+        uploadFile: (id, file, onProgress) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            return api.post(`/reports/${id}/upload`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (progressEvent) => {
+                    if (onProgress) {
+                        const progress = Math.round(
+                            (progressEvent.loaded * 100) / progressEvent.total
+                        )
+                        onProgress(progress)
+                    }
+                }
+            })
+        },
+        downloadFile: (id) => api.get(`/reports/${id}/download-file`, {
+            responseType: 'blob'
+        }),
+        convertFileToContent: (id) => api.post(`/reports/${id}/convert`),
+        download: (id, format = 'html') => api.get(`/reports/${id}/download`, {
+            params: { format },
+            responseType: format === 'html' ? 'blob' : 'blob'
+        }),
+
+        addReviewer: (id, reviewerId, reviewerType) =>
+            api.post(`/reports/${id}/reviewers`, { reviewerId, reviewerType }),
+        removeReviewer: (id, reviewerId, reviewerType) =>
+            api.delete(`/reports/${id}/reviewers`, { data: { reviewerId, reviewerType } }),
+        addComment: (id, comment, section) =>
+            api.post(`/reports/${id}/comments`, { comment, section }),
+        resolveComment: (id, commentId) =>
+            api.put(`/reports/${id}/comments/${commentId}/resolve`),
+        getStats: (params) => api.get('/reports/stats', { params }),
         generateCode: (type, standardCode, criteriaCode) =>
             api.post('/reports/generate-code', { type, standardCode, criteriaCode })
     },

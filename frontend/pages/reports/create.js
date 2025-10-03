@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import RichTextEditor from '../../components/reports/RichTextEditor'
-import EvidencePicker from '../../components/reports/EvidencePicker'
-import EvidenceViewer from '../../components/reports/EvidenceViewer'
+import RichTextEditor from '../../components/report/RichTextEditor'
+import EvidencePicker from '../../components/report/EvidencePicker'
+import EvidenceViewer from '../../components/report/EvidenceViewer'
 import toast from 'react-hot-toast'
 import {
     FileText,
@@ -115,12 +115,12 @@ export default function CreateReportPage() {
         try {
             setLoading(true)
             const [programsData, orgsData] = await Promise.all([
-                apiMethods.programs.getAll({ limit: 100 }),
-                apiMethods.organizations.getAll({ limit: 100 })
+                programService.getPrograms({ limit: 100 }),
+                organizationService.getOrganizations({ limit: 100 })
             ])
 
-            setPrograms(programsData.data?.data?.programs || [])
-            setOrganizations(orgsData.data?.data?.organizations || [])
+            setPrograms(programsData.data?.programs || [])
+            setOrganizations(orgsData.data?.organizations || [])
         } catch (error) {
             toast.error('Lỗi tải dữ liệu ban đầu')
         } finally {
@@ -130,12 +130,8 @@ export default function CreateReportPage() {
 
     const fetchStandards = async () => {
         try {
-            const response = await apiMethods.standards.getAll({
-                programId: formData.programId,
-                organizationId: formData.organizationId,
-                status: 'active'
-            })
-            setStandards(response.data?.data?.standards || response.data?.data || [])
+            const response = await programService.getStandards(formData.programId)
+            setStandards(response.data?.standards || response.data || [])
         } catch (error) {
             console.error('Lỗi tải tiêu chuẩn:', error)
             toast.error('Lỗi khi tải danh sách tiêu chuẩn')
@@ -144,19 +140,16 @@ export default function CreateReportPage() {
 
     const fetchCriteria = async () => {
         try {
-            const response = await apiMethods.criteria.getAll({
-                standardId: formData.standardId,
-                status: 'active'
-            })
+            const response = await programService.getCriteria(formData.standardId)
 
             let criteriaData = []
-            if (response.data?.data) {
-                if (Array.isArray(response.data.data.criterias)) {
-                    criteriaData = response.data.data.criterias
-                } else if (Array.isArray(response.data.data.criteria)) {
-                    criteriaData = response.data.data.criteria
-                } else if (Array.isArray(response.data.data)) {
-                    criteriaData = response.data.data
+            if (response.data) {
+                if (Array.isArray(response.data.criterias)) {
+                    criteriaData = response.data.criterias
+                } else if (Array.isArray(response.data.criteria)) {
+                    criteriaData = response.data.criteria
+                } else if (Array.isArray(response.data)) {
+                    criteriaData = response.data
                 }
             }
 
@@ -243,9 +236,7 @@ export default function CreateReportPage() {
                 // Upload file if needed
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
-                        const fileFormData = new FormData()
-                        fileFormData.append('file', selectedFile)
-                        await apiMethods.files.uploadReportFile(reportId, fileFormData)
+                        await reportService.uploadFile(reportId, selectedFile)
                         toast.success('Tạo báo cáo và upload file thành công')
                     } catch (uploadError) {
                         toast.warning('Báo cáo đã được tạo nhưng có lỗi khi upload file')

@@ -755,7 +755,7 @@ const uploadReportFile = async (req, res) => {
             });
         }
 
-        const File = require('../../models/system/File');
+        const File = require('../../models/evidence/file');
 
         // Create file record
         const fileRecord = new File({
