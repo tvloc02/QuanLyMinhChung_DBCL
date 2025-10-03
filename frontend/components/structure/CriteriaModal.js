@@ -8,11 +8,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     const [formData, setFormData] = useState({
         name: '',
         code: '',
-        description: '',
         standardId: '',
         requirements: '',
-        guidelines: '',
-        indicators: [],
         status: 'draft',
         autoGenerateCode: true
     })
@@ -24,11 +21,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             setFormData({
                 name: criteria.name || '',
                 code: criteria.code || '',
-                description: criteria.description || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
                 requirements: criteria.requirements || '',
-                guidelines: criteria.guidelines || '',
-                indicators: criteria.indicators || [],
                 status: criteria.status || 'draft',
                 autoGenerateCode: false // Khi edit, không auto
             })
@@ -261,20 +255,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
 
-                    {/* Mô tả */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mô tả
-                        </label>
-                        <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={2}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập mô tả về tiêu chí"
-                        />
-                    </div>
 
                     {/* Trạng thái */}
                     <div>
@@ -294,35 +274,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         </select>
                     </div>
 
-                    {/* Yêu cầu */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Yêu cầu
-                        </label>
-                        <textarea
-                            name="requirements"
-                            value={formData.requirements}
-                            onChange={handleChange}
-                            rows={2}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập yêu cầu của tiêu chí"
-                        />
-                    </div>
-
-                    {/* Hướng dẫn */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hướng dẫn đánh giá
-                        </label>
-                        <textarea
-                            name="guidelines"
-                            value={formData.guidelines}
-                            onChange={handleChange}
-                            rows={2}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập hướng dẫn đánh giá"
-                        />
-                    </div>
 
                     {/* Indicators */}
                     <div className="border-t border-gray-200 pt-6">
