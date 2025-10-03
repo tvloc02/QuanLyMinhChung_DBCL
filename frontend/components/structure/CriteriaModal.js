@@ -10,6 +10,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         code: '',
         standardId: '',
         requirements: '',
+        guidelines: '',
+        indicators: [],
         status: 'draft',
         autoGenerateCode: true
     })
@@ -22,7 +24,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 name: criteria.name || '',
                 code: criteria.code || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
-                requirements: criteria.requirements || '',
+                indicators: criteria.indicators || [],
                 status: criteria.status || 'draft',
                 autoGenerateCode: false // Khi edit, không auto
             })
@@ -255,7 +257,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
 
-
                     {/* Trạng thái */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -273,7 +274,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             <option value="archived">Lưu trữ</option>
                         </select>
                     </div>
-
 
                     {/* Indicators */}
                     <div className="border-t border-gray-200 pt-6">

@@ -205,14 +205,6 @@ export default function CriteriaList() {
                     'Ví dụ không hợp lệ': ''
                 },
                 {
-                    'Tên cột': 'Mô tả',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Mô tả chi tiết về tiêu chí, tối đa 3000 ký tự',
-                    'Ví dụ hợp lệ': 'Mục tiêu thể hiện rõ định hướng phát triển...',
-                    'Ví dụ không hợp lệ': ''
-                },
-                {
                     'Tên cột': 'Mã tiêu chuẩn (*)',
                     'Kiểu dữ liệu': 'Số',
                     'Bắt buộc': 'Có',
@@ -220,22 +212,7 @@ export default function CriteriaList() {
                     'Ví dụ hợp lệ': '1, 01, 02, 10',
                     'Ví dụ không hợp lệ': '100 (chưa tồn tại)'
                 },
-                {
-                    'Tên cột': 'Yêu cầu',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Yêu cầu của tiêu chí, tối đa 2000 ký tự',
-                    'Ví dụ hợp lệ': 'Có văn bản mô tả mục tiêu rõ ràng',
-                    'Ví dụ không hợp lệ': ''
-                },
-                {
-                    'Tên cột': 'Hướng dẫn',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Hướng dẫn đánh giá tiêu chí, tối đa 3000 ký tự',
-                    'Ví dụ hợp lệ': 'Kiểm tra tính nhất quán...',
-                    'Ví dụ không hợp lệ': ''
-                }
+
             ]
 
             const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
@@ -352,7 +329,6 @@ export default function CriteriaList() {
                 'STT': index + 1,
                 'Mã': c.code,
                 'Tên tiêu chí': c.name,
-                'Mô tả': c.description || '',
                 'Tiêu chuẩn': `${c.standardId?.code} - ${c.standardId?.name}` || '',
                 'Chương trình': c.programId?.name || '',
                 'Trạng thái': getStatusLabel(c.status),
@@ -367,7 +343,6 @@ export default function CriteriaList() {
                 { wch: 5 },   // STT
                 { wch: 12 },  // Mã
                 { wch: 55 },  // Tên
-                { wch: 60 },  // Mô tả
                 { wch: 50 },  // Tiêu chuẩn
                 { wch: 35 },  // Chương trình
                 { wch: 12 },  // Trạng thái
