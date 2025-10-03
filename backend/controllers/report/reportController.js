@@ -714,7 +714,228 @@ const validateEvidenceLinks = async (req, res) => {
     }
 };
 
+const uploadReportFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
 
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền upload file cho báo cáo này'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        // Check file type
+        const allowedMimeTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+
+        if (!allowedMimeTypes.includes(req.file.mimetype)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ chấp nhận file PDF hoặc Word'
+            });
+        }
+
+        const File = require('../../models/system/File');
+
+        // Create file record
+        const fileRecord = new File({
+            originalName: req.file.originalname,
+            filename: req.file.filename,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            path: req.file.path,
+            uploadedBy: req.user.id,
+            academicYearId
+        });
+
+        await fileRecord.save();
+
+        // Update report
+        report.attachedFile = fileRecord._id;
+        report.contentMethod = 'file_upload';
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        await report.populate('attachedFile');
+
+        res.json({
+            success: true,
+            message: 'Upload file thành công',
+            data: {
+                file: fileRecord,
+                report: report
+            }
+        });
+
+    } catch (error) {
+        console.error('Upload report file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi upload file'
+        });
+    }
+};
+
+const downloadReportFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate('attachedFile');
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền tải file báo cáo này'
+            });
+        }
+
+        if (!report.attachedFile) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không có file đính kèm'
+            });
+        }
+
+        const fs = require('fs');
+        const path = require('path');
+
+        const filePath = path.resolve(report.attachedFile.path);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: 'File không tồn tại'
+            });
+        }
+
+        await report.incrementDownload();
+
+        res.download(filePath, report.attachedFile.originalName);
+
+    } catch (error) {
+        console.error('Download report file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi tải file'
+        });
+    }
+};
+
+const convertFileToContent = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate('attachedFile');
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền chuyển đổi nội dung báo cáo này'
+            });
+        }
+
+        if (!report.attachedFile) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không có file đính kèm để chuyển đổi'
+            });
+        }
+
+        const mammoth = require('mammoth');
+        const pdfParse = require('pdf-parse');
+        const fs = require('fs');
+        const path = require('path');
+
+        const filePath = path.resolve(report.attachedFile.path);
+        const fileBuffer = fs.readFileSync(filePath);
+
+        let htmlContent = '';
+
+        if (report.attachedFile.mimetype === 'application/pdf') {
+            // Extract text from PDF
+            const data = await pdfParse(fileBuffer);
+            // Convert plain text to HTML with paragraphs
+            htmlContent = data.text
+                .split('\n\n')
+                .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+                .join('\n');
+        } else if (
+            report.attachedFile.mimetype === 'application/msword' ||
+            report.attachedFile.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ) {
+            // Convert Word to HTML
+            const result = await mammoth.convertToHtml({ buffer: fileBuffer });
+            htmlContent = result.value;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Định dạng file không được hỗ trợ'
+            });
+        }
+
+        // Update report
+        report.content = htmlContent;
+        report.contentMethod = 'online_editor';
+        report.updatedBy = req.user.id;
+
+        await report.linkEvidences();
+        await report.save();
+
+        res.json({
+            success: true,
+            message: 'Chuyển đổi file sang nội dung thành công',
+            data: {
+                content: htmlContent
+            }
+        });
+
+    } catch (error) {
+        console.error('Convert file to content error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi chuyển đổi file'
+        });
+    }
+};
 
 module.exports = {
     getReports,
@@ -732,4 +953,8 @@ module.exports = {
     addComment,
     resolveComment,
     validateEvidenceLinks,
+    uploadReportFile,
+    downloadReportFile,
+    convertFileToContent
+
 };
