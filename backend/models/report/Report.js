@@ -80,6 +80,47 @@ const reportSchema = new mongoose.Schema({
         linkedText: String
     }],
 
+    accessControl: {
+        assignedExperts: [{
+            expertId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            assignedAt: Date,
+            assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            canComment: { type: Boolean, default: true },
+            canEvaluate: { type: Boolean, default: true }
+        }],
+
+        advisors: [{
+            advisorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            assignedAt: Date,
+            assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            canComment: { type: Boolean, default: true },
+            canEvaluate: { type: Boolean, default: false }
+        }],
+
+        isPublic: { type: Boolean, default: false },
+        publicSince: Date
+    },
+
+    reviewerComments: [{
+        commentId: mongoose.Schema.Types.ObjectId,
+        reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        reviewerType: {
+            type: String,
+            enum: ['expert', 'advisor', 'manager'],
+            required: true
+        },
+        comment: {
+            type: String,
+            required: true,
+            maxlength: [2000, 'Comment không được quá 2000 ký tự']
+        },
+        commentedAt: { type: Date, default: Date.now },
+        section: String,
+        isResolved: { type: Boolean, default: false },
+        resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        resolvedAt: Date
+    }],
+
     status: {
         type: String,
         enum: ['draft', 'under_review', 'published', 'archived'],
@@ -166,6 +207,8 @@ reportSchema.index({ createdBy: 1 });
 reportSchema.index({ status: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
+reportSchema.index({ 'accessControl.assignedExperts.expertId': 1 });
+reportSchema.index({ 'accessControl.advisors.advisorId': 1 });
 
 reportSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -176,6 +219,29 @@ reportSchema.pre('save', function(next) {
         }
     }
     next();
+});
+
+reportSchema.virtual('typeText').get(function() {
+    const typeMap = {
+        'criteria_analysis': 'Phiếu phân tích tiêu chí',
+        'standard_analysis': 'Phiếu phân tích tiêu chuẩn',
+        'comprehensive_report': 'Báo cáo tổng hợp'
+    };
+    return typeMap[this.type] || this.type;
+});
+
+reportSchema.virtual('statusText').get(function() {
+    const statusMap = {
+        'draft': 'Bản nháp',
+        'under_review': 'Đang xem xét',
+        'published': 'Đã xuất bản',
+        'archived': 'Lưu trữ'
+    };
+    return statusMap[this.status] || this.status;
+});
+
+reportSchema.virtual('url').get(function() {
+    return `/reports/${this._id}`;
 });
 
 reportSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
@@ -190,6 +256,165 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
         targetName: this.title,
         ...additionalData
     });
+};
+
+reportSchema.methods.canAccess = function(userId, userRole) {
+    if (userRole === 'admin') {
+        return { canView: true, canEdit: true, canComment: true, canEvaluate: true };
+    }
+
+    if (this.createdBy.toString() === userId.toString()) {
+        return { canView: true, canEdit: true, canComment: true, canEvaluate: false };
+    }
+
+    if (this.status === 'published' || this.accessControl.isPublic) {
+        return { canView: true, canEdit: false, canComment: false, canEvaluate: false };
+    }
+
+    const expert = this.accessControl.assignedExperts.find(
+        e => e.expertId.toString() === userId.toString()
+    );
+    if (expert) {
+        return {
+            canView: true,
+            canEdit: false,
+            canComment: expert.canComment,
+            canEvaluate: expert.canEvaluate
+        };
+    }
+
+    const advisor = this.accessControl.advisors.find(
+        a => a.advisorId.toString() === userId.toString()
+    );
+    if (advisor) {
+        return {
+            canView: true,
+            canEdit: false,
+            canComment: advisor.canComment,
+            canEvaluate: false
+        };
+    }
+
+    return { canView: false, canEdit: false, canComment: false, canEvaluate: false };
+};
+
+reportSchema.methods.addReviewer = async function(reviewerId, reviewerType, addedBy) {
+    const isExpert = reviewerType === 'expert';
+    const targetArray = isExpert
+        ? this.accessControl.assignedExperts
+        : this.accessControl.advisors;
+
+    const idField = isExpert ? 'expertId' : 'advisorId';
+
+    const exists = targetArray.some(
+        r => r[idField].toString() === reviewerId.toString()
+    );
+
+    if (!exists) {
+        const newReviewer = {
+            [idField]: reviewerId,
+            assignedAt: new Date(),
+            assignedBy: addedBy,
+            canComment: true,
+            canEvaluate: isExpert
+        };
+        targetArray.push(newReviewer);
+
+        await this.save();
+
+        const Notification = mongoose.model('Notification');
+        await Notification.create({
+            recipientId: reviewerId,
+            senderId: addedBy,
+            type: 'report_access_granted',
+            title: `Được phân quyền xem báo cáo: ${this.title}`,
+            message: `Bạn đã được phân quyền ${isExpert ? 'đánh giá' : 'tư vấn/giám sát'} báo cáo "${this.title}"`,
+            data: {
+                reportId: this._id,
+                url: `/reports/${this._id}`
+            },
+            priority: 'normal'
+        });
+    }
+
+    return this;
+};
+
+reportSchema.methods.removeReviewer = async function(reviewerId, reviewerType) {
+    const isExpert = reviewerType === 'expert';
+    if (isExpert) {
+        this.accessControl.assignedExperts = this.accessControl.assignedExperts.filter(
+            e => e.expertId.toString() !== reviewerId.toString()
+        );
+    } else {
+        this.accessControl.advisors = this.accessControl.advisors.filter(
+            a => a.advisorId.toString() !== reviewerId.toString()
+        );
+    }
+
+    await this.save();
+    return this;
+};
+
+reportSchema.methods.addComment = async function(reviewerId, reviewerType, comment, section = null) {
+    this.reviewerComments.push({
+        commentId: new mongoose.Types.ObjectId(),
+        reviewerId,
+        reviewerType,
+        comment,
+        section,
+        commentedAt: new Date()
+    });
+
+    await this.save();
+
+    const Notification = mongoose.model('Notification');
+    await Notification.create({
+        recipientId: this.createdBy,
+        senderId: reviewerId,
+        type: 'report_comment_added',
+        title: `Nhận xét mới trên báo cáo: ${this.title}`,
+        message: `Có nhận xét mới từ ${reviewerType} trên báo cáo "${this.title}"`,
+        data: {
+            reportId: this._id,
+            url: `/reports/${this._id}`
+        },
+        priority: 'normal'
+    });
+
+    return this;
+};
+
+reportSchema.methods.resolveComment = async function(commentId, resolvedBy) {
+    const comment = this.reviewerComments.id(commentId);
+    if (comment) {
+        comment.isResolved = true;
+        comment.resolvedBy = resolvedBy;
+        comment.resolvedAt = new Date();
+        await this.save();
+    }
+    return this;
+};
+
+reportSchema.methods.validateEvidenceLinks = async function() {
+    const evidenceCodes = this.extractEvidenceReferences();
+    const Evidence = mongoose.model('Evidence');
+
+    const foundEvidences = await Evidence.find({
+        code: { $in: evidenceCodes },
+        academicYearId: this.academicYearId
+    }).select('code');
+
+    const foundCodes = foundEvidences.map(e => e.code);
+    const missingCodes = evidenceCodes.filter(code => !foundCodes.includes(code));
+
+    return {
+        valid: missingCodes.length === 0,
+        total: evidenceCodes.length,
+        found: foundCodes.length,
+        missing: missingCodes,
+        validCodes: foundCodes
+    };
 };
 
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
@@ -249,19 +474,29 @@ reportSchema.methods.addVersion = async function(newContent, userId, changeNote 
 
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
-    if (this.createdBy.toString() === userId.toString()) return true;
-    return false;
+    return this.createdBy.toString() === userId.toString();
+
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
     if (userRole === 'admin') return true;
     if (this.createdBy.toString() === userId.toString()) return true;
-    if (this.status === 'published') return true;
+    if (this.status === 'published' || this.accessControl.isPublic) return true;
+
+    const hasExpertAccess = this.accessControl.assignedExperts.some(
+        e => e.expertId.toString() === userId.toString()
+    );
+    if (hasExpertAccess) return true;
+
+    const hasAdvisorAccess = this.accessControl.advisors.some(
+        a => a.advisorId.toString() === userId.toString()
+    );
+    if (hasAdvisorAccess) return true;
 
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
-    if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
+    return this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString());
 
-    return false;
+
 };
 
 reportSchema.methods.incrementView = async function() {
@@ -331,6 +566,8 @@ reportSchema.methods.publish = async function(userId) {
     const oldStatus = this.status;
     this.status = 'published';
     this.updatedBy = userId;
+    this.accessControl.isPublic = true;
+    this.accessControl.publicSince = new Date();
 
     await this.save();
 
@@ -344,29 +581,6 @@ reportSchema.methods.publish = async function(userId) {
 
     return this;
 };
-
-reportSchema.virtual('typeText').get(function() {
-    const typeMap = {
-        'criteria_analysis': 'Phiếu phân tích tiêu chí',
-        'standard_analysis': 'Phiếu phân tích tiêu chuẩn',
-        'comprehensive_report': 'Báo cáo tổng hợp'
-    };
-    return typeMap[this.type] || this.type;
-});
-
-reportSchema.virtual('statusText').get(function() {
-    const statusMap = {
-        'draft': 'Bản nháp',
-        'under_review': 'Đang xem xét',
-        'published': 'Đã xuất bản',
-        'archived': 'Lưu trữ'
-    };
-    return statusMap[this.status] || this.status;
-});
-
-reportSchema.virtual('url').get(function() {
-    return `/reports/${this._id}`;
-});
 
 reportSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
