@@ -59,10 +59,6 @@ const createAcademicYearValidation = [
             }
             return true;
         }),
-    body('description')
-        .optional()
-        .isLength({ max: 500 })
-        .withMessage('Mô tả không được quá 500 ký tự'),
     body('isCurrent')
         .optional()
         .isBoolean()
@@ -99,10 +95,6 @@ const updateAcademicYearValidation = [
         .optional()
         .isISO8601()
         .withMessage('Ngày kết thúc không hợp lệ'),
-    body('description')
-        .optional()
-        .isLength({ max: 500 })
-        .withMessage('Mô tả không được quá 500 ký tự'),
     body('status')
         .optional()
         .isIn(['draft', 'active', 'completed', 'archived'])
