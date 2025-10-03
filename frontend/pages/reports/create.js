@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import RichTextEditor from '../../components/report/RichTextEditor'
-import EvidencePicker from '../../components/report/EvidencePicker'
-import EvidenceViewer from '../../components/report/EvidenceViewer'
+import RichTextEditor from '../../components/reports/RichTextEditor'
+import EvidencePicker from '../../components/reports/EvidencePicker'
+import EvidenceViewer from '../../components/reports/EvidenceViewer'
 import toast from 'react-hot-toast'
 import {
     FileText,
