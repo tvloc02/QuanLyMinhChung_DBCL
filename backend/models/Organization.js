@@ -29,23 +29,6 @@ const organizationSchema = new mongoose.Schema({
         }
     },
 
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
-    },
-
-    website: {
-        type: String,
-        validate: {
-            validator: function(url) {
-                if (!url) return true;
-                return /^https?:\/\/.+/.test(url);
-            },
-            message: 'Website phải có định dạng URL hợp lệ'
-        }
-    },
-
     contactEmail: {
         type: String,
         validate: {
@@ -66,18 +49,6 @@ const organizationSchema = new mongoose.Schema({
             },
             message: 'Số điện thoại không hợp lệ'
         }
-    },
-
-    address: {
-        type: String,
-        trim: true,
-        maxlength: [500, 'Địa chỉ không được quá 500 ký tự']
-    },
-
-    country: {
-        type: String,
-        default: 'Vietnam',
-        maxlength: [100, 'Tên quốc gia không được quá 100 ký tự']
     },
 
     status: {
@@ -127,7 +98,6 @@ organizationSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
 organizationSchema.index({ academicYearId: 1, level: 1 });
 organizationSchema.index({ academicYearId: 1, type: 1 });
 organizationSchema.index({ academicYearId: 1, status: 1 });
-organizationSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 organizationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -140,13 +110,12 @@ organizationSchema.virtual('url').get(function() {
     return `/organizations/${this._id}`;
 });
 
-organizationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+organizationSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
     const ActivityLog = require('./ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,
         action,
-        description,
         targetType: 'Organization',
         targetId: this._id,
         targetName: this.name,
