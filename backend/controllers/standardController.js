@@ -28,7 +28,6 @@ const getStandards = async (req, res) => {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { code: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -149,12 +148,10 @@ const createStandard = async (req, res) => {
         const {
             name,
             code,
-            description,
             programId,
             organizationId,
             order,
             objectives,
-            guidelines,
             evaluationCriteria
         } = req.body;
 
@@ -197,12 +194,10 @@ const createStandard = async (req, res) => {
             academicYearId,
             name: name.trim(),
             code: code.toString().padStart(2, '0'),
-            description: description?.trim(),
             programId,
             organizationId,
             order: order || 1,
             objectives: objectives?.trim(),
-            guidelines: guidelines?.trim(),
             evaluationCriteria: evaluationCriteria || [],
             createdBy: req.user.id,
             updatedBy: req.user.id
@@ -271,8 +266,8 @@ const updateStandard = async (req, res) => {
         }
 
         const allowedFields = [
-            'name', 'description', 'order', 'objectives',
-            'guidelines', 'evaluationCriteria', 'status'
+            'name', 'order', 'objectives',
+             'evaluationCriteria', 'status'
         ];
 
         allowedFields.forEach(field => {
