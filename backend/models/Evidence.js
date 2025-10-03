@@ -186,20 +186,63 @@ evidenceSchema.methods.addActivityLog = async function(action, userId, descripti
 };
 
 evidenceSchema.statics.generateCode = async function(academicYearId, standardCode, criteriaCode, boxNumber = 1) {
-    const pattern = new RegExp(`^H${boxNumber}\\.${standardCode}\\.${criteriaCode}\\.(\\d{2})$`);
-    const evidences = await this.find({
-        academicYearId,
-        code: pattern
-    }).sort({ code: -1 }).limit(1);
+    try {
+        const formattedStandardCode = String(standardCode).padStart(2, '0');
+        const formattedCriteriaCode = String(criteriaCode).padStart(2, '0');
 
-    let nextNumber = 1;
-    if (evidences.length > 0) {
-        const lastCode = evidences[0].code;
-        const lastNumber = parseInt(lastCode.split('.')[3]);
-        nextNumber = lastNumber + 1;
+        const codePrefix = `H${boxNumber}.${formattedStandardCode}.${formattedCriteriaCode}`;
+
+        const existingEvidences = await this.find({
+            academicYearId,
+            code: new RegExp(`^${codePrefix}\\.\\d{2}$`)
+        }).sort({ code: -1 }).limit(1).lean();
+
+        let nextNumber = 1;
+
+        if (existingEvidences.length > 0) {
+            const lastCode = existingEvidences[0].code;
+            const parts = lastCode.split('.');
+            const lastNumber = parseInt(parts[3], 10);
+
+            if (!isNaN(lastNumber)) {
+                nextNumber = lastNumber + 1;
+            }
+        }
+
+        const newCode = `${codePrefix}.${nextNumber.toString().padStart(2, '0')}`;
+
+        console.log('Generated evidence code:', {
+            academicYearId,
+            standardCode: formattedStandardCode,
+            criteriaCode: formattedCriteriaCode,
+            boxNumber,
+            lastEvidence: existingEvidences[0]?.code,
+            newCode
+        });
+
+        return newCode;
+    } catch (error) {
+        console.error('Error generating evidence code:', error);
+        throw new Error('Lỗi khi tạo mã minh chứng');
+    }
+};
+
+evidenceSchema.statics.isValidCodeFormat = function(code) {
+    return /^H\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
+};
+
+evidenceSchema.statics.parseCode = function(code) {
+    if (!this.isValidCodeFormat(code)) {
+        return null;
     }
 
-    return `H${boxNumber}.${standardCode.padStart(2, '0')}.${criteriaCode.padStart(2, '0')}.${nextNumber.toString().padStart(2, '0')}`;
+    const parts = code.split('.');
+    return {
+        boxNumber: parseInt(parts[0].substring(1)),
+        standardCode: parts[1],
+        criteriaCode: parts[2],
+        sequenceNumber: parts[3]
+    };
 };
 
 evidenceSchema.statics.advancedSearch = function(searchParams) {

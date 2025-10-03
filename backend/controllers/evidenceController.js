@@ -1,5 +1,4 @@
 const Evidence = require('../models/Evidence');
-const { Standard, Criteria } = require('../models/Program');
 const File = require('../models/File');
 const AcademicYear = require('../models/AcademicYear');
 const exportService = require('../services/exportService');
@@ -8,6 +7,26 @@ const searchService = require('../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
+
+let Standard, Criteria;
+
+try {
+    const ProgramModel = require('../models/Program');
+    if (ProgramModel.Standard && ProgramModel.Criteria) {
+        Standard = ProgramModel.Standard;
+        Criteria = ProgramModel.Criteria;
+    } else {
+        Standard = ProgramModel;
+        Criteria = ProgramModel;
+    }
+} catch (e) {
+    try {
+        Standard = require('../models/Standard');
+        Criteria = require('../models/Criteria');
+    } catch (e2) {
+        console.error('Cannot load Standard and Criteria models:', e2);
+    }
+}
 
 const getEvidences = async (req, res) => {
     try {
@@ -25,15 +44,13 @@ const getEvidences = async (req, res) => {
             sortOrder = 'desc'
         } = req.query;
 
-        const academicYearId = req.academicYearId; // From middleware
-
+        const academicYearId = req.academicYearId;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId }; // Always filter by academic year
+        let query = { academicYearId };
 
-        // Xây dựng query dựa trên quyền của user
         if (req.user.role !== 'admin') {
             const accessibleStandards = req.user.standardAccess || [];
             const accessibleCriteria = req.user.criteriaAccess || [];
@@ -47,7 +64,6 @@ const getEvidences = async (req, res) => {
                     query.$or.push({ criteriaId: { $in: accessibleCriteria } });
                 }
             } else {
-                // Nếu không có quyền nào, không trả về kết quả nào
                 return res.json({
                     success: true,
                     data: {
@@ -65,7 +81,6 @@ const getEvidences = async (req, res) => {
             }
         }
 
-        // Áp dụng các filter
         if (search) {
             query.$and = query.$and || [];
             query.$and.push({
@@ -156,7 +171,6 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền truy cập
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(evidence.standardId._id) &&
             !req.user.hasCriteriaAccess(evidence.criteriaId._id)) {
@@ -201,7 +215,15 @@ const createEvidence = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Kiểm tra quyền truy cập
+        console.log('Creating evidence with data:', { name, standardId, criteriaId, academicYearId });
+
+        if (!name || !programId || !organizationId || !standardId || !criteriaId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin bắt buộc'
+            });
+        }
+
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(standardId) &&
             !req.user.hasCriteriaAccess(criteriaId)) {
@@ -211,11 +233,25 @@ const createEvidence = async (req, res) => {
             });
         }
 
-        // Validate standard and criteria belong to the same academic year
+        if (!Standard || !Criteria) {
+            console.error('Standard or Criteria model not loaded!');
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi cấu hình hệ thống: không load được model Standard/Criteria'
+            });
+        }
+
+        console.log('Finding standard and criteria...');
+        const mongoose = require('mongoose');
+        const StandardModel = mongoose.model('Standard');
+        const CriteriaModel = mongoose.model('Criteria');
+
         const [standard, criteria] = await Promise.all([
-            Standard.findOne({ _id: standardId, academicYearId }),
-            Criteria.findOne({ _id: criteriaId, academicYearId })
+            StandardModel.findOne({ _id: standardId, academicYearId }),
+            CriteriaModel.findOne({ _id: criteriaId, academicYearId })
         ]);
+
+        console.log('Found:', { standard: standard?.code, criteria: criteria?.code });
 
         if (!standard || !criteria) {
             return res.status(400).json({
@@ -225,17 +261,29 @@ const createEvidence = async (req, res) => {
         }
 
         let evidenceCode = code;
+
         if (!evidenceCode) {
-            evidenceCode = await Evidence.generateCode(
-                academicYearId,
-                standard.code,
-                criteria.code
-            );
+            try {
+                evidenceCode = await Evidence.generateCode(
+                    academicYearId,
+                    standard.code,
+                    criteria.code,
+                    1
+                );
+                console.log('Generated code:', evidenceCode);
+            } catch (genError) {
+                console.error('Code generation error:', genError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Lỗi khi tạo mã minh chứng tự động: ' + genError.message
+                });
+            }
         } else {
             const existingEvidence = await Evidence.findOne({
                 code: evidenceCode,
                 academicYearId
             });
+
             if (existingEvidence) {
                 return res.status(400).json({
                     success: false,
@@ -283,9 +331,26 @@ const createEvidence = async (req, res) => {
 
     } catch (error) {
         console.error('Create evidence error:', error);
+        console.error('Error stack:', error.stack);
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã minh chứng đã tồn tại'
+            });
+        }
+
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo minh chứng'
+            message: 'Lỗi hệ thống khi tạo minh chứng: ' + error.message
         });
     }
 };
@@ -485,7 +550,6 @@ const getStatistics = async (req, res) => {
         const { programId, organizationId, standardId, criteriaId } = req.query;
         const academicYearId = req.academicYearId;
 
-        // Sử dụng trực tiếp ObjectId từ model hoặc tạo object query đơn giản hơn
         let matchStage = { academicYearId };
 
         if (programId) matchStage.programId = programId;
@@ -558,7 +622,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
             });
         }
 
-        // Check if target academic year exists
         const targetAcademicYear = await AcademicYear.findById(targetAcademicYearId);
         if (!targetAcademicYear) {
             return res.status(404).json({
@@ -567,7 +630,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
             });
         }
 
-        // Check if code exists in target year
         const existingEvidence = await Evidence.findOne({
             code: newCode,
             academicYearId: targetAcademicYearId
@@ -604,7 +666,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
     }
 };
 
-// Export functions with academic year context
 const exportEvidences = async (req, res) => {
     try {
         const filters = { ...req.query, academicYearId: req.academicYearId };

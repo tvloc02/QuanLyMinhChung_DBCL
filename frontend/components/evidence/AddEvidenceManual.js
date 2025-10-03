@@ -18,7 +18,6 @@ import {
 export default function AddEvidenceManual() {
     const router = useRouter()
 
-    // Form state
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -36,18 +35,17 @@ export default function AddEvidenceManual() {
         tags: []
     })
 
-    // Options state
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
 
-    // UI state
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [selectedFiles, setSelectedFiles] = useState([])
     const [tagInput, setTagInput] = useState('')
     const [autoGenerateCode, setAutoGenerateCode] = useState(true)
+    const [previewCode, setPreviewCode] = useState('')
 
     const documentTypes = [
         'Quyết định',
@@ -78,7 +76,9 @@ export default function AddEvidenceManual() {
 
     useEffect(() => {
         if (autoGenerateCode && formData.standardId && formData.criteriaId) {
-            generateCode()
+            generatePreviewCode()
+        } else {
+            setPreviewCode('')
         }
     }, [formData.standardId, formData.criteriaId, autoGenerateCode])
 
@@ -104,7 +104,6 @@ export default function AddEvidenceManual() {
 
     const fetchStandards = async () => {
         try {
-            // Call API with query params instead
             const response = await apiMethods.standards.getAll({
                 programId: formData.programId,
                 organizationId: formData.organizationId,
@@ -121,13 +120,11 @@ export default function AddEvidenceManual() {
 
     const fetchCriteria = async () => {
         try {
-            // Call API with query params instead
             const response = await apiMethods.criteria.getAll({
                 standardId: formData.standardId,
                 status: 'active'
             })
 
-            // Xử lý nhiều trường hợp response data structure
             let criteriaData = []
             if (response.data.data) {
                 if (Array.isArray(response.data.data.criterias)) {
@@ -144,37 +141,24 @@ export default function AddEvidenceManual() {
         } catch (error) {
             console.error('Fetch criteria error:', error)
             toast.error('Lỗi khi tải danh sách tiêu chí')
-            setCriteria([]) // Set empty array để tránh lỗi map
+            setCriteria([])
         }
     }
 
-    const generateCode = async () => {
-        try {
-            const standard = standards.find(s => s._id === formData.standardId)
-            const criterion = criteria.find(c => c._id === formData.criteriaId)
+    const generatePreviewCode = () => {
+        const standard = standards.find(s => s._id === formData.standardId)
+        const criterion = criteria.find(c => c._id === formData.criteriaId)
 
-            if (!standard || !criterion) return
-
-            const response = await apiMethods.evidences.generateCode(
-                standard.code,
-                criterion.code
-            )
-
-            setFormData(prev => ({
-                ...prev,
-                code: response.data.data.code || response.data.data
-            }))
-        } catch (error) {
-            console.error('Generate code error:', error)
-            // Nếu API không có, tự generate
-            const standard = standards.find(s => s._id === formData.standardId)
-            const criterion = criteria.find(c => c._id === formData.criteriaId)
-            if (standard && criterion) {
-                // Format: H1.01.02.01 (tạm thời hard-code box number = 1)
-                const code = `H1.${standard.code.padStart(2, '0')}.${criterion.code.padStart(2, '0')}.01`
-                setFormData(prev => ({ ...prev, code }))
-            }
+        if (!standard || !criterion) {
+            setPreviewCode('')
+            return
         }
+
+        const standardCode = String(standard.code).padStart(2, '0')
+        const criteriaCode = String(criterion.code).padStart(2, '0')
+        const preview = `H1.${standardCode}.${criteriaCode}.XX`
+
+        setPreviewCode(preview)
     }
 
     const handleInputChange = (e) => {
@@ -184,6 +168,20 @@ export default function AddEvidenceManual() {
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files)
+        const maxFiles = 10
+        const maxSize = 50 * 1024 * 1024
+
+        if (selectedFiles.length + files.length > maxFiles) {
+            toast.error(`Chỉ được upload tối đa ${maxFiles} files`)
+            return
+        }
+
+        const oversizedFiles = files.filter(f => f.size > maxSize)
+        if (oversizedFiles.length > 0) {
+            toast.error(`Một số files vượt quá 50MB`)
+            return
+        }
+
         setSelectedFiles(prev => [...prev, ...files])
     }
 
@@ -214,17 +212,23 @@ export default function AddEvidenceManual() {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // Validation
         if (!formData.name || !formData.programId || !formData.organizationId ||
             !formData.standardId || !formData.criteriaId) {
             toast.error('Vui lòng điền đầy đủ các trường bắt buộc')
             return
         }
 
+        if (!autoGenerateCode && formData.code) {
+            const codePattern = /^H\d+\.\d{2}\.\d{2}\.\d{2}$/
+            if (!codePattern.test(formData.code)) {
+                toast.error('Mã minh chứng không đúng định dạng (VD: H1.01.01.04)')
+                return
+            }
+        }
+
         try {
             setLoading(true)
 
-            // Chuẩn bị data - chỉ gửi các field có giá trị
             const evidenceData = {
                 name: formData.name.trim(),
                 programId: formData.programId,
@@ -233,12 +237,11 @@ export default function AddEvidenceManual() {
                 criteriaId: formData.criteriaId
             }
 
-            // Thêm các field optional nếu có giá trị
             if (formData.description?.trim()) {
                 evidenceData.description = formData.description.trim()
             }
 
-            if (formData.code?.trim()) {
+            if (!autoGenerateCode && formData.code?.trim()) {
                 evidenceData.code = formData.code.trim()
             }
 
@@ -270,15 +273,11 @@ export default function AddEvidenceManual() {
                 evidenceData.tags = formData.tags
             }
 
-            console.log('Sending evidence data:', evidenceData) // Debug log
-
-            // Create evidence
             const response = await apiMethods.evidences.create(evidenceData)
 
             if (response.data.success) {
                 const evidenceId = response.data.data._id
 
-                // Upload files if any
                 if (selectedFiles.length > 0) {
                     setUploading(true)
                     try {
@@ -290,21 +289,24 @@ export default function AddEvidenceManual() {
                     }
                     setUploading(false)
                 } else {
-                    toast.success(response.data.message)
+                    toast.success(response.data.message || 'Tạo minh chứng thành công')
                 }
 
-                // Redirect to evidence management
                 setTimeout(() => {
                     router.push('/evidence-management')
                 }, 1500)
             }
         } catch (error) {
             console.error('Create evidence error:', error)
-            console.error('Error response:', error.response?.data) // Debug log
 
-            const errorMessage = error.response?.data?.message ||
-                error.response?.data?.error ||
-                'Lỗi khi tạo minh chứng'
+            let errorMessage = 'Lỗi khi tạo minh chứng'
+
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message
+            } else if (error.response?.data?.error) {
+                errorMessage = error.response.data.error
+            }
+
             toast.error(errorMessage)
         } finally {
             setLoading(false)
@@ -331,16 +333,15 @@ export default function AddEvidenceManual() {
         setSelectedFiles([])
         setStandards([])
         setCriteria([])
+        setPreviewCode('')
     }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Information */}
             <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Program */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <BookOpen className="h-4 w-4 inline mr-1" />
@@ -362,7 +363,6 @@ export default function AddEvidenceManual() {
                         </select>
                     </div>
 
-                    {/* Organization */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Building2 className="h-4 w-4 inline mr-1" />
@@ -384,7 +384,6 @@ export default function AddEvidenceManual() {
                         </select>
                     </div>
 
-                    {/* Standard */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <FileText className="h-4 w-4 inline mr-1" />
@@ -407,7 +406,6 @@ export default function AddEvidenceManual() {
                         </select>
                     </div>
 
-                    {/* Criteria */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <FileText className="h-4 w-4 inline mr-1" />
@@ -432,12 +430,10 @@ export default function AddEvidenceManual() {
                 </div>
             </div>
 
-            {/* Evidence Details */}
             <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết minh chứng</h3>
 
                 <div className="space-y-4">
-                    {/* Evidence Code */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-sm font-medium text-gray-700">
@@ -454,30 +450,33 @@ export default function AddEvidenceManual() {
                                 <span>Tự động tạo mã</span>
                             </label>
                         </div>
-                        <div className="flex space-x-2">
+
+                        {autoGenerateCode ? (
+                            <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+                                <Sparkles className="h-4 w-4 inline mr-1" />
+                                {previewCode ? (
+                                    <span>Mã sẽ được tạo tự động: <strong>{previewCode}</strong> (XX = số thứ tự tiếp theo)</span>
+                                ) : (
+                                    <span>Chọn Tiêu chuẩn và Tiêu chí để xem preview mã</span>
+                                )}
+                            </div>
+                        ) : (
                             <input
                                 type="text"
                                 name="code"
                                 value={formData.code}
                                 onChange={handleInputChange}
-                                disabled={autoGenerateCode}
-                                placeholder="VD: H1.01.02.04"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                placeholder="VD: H1.01.01.04"
+                                pattern="^H\d+\.\d{2}\.\d{2}\.\d{2}$"
+                                title="Format: H[số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            {!autoGenerateCode && formData.standardId && formData.criteriaId && (
-                                <button
-                                    type="button"
-                                    onClick={generateCode}
-                                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 inline-flex items-center"
-                                >
-                                    <Sparkles className="h-4 w-4 mr-1" />
-                                    Tạo mã
-                                </button>
-                            )}
-                        </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                            Format: H[số hộp].[mã TC].[mã TC].[STT] - VD: H1.01.01.04
+                        </p>
                     </div>
 
-                    {/* Evidence Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Tên minh chứng <span className="text-red-500">*</span>
@@ -494,7 +493,6 @@ export default function AddEvidenceManual() {
                         />
                     </div>
 
-                    {/* Description */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Mô tả
@@ -512,12 +510,10 @@ export default function AddEvidenceManual() {
                 </div>
             </div>
 
-            {/* Document Information */}
             <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin văn bản</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Document Number */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Số hiệu văn bản
@@ -533,7 +529,6 @@ export default function AddEvidenceManual() {
                         />
                     </div>
 
-                    {/* Document Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Loại văn bản
@@ -550,7 +545,6 @@ export default function AddEvidenceManual() {
                         </select>
                     </div>
 
-                    {/* Issue Date */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Calendar className="h-4 w-4 inline mr-1" />
@@ -565,7 +559,6 @@ export default function AddEvidenceManual() {
                         />
                     </div>
 
-                    {/* Effective Date */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Calendar className="h-4 w-4 inline mr-1" />
@@ -580,7 +573,6 @@ export default function AddEvidenceManual() {
                         />
                     </div>
 
-                    {/* Issuing Agency */}
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Cơ quan ban hành
@@ -598,12 +590,10 @@ export default function AddEvidenceManual() {
                 </div>
             </div>
 
-            {/* Additional Information */}
             <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin bổ sung</h3>
 
                 <div className="space-y-4">
-                    {/* Notes */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Ghi chú
@@ -619,7 +609,6 @@ export default function AddEvidenceManual() {
                         />
                     </div>
 
-                    {/* Tags */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Tags (nhấn Enter để thêm)
@@ -653,11 +642,10 @@ export default function AddEvidenceManual() {
                         )}
                     </div>
 
-                    {/* File Upload */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Upload className="h-4 w-4 inline mr-1" />
-                            Files đính kèm (tùy chọn)
+                            Files đính kèm
                         </label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                             <label className="cursor-pointer">
@@ -701,7 +689,6 @@ export default function AddEvidenceManual() {
                 </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button
                     type="button"
@@ -731,13 +718,12 @@ export default function AddEvidenceManual() {
                 </button>
             </div>
 
-            {/* Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-blue-900 mb-2">Lưu ý:</h4>
                 <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                     <li>Các trường có dấu (*) là bắt buộc</li>
-                    <li>Mã minh chứng sẽ được tự động tạo theo format: H[số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]</li>
-                    <li>Bạn có thể upload files ngay khi tạo minh chứng hoặc upload sau</li>
+                    <li>Mã minh chứng sẽ được tự động tạo theo format: H[số hộp].[mã TC].[mã TC].[STT]</li>
+                    <li>Số thứ tự sẽ tự động tăng dựa trên minh chứng đã có trong hệ thống</li>
                     <li>Chọn đúng Chương trình và Tổ chức trước khi chọn Tiêu chuẩn và Tiêu chí</li>
                 </ul>
             </div>
