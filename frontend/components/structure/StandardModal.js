@@ -124,19 +124,6 @@ export default function StandardModal({ standard, programs, organizations, onClo
                             {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Thứ tự
-                            </label>
-                            <input
-                                type="number"
-                                name="order"
-                                value={formData.order}
-                                onChange={handleChange}
-                                min="1"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
                     </div>
 
                     <div>

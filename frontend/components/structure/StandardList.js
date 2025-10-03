@@ -118,7 +118,6 @@ export default function StandardList() {
                     'Tên tiêu chuẩn (*)': 'Mục tiêu chương trình đào tạo',
                     'Mã chương trình (*)': 'DGCL-DH',
                     'Mã tổ chức (*)': 'MOET',
-                    'Thứ tự': '1',
                     'Mục tiêu': 'Đánh giá tính phù hợp và khả thi của mục tiêu chương trình đào tạo',
                 }
             ]
@@ -130,7 +129,6 @@ export default function StandardList() {
                 { wch: 50 },  // Tên
                 { wch: 18 },  // Mã chương trình
                 { wch: 15 },  // Mã tổ chức
-                { wch: 10 },  // Thứ tự
                 { wch: 45 },  // Mục tiêu
             ]
 
@@ -208,14 +206,6 @@ export default function StandardList() {
                     'Mô tả chi tiết': 'Mã tổ chức đánh giá đã được tạo trong hệ thống. Xem sheet "DS Tổ chức"',
                     'Ví dụ hợp lệ': 'MOET, ABET',
                     'Ví dụ không hợp lệ': 'XYZ (chưa tồn tại trong hệ thống)'
-                },
-                {
-                    'Tên cột': 'Thứ tự',
-                    'Kiểu dữ liệu': 'Số',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Thứ tự hiển thị của tiêu chuẩn, phải là số nguyên dương. Mặc định là 1',
-                    'Ví dụ hợp lệ': '1, 2, 3, 10',
-                    'Ví dụ không hợp lệ': '-1, 0, 1.5'
                 },
                 {
                     'Tên cột': 'Mục tiêu',
@@ -354,7 +344,6 @@ export default function StandardList() {
                 'Tên tiêu chuẩn': std.name,
                 'Chương trình': std.programId?.name || '',
                 'Tổ chức': std.organizationId?.name || '',
-                'Thứ tự': std.order,
                 'Trạng thái': getStatusLabel(std.status),
                 'Người tạo': std.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(std.createdAt)
@@ -369,7 +358,6 @@ export default function StandardList() {
                 { wch: 50 },  // Tên
                 { wch: 35 },  // Chương trình
                 { wch: 30 },  // Tổ chức
-                { wch: 8 },   // Thứ tự
                 { wch: 12 },  // Trạng thái
                 { wch: 25 },  // Người tạo
                 { wch: 12 }   // Ngày tạo
@@ -567,7 +555,6 @@ export default function StandardList() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên tiêu chuẩn</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chương trình</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổ chức</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Thứ tự</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
                         </tr>
