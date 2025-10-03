@@ -24,7 +24,6 @@ const getPrograms = async (req, res) => {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { code: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -129,7 +128,6 @@ const createProgram = async (req, res) => {
         const {
             name,
             code,
-            description,
             applicableYear,
             effectiveDate,
             expiryDate,
@@ -155,7 +153,6 @@ const createProgram = async (req, res) => {
             academicYearId,
             name: name.trim(),
             code: code.toUpperCase().trim(),
-            description: description?.trim(),
             applicableYear: applicableYear || new Date().getFullYear(),
             effectiveDate: effectiveDate ? new Date(effectiveDate) : undefined,
             expiryDate: expiryDate ? new Date(expiryDate) : undefined,

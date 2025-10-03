@@ -32,10 +32,6 @@ const createProgramValidation = [
         .withMessage('Mã chương trình không được quá 20 ký tự')
         .matches(/^[A-Z0-9\-_]+$/)
         .withMessage('Mã chương trình chỉ được chứa chữ hoa, số, dấu gạch ngang và gạch dưới'),
-    body('description')
-        .optional()
-        .isLength({ max: 2000 })
-        .withMessage('Mô tả không được quá 2000 ký tự'),
     body('applicableYear')
         .optional()
         .isInt({ min: 2000, max: 2100 })
@@ -58,10 +54,6 @@ const createProgramValidation = [
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Mục tiêu không được quá 2000 ký tự'),
-    body('guidelines')
-        .optional()
-        .isLength({ max: 3000 })
-        .withMessage('Hướng dẫn không được quá 3000 ký tự')
 ];
 
 const updateProgramValidation = [
