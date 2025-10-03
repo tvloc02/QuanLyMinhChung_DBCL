@@ -32,10 +32,6 @@ const createStandardValidation = [
         .withMessage('Mã tiêu chuẩn là bắt buộc')
         .matches(/^\d{1,2}$/)
         .withMessage('Mã tiêu chuẩn phải là 1-2 chữ số'),
-    body('description')
-        .optional()
-        .isLength({ max: 3000 })
-        .withMessage('Mô tả không được quá 3000 ký tự'),
     body('programId')
         .notEmpty()
         .withMessage('Chương trình đánh giá là bắt buộc')
@@ -54,10 +50,6 @@ const createStandardValidation = [
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Mục tiêu không được quá 2000 ký tự'),
-    body('guidelines')
-        .optional()
-        .isLength({ max: 3000 })
-        .withMessage('Hướng dẫn không được quá 3000 ký tự'),
     body('evaluationCriteria')
         .optional()
         .isArray()
