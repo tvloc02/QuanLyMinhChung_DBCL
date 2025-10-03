@@ -116,12 +116,10 @@ export default function StandardList() {
                 {
                     'Mã tiêu chuẩn (*)': '1',
                     'Tên tiêu chuẩn (*)': 'Mục tiêu chương trình đào tạo',
-                    'Mô tả': 'Mục tiêu chương trình đào tạo được xây dựng phù hợp với tầm nhìn, sứ mệnh của cơ sở giáo dục',
                     'Mã chương trình (*)': 'DGCL-DH',
                     'Mã tổ chức (*)': 'MOET',
                     'Thứ tự': '1',
                     'Mục tiêu': 'Đánh giá tính phù hợp và khả thi của mục tiêu chương trình đào tạo',
-                    'Hướng dẫn': 'Kiểm tra sự phù hợp giữa mục tiêu với yêu cầu của ngành và xã hội'
                 }
             ]
 
@@ -130,12 +128,10 @@ export default function StandardList() {
             wsData['!cols'] = [
                 { wch: 15 },  // Mã
                 { wch: 50 },  // Tên
-                { wch: 60 },  // Mô tả
                 { wch: 18 },  // Mã chương trình
                 { wch: 15 },  // Mã tổ chức
                 { wch: 10 },  // Thứ tự
                 { wch: 45 },  // Mục tiêu
-                { wch: 50 }   // Hướng dẫn
             ]
 
             const headerStyle = {
@@ -198,14 +194,6 @@ export default function StandardList() {
                     'Ví dụ không hợp lệ': ''
                 },
                 {
-                    'Tên cột': 'Mô tả',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Mô tả chi tiết về tiêu chuẩn, tối đa 3000 ký tự',
-                    'Ví dụ hợp lệ': 'Mục tiêu chương trình được xây dựng phù hợp...',
-                    'Ví dụ không hợp lệ': ''
-                },
-                {
                     'Tên cột': 'Mã chương trình (*)',
                     'Kiểu dữ liệu': 'Văn bản',
                     'Bắt buộc': 'Có',
@@ -237,14 +225,7 @@ export default function StandardList() {
                     'Ví dụ hợp lệ': 'Đánh giá tính phù hợp của mục tiêu',
                     'Ví dụ không hợp lệ': ''
                 },
-                {
-                    'Tên cột': 'Hướng dẫn',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Hướng dẫn đánh giá tiêu chuẩn, tối đa 3000 ký tự',
-                    'Ví dụ hợp lệ': 'Kiểm tra sự phù hợp giữa mục tiêu với yêu cầu',
-                    'Ví dụ không hợp lệ': ''
-                }
+
             ]
 
             const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
@@ -371,7 +352,6 @@ export default function StandardList() {
                 'STT': index + 1,
                 'Mã': std.code,
                 'Tên tiêu chuẩn': std.name,
-                'Mô tả': std.description || '',
                 'Chương trình': std.programId?.name || '',
                 'Tổ chức': std.organizationId?.name || '',
                 'Thứ tự': std.order,
@@ -387,7 +367,6 @@ export default function StandardList() {
                 { wch: 5 },   // STT
                 { wch: 10 },  // Mã
                 { wch: 50 },  // Tên
-                { wch: 60 },  // Mô tả
                 { wch: 35 },  // Chương trình
                 { wch: 30 },  // Tổ chức
                 { wch: 8 },   // Thứ tự
