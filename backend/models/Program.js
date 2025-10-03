@@ -58,12 +58,6 @@ const programSchema = new mongoose.Schema({
         maxlength: [2000, 'Mục tiêu không được quá 2000 ký tự']
     },
 
-    guidelines: {
-        type: String,
-        trim: true,
-        maxlength: [3000, 'Hướng dẫn không được quá 3000 ký tự']
-    },
-
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
