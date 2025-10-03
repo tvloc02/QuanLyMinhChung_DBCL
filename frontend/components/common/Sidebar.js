@@ -38,7 +38,7 @@ import {
     Eye,
     Folder,
     Mail,
-    Plus
+    Plus, Book
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose }) {
@@ -102,8 +102,9 @@ export default function Sidebar({ open, onClose }) {
             hasSubmenu: true,
             active: router.pathname.includes('/evidence') || router.pathname.includes('/files'),
             submenu: [
+                { name: 'Tổng quan minh chứng', icon: Folder, path: '/evidence/evidence' },
                 { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/evidence-tree' },
-                { name: 'Danh sách minh chứng', icon: Folder, path: '/evidence/evidence' },
+                { name: 'Danh sách minh chứng', icon: Book, path: '/evidence/evidence-management' },
                 { name: 'Thêm minh chứng mới', icon: Plus, path: '/evidence/create' },
                 { name: 'Import minh chứng', icon: Upload, path: '/evidence/import-evidence' },
                 { name: 'Quản lý files', icon: FileText, path: '/evidence/files' }

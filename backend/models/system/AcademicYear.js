@@ -233,8 +233,8 @@ academicYearSchema.methods.activate = async function(userId) {
 };
 
 academicYearSchema.methods.canDelete = async function() {
-    const Program = require('./Program');
-    const Evidence = require('./Evidence');
+    const Program = require('../Evidence/Program');
+    const Evidence = require('../Evidence/Evidence');
 
     const [programCount, evidenceCount] = await Promise.all([
         Program.countDocuments({ academicYearId: this._id }),
@@ -245,9 +245,9 @@ academicYearSchema.methods.canDelete = async function() {
 };
 
 academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings = {}, userId) {
-    const Program = require('./Program');
-    const { Organization, Standard, Criteria } = require('./Program');
-    const Evidence = require('./Evidence');
+    const Program = require('../Evidence/Program');
+    const { Organization, Standard, Criteria } = require('../Evidence/Program');
+    const Evidence = require('../Evidence/Evidence');
 
     const copySettings = { ...this.copySettings, ...settings };
     const results = {
@@ -279,7 +279,7 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.organizations) {
-            const Organization = require('./Organization');
+            const Organization = require('../Evidence/Organization');
             const organizations = await Organization.find({ academicYearId: sourceYearId });
             for (const org of organizations) {
                 const newOrg = new Organization({
@@ -297,7 +297,7 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.standards) {
-            const Standard = require('./Standard');
+            const Standard = require('../Evidence/Standard');
             const standards = await Standard.find({ academicYearId: sourceYearId });
             for (const standard of standards) {
                 const newStandard = new Standard({
@@ -316,7 +316,7 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.criteria) {
-            const Criteria = require('./Criteria');
+            const Criteria = require('../Evidence/Criteria');
             const criterias = await Criteria.find({ academicYearId: sourceYearId });
             for (const criteria of criterias) {
                 const newCriteria = new Criteria({

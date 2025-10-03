@@ -44,7 +44,7 @@ const reportRoutes = require('./routes/reports');
 const evaluationRoutes = require('./routes/evaluations');
 const notificationRoutes = require('./routes/notifications');
 const userGroupRoutes = require('./routes/userGroup');
-const PermissionRoutes = require('./models/Permission');
+const PermissionRoutes = require('./models/User/Permission');
 const systemRoutes = require('./routes/system');
 app.use('/api/system', systemRoutes);
 

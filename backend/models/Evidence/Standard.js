@@ -118,7 +118,7 @@ standardSchema.virtual('url').get(function() {
 });
 
 standardSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
-    const ActivityLog = require('./ActivityLog');
+    const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,

@@ -179,7 +179,7 @@ reportSchema.pre('save', function(next) {
 });
 
 reportSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
-    const ActivityLog = require('./ActivityLog');
+    const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,

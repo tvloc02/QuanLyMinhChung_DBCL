@@ -1,7 +1,7 @@
 const XLSX = require('xlsx');
 const mongoose = require('mongoose');
-const Evidence = require('../models/Evidence');
-const { Standard, Criteria } = require('../models/Program');
+const Evidence = require('../models/Evidence/Evidence');
+const { Standard, Criteria } = require('../models/Evidence/Program');
 const fs = require('fs');
 
 const importEvidences = async (filePath, academicYearId, programId, organizationId, userId) => {
@@ -367,7 +367,7 @@ const importUsers = async (filePath, createdBy) => {
             };
         }
 
-        const User = require('../models/User');
+        const User = require('../models/User/User');
         const results = {
             total: rawData.length,
             success: 0,

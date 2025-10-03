@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Notification = require('../models/Notification');
+const Notification = require('../models/system/Notification');
 
 const getNotifications = async (req, res) => {
     try {
@@ -361,7 +361,7 @@ const sendAssignmentNotification = async (req, res) => {
             });
         }
 
-        const Assignment = require('../models/Assignment');
+        const Assignment = require('../models/report/Assignment');
         const assignment = await Assignment.findById(assignmentId);
 
         if (!assignment) {

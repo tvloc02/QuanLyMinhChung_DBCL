@@ -67,8 +67,8 @@ router.get('/evidence/:evidenceId',
             const { evidenceId } = req.params;
             const { page = 1, limit = 20 } = req.query;
 
-            const File = require('../models/File');
-            const Evidence = require('../models/Evidence');
+            const File = require('../models/Evidence/File');
+            const Evidence = require('../models/Evidence/Evidence');
 
             // Kiểm tra evidence tồn tại và quyền truy cập
             const evidence = await Evidence.findById(evidenceId);
@@ -135,7 +135,7 @@ router.get('/stream/:id',
     async (req, res) => {
         try {
             const { id } = req.params;
-            const File = require('../models/File');
+            const File = require('../models/Evidence/File');
             const fs = require('fs');
             const path = require('path');
 

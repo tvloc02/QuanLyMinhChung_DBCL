@@ -1,6 +1,6 @@
-const Assignment = require('../models/Assignment');
-const Notification = require('../models/Notification');
-const User = require('../models/User');
+const Assignment = require('../models/report/Assignment');
+const Notification = require('../models/system/Notification');
+const User = require('../models/User/User');
 
 const createAssignment = async (assignmentData, assignedBy) => {
     try {

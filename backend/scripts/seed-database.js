@@ -2,15 +2,15 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // Import models
-const Permission = require('../models/Permission');
-const UserGroup = require('../models/UserGroup');
-const User = require('../models/User');
-const AcademicYear = require('../models/AcademicYear');
-const Program = require('../models/Program');
-const Organization = require('../models/Organization');
-const Standard = require('../models/Standard');
-const Criteria = require('../models/Criteria');
-const Evidence = require('../models/Evidence');
+const Permission = require('../models/User/Permission');
+const UserGroup = require('../models/User/UserGroup');
+const User = require('../models/User/User');
+const AcademicYear = require('../models/system/AcademicYear');
+const Program = require('../models/Evidence/Program');
+const Organization = require('../models/Evidence/Organization');
+const Standard = require('../models/Evidence/Standard');
+const Criteria = require('../models/Evidence/Criteria');
+const Evidence = require('../models/Evidence/Evidence');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/evidence_management_ver' +
     '\n';

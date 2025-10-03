@@ -1,4 +1,4 @@
-const AcademicYear = require('../models/AcademicYear');
+const AcademicYear = require('../models/system/AcademicYear');
 
 const setAcademicYearContext = async (req, res, next) => {
     try {
@@ -179,10 +179,10 @@ const ensureAcademicYearConsistency = (relations = []) => {
 
             const body = req.body;
             const models = {
-                program: require('../models/Program'),
-                organization: require('../models/Organization'),
-                standard: require('../models/Standard'),
-                criteria: require('../models/Criteria')
+                program: require('../models/Evidence/Program'),
+                organization: require('../models/Evidence/Organization'),
+                standard: require('../models/Evidence/Standard'),
+                criteria: require('../models/Evidence/Criteria')
             };
 
             for (const relation of relations) {

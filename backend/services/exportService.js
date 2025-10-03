@@ -1,7 +1,7 @@
 const XLSX = require('xlsx');
 const mongoose = require('mongoose');
-const Evidence = require('../models/Evidence');
-const { Program, Organization, Standard, Criteria } = require('../models/Program');
+const Evidence = require('../models/Evidence/Evidence');
+const { Program, Organization, Standard, Criteria } = require('../models/Evidence/Program');
 
 // Export evidences to Excel
 const exportEvidences = async (filters, format = 'xlsx') => {

@@ -1,6 +1,6 @@
-const Evaluation = require('../models/Evaluation');
-const Assignment = require('../models/Assignment');
-const Notification = require('../models/Notification');
+const Evaluation = require('../models/report/Evaluation');
+const Assignment = require('../models/report/Assignment');
+const Notification = require('../models/system/Notification');
 
 const createEvaluationFromAssignment = async (assignmentId, evaluatorId) => {
     try {

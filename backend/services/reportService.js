@@ -1,5 +1,5 @@
-const Report = require('../models/Report');
-const Evidence = require('../models/Evidence');
+const Report = require('../models/report/Report');
+const Evidence = require('../models/Evidence/Evidence');
 
 const generateReportCode = async (type, academicYearId, standardCode = '', criteriaCode = '') => {
     try {

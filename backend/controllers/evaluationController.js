@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const Evaluation = require('../models/Evaluation');
-const Assignment = require('../models/Assignment');
+const Evaluation = require('../models/report/Evaluation');
+const Assignment = require('../models/report/Assignment');
 
 const getEvaluations = async (req, res) => {
     try {

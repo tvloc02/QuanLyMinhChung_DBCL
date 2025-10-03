@@ -1,4 +1,4 @@
-const Notification = require('../models/Notification');
+const Notification = require('../models/system/Notification');
 const { sendPasswordResetEmail, sendWelcomeEmail } = require('./emailService');
 
 const createNotification = async (notificationData) => {

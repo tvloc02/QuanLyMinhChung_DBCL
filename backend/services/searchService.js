@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const Evidence = require('../models/Evidence');
-const File = require('../models/File');
-const { Program, Organization, Standard, Criteria } = require('../models/Program');
-const User = require('../models/User');
+const Evidence = require('../models/Evidence/Evidence');
+const File = require('../models/Evidence/File');
+const { Program, Organization, Standard, Criteria } = require('../models/Evidence/Program');
+const User = require('../models/User/User');
 
 // Advanced search across evidences
 const searchEvidences = async (searchParams, userPermissions) => {

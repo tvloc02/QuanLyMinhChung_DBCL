@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const ActivityLog = require('../models/ActivityLog');
+const ActivityLog = require('../models/system/ActivityLog');
 
 const getActivityLogs = async (req, res) => {
     try {

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const Report = require('../models/Report');
-const { Standard, Criteria } = require('../models/Program');
+const Report = require('../models/report/Report');
+const { Standard, Criteria } = require('../models/Evidence/Program');
 
 const getReports = async (req, res) => {
     try {
@@ -339,7 +339,7 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        const Assignment = require('../models/Assignment');
+        const Assignment = require('../models/report/Assignment');
         const assignmentCount = await Assignment.countDocuments({ reportId: id });
 
         if (assignmentCount > 0) {

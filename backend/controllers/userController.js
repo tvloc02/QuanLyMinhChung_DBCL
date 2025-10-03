@@ -1,7 +1,7 @@
-const User = require('../models/User');
-const UserGroup = require('../models/UserGroup');
-const Permission = require('../models/Permission');
-const ActivityLog = require('../models/ActivityLog');
+const User = require('../models/User/User');
+const UserGroup = require('../models/User/UserGroup');
+const Permission = require('../models/User/Permission');
+const ActivityLog = require('../models/system/ActivityLog');
 
 const getUsers = async (req, res) => {
     try {
