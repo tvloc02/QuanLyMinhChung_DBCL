@@ -27,11 +27,6 @@ const criteriaSchema = new mongoose.Schema({
         }
     },
 
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [3000, 'Mô tả không được quá 3000 ký tự']
-    },
 
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -50,19 +45,6 @@ const criteriaSchema = new mongoose.Schema({
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
-
-    requirements: {
-        type: String,
-        trim: true,
-        maxlength: [2000, 'Yêu cầu không được quá 2000 ký tự']
-    },
-
-    guidelines: {
-        type: String,
-        trim: true,
-        maxlength: [3000, 'Hướng dẫn không được quá 3000 ký tự']
-    },
-
     indicators: [{
         name: {
             type: String,
