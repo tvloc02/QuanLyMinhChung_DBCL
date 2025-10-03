@@ -88,9 +88,11 @@ router.delete('/:id', requireAdmin, [
 router.post('/:id/publish', requireManager, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
 ], validation, publishReport);
-/*
-router.post('/:id/link-evidences', requireManager, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, linkEvidences);
-*/
+
+router.post('/:id/reviewers', auth, reportController.addReviewer);
+router.delete('/:id/reviewers', auth, reportController.removeReviewer);
+
+router.post('/:id/comments', auth, reportController.addComment);
+router.put('/:id/comments/:commentId/resolve', auth, reportController.resolveComment);
+
 module.exports = router;
