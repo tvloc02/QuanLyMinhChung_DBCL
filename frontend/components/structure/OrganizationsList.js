@@ -309,12 +309,8 @@ export default function OrganizationsList() {
                 'STT': index + 1,
                 'Mã tổ chức': org.code,
                 'Tên tổ chức': org.name,
-                'Mô tả': org.description || '',
-                'Website': org.website || '',
                 'Email': org.contactEmail || '',
                 'Điện thoại': org.contactPhone || '',
-                'Địa chỉ': org.address || '',
-                'Quốc gia': org.country || 'Vietnam',
                 'Trạng thái': getStatusLabel(org.status),
                 'Người tạo': org.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(org.createdAt)
@@ -327,12 +323,8 @@ export default function OrganizationsList() {
                 { wch: 5 },   // STT
                 { wch: 15 },  // Mã
                 { wch: 40 },  // Tên
-                { wch: 50 },  // Mô tả
-                { wch: 25 },  // Website
                 { wch: 25 },  // Email
                 { wch: 15 },  // Phone
-                { wch: 40 },  // Địa chỉ
-                { wch: 15 },  // Quốc gia
                 { wch: 12 },  // Trạng thái
                 { wch: 25 },  // Người tạo
                 { wch: 12 }   // Ngày tạo
