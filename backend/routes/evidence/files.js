@@ -11,7 +11,6 @@ const {
     getFileInfo
 } = require('../../controllers/evidence/fileController');
 
-// Upload files to evidence
 router.post('/upload/:evidenceId',
     auth,
     upload.array('files', 10),
@@ -23,7 +22,6 @@ router.post('/upload/:evidenceId',
     uploadFiles
 );
 
-// Download file
 router.get('/download/:id',
     auth,
     [
@@ -33,7 +31,6 @@ router.get('/download/:id',
     downloadFile
 );
 
-// Get file info
 router.get('/:id/info',
     auth,
     [
@@ -43,7 +40,6 @@ router.get('/:id/info',
     getFileInfo
 );
 
-// Delete file
 router.delete('/:id',
     auth,
     [
@@ -53,7 +49,6 @@ router.delete('/:id',
     deleteFile
 );
 
-// Get files by evidence
 router.get('/evidence/:evidenceId',
     auth,
     [
@@ -70,7 +65,6 @@ router.get('/evidence/:evidenceId',
             const File = require('../../models/Evidence/File');
             const Evidence = require('../../models/Evidence/Evidence');
 
-            // Kiểm tra evidence tồn tại và quyền truy cập
             const evidence = await Evidence.findById(evidenceId);
             if (!evidence) {
                 return res.status(404).json({
@@ -125,7 +119,6 @@ router.get('/evidence/:evidenceId',
     }
 );
 
-// Stream file (for preview)
 router.get('/stream/:id',
     auth,
     [
@@ -147,7 +140,6 @@ router.get('/stream/:id',
                 });
             }
 
-            // Kiểm tra quyền truy cập
             if (req.user.role !== 'admin' &&
                 !req.user.hasStandardAccess(file.evidenceId.standardId) &&
                 !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {

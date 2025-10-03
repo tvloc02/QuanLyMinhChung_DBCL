@@ -2,7 +2,6 @@ import axios from 'axios'
 import { getLocalStorage, removeLocalStorage } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
-// Create axios instance
 export const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
     timeout: 30000,
@@ -11,7 +10,6 @@ export const api = axios.create({
     }
 })
 
-// Request interceptor
 api.interceptors.request.use(
     (config) => {
         const token = getLocalStorage('token')
@@ -19,7 +17,6 @@ api.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`
         }
 
-        // Add academic year context if available
         const selectedYear = getLocalStorage('selected_academic_year')
         if (selectedYear?.id) {
             config.headers['switchToYearId'] = selectedYear.id
@@ -32,13 +29,11 @@ api.interceptors.request.use(
     }
 )
 
-// Response interceptor
 api.interceptors.response.use(
     (response) => {
         return response
     },
     (error) => {
-        // Handle 401 Unauthorized
         if (error.response?.status === 401) {
             removeLocalStorage('token')
             removeLocalStorage('user')
@@ -209,15 +204,26 @@ export const apiMethods = {
     files: {
         upload: (file, evidenceId, config = {}) => {
             const formData = new FormData()
-            formData.append('file', file)
-            formData.append('evidenceId', evidenceId)
-            return api.post('/api/files/upload', formData, {
+            formData.append('files', file)
+            return api.post(`/api/files/upload/${evidenceId}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                ...config
+            })
+        },
+        uploadMultiple: (files, evidenceId, config = {}) => {
+            const formData = new FormData()
+            files.forEach(file => {
+                formData.append('files', file)
+            })
+            return api.post(`/api/files/upload/${evidenceId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
         },
         getById: (id) => api.get(`/api/files/${id}`),
-        download: (id) => api.get(`/api/files/${id}/download`, { responseType: 'blob' }),
+        download: (id) => api.get(`/api/files/download/${id}`, {
+            responseType: 'blob'
+        }),
         delete: (id) => api.delete(`/api/files/${id}`),
         getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`)
     },
