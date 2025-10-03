@@ -29,12 +29,6 @@ const programSchema = new mongoose.Schema({
         }
     },
 
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
-    },
-
     applicableYear: {
         type: Number,
         default: function() {
