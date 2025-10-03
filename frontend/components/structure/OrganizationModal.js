@@ -8,12 +8,9 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
     const [formData, setFormData] = useState({
         name: '',
         code: '',
-        description: '',
         website: '',
         contactEmail: '',
         contactPhone: '',
-        address: '',
-        country: 'Vietnam',
         status: 'active'
     })
     const [errors, setErrors] = useState({})
@@ -23,12 +20,9 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
             setFormData({
                 name: organization.name || '',
                 code: organization.code || '',
-                description: organization.description || '',
                 website: organization.website || '',
                 contactEmail: organization.contactEmail || '',
                 contactPhone: organization.contactPhone || '',
-                address: organization.address || '',
-                country: organization.country || 'Vietnam',
                 status: organization.status || 'active'
             })
         }
@@ -162,37 +156,6 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mô tả
-                        </label>
-                        <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập mô tả về tổ chức"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Website
-                        </label>
-                        <input
-                            type="text"
-                            name="website"
-                            value={formData.website}
-                            onChange={handleChange}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                errors.website ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                            placeholder="https://example.com"
-                        />
-                        {errors.website && <p className="mt-1 text-sm text-red-600">{errors.website}</p>}
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -224,34 +187,6 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 placeholder="0243 869 8113"
                             />
                         </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Địa chỉ
-                        </label>
-                        <textarea
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            rows={2}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Nhập địa chỉ trụ sở"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Quốc gia
-                        </label>
-                        <input
-                            type="text"
-                            name="country"
-                            value={formData.country}
-                            onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Vietnam"
-                        />
                     </div>
                 </form>
 
