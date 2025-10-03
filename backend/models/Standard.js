@@ -27,11 +27,7 @@ const standardSchema = new mongoose.Schema({
         }
     },
 
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [3000, 'Mô tả không được quá 3000 ký tự']
-    },
+
 
     programId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -57,15 +53,8 @@ const standardSchema = new mongoose.Schema({
         maxlength: [2000, 'Mục tiêu không được quá 2000 ký tự']
     },
 
-    guidelines: {
-        type: String,
-        trim: true,
-        maxlength: [3000, 'Hướng dẫn không được quá 3000 ký tự']
-    },
-
     evaluationCriteria: [{
         name: String,
-        description: String,
         weight: Number
     }],
 
@@ -117,7 +106,6 @@ const standardSchema = new mongoose.Schema({
 standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, code: 1 }, { unique: true });
 standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, order: 1 });
 standardSchema.index({ academicYearId: 1, status: 1 });
-standardSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 standardSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -134,13 +122,12 @@ standardSchema.virtual('url').get(function() {
     return `/standards/${this._id}`;
 });
 
-standardSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
+standardSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
     const ActivityLog = require('./ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,
         action,
-        description,
         targetType: 'Standard',
         targetId: this._id,
         targetName: this.fullName,
