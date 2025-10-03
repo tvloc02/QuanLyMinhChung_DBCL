@@ -15,13 +15,7 @@ const fileSchema = new mongoose.Schema({
 
     filePath: {
         type: String,
-        required: [true, 'Đường dẫn file là bắt buộc'],
-        validate: {
-            validator: function(filePath) {
-                return filePath.length <= 255;
-            },
-            message: 'Đường dẫn file + tên file không được quá 255 ký tự'
-        }
+        required: [true, 'Đường dẫn file là bắt buộc']
     },
 
     size: {
@@ -60,6 +54,7 @@ const fileSchema = new mongoose.Schema({
 
     url: String,
     publicId: String,
+
     parentFolder: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'File'
@@ -69,6 +64,12 @@ const fileSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'File'
     }],
+
+    folderMetadata: {
+        fileCount: { type: Number, default: 0 },
+        totalSize: { type: Number, default: 0 },
+        lastModified: Date
+    },
 
     metadata: {
         pageCount: Number,
@@ -135,6 +136,38 @@ fileSchema.pre('save', function(next) {
     next();
 });
 
+fileSchema.pre('validate', function(next) {
+    const fullPath = `${this.filePath}/${this.storedName}`;
+    if (fullPath.length > 255) {
+        return next(new Error('Đường dẫn đầy đủ (path + name) không được quá 255 ký tự'));
+    }
+    next();
+});
+
+fileSchema.virtual('fullName').get(function() {
+    return this.storedName || this.originalName;
+});
+
+fileSchema.virtual('isImage').get(function() {
+    return this.mimeType.startsWith('image/');
+});
+
+fileSchema.virtual('isPdf').get(function() {
+    return this.mimeType === 'application/pdf';
+});
+
+fileSchema.virtual('isOfficeDoc').get(function() {
+    const officeMimes = [
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+    return officeMimes.includes(this.mimeType);
+});
+
 fileSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -148,22 +181,34 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
     });
 };
 
-fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
+fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
-    let storedName = `${evidenceCode}-${evidenceName}${ext}`;
 
-    storedName = storedName
+    const cleanName = evidenceName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+
+    let fileName = `${evidenceCode}-${cleanName}${ext}`;
+
+    fileName = fileName
         .replace(/[<>:"/\\|?*]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-    if (storedName.length > 255) {
-        const nameWithoutExt = storedName.substring(0, storedName.lastIndexOf('.'));
-        const maxNameLength = 255 - ext.length;
-        storedName = nameWithoutExt.substring(0, maxNameLength) + ext;
+    const maxNameLength = 200;
+    if (fileName.length > maxNameLength) {
+        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
+        fileName = truncatedName + ext;
     }
 
-    return storedName;
+    return fileName;
+};
+
+fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
+    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
 fileSchema.methods.incrementDownloadCount = async function() {
@@ -191,30 +236,6 @@ fileSchema.methods.getFormattedSize = function() {
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
-
-fileSchema.virtual('fullName').get(function() {
-    return this.storedName || this.originalName;
-});
-
-fileSchema.virtual('isImage').get(function() {
-    return this.mimeType.startsWith('image/');
-});
-
-fileSchema.virtual('isPdf').get(function() {
-    return this.mimeType === 'application/pdf';
-});
-
-fileSchema.virtual('isOfficeDoc').get(function() {
-    const officeMimes = [
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    ];
-    return officeMimes.includes(this.mimeType);
-});
 
 fileSchema.post('save', async function(doc, next) {
     if (this.isNew && this.uploadedBy) {
