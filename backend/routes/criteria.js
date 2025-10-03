@@ -31,10 +31,6 @@ const createCriteriaValidation = [
         .optional()
         .isBoolean()
         .withMessage('autoGenerateCode phải là boolean'),
-    body('description')
-        .optional()
-        .isLength({ max: 3000 })
-        .withMessage('Mô tả không được quá 3000 ký tự'),
     body('standardId')
         .notEmpty()
         .withMessage('Tiêu chuẩn là bắt buộc')
@@ -44,10 +40,6 @@ const createCriteriaValidation = [
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Yêu cầu không được quá 2000 ký tự'),
-    body('guidelines')
-        .optional()
-        .isLength({ max: 3000 })
-        .withMessage('Hướng dẫn không được quá 3000 ký tự'),
     body('indicators')
         .optional()
         .isArray()
