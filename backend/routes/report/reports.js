@@ -10,7 +10,7 @@ const {
     createReport,
     updateReport,
     deleteReport,
-    publishReport
+    publishReport, addReviewer, removeReviewer, addComment, resolveComment
 } = require('../../controllers/report/reportController');
 
 const createReportValidation = [
@@ -89,10 +89,10 @@ router.post('/:id/publish', requireManager, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
 ], validation, publishReport);
 
-router.post('/:id/reviewers', auth, reportController.addReviewer);
-router.delete('/:id/reviewers', auth, reportController.removeReviewer);
+router.post('/:id/reviewers', auth, addReviewer);
+router.delete('/:id/reviewers', auth, removeReviewer);
 
-router.post('/:id/comments', auth, reportController.addComment);
-router.put('/:id/comments/:commentId/resolve', auth, reportController.resolveComment);
+router.post('/:id/comments', auth, addComment);
+router.put('/:id/comments/:commentId/resolve', auth, resolveComment);
 
 module.exports = router;
