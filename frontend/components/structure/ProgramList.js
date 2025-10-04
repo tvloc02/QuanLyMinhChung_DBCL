@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw } from 'lucide-react'
+import { BookOpen, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
@@ -49,7 +49,6 @@ export default function ProgramList() {
         try {
             const wb = XLSX.utils.book_new()
 
-            // ===== SHEET 1: Trang giới thiệu =====
             const introData = [
                 [''],
                 ['HỆ THỐNG QUẢN LÝ ĐÁNH GIÁ CHẤT LƯỢNG'],
@@ -72,17 +71,11 @@ export default function ProgramList() {
             const wsIntro = XLSX.utils.aoa_to_sheet(introData)
             wsIntro['!cols'] = [{ wch: 80 }]
 
-            // Style cho trang giới thiệu
-            const introCellStyle = {
-                font: { bold: true, sz: 14, color: { rgb: "1F4E78" } },
-                alignment: { horizontal: "center", vertical: "center" }
-            }
             if (wsIntro['A2']) wsIntro['A2'].s = { font: { bold: true, sz: 16, color: { rgb: "1F4E78" } }, alignment: { horizontal: "center" } }
             if (wsIntro['A3']) wsIntro['A3'].s = { font: { bold: true, sz: 14, color: { rgb: "E26B0A" } }, alignment: { horizontal: "center" } }
 
             XLSX.utils.book_append_sheet(wb, wsIntro, 'Giới thiệu')
 
-            // ===== SHEET 2: Dữ liệu nhập =====
             const templateData = [
                 {
                     'Mã chương trình (*)': 'DGCL-DH',
@@ -93,178 +86,15 @@ export default function ProgramList() {
             ]
 
             const wsData = XLSX.utils.json_to_sheet(templateData)
-
-            // Định dạng cột
             wsData['!cols'] = [
-                { wch: 20 },  // Mã chương trình
-                { wch: 55 },  // Tên chương trình
-                { wch: 12 },  // Năm áp dụng
-                { wch: 45 },  // Mục tiêu
+                { wch: 20 },
+                { wch: 55 },
+                { wch: 12 },
+                { wch: 45 },
             ]
-
-            // Style cho header
-            const headerStyle = {
-                fill: { fgColor: { rgb: "4472C4" } },
-                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
-                alignment: { horizontal: "center", vertical: "center", wrapText: true },
-                border: {
-                    top: { style: "thin", color: { rgb: "000000" } },
-                    bottom: { style: "thin", color: { rgb: "000000" } },
-                    left: { style: "thin", color: { rgb: "000000" } },
-                    right: { style: "thin", color: { rgb: "000000" } }
-                }
-            }
-
-            // Áp dụng style cho header row
-            const range = XLSX.utils.decode_range(wsData['!ref'])
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                const address = XLSX.utils.encode_col(C) + "1"
-                if (!wsData[address]) continue
-                wsData[address].s = headerStyle
-            }
-
-            // Style cho data rows
-            const dataStyle = {
-                border: {
-                    top: { style: "thin", color: { rgb: "D9D9D9" } },
-                    bottom: { style: "thin", color: { rgb: "D9D9D9" } },
-                    left: { style: "thin", color: { rgb: "D9D9D9" } },
-                    right: { style: "thin", color: { rgb: "D9D9D9" } }
-                },
-                alignment: { vertical: "top", wrapText: true }
-            }
-
-            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-                for (let C = range.s.c; C <= range.e.c; ++C) {
-                    const address = XLSX.utils.encode_col(C) + (R + 1)
-                    if (!wsData[address]) continue
-                    wsData[address].s = dataStyle
-                }
-            }
-
-            // Set row height
-            wsData['!rows'] = [{ hpt: 30 }] // Header height
 
             XLSX.utils.book_append_sheet(wb, wsData, 'Dữ liệu nhập')
 
-            // ===== SHEET 3: Hướng dẫn chi tiết =====
-            const instructionData = [
-                {
-                    'Tên cột': 'Mã chương trình (*)',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Có',
-                    'Ví dụ hợp lệ': 'DGCL-DH, CTDT-2024, KĐCLGD',
-                    'Ví dụ không hợp lệ': 'dgcl-dh (chữ thường), DGCL DH (có dấu cách)'
-                },
-                {
-                    'Tên cột': 'Tên chương trình (*)',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Có',
-                    'Mô tả chi tiết': 'Tên đầy đủ của chương trình đánh giá, tối đa 300 ký tự',
-                    'Ví dụ hợp lệ': 'Đánh giá chất lượng chương trình đào tạo đại học',
-                    'Ví dụ không hợp lệ': ''
-                },
-                {
-                    'Tên cột': 'Năm áp dụng',
-                    'Kiểu dữ liệu': 'Số',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Năm bắt đầu áp dụng chương trình, phải là số nguyên từ 2000 đến 2100',
-                    'Ví dụ hợp lệ': '2024, 2025',
-                    'Ví dụ không hợp lệ': '1999, 2101, 24 (không đầy đủ)'
-                },
-                {
-                    'Tên cột': 'Mục tiêu',
-                    'Kiểu dữ liệu': 'Văn bản',
-                    'Bắt buộc': 'Không',
-                    'Mô tả chi tiết': 'Mục tiêu của chương trình đánh giá. Tối đa 2000 ký tự',
-                    'Ví dụ hợp lệ': 'Đảm bảo chất lượng đào tạo đáp ứng chuẩn đầu ra',
-                    'Ví dụ không hợp lệ': ''
-                },
-            ]
-
-            const wsInstruction = XLSX.utils.json_to_sheet(instructionData)
-            wsInstruction['!cols'] = [
-                { wch: 25 },  // Tên cột
-                { wch: 15 },  // Kiểu dữ liệu
-                { wch: 10 },  // Bắt buộc
-                { wch: 35 },  // Ví dụ hợp lệ
-                { wch: 35 }   // Ví dụ không hợp lệ
-            ]
-
-            // Style cho instruction header
-            const instrHeaderStyle = {
-                fill: { fgColor: { rgb: "70AD47" } },
-                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
-                alignment: { horizontal: "center", vertical: "center", wrapText: true }
-            }
-
-            const instrRange = XLSX.utils.decode_range(wsInstruction['!ref'])
-            for (let C = instrRange.s.c; C <= instrRange.e.c; ++C) {
-                const address = XLSX.utils.encode_col(C) + "1"
-                if (!wsInstruction[address]) continue
-                wsInstruction[address].s = instrHeaderStyle
-            }
-
-            XLSX.utils.book_append_sheet(wb, wsInstruction, 'Hướng dẫn chi tiết')
-
-            // ===== SHEET 4: Lỗi thường gặp =====
-            const errorsData = [
-                {
-                    'STT': '1',
-                    'Lỗi': 'Mã chương trình đã tồn tại',
-                    'Nguyên nhân': 'Mã chương trình bị trùng với mã đã có trong hệ thống',
-                    'Cách khắc phục': 'Thay đổi mã chương trình thành mã khác chưa sử dụng'
-                },
-                {
-                    'STT': '2',
-                    'Lỗi': 'Mã chương trình không hợp lệ',
-                    'Nguyên nhân': 'Mã chứa ký tự đặc biệt hoặc chữ thường',
-                    'Cách khắc phục': 'Chỉ sử dụng chữ HOA, số, dấu gạch ngang (-) và gạch dưới (_)'
-                },
-                {
-                    'STT': '3',
-                    'Lỗi': 'Thiếu trường bắt buộc',
-                    'Nguyên nhân': 'Không điền đủ các trường có dấu (*)',
-                    'Cách khắc phục': 'Điền đầy đủ thông tin cho các trường: Mã chương trình, Tên chương trình'
-                },
-                {
-                    'STT': '4',
-                    'Lỗi': 'Năm áp dụng không hợp lệ',
-                    'Nguyên nhân': 'Năm nhỏ hơn 2000 hoặc lớn hơn 2100',
-                    'Cách khắc phục': 'Nhập năm trong khoảng 2000-2100'
-                },
-                {
-                    'STT': '5',
-                    'Lỗi': 'Vượt quá độ dài cho phép',
-                    'Nguyên nhân': 'Nội dung vượt quá số ký tự quy định',
-                    'Cách khắc phục': 'Rút gọn nội dung theo giới hạn: Tên (300 ký tự), Mô tả (2000 ký tự), Hướng dẫn (3000 ký tự)'
-                }
-            ]
-
-            const wsErrors = XLSX.utils.json_to_sheet(errorsData)
-            wsErrors['!cols'] = [
-                { wch: 5 },   // STT
-                { wch: 30 },  // Lỗi
-                { wch: 45 },  // Nguyên nhân
-                { wch: 60 }   // Cách khắc phục
-            ]
-
-            const errorHeaderStyle = {
-                fill: { fgColor: { rgb: "C00000" } },
-                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
-                alignment: { horizontal: "center", vertical: "center" }
-            }
-
-            const errorRange = XLSX.utils.decode_range(wsErrors['!ref'])
-            for (let C = errorRange.s.c; C <= errorRange.e.c; ++C) {
-                const address = XLSX.utils.encode_col(C) + "1"
-                if (!wsErrors[address]) continue
-                wsErrors[address].s = errorHeaderStyle
-            }
-
-            XLSX.utils.book_append_sheet(wb, wsErrors, 'Lỗi thường gặp')
-
-            // Export file
             XLSX.writeFile(wb, 'Mau_import_chuong_trinh.xlsx')
             toast.success('Đã tải file mẫu thành công')
         } catch (error) {
@@ -289,26 +119,14 @@ export default function ProgramList() {
             const ws = XLSX.utils.json_to_sheet(exportData)
 
             ws['!cols'] = [
-                { wch: 5 },   // STT
-                { wch: 15 },  // Mã
-                { wch: 50 },  // Tên
-                { wch: 12 },  // Năm
-                { wch: 15 },  // Trạng thái
-                { wch: 25 },  // Người tạo
-                { wch: 12 }   // Ngày tạo
+                { wch: 5 },
+                { wch: 15 },
+                { wch: 50 },
+                { wch: 12 },
+                { wch: 15 },
+                { wch: 25 },
+                { wch: 12 }
             ]
-
-            // Style header
-            const range = XLSX.utils.decode_range(ws['!ref'])
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                const address = XLSX.utils.encode_col(C) + "1"
-                if (!ws[address]) continue
-                ws[address].s = {
-                    fill: { fgColor: { rgb: "4472C4" } },
-                    font: { bold: true, color: { rgb: "FFFFFF" } },
-                    alignment: { horizontal: "center", vertical: "center" }
-                }
-            }
 
             XLSX.utils.book_append_sheet(wb, ws, 'Chương trình')
             XLSX.writeFile(wb, `Danh_sach_chuong_trinh_${Date.now()}.xlsx`)
@@ -336,7 +154,6 @@ export default function ProgramList() {
             const details = error.response?.data?.details
 
             if (details && Array.isArray(details)) {
-                // Hiển thị chi tiết lỗi
                 const errorList = details.map((err, idx) =>
                     `\n${idx + 1}. Dòng ${err.row}: ${err.message}`
                 ).join('')
@@ -371,86 +188,97 @@ export default function ProgramList() {
 
     const getStatusColor = (status) => {
         const colors = {
-            draft: 'bg-gray-100 text-gray-700',
-            active: 'bg-green-100 text-green-700',
-            inactive: 'bg-red-100 text-red-700',
-            archived: 'bg-yellow-100 text-yellow-700'
+            draft: 'bg-gray-100 text-gray-700 border border-gray-300',
+            active: 'bg-green-100 text-green-700 border border-green-300',
+            inactive: 'bg-red-100 text-red-700 border border-red-300',
+            archived: 'bg-yellow-100 text-yellow-700 border border-yellow-300'
         }
         return colors[status] || 'bg-gray-100 text-gray-700'
     }
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Chương trình</h1>
-                    <p className="text-gray-600 mt-1">Quản lý các chương trình đánh giá</p>
-                </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleDownloadTemplate}
-                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                    >
-                        <Download size={18} />
-                        Tải mẫu
-                    </button>
-                    <button
-                        onClick={() => setShowImportModal(true)}
-                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                    >
-                        <Upload size={18} />
-                        Import Excel
-                    </button>
-                    <button
-                        onClick={handleExportExcel}
-                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                    >
-                        <Download size={18} />
-                        Export Excel
-                    </button>
-                    <button
-                        onClick={() => {
-                            setSelectedProgram(null)
-                            setShowProgramModal(true)
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                    >
-                        <Plus size={18} />
-                        Thêm chương trình
-                    </button>
+            {/* Header với gradient */}
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                            <BookOpen className="w-9 h-9 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-1">Quản lý Chương trình</h1>
+                            <p className="text-blue-100">Quản lý các chương trình đánh giá chất lượng</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Tải mẫu
+                        </button>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Upload size={18} />
+                            Import
+                        </button>
+                        <button
+                            onClick={handleExportExcel}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Export
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSelectedProgram(null)
+                                setShowProgramModal(true)
+                            }}
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                        >
+                            <Plus size={20} />
+                            Thêm chương trình
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <Filter className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm..."
+                            placeholder="Tìm kiếm chương trình..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="draft">Nháp</option>
-                        <option value="active">Hoạt động</option>
-                        <option value="inactive">Không hoạt động</option>
-                        <option value="archived">Lưu trữ</option>
+                        <option value="">⚡ Tất cả trạng thái</option>
+                        <option value="draft">📝 Nháp</option>
+                        <option value="active">✅ Hoạt động</option>
+                        <option value="inactive">⏸️ Không hoạt động</option>
+                        <option value="archived">📦 Lưu trữ</option>
                     </select>
 
                     <button
                         onClick={loadPrograms}
-                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -459,55 +287,65 @@ export default function ProgramList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <thead className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b-2 border-blue-200">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên chương trình</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Năm áp dụng</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày tạo</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Tên chương trình</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Trạng thái</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Năm áp dụng</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Ngày tạo</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-blue-700 uppercase tracking-wider">Thao tác</th>
                         </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-12 text-center">
-                                    <div className="flex justify-center">
-                                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                <td colSpan="6" className="px-6 py-16 text-center">
+                                    <div className="flex flex-col items-center justify-center">
+                                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                        <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
                                     </div>
                                 </td>
                             </tr>
                         ) : programs.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                    Không có dữ liệu
+                                <td colSpan="6" className="px-6 py-16 text-center">
+                                    <div className="flex flex-col items-center justify-center">
+                                        <BookOpen className="w-16 h-16 text-gray-300 mb-4" />
+                                        <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
+                                        <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc thêm chương trình mới</p>
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
                             programs.map((program) => (
-                                <tr key={program._id} className="hover:bg-gray-50">
+                                <tr key={program._id} className="hover:bg-blue-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-sm font-medium text-gray-900">{program.code}</span>
+                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg">
+                                            {program.code}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900">{program.name}</div>
+                                        <div className="text-sm font-semibold text-gray-900">{program.name}</div>
                                         {program.description && (
-                                            <div className="text-sm text-gray-500 truncate max-w-md">
+                                            <div className="text-sm text-gray-500 truncate max-w-md mt-1">
                                                 {program.description}
                                             </div>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(program.status)}`}>
+                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg ${getStatusColor(program.status)}`}>
                                             {getStatusLabel(program.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {program.applicableYear}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center text-sm text-gray-900">
+                                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                                            <span className="font-semibold">{program.applicableYear}</span>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {formatDate(program.createdAt)}
@@ -519,13 +357,15 @@ export default function ProgramList() {
                                                     setSelectedProgram(program)
                                                     setShowProgramModal(true)
                                                 }}
-                                                className="text-blue-600 hover:text-blue-900"
+                                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
+                                                title="Chỉnh sửa"
                                             >
                                                 <Edit2 size={18} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(program._id)}
-                                                className="text-red-600 hover:text-red-900"
+                                                className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all"
+                                                title="Xóa"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -540,23 +380,23 @@ export default function ProgramList() {
 
                 {/* Pagination */}
                 {!loading && programs.length > 0 && (
-                    <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-4 border-t-2 border-gray-100 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
-                            Hiển thị <span className="font-medium">{programs.length}</span> trong tổng số{' '}
-                            <span className="font-medium">{pagination.total}</span> chương trình
+                            Hiển thị <span className="font-bold text-blue-600">{programs.length}</span> trong tổng số{' '}
+                            <span className="font-bold text-blue-600">{pagination.total}</span> chương trình
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current - 1 })}
                                 disabled={!pagination.hasPrev}
-                                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current + 1 })}
                                 disabled={!pagination.hasNext}
-                                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Sau
                             </button>
