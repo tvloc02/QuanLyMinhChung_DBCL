@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, param, query } = require('express-validator');
 const { auth, requirePermission } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
-const permissionController = require('../../controllers/report/permissionController');
+const permissionController = require('../../controllers/user/permissionController');
 
 router.get('/permissions',
     auth,
