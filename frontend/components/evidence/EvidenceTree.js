@@ -13,7 +13,11 @@ import {
     Eye,
     RefreshCw,
     BookOpen,
-    Building2
+    Building2,
+    Loader2,
+    ArrowLeft,
+    Maximize2,
+    Minimize2
 } from 'lucide-react'
 
 export default function EvidenceTree() {
@@ -175,20 +179,52 @@ export default function EvidenceTree() {
 
     const filteredTreeData = filterTree(treeData)
 
+    const totalStandards = Object.keys(filteredTreeData).length
+    const totalCriteria = Object.values(filteredTreeData).reduce((acc, std) =>
+        acc + (std?.criteria ? Object.keys(std.criteria).length : 0), 0
+    )
+    const totalEvidences = Object.values(filteredTreeData).reduce((acc, std) =>
+            acc + (std?.criteria ? Object.values(std.criteria).reduce((acc2, crit) =>
+                acc2 + (crit?.evidences?.length || 0), 0
+            ) : 0), 0
+    )
+
     return (
         <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <FolderOpen className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Cây minh chứng</h1>
+                            <p className="text-indigo-100">Cấu trúc phân cấp minh chứng theo tiêu chuẩn và tiêu chí</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => router.push('/evidence-management')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+            </div>
+
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <BookOpen className="h-4 w-4 inline mr-1" />
-                            Chương trình
+                            Chương trình <span className="text-red-500">*</span>
                         </label>
                         <select
                             value={selectedProgram}
                             onChange={(e) => setSelectedProgram(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         >
                             <option value="">Chọn chương trình</option>
                             {programs.map(program => (
@@ -202,12 +238,12 @@ export default function EvidenceTree() {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <Building2 className="h-4 w-4 inline mr-1" />
-                            Tổ chức
+                            Tổ chức <span className="text-red-500">*</span>
                         </label>
                         <select
                             value={selectedOrganization}
                             onChange={(e) => setSelectedOrganization(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         >
                             <option value="">Chọn tổ chức</option>
                             {organizations.map(org => (
@@ -228,17 +264,17 @@ export default function EvidenceTree() {
                             placeholder="Tìm theo tên hoặc mã..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         />
                     </div>
 
-                    <div className="flex items-end space-x-2">
+                    <div className="flex items-end">
                         <button
                             onClick={fetchTreeData}
                             disabled={loading || !selectedProgram || !selectedOrganization}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                            className="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center transition-all font-medium"
                         >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Tải lại
                         </button>
                     </div>
@@ -247,19 +283,21 @@ export default function EvidenceTree() {
 
             {/* Actions */}
             <div className="flex justify-between items-center">
-                <div className="flex space-x-2">
+                <div className="flex space-x-3">
                     <button
                         onClick={expandAll}
                         disabled={Object.keys(filteredTreeData).length === 0}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center px-4 py-2.5 text-sm border-2 border-gray-200 bg-white rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                     >
+                        <Maximize2 className="h-4 w-4 mr-2" />
                         Mở rộng tất cả
                     </button>
                     <button
                         onClick={collapseAll}
                         disabled={Object.keys(filteredTreeData).length === 0}
-                        className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center px-4 py-2.5 text-sm border-2 border-gray-200 bg-white rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                     >
+                        <Minimize2 className="h-4 w-4 mr-2" />
                         Thu gọn tất cả
                     </button>
                 </div>
@@ -267,34 +305,42 @@ export default function EvidenceTree() {
                 <button
                     onClick={handleExport}
                     disabled={!selectedProgram || !selectedOrganization}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                 >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-5 w-5 mr-2" />
                     Export Excel
                 </button>
             </div>
 
             {/* Tree View */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {loading ? (
-                    <div className="flex flex-col justify-center items-center py-12">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-gray-600">Đang tải cây minh chứng...</p>
+                    <div className="flex flex-col justify-center items-center py-16">
+                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                        <p className="text-gray-600 font-medium">Đang tải cây minh chứng...</p>
                     </div>
                 ) : !selectedProgram || !selectedOrganization ? (
-                    <div className="p-12 text-center">
-                        <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức</p>
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Folder className="h-10 w-10 text-indigo-600" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
+                        <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức để xem cây minh chứng</p>
                     </div>
                 ) : Object.keys(filteredTreeData).length === 0 ? (
-                    <div className="p-12 text-center">
-                        <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500">
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Folder className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
                             {searchTerm ? 'Không tìm thấy minh chứng phù hợp' : 'Chưa có minh chứng nào'}
+                        </h3>
+                        <p className="text-gray-500">
+                            {searchTerm ? 'Thử tìm kiếm với từ khóa khác' : 'Tạo minh chứng mới để bắt đầu'}
                         </p>
                     </div>
                 ) : (
-                    <div className="p-4">
+                    <div className="p-6">
                         {Object.keys(filteredTreeData).map(standardKey => {
                             const standard = filteredTreeData[standardKey]
                             const isStandardExpanded = expandedNodes[standardKey]
@@ -302,27 +348,29 @@ export default function EvidenceTree() {
                             return (
                                 <div key={standardKey} className="mb-4">
                                     <div
-                                        className="flex items-center space-x-2 p-3 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"
+                                        className="flex items-center space-x-3 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border-2 border-indigo-200 rounded-xl cursor-pointer transition-all group"
                                         onClick={() => toggleNode(standardKey)}
                                     >
                                         {isStandardExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                                            <ChevronDown className="h-5 w-5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                                         ) : (
-                                            <ChevronRight className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                                            <ChevronRight className="h-5 w-5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                                         )}
                                         {isStandardExpanded ? (
-                                            <FolderOpen className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                                            <FolderOpen className="h-6 w-6 text-indigo-600 flex-shrink-0" />
                                         ) : (
-                                            <Folder className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                                            <Folder className="h-6 w-6 text-indigo-600 flex-shrink-0" />
                                         )}
-                                        <span className="font-semibold text-gray-900">{standardKey}</span>
-                                        <span className="text-sm text-gray-500">
-                                            ({standard?.criteria ? Object.keys(standard.criteria).length : 0} tiêu chí)
-                                        </span>
+                                        <div className="flex-1 flex items-center justify-between">
+                                            <span className="font-semibold text-gray-900">{standardKey}</span>
+                                            <span className="px-3 py-1 bg-white border border-indigo-200 rounded-full text-sm font-medium text-indigo-700">
+                                                {standard?.criteria ? Object.keys(standard.criteria).length : 0} tiêu chí
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {isStandardExpanded && standard?.criteria && (
-                                        <div className="ml-8 mt-2 space-y-2">
+                                        <div className="ml-8 mt-3 space-y-3">
                                             {Object.keys(standard.criteria).map(criteriaKey => {
                                                 const criteria = standard.criteria[criteriaKey]
                                                 const criteriaNodeKey = `${standardKey}-${criteriaKey}`
@@ -331,47 +379,55 @@ export default function EvidenceTree() {
                                                 return (
                                                     <div key={criteriaKey}>
                                                         <div
-                                                            className="flex items-center space-x-2 p-2 bg-green-50 hover:bg-green-100 rounded-lg cursor-pointer transition-colors"
+                                                            className="flex items-center space-x-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-2 border-green-200 rounded-xl cursor-pointer transition-all group"
                                                             onClick={() => toggleNode(criteriaNodeKey)}
                                                         >
                                                             {isCriteriaExpanded ? (
-                                                                <ChevronDown className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                                <ChevronDown className="h-4 w-4 text-green-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                                                             ) : (
-                                                                <ChevronRight className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                                <ChevronRight className="h-4 w-4 text-green-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                                                             )}
                                                             {isCriteriaExpanded ? (
-                                                                <FolderOpen className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                                <FolderOpen className="h-5 w-5 text-green-600 flex-shrink-0" />
                                                             ) : (
-                                                                <Folder className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                                <Folder className="h-5 w-5 text-green-600 flex-shrink-0" />
                                                             )}
-                                                            <span className="font-medium text-gray-900">{criteriaKey}</span>
-                                                            <span className="text-sm text-gray-500">
-                                                                ({criteria?.evidences?.length || 0} minh chứng)
-                                                            </span>
+                                                            <div className="flex-1 flex items-center justify-between">
+                                                                <span className="font-medium text-gray-900">{criteriaKey}</span>
+                                                                <span className="px-2.5 py-1 bg-white border border-green-200 rounded-full text-xs font-medium text-green-700">
+                                                                    {criteria?.evidences?.length || 0} minh chứng
+                                                                </span>
+                                                            </div>
                                                         </div>
 
                                                         {isCriteriaExpanded && criteria?.evidences && (
-                                                            <div className="ml-8 mt-2 space-y-1">
+                                                            <div className="ml-8 mt-2 space-y-2">
                                                                 {criteria.evidences.map(evidence => (
                                                                     <div
                                                                         key={evidence._id}
-                                                                        className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg group"
+                                                                        className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl group transition-all"
                                                                     >
-                                                                        <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                                                            <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                                                                            <span className="text-sm text-gray-700 font-mono flex-shrink-0">
-                                                                                {evidence.code}
-                                                                            </span>
-                                                                            <span className="text-sm text-gray-900 truncate">
-                                                                                {evidence.name}
-                                                                            </span>
-                                                                            <span className="text-xs text-gray-500 flex-shrink-0">
-                                                                                ({evidence.fileCount || 0} files)
-                                                                            </span>
+                                                                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                                                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                                                <FileText className="h-5 w-5 text-blue-600" />
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <div className="flex items-center space-x-2 mb-1">
+                                                                                    <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                                                                        {evidence.code}
+                                                                                    </span>
+                                                                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                                                                        {evidence.fileCount || 0} files
+                                                                                    </span>
+                                                                                </div>
+                                                                                <p className="text-sm text-gray-900 truncate font-medium">
+                                                                                    {evidence.name}
+                                                                                </p>
+                                                                            </div>
                                                                         </div>
                                                                         <button
                                                                             onClick={() => handleViewEvidence(evidence._id)}
-                                                                            className="opacity-0 group-hover:opacity-100 p-1 text-blue-600 hover:bg-blue-50 rounded transition-all flex-shrink-0"
+                                                                            className="opacity-0 group-hover:opacity-100 p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex-shrink-0"
                                                                             title="Xem chi tiết"
                                                                         >
                                                                             <Eye className="h-4 w-4" />
@@ -394,23 +450,29 @@ export default function EvidenceTree() {
 
             {/* Summary */}
             {!loading && Object.keys(filteredTreeData).length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
-                            Tổng số: <strong>{Object.keys(filteredTreeData).length}</strong> tiêu chuẩn,
-                            <strong className="ml-1">
-                                {Object.values(filteredTreeData).reduce((acc, std) =>
-                                    acc + (std?.criteria ? Object.keys(std.criteria).length : 0), 0
-                                )}
-                            </strong> tiêu chí,
-                            <strong className="ml-1">
-                                {Object.values(filteredTreeData).reduce((acc, std) =>
-                                        acc + (std?.criteria ? Object.values(std.criteria).reduce((acc2, crit) =>
-                                            acc2 + (crit?.evidences?.length || 0), 0
-                                        ) : 0), 0
-                                )}
-                            </strong> minh chứng
-                        </span>
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                <Folder className="h-8 w-8 text-indigo-600" />
+                            </div>
+                            <div className="text-3xl font-bold text-indigo-900 mb-1">{totalStandards}</div>
+                            <div className="text-sm text-indigo-700 font-medium">Tiêu chuẩn</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                <FolderOpen className="h-8 w-8 text-green-600" />
+                            </div>
+                            <div className="text-3xl font-bold text-green-900 mb-1">{totalCriteria}</div>
+                            <div className="text-sm text-green-700 font-medium">Tiêu chí</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                <FileText className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="text-3xl font-bold text-blue-900 mb-1">{totalEvidences}</div>
+                            <div className="text-sm text-blue-700 font-medium">Minh chứng</div>
+                        </div>
                     </div>
                 </div>
             )}
