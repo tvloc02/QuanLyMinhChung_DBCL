@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, ArrowRightLeft, Save } from 'lucide-react'
+import { X, ArrowRightLeft, Sparkles, Loader2, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -79,7 +79,6 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
             }))
         } catch (error) {
             console.error('Generate code error:', error)
-            // Fallback: tự generate
             const standard = standards.find(s => s._id === formData.targetStandardId)
             const criterion = criteria.find(c => c._id === formData.targetCriteriaId)
             if (standard && criterion) {
@@ -146,49 +145,73 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        <ArrowRightLeft className="h-5 w-5 inline mr-2" />
-                        Di chuyển minh chứng
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X size={24} />
-                    </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                                <ArrowRightLeft className="h-6 w-6 text-white" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white">
+                                Di chuyển minh chứng
+                            </h2>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
                     {/* Current Evidence Info */}
-                    <div className="bg-gray-50 rounded-lg p-4">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Minh chứng hiện tại</h3>
-                        <div className="space-y-1 text-sm">
-                            <p>
-                                <span className="text-gray-600">Mã:</span>{' '}
-                                <span className="font-mono text-blue-600">{evidence.code}</span>
-                            </p>
-                            <p>
-                                <span className="text-gray-600">Tên:</span>{' '}
-                                <span className="text-gray-900">{evidence.name}</span>
-                            </p>
-                            <p>
-                                <span className="text-gray-600">Tiêu chuẩn:</span>{' '}
-                                <span className="text-gray-900">
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border-2 border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-2">
+                                <Sparkles className="h-4 w-4 text-indigo-600" />
+                            </div>
+                            Minh chứng hiện tại
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                                <p className="text-xs text-gray-600 mb-1">Mã minh chứng</p>
+                                <p className="font-mono text-sm font-semibold text-indigo-600">
+                                    {evidence.code}
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                                <p className="text-xs text-gray-600 mb-1">Tên</p>
+                                <p className="text-sm text-gray-900 font-medium truncate">
+                                    {evidence.name}
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                                <p className="text-xs text-gray-600 mb-1">Tiêu chuẩn</p>
+                                <p className="text-sm text-gray-900 truncate">
                                     {evidence.standardId?.code} - {evidence.standardId?.name}
-                                </span>
-                            </p>
-                            <p>
-                                <span className="text-gray-600">Tiêu chí:</span>{' '}
-                                <span className="text-gray-900">
+                                </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                                <p className="text-xs text-gray-600 mb-1">Tiêu chí</p>
+                                <p className="text-sm text-gray-900 truncate">
                                     {evidence.criteriaId?.code} - {evidence.criteriaId?.name}
-                                </span>
-                            </p>
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                     {/* Target Selection */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-gray-900">Di chuyển đến</h3>
+                        <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-2">
+                                <ArrowRightLeft className="h-4 w-4 text-purple-600" />
+                            </div>
+                            Di chuyển đến
+                        </h3>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -198,8 +221,8 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                 name="targetStandardId"
                                 value={formData.targetStandardId}
                                 onChange={handleChange}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.targetStandardId ? 'border-red-500' : 'border-gray-300'
+                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.targetStandardId ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                 }`}
                             >
                                 <option value="">Chọn tiêu chuẩn</option>
@@ -210,7 +233,10 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                 ))}
                             </select>
                             {errors.targetStandardId && (
-                                <p className="mt-1 text-sm text-red-600">{errors.targetStandardId}</p>
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <X className="h-4 w-4 mr-1" />
+                                    {errors.targetStandardId}
+                                </p>
                             )}
                         </div>
 
@@ -223,9 +249,9 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                 value={formData.targetCriteriaId}
                                 onChange={handleChange}
                                 disabled={!formData.targetStandardId}
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.targetCriteriaId ? 'border-red-500' : 'border-gray-300'
-                                } ${!formData.targetStandardId ? 'bg-gray-100' : ''}`}
+                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.targetCriteriaId ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                } ${!formData.targetStandardId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn tiêu chí</option>
                                 {criteria.map(criterion => (
@@ -235,7 +261,10 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                 ))}
                             </select>
                             {errors.targetCriteriaId && (
-                                <p className="mt-1 text-sm text-red-600">{errors.targetCriteriaId}</p>
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <X className="h-4 w-4 mr-1" />
+                                    {errors.targetCriteriaId}
+                                </p>
                             )}
                         </div>
 
@@ -249,7 +278,7 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                         type="checkbox"
                                         checked={autoGenerateCode}
                                         onChange={(e) => setAutoGenerateCode(e.target.checked)}
-                                        className="rounded border-gray-300"
+                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <span>Tự động tạo mã</span>
                                 </label>
@@ -261,47 +290,58 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
                                 onChange={handleChange}
                                 disabled={autoGenerateCode}
                                 placeholder="VD: H1.01.02.04"
-                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                    errors.newCode ? 'border-red-500' : 'border-gray-300'
-                                } ${autoGenerateCode ? 'bg-gray-100' : ''}`}
+                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.newCode ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                } ${autoGenerateCode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             />
                             {errors.newCode && (
-                                <p className="mt-1 text-sm text-red-600">{errors.newCode}</p>
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <X className="h-4 w-4 mr-1" />
+                                    {errors.newCode}
+                                </p>
                             )}
                         </div>
                     </div>
 
                     {/* Warning */}
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p className="text-sm text-yellow-800">
-                            <strong>Lưu ý:</strong> Khi di chuyển minh chứng, mã minh chứng sẽ được thay đổi.
-                            Vui lòng kiểm tra kỹ trước khi thực hiện.
-                        </p>
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl p-4">
+                        <div className="flex items-start space-x-3">
+                            <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Sparkles className="h-5 w-5 text-yellow-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-yellow-900 mb-1">Lưu ý quan trọng</p>
+                                <p className="text-sm text-yellow-800">
+                                    Khi di chuyển minh chứng, mã minh chứng sẽ được thay đổi. Vui lòng kiểm tra kỹ trước khi thực hiện.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </form>
 
+                {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
                     >
                         Hủy
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all font-medium"
                     >
                         {loading ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <Loader2 className="w-5 h-5 animate-spin" />
                                 <span>Đang di chuyển...</span>
                             </>
                         ) : (
                             <>
-                                <ArrowRightLeft size={18} />
+                                <Zap className="w-5 h-5" />
                                 <span>Di chuyển</span>
                             </>
                         )}
