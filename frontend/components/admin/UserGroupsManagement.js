@@ -8,11 +8,13 @@ import PermissionsMatrixModal from './PermissionsMatrixModal'
 
 export default function UserGroupsManagement() {
     const [groups, setGroups] = useState([])
+    const [permissions, setPermissions] = useState({})
     const [allUsers, setAllUsers] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedGroup, setSelectedGroup] = useState(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
+    const [showPermissionsModal, setShowPermissionsModal] = useState(false)
     const [showMembersModal, setShowMembersModal] = useState(false)
     const [showDetailModal, setShowDetailModal] = useState(false)
     const [showPermissionsMatrixModal, setShowPermissionsMatrixModal] = useState(false)
@@ -29,6 +31,7 @@ export default function UserGroupsManagement() {
 
     useEffect(() => {
         fetchGroups()
+        fetchPermissions()
         fetchUsers()
     }, [currentPage, filterType, filterStatus, searchTerm])
 
@@ -56,6 +59,17 @@ export default function UserGroupsManagement() {
         }
     }
 
+    const fetchPermissions = async () => {
+        try {
+            const response = await api.get('/api/permissions/by-module')
+            if (response.data.success) {
+                setPermissions(response.data.data)
+            }
+        } catch (error) {
+            console.error('Error fetching permissions:', error)
+        }
+    }
+
     const fetchUsers = async () => {
         try {
             const response = await api.get('/api/users', { params: {} })
@@ -64,25 +78,6 @@ export default function UserGroupsManagement() {
             }
         } catch (error) {
             console.error('Error fetching users:', error)
-        }
-    }
-
-    const handleSavePermissionsMatrix = async (permissions) => {
-        try {
-            // Call API để lưu permissions matrix
-            const response = await api.post(`/api/user-groups/${selectedGroup._id}/permissions/matrix`, {
-                permissions
-            })
-
-            if (response.data.success) {
-                toast.success('Cập nhật phân quyền thành công')
-                setShowPermissionsMatrixModal(false)
-                setSelectedGroup(null)
-                fetchGroups()
-            }
-        } catch (error) {
-            console.error('Error saving permissions:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi cập nhật phân quyền')
         }
     }
 
@@ -141,6 +136,28 @@ export default function UserGroupsManagement() {
         }
     }
 
+    const handleUpdatePermissions = async (groupId, permissionIds) => {
+        try {
+            const group = groups.find(g => g._id === groupId)
+            const currentPermIds = group.permissions?.map(p => p._id || p) || []
+            const toAdd = permissionIds.filter(id => !currentPermIds.includes(id))
+            const toRemove = currentPermIds.filter(id => !permissionIds.includes(id))
+
+            if (toAdd.length > 0) {
+                await api.post(`/api/user-groups/${groupId}/permissions`, { permissionIds: toAdd })
+            }
+            if (toRemove.length > 0) {
+                await api.delete(`/api/user-groups/${groupId}/permissions`, { data: { permissionIds: toRemove } })
+            }
+
+            toast.success('Cập nhật quyền thành công')
+            setShowPermissionsModal(false)
+            fetchGroups()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi cập nhật quyền')
+        }
+    }
+
     const handleUpdateMembers = async (groupId, userIds) => {
         try {
             const group = groups.find(g => g._id === groupId)
@@ -160,6 +177,18 @@ export default function UserGroupsManagement() {
             fetchGroups()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Lỗi khi cập nhật thành viên')
+        }
+    }
+
+    const handleSavePermissionsMatrix = async (permissions) => {
+        try {
+            console.log('Saving permissions for group:', selectedGroup._id, permissions)
+
+            toast.success('Cập nhật phân quyền thành công')
+            setShowPermissionsMatrixModal(false)
+            setSelectedGroup(null)
+        } catch (error) {
+            toast.error('Lỗi khi cập nhật phân quyền')
         }
     }
 
@@ -327,12 +356,22 @@ export default function UserGroupsManagement() {
                                             <button
                                                 onClick={() => {
                                                     setSelectedGroup(group)
-                                                    setShowPermissionsMatrixModal(true)
+                                                    setShowPermissionsModal(true)
                                                 }}
                                                 className="p-1 text-orange-600 hover:bg-orange-50 rounded"
-                                                title="Phân quyền chi tiết"
+                                                title="Phân quyền"
                                             >
                                                 <Lock className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedGroup(group)
+                                                    setShowPermissionsMatrixModal(true)
+                                                }}
+                                                className="p-1 text-indigo-600 hover:bg-indigo-50 rounded"
+                                                title="Phân quyền chi tiết"
+                                            >
+                                                <Settings className="w-4 h-4" />
                                             </button>
                                             {group.type !== 'system' && (
                                                 <button
@@ -434,6 +473,15 @@ export default function UserGroupsManagement() {
                 <DetailModal
                     group={selectedGroup}
                     onClose={() => { setShowDetailModal(false); setSelectedGroup(null); }}
+                />
+            )}
+
+            {showPermissionsModal && selectedGroup && (
+                <PermissionsModal
+                    group={selectedGroup}
+                    permissions={permissions}
+                    onClose={() => { setShowPermissionsModal(false); setSelectedGroup(null); }}
+                    onSave={handleUpdatePermissions}
                 />
             )}
 
@@ -636,6 +684,70 @@ function DetailModal({ group, onClose }) {
                         <label className="text-sm font-medium text-gray-500">Mô tả</label>
                         <p className="text-gray-900">{group.description || 'Không có mô tả'}</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function PermissionsModal({ group, permissions, onClose, onSave }) {
+    const [selectedPermissions, setSelectedPermissions] = useState(
+        group.permissions?.map(p => p._id || p) || []
+    )
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b sticky top-0 bg-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-bold">Phân quyền: {group.name}</h2>
+                            <p className="text-sm text-gray-500 mt-1">Đã chọn: {selectedPermissions.length} quyền</p>
+                        </div>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6">
+                    {Object.entries(permissions).map(([module, perms]) => (
+                        <div key={module} className="mb-6">
+                            <h3 className="text-sm font-semibold text-gray-900 uppercase mb-3">{module}</h3>
+                            <div className="space-y-2">
+                                {perms.map((perm) => (
+                                    <label key={perm._id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPermissions.includes(perm._id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedPermissions([...selectedPermissions, perm._id])
+                                                } else {
+                                                    setSelectedPermissions(selectedPermissions.filter(id => id !== perm._id))
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-purple-600 rounded"
+                                        />
+                                        <div className="flex-1">
+                                            <div className="font-medium">{perm.name}</div>
+                                            <div className="text-xs text-gray-500">{perm.code}</div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="p-6 border-t sticky bottom-0 bg-white flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                        Hủy
+                    </button>
+                    <button
+                        onClick={() => onSave(group._id, selectedPermissions)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    >
+                        Lưu thay đổi
+                    </button>
                 </div>
             </div>
         </div>

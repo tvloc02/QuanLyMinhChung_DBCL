@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { X, Check } from 'lucide-react'
 
-// Component Modal Phân quyền chi tiết theo chức năng
 export default function PermissionsMatrixModal({ group, onClose, onSave }) {
-    // Danh sách các chức năng từ Sidebar
+    // Danh sách các chức năng đồng bộ từ Sidebar
     const menuItems = [
         { id: 'dashboard', name: 'Trang chủ', hasView: true, hasCreate: false, hasUpdate: false, hasDelete: false },
         { id: 'academic_years', name: 'Quản lý năm học', hasView: true, hasCreate: true, hasUpdate: true, hasDelete: true },
@@ -25,36 +24,73 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
         { id: 'system', name: 'Cấu hình hệ thống', hasView: true, hasCreate: false, hasUpdate: true, hasDelete: false },
     ]
 
-    // State quản lý permissions
+    // State quản lý permissions - khởi tạo từ group.permissions nếu có
     const [permissions, setPermissions] = useState(() => {
-        // Initialize từ group permissions nếu có
         const initial = {}
         menuItems.forEach(item => {
+            // Nếu group có permissions sẵn, load từ đó
+            const existingPerm = group?.permissions?.find(p => p.menuId === item.id || p.resource === item.id)
+
             initial[item.id] = {
-                view: false,
-                create: false,
-                update: false,
-                delete: false
+                view: existingPerm?.view || existingPerm?.actions?.includes('view') || false,
+                create: existingPerm?.create || existingPerm?.actions?.includes('create') || false,
+                update: existingPerm?.update || existingPerm?.actions?.includes('update') || false,
+                delete: existingPerm?.delete || existingPerm?.actions?.includes('delete') || false
             }
         })
         return initial
     })
 
-    // Toggle permission
+    // Toggle permission với logic phụ thuộc
     const togglePermission = (menuId, permType) => {
-        setPermissions(prev => ({
-            ...prev,
-            [menuId]: {
-                ...prev[menuId],
-                [permType]: !prev[menuId][permType]
+        const menu = menuItems.find(m => m.id === menuId)
+
+        setPermissions(prev => {
+            const currentPerm = prev[menuId]
+            const newValue = !currentPerm[permType]
+
+            // Nếu bỏ tích VIEW, tự động bỏ tất cả các quyền khác
+            if (permType === 'view' && !newValue) {
+                return {
+                    ...prev,
+                    [menuId]: {
+                        view: false,
+                        create: false,
+                        update: false,
+                        delete: false
+                    }
+                }
             }
-        }))
+
+            // Nếu tích CREATE/UPDATE/DELETE, tự động tích VIEW
+            if (permType !== 'view' && newValue) {
+                return {
+                    ...prev,
+                    [menuId]: {
+                        ...currentPerm,
+                        view: true, // Tự động tích VIEW
+                        [permType]: newValue
+                    }
+                }
+            }
+
+            // Trường hợp bình thường
+            return {
+                ...prev,
+                [menuId]: {
+                    ...currentPerm,
+                    [permType]: newValue
+                }
+            }
+        })
     }
 
     // Toggle tất cả permissions cho một menu
     const toggleAllForMenu = (menuId) => {
         const menu = menuItems.find(m => m.id === menuId)
         const currentPerms = permissions[menuId]
+
+        // Check nếu tất cả đã được tích
         const allChecked = currentPerms.view &&
             (menu.hasCreate ? currentPerms.create : true) &&
             (menu.hasUpdate ? currentPerms.update : true) &&
@@ -71,7 +107,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
         }))
     }
 
-    // Toggle tất cả permissions cho một loại
+    // Toggle tất cả permissions cho một loại (view/create/update/delete)
     const toggleAllForType = (permType) => {
         const allChecked = menuItems.every(item => {
             if (permType === 'create' && !item.hasCreate) return true
@@ -82,13 +118,43 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
 
         const newPermissions = { ...permissions }
         menuItems.forEach(item => {
-            if (permType === 'view' ||
-                (permType === 'create' && item.hasCreate) ||
-                (permType === 'update' && item.hasUpdate) ||
-                (permType === 'delete' && item.hasDelete)) {
-                newPermissions[item.id] = {
-                    ...newPermissions[item.id],
-                    [permType]: !allChecked
+            // Nếu đang tích tất cả
+            if (!allChecked) {
+                if (permType === 'view') {
+                    newPermissions[item.id] = {
+                        ...newPermissions[item.id],
+                        view: true
+                    }
+                } else if (
+                    (permType === 'create' && item.hasCreate) ||
+                    (permType === 'update' && item.hasUpdate) ||
+                    (permType === 'delete' && item.hasDelete)
+                ) {
+                    newPermissions[item.id] = {
+                        ...newPermissions[item.id],
+                        view: true, // Tự động tích view
+                        [permType]: true
+                    }
+                }
+            } else {
+                // Nếu đang bỏ tích tất cả
+                if (permType === 'view') {
+                    // Bỏ tích view thì bỏ tất cả
+                    newPermissions[item.id] = {
+                        view: false,
+                        create: false,
+                        update: false,
+                        delete: false
+                    }
+                } else if (
+                    (permType === 'create' && item.hasCreate) ||
+                    (permType === 'update' && item.hasUpdate) ||
+                    (permType === 'delete' && item.hasDelete)
+                ) {
+                    newPermissions[item.id] = {
+                        ...newPermissions[item.id],
+                        [permType]: false
+                    }
                 }
             }
         })
@@ -97,6 +163,18 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
 
     const handleSave = () => {
         onSave(permissions)
+    }
+
+    // Đếm số quyền đã chọn
+    const countSelectedPermissions = () => {
+        let count = 0
+        Object.values(permissions).forEach(perm => {
+            if (perm.view) count++
+            if (perm.create) count++
+            if (perm.update) count++
+            if (perm.delete) count++
+        })
+        return count
     }
 
     return (
@@ -109,7 +187,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                             Phân quyền nhóm người dùng {group?.name || ''}
                         </h2>
                         <p className="text-sm text-gray-500 mt-1">
-                            Thiết lập quyền truy cập cho từng chức năng
+                            Thiết lập quyền truy cập cho từng chức năng • Đã chọn: <span className="font-semibold text-purple-600">{countSelectedPermissions()} quyền</span>
                         </p>
                     </div>
                     <button
@@ -120,20 +198,27 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                     </button>
                 </div>
 
+                {/* Info Banner */}
+                <div className="mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                        <span className="font-semibold">⚠️ Lưu ý:</span> Quyền "Hiển thị" là bắt buộc để xem menu. Nếu không có quyền "Hiển thị", người dùng sẽ không thấy mục này khi đăng nhập.
+                    </p>
+                </div>
+
                 {/* Table */}
                 <div className="flex-1 overflow-auto px-6 py-4">
-                    <table className="w-full">
+                    <table className="w-full border-collapse">
                         <thead className="sticky top-0 bg-gray-50 z-10">
                         <tr>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-                                TÊN CHỨC NĂNG / TÊN SỞ
+                                Tên chức năng / Tên sổ
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200 w-32">
                                 <button
                                     onClick={() => toggleAllForType('view')}
                                     className="hover:text-blue-600 transition-colors"
                                 >
-                                    HIỆN THỊ
+                                    Hiển thị
                                 </button>
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200 w-32">
@@ -141,7 +226,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                     onClick={() => toggleAllForType('create')}
                                     className="hover:text-blue-600 transition-colors"
                                 >
-                                    THÊM
+                                    Thêm
                                 </button>
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200 w-32">
@@ -149,7 +234,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                     onClick={() => toggleAllForType('update')}
                                     className="hover:text-blue-600 transition-colors"
                                 >
-                                    SỬA
+                                    Sửa
                                 </button>
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200 w-32">
@@ -157,13 +242,13 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                     onClick={() => toggleAllForType('delete')}
                                     className="hover:text-blue-600 transition-colors"
                                 >
-                                    XÓA
+                                    Xóa
                                 </button>
                             </th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                        {menuItems.map((item, index) => (
+                        {menuItems.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
@@ -179,7 +264,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                     </div>
                                 </td>
 
-                                {/* Hiện thị */}
+                                {/* Hiển thị - Quyền cơ bản */}
                                 <td className="px-4 py-3 text-center">
                                     <button
                                         onClick={() => togglePermission(item.id, 'view')}
@@ -188,6 +273,7 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                                 ? 'bg-blue-600 border-blue-600'
                                                 : 'border-gray-300 hover:border-blue-400'
                                         }`}
+                                        title={permissions[item.id].view ? 'Bỏ quyền hiển thị (sẽ bỏ tất cả quyền khác)' : 'Cho phép hiển thị menu'}
                                     >
                                         {permissions[item.id].view && (
                                             <Check className="w-4 h-4 text-white mx-auto" />
@@ -203,8 +289,12 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                             className={`w-6 h-6 rounded border-2 transition-all ${
                                                 permissions[item.id].create
                                                     ? 'bg-blue-600 border-blue-600'
-                                                    : 'border-gray-300 hover:border-blue-400'
+                                                    : permissions[item.id].view
+                                                        ? 'border-gray-300 hover:border-blue-400'
+                                                        : 'border-gray-200 cursor-not-allowed opacity-50'
                                             }`}
+                                            disabled={!permissions[item.id].view}
+                                            title={!permissions[item.id].view ? 'Cần có quyền hiển thị trước' : 'Cho phép thêm mới'}
                                         >
                                             {permissions[item.id].create && (
                                                 <Check className="w-4 h-4 text-white mx-auto" />
@@ -223,8 +313,12 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                             className={`w-6 h-6 rounded border-2 transition-all ${
                                                 permissions[item.id].update
                                                     ? 'bg-blue-600 border-blue-600'
-                                                    : 'border-gray-300 hover:border-blue-400'
+                                                    : permissions[item.id].view
+                                                        ? 'border-gray-300 hover:border-blue-400'
+                                                        : 'border-gray-200 cursor-not-allowed opacity-50'
                                             }`}
+                                            disabled={!permissions[item.id].view}
+                                            title={!permissions[item.id].view ? 'Cần có quyền hiển thị trước' : 'Cho phép chỉnh sửa'}
                                         >
                                             {permissions[item.id].update && (
                                                 <Check className="w-4 h-4 text-white mx-auto" />
@@ -243,8 +337,12 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                                             className={`w-6 h-6 rounded border-2 transition-all ${
                                                 permissions[item.id].delete
                                                     ? 'bg-blue-600 border-blue-600'
-                                                    : 'border-gray-300 hover:border-blue-400'
+                                                    : permissions[item.id].view
+                                                        ? 'border-gray-300 hover:border-blue-400'
+                                                        : 'border-gray-200 cursor-not-allowed opacity-50'
                                             }`}
+                                            disabled={!permissions[item.id].view}
+                                            title={!permissions[item.id].view ? 'Cần có quyền hiển thị trước' : 'Cho phép xóa'}
                                         >
                                             {permissions[item.id].delete && (
                                                 <Check className="w-4 h-4 text-white mx-auto" />
@@ -261,20 +359,25 @@ export default function PermissionsMatrixModal({ group, onClose, onSave }) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
-                    >
-                        Đóng
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-                    >
-                        <Check className="w-4 h-4" />
-                        Lưu
-                    </button>
+                <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center bg-gray-50">
+                    <div className="text-sm text-gray-600">
+                        <span className="font-semibold">Tổng số quyền đã chọn:</span> {countSelectedPermissions()} quyền
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors font-medium"
+                        >
+                            Đóng
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+                        >
+                            <Check className="w-4 h-4" />
+                            Lưu thay đổi
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
