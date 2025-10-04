@@ -55,7 +55,7 @@ export default function PermissionsManagement() {
                 ...(searchTerm && { search: searchTerm })
             }
 
-            const response = await api.get('/permissions', { params })
+            const response = await api.get('/api/permissions', { params })
             if (response.data.success) {
                 setPermissions(response.data.data.permissions)
                 setTotalPages(response.data.data.pagination.pages)
