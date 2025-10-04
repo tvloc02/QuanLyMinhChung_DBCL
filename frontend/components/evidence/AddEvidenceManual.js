@@ -12,7 +12,9 @@ import {
     Calendar,
     Hash,
     X,
-    Sparkles
+    Sparkles,
+    ArrowLeft,
+    Zap
 } from 'lucide-react'
 
 export default function AddEvidenceManual() {
@@ -337,396 +339,452 @@ export default function AddEvidenceManual() {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin cơ bản</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <BookOpen className="h-4 w-4 inline mr-1" />
-                            Chương trình <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="programId"
-                            value={formData.programId}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">Chọn chương trình</option>
-                            {programs.map(program => (
-                                <option key={program._id} value={program._id}>
-                                    {program.name}
-                                </option>
-                            ))}
-                        </select>
+        <div className="space-y-6">
+            {/* Header với gradient */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <FileText className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Thêm minh chứng mới</h1>
+                            <p className="text-indigo-100">Tạo minh chứng thủ công với đầy đủ thông tin</p>
+                        </div>
                     </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Building2 className="h-4 w-4 inline mr-1" />
-                            Tổ chức <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="organizationId"
-                            value={formData.organizationId}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">Chọn tổ chức</option>
-                            {organizations.map(org => (
-                                <option key={org._id} value={org._id}>
-                                    {org.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <FileText className="h-4 w-4 inline mr-1" />
-                            Tiêu chuẩn <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="standardId"
-                            value={formData.standardId}
-                            onChange={handleInputChange}
-                            required
-                            disabled={!formData.programId || !formData.organizationId}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        >
-                            <option value="">Chọn tiêu chuẩn</option>
-                            {standards.map(standard => (
-                                <option key={standard._id} value={standard._id}>
-                                    {standard.code} - {standard.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <FileText className="h-4 w-4 inline mr-1" />
-                            Tiêu chí <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="criteriaId"
-                            value={formData.criteriaId}
-                            onChange={handleInputChange}
-                            required
-                            disabled={!formData.standardId}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        >
-                            <option value="">Chọn tiêu chí</option>
-                            {criteria.map(criterion => (
-                                <option key={criterion._id} value={criterion._id}>
-                                    {criterion.code} - {criterion.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <button
+                        onClick={() => router.push('/evidence-management')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
                 </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết minh chứng</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Thông tin cơ bản */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                            <BookOpen className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        Thông tin cơ bản
+                    </h3>
 
-                <div className="space-y-4">
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="block text-sm font-medium text-gray-700">
-                                <Hash className="h-4 w-4 inline mr-1" />
-                                Mã minh chứng
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <BookOpen className="h-4 w-4 inline mr-1" />
+                                Chương trình <span className="text-red-500">*</span>
                             </label>
-                            <label className="flex items-center space-x-2 text-sm text-gray-600">
-                                <input
-                                    type="checkbox"
-                                    checked={autoGenerateCode}
-                                    onChange={(e) => setAutoGenerateCode(e.target.checked)}
-                                    className="rounded border-gray-300"
-                                />
-                                <span>Tự động tạo mã</span>
-                            </label>
+                            <select
+                                name="programId"
+                                value={formData.programId}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                <option value="">Chọn chương trình</option>
+                                {programs.map(program => (
+                                    <option key={program._id} value={program._id}>
+                                        {program.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
-                        {autoGenerateCode ? (
-                            <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
-                                <Sparkles className="h-4 w-4 inline mr-1" />
-                                {previewCode ? (
-                                    <span>Mã sẽ được tạo tự động: <strong>{previewCode}</strong> (XX = số thứ tự tiếp theo)</span>
-                                ) : (
-                                    <span>Chọn Tiêu chuẩn và Tiêu chí để xem preview mã</span>
-                                )}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Building2 className="h-4 w-4 inline mr-1" />
+                                Tổ chức <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="organizationId"
+                                value={formData.organizationId}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                <option value="">Chọn tổ chức</option>
+                                {organizations.map(org => (
+                                    <option key={org._id} value={org._id}>
+                                        {org.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <FileText className="h-4 w-4 inline mr-1" />
+                                Tiêu chuẩn <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="standardId"
+                                value={formData.standardId}
+                                onChange={handleInputChange}
+                                required
+                                disabled={!formData.programId || !formData.organizationId}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
+                            >
+                                <option value="">Chọn tiêu chuẩn</option>
+                                {standards.map(standard => (
+                                    <option key={standard._id} value={standard._id}>
+                                        {standard.code} - {standard.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <FileText className="h-4 w-4 inline mr-1" />
+                                Tiêu chí <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="criteriaId"
+                                value={formData.criteriaId}
+                                onChange={handleInputChange}
+                                required
+                                disabled={!formData.standardId}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
+                            >
+                                <option value="">Chọn tiêu chí</option>
+                                {criteria.map(criterion => (
+                                    <option key={criterion._id} value={criterion._id}>
+                                        {criterion.code} - {criterion.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Chi tiết minh chứng */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                            <Hash className="h-5 w-5 text-purple-600" />
+                        </div>
+                        Chi tiết minh chứng
+                    </h3>
+
+                    <div className="space-y-6">
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    <Hash className="h-4 w-4 inline mr-1" />
+                                    Mã minh chứng
+                                </label>
+                                <label className="flex items-center space-x-2 text-sm text-gray-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={autoGenerateCode}
+                                        onChange={(e) => setAutoGenerateCode(e.target.checked)}
+                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span>Tự động tạo mã</span>
+                                </label>
                             </div>
-                        ) : (
+
+                            {autoGenerateCode ? (
+                                <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl text-sm text-indigo-700">
+                                    <Sparkles className="h-4 w-4 inline mr-1" />
+                                    {previewCode ? (
+                                        <span>Mã sẽ được tạo tự động: <strong>{previewCode}</strong> (XX = số thứ tự tiếp theo)</span>
+                                    ) : (
+                                        <span>Chọn Tiêu chuẩn và Tiêu chí để xem preview mã</span>
+                                    )}
+                                </div>
+                            ) : (
+                                <input
+                                    type="text"
+                                    name="code"
+                                    value={formData.code}
+                                    onChange={handleInputChange}
+                                    placeholder="VD: H1.01.01.04"
+                                    pattern="^H\d+\.\d{2}\.\d{2}\.\d{2}$"
+                                    title="Format: H[số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                />
+                            )}
+                            <p className="text-xs text-gray-500 mt-2">
+                                Format: H[số hộp].[mã TC].[mã TC].[STT] - VD: H1.01.01.04
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Tên minh chứng <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="text"
-                                name="code"
-                                value={formData.code}
+                                name="name"
+                                value={formData.name}
                                 onChange={handleInputChange}
-                                placeholder="VD: H1.01.01.04"
-                                pattern="^H\d+\.\d{2}\.\d{2}\.\d{2}$"
-                                title="Format: H[số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                                maxLength={500}
+                                placeholder="Nhập tên minh chứng..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                             />
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">
-                            Format: H[số hộp].[mã TC].[mã TC].[STT] - VD: H1.01.01.04
-                        </p>
-                    </div>
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tên minh chứng <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            required
-                            maxLength={500}
-                            placeholder="Nhập tên minh chứng..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mô tả
-                        </label>
-                        <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleInputChange}
-                            rows={3}
-                            maxLength={2000}
-                            placeholder="Nhập mô tả minh chứng..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin văn bản</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Số hiệu văn bản
-                        </label>
-                        <input
-                            type="text"
-                            name="documentNumber"
-                            value={formData.documentNumber}
-                            onChange={handleInputChange}
-                            maxLength={100}
-                            placeholder="VD: 123/QĐ-BGDĐT"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Loại văn bản
-                        </label>
-                        <select
-                            name="documentType"
-                            value={formData.documentType}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {documentTypes.map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Calendar className="h-4 w-4 inline mr-1" />
-                            Ngày ban hành
-                        </label>
-                        <input
-                            type="date"
-                            name="issueDate"
-                            value={formData.issueDate}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Calendar className="h-4 w-4 inline mr-1" />
-                            Ngày hiệu lực
-                        </label>
-                        <input
-                            type="date"
-                            name="effectiveDate"
-                            value={formData.effectiveDate}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Cơ quan ban hành
-                        </label>
-                        <input
-                            type="text"
-                            name="issuingAgency"
-                            value={formData.issuingAgency}
-                            onChange={handleInputChange}
-                            maxLength={200}
-                            placeholder="VD: Bộ Giáo dục và Đào tạo"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin bổ sung</h3>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Ghi chú
-                        </label>
-                        <textarea
-                            name="notes"
-                            value={formData.notes}
-                            onChange={handleInputChange}
-                            rows={3}
-                            maxLength={1000}
-                            placeholder="Nhập ghi chú nếu có..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tags (nhấn Enter để thêm)
-                        </label>
-                        <input
-                            type="text"
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            onKeyDown={handleAddTag}
-                            placeholder="Nhập tag và nhấn Enter..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {formData.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {formData.tags.map((tag, index) => (
-                                    <span
-                                        key={index}
-                                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
-                                    >
-                                        {tag}
-                                        <button
-                                            type="button"
-                                            onClick={() => removeTag(tag)}
-                                            className="ml-2 hover:text-blue-600"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Upload className="h-4 w-4 inline mr-1" />
-                            Files đính kèm
-                        </label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                            <label className="cursor-pointer">
-                                <div className="text-center">
-                                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                    <p className="text-sm text-gray-600">
-                                        Chọn files để upload (tối đa 10 files, mỗi file 50MB)
-                                    </p>
-                                    <input
-                                        type="file"
-                                        multiple
-                                        onChange={handleFileSelect}
-                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
-                                        className="hidden"
-                                    />
-                                </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Mô tả
                             </label>
-                            {selectedFiles.length > 0 && (
-                                <div className="mt-4 space-y-2">
-                                    {selectedFiles.map((file, index) => (
-                                        <div
+                            <textarea
+                                name="description"
+                                value={formData.description}
+                                onChange={handleInputChange}
+                                rows={3}
+                                maxLength={2000}
+                                placeholder="Nhập mô tả minh chứng..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Thông tin văn bản */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                            <FileText className="h-5 w-5 text-green-600" />
+                        </div>
+                        Thông tin văn bản
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Số hiệu văn bản
+                            </label>
+                            <input
+                                type="text"
+                                name="documentNumber"
+                                value={formData.documentNumber}
+                                onChange={handleInputChange}
+                                maxLength={100}
+                                placeholder="VD: 123/QĐ-BGDĐT"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Loại văn bản
+                            </label>
+                            <select
+                                name="documentType"
+                                value={formData.documentType}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                {documentTypes.map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Calendar className="h-4 w-4 inline mr-1" />
+                                Ngày ban hành
+                            </label>
+                            <input
+                                type="date"
+                                name="issueDate"
+                                value={formData.issueDate}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Calendar className="h-4 w-4 inline mr-1" />
+                                Ngày hiệu lực
+                            </label>
+                            <input
+                                type="date"
+                                name="effectiveDate"
+                                value={formData.effectiveDate}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Cơ quan ban hành
+                            </label>
+                            <input
+                                type="text"
+                                name="issuingAgency"
+                                value={formData.issuingAgency}
+                                onChange={handleInputChange}
+                                maxLength={200}
+                                placeholder="VD: Bộ Giáo dục và Đào tạo"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Thông tin bổ sung */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                            <Upload className="h-5 w-5 text-orange-600" />
+                        </div>
+                        Thông tin bổ sung
+                    </h3>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Ghi chú
+                            </label>
+                            <textarea
+                                name="notes"
+                                value={formData.notes}
+                                onChange={handleInputChange}
+                                rows={3}
+                                maxLength={1000}
+                                placeholder="Nhập ghi chú nếu có..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Tags (nhấn Enter để thêm)
+                            </label>
+                            <input
+                                type="text"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={handleAddTag}
+                                placeholder="Nhập tag và nhấn Enter..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                            {formData.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                    {formData.tags.map((tag, index) => (
+                                        <span
                                             key={index}
-                                            className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
+                                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm bg-indigo-100 text-indigo-800 font-medium"
                                         >
-                                            <span className="text-sm text-gray-700 truncate flex-1">
-                                                {file.name}
-                                            </span>
+                                            {tag}
                                             <button
                                                 type="button"
-                                                onClick={() => removeFile(index)}
-                                                className="ml-2 text-red-600 hover:text-red-800"
+                                                onClick={() => removeTag(tag)}
+                                                className="ml-2 hover:text-indigo-600 transition-colors"
                                             >
-                                                <X className="h-4 w-4" />
+                                                <X className="h-3 w-3" />
                                             </button>
-                                        </div>
+                                        </span>
                                     ))}
                                 </div>
                             )}
                         </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Upload className="h-4 w-4 inline mr-1" />
+                                Files đính kèm
+                            </label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-indigo-400 transition-colors">
+                                <label className="cursor-pointer">
+                                    <div className="text-center">
+                                        <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                                        <p className="text-sm text-gray-600 mb-1">
+                                            <span className="text-indigo-600 font-medium">Chọn files</span> hoặc kéo thả vào đây
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            Tối đa 10 files, mỗi file 50MB
+                                        </p>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            onChange={handleFileSelect}
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
+                                            className="hidden"
+                                        />
+                                    </div>
+                                </label>
+                                {selectedFiles.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        {selectedFiles.map((file, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                                            >
+                                                <span className="text-sm text-gray-700 truncate flex-1">
+                                                    {file.name}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeFile(index)}
+                                                    className="ml-2 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                    type="button"
-                    onClick={handleReset}
-                    disabled={loading || uploading}
-                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 inline-flex items-center"
-                >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Đặt lại
-                </button>
-                <button
-                    type="submit"
-                    disabled={loading || uploading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
-                >
-                    {loading || uploading ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            {uploading ? 'Đang upload files...' : 'Đang lưu...'}
-                        </>
-                    ) : (
-                        <>
-                            <Save className="h-4 w-4 mr-2" />
-                            Lưu minh chứng
-                        </>
-                    )}
-                </button>
-            </div>
+                {/* Actions */}
+                <div className="flex justify-end space-x-4">
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        disabled={loading || uploading}
+                        className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50 transition-all font-medium inline-flex items-center"
+                    >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Đặt lại
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={loading || uploading}
+                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                    >
+                        {loading || uploading ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span>{uploading ? 'Đang upload files...' : 'Đang lưu...'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Zap className="h-5 w-5" />
+                                <span>Lưu minh chứng</span>
+                            </>
+                        )}
+                    </button>
+                </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-blue-900 mb-2">Lưu ý:</h4>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                    <li>Các trường có dấu (*) là bắt buộc</li>
-                    <li>Mã minh chứng sẽ được tự động tạo theo format: H[số hộp].[mã TC].[mã TC].[STT]</li>
-                    <li>Số thứ tự sẽ tự động tăng dựa trên minh chứng đã có trong hệ thống</li>
-                    <li>Chọn đúng Chương trình và Tổ chức trước khi chọn Tiêu chuẩn và Tiêu chí</li>
-                </ul>
-            </div>
-        </form>
+                {/* Note */}
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
+                    <h4 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Lưu ý quan trọng
+                    </h4>
+                    <ul className="text-sm text-indigo-800 space-y-2 list-disc list-inside">
+                        <li>Các trường có dấu (*) là bắt buộc</li>
+                        <li>Mã minh chứng sẽ được tự động tạo theo format: H[số hộp].[mã TC].[mã TC].[STT]</li>
+                        <li>Số thứ tự sẽ tự động tăng dựa trên minh chứng đã có trong hệ thống</li>
+                        <li>Chọn đúng Chương trình và Tổ chức trước khi chọn Tiêu chuẩn và Tiêu chí</li>
+                    </ul>
+                </div>
+            </form>
+        </div>
     )
 }
