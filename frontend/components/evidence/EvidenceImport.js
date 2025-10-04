@@ -12,14 +12,18 @@ import {
     BookOpen,
     Building2,
     FileText,
-    X
+    X,
+    ArrowLeft,
+    ArrowRight,
+    Zap,
+    Loader2
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 export default function EvidenceImport() {
     const router = useRouter()
-    const [step, setStep] = useState(1) // 1: Select file, 2: Import, 3: Results
+    const [step, setStep] = useState(1)
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [selectedProgram, setSelectedProgram] = useState('')
@@ -123,7 +127,6 @@ export default function EvidenceImport() {
     }
 
     const handleFileSelect = (file) => {
-        // Validate file type
         const validTypes = [
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'application/vnd.ms-excel',
@@ -135,7 +138,6 @@ export default function EvidenceImport() {
             return
         }
 
-        // Validate file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
             toast.error('File quá lớn. Kích thước tối đa là 10MB')
             return
@@ -204,42 +206,59 @@ export default function EvidenceImport() {
 
     return (
         <div className="space-y-6">
-            {/* Progress Steps */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                        <div className={`flex items-center space-x-2 ${
-                            step >= 1 ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                            }`}>
-                                1
-                            </div>
-                            <span className="font-medium">Chọn file</span>
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <Upload className="w-8 h-8" />
                         </div>
-                        <div className="w-12 h-0.5 bg-gray-300"></div>
-                        <div className={`flex items-center space-x-2 ${
-                            step >= 2 ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                            }`}>
-                                2
-                            </div>
-                            <span className="font-medium">Import</span>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Import minh chứng</h1>
+                            <p className="text-indigo-100">Nhập dữ liệu minh chứng từ file Excel</p>
                         </div>
-                        <div className="w-12 h-0.5 bg-gray-300"></div>
-                        <div className={`flex items-center space-x-2 ${
-                            step >= 3 ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                step >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                            }`}>
-                                3
+                    </div>
+                    <button
+                        onClick={() => router.push('/evidence-management')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Progress Steps */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4 flex-1">
+                        {[
+                            { num: 1, label: 'Chọn file' },
+                            { num: 2, label: 'Import' },
+                            { num: 3, label: 'Kết quả' }
+                        ].map((item, idx) => (
+                            <div key={item.num} className="flex items-center flex-1">
+                                <div className="flex items-center space-x-3">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-semibold transition-all ${
+                                        step >= item.num
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                                            : 'bg-gray-200 text-gray-500'
+                                    }`}>
+                                        {item.num}
+                                    </div>
+                                    <span className={`font-medium ${
+                                        step >= item.num ? 'text-indigo-600' : 'text-gray-400'
+                                    }`}>
+                                        {item.label}
+                                    </span>
+                                </div>
+                                {idx < 2 && (
+                                    <div className={`flex-1 h-1 mx-4 rounded-full transition-all ${
+                                        step > item.num ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gray-200'
+                                    }`} />
+                                )}
                             </div>
-                            <span className="font-medium">Kết quả</span>
-                        </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -247,11 +266,15 @@ export default function EvidenceImport() {
             {/* Step 1: Select File */}
             {step === 1 && (
                 <>
-                    {/* Selection Form */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin import</h3>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                                <BookOpen className="h-5 w-5 text-indigo-600" />
+                            </div>
+                            Thông tin import
+                        </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <BookOpen className="h-4 w-4 inline mr-1" />
@@ -260,7 +283,7 @@ export default function EvidenceImport() {
                                 <select
                                     value={selectedProgram}
                                     onChange={(e) => setSelectedProgram(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Chọn chương trình</option>
                                     {programs.map(program => (
@@ -279,7 +302,7 @@ export default function EvidenceImport() {
                                 <select
                                     value={selectedOrganization}
                                     onChange={(e) => setSelectedOrganization(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Chọn tổ chức</option>
                                     {organizations.map(org => (
@@ -295,38 +318,42 @@ export default function EvidenceImport() {
                             <button
                                 onClick={handleDownloadTemplate}
                                 disabled={!selectedProgram || !selectedOrganization}
-                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                             >
-                                <Download className="h-4 w-4 mr-2" />
+                                <Download className="h-5 w-5 mr-2" />
                                 Tải template Excel
                             </button>
                         </div>
                     </div>
 
-                    {/* File Upload */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Chọn file import</h3>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                <FileSpreadsheet className="h-5 w-5 text-purple-600" />
+                            </div>
+                            Chọn file import
+                        </h3>
 
                         <div
-                            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                            className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all ${
                                 dragActive
-                                    ? 'border-blue-500 bg-blue-50'
-                                    : 'border-gray-300 hover:border-gray-400'
+                                    ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50'
+                                    : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                             }`}
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
                             onDragOver={handleDrag}
                             onDrop={handleDrop}
                         >
-                            <FileSpreadsheet className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <FileSpreadsheet className="h-20 w-20 text-gray-400 mx-auto mb-4" />
                             <p className="text-lg font-medium text-gray-900 mb-2">
                                 Kéo thả file vào đây
                             </p>
                             <p className="text-sm text-gray-500 mb-4">
                                 hoặc
                             </p>
-                            <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer">
-                                <Upload className="h-4 w-4 mr-2" />
+                            <label className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg cursor-pointer transition-all font-medium">
+                                <Upload className="h-5 w-5 mr-2" />
                                 Chọn file
                                 <input
                                     type="file"
@@ -341,13 +368,12 @@ export default function EvidenceImport() {
                         </div>
                     </div>
 
-                    {/* Instructions */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                        <h4 className="text-sm font-semibold text-blue-900 mb-3">
-                            <AlertCircle className="h-4 w-4 inline mr-1" />
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6">
+                        <h4 className="text-sm font-semibold text-yellow-900 mb-3 flex items-center">
+                            <AlertCircle className="h-5 w-5 mr-2" />
                             Hướng dẫn import
                         </h4>
-                        <ul className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                        <ul className="text-sm text-yellow-800 space-y-2 list-decimal list-inside">
                             <li>Tải template Excel về máy bằng nút "Tải template Excel"</li>
                             <li>Điền thông tin minh chứng vào file template theo đúng format</li>
                             <li>Các trường có dấu (*) là bắt buộc phải điền</li>
@@ -361,13 +387,20 @@ export default function EvidenceImport() {
 
             {/* Step 2: Import */}
             {step === 2 && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Xác nhận import</h3>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                            <CheckCircle className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        Xác nhận import
+                    </h3>
 
                     <div className="space-y-4 mb-6">
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                                <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                                    <FileSpreadsheet className="h-7 w-7 text-green-600" />
+                                </div>
                                 <div>
                                     <p className="font-medium text-gray-900">{selectedFile?.name}</p>
                                     <p className="text-sm text-gray-500">
@@ -377,7 +410,7 @@ export default function EvidenceImport() {
                             </div>
                             <button
                                 onClick={() => setStep(1)}
-                                className="text-red-600 hover:bg-red-50 p-2 rounded"
+                                className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
                                 title="Xóa file"
                             >
                                 <X className="h-5 w-5" />
@@ -385,13 +418,13 @@ export default function EvidenceImport() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl">
                                 <p className="text-sm text-gray-600 mb-1">Chương trình</p>
                                 <p className="font-medium text-gray-900">
                                     {programs.find(p => p._id === selectedProgram)?.name}
                                 </p>
                             </div>
-                            <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl">
                                 <p className="text-sm text-gray-600 mb-1">Tổ chức</p>
                                 <p className="font-medium text-gray-900">
                                     {organizations.find(o => o._id === selectedOrganization)?.name}
@@ -400,28 +433,28 @@ export default function EvidenceImport() {
                         </div>
                     </div>
 
-                    <div className="flex justify-end space-x-3">
+                    <div className="flex justify-end space-x-4">
                         <button
                             onClick={() => setStep(1)}
                             disabled={importing}
-                            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                            className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50 transition-all font-medium"
                         >
                             Quay lại
                         </button>
                         <button
                             onClick={handleImport}
                             disabled={importing}
-                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                         >
                             {importing ? (
                                 <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                    Đang import...
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    <span>Đang import...</span>
                                 </>
                             ) : (
                                 <>
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Bắt đầu import
+                                    <Zap className="h-5 w-5 mr-2" />
+                                    <span>Bắt đầu import</span>
                                 </>
                             )}
                         </button>
@@ -432,67 +465,70 @@ export default function EvidenceImport() {
             {/* Step 3: Results */}
             {step === 3 && importResults && (
                 <>
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-6">Kết quả import</h3>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                            </div>
+                            Kết quả import
+                        </h3>
 
-                        {/* Summary */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                            <div className="p-4 bg-blue-50 rounded-lg">
+                            <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-blue-600 mb-1">Tổng số</p>
-                                        <p className="text-2xl font-bold text-blue-900">
+                                        <p className="text-sm text-indigo-600 mb-1 font-medium">Tổng số</p>
+                                        <p className="text-3xl font-bold text-indigo-900">
                                             {importResults.total}
                                         </p>
                                     </div>
-                                    <FileText className="h-8 w-8 text-blue-600" />
+                                    <FileText className="h-10 w-10 text-indigo-600 opacity-50" />
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-green-50 rounded-lg">
+                            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-green-600 mb-1">Thành công</p>
-                                        <p className="text-2xl font-bold text-green-900">
+                                        <p className="text-sm text-green-600 mb-1 font-medium">Thành công</p>
+                                        <p className="text-3xl font-bold text-green-900">
                                             {importResults.success}
                                         </p>
                                     </div>
-                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                    <CheckCircle className="h-10 w-10 text-green-600 opacity-50" />
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-red-50 rounded-lg">
+                            <div className="p-6 bg-gradient-to-br from-red-50 to-pink-50 border border-red-200 rounded-xl">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-red-600 mb-1">Thất bại</p>
-                                        <p className="text-2xl font-bold text-red-900">
+                                        <p className="text-sm text-red-600 mb-1 font-medium">Thất bại</p>
+                                        <p className="text-3xl font-bold text-red-900">
                                             {importResults.failed}
                                         </p>
                                     </div>
-                                    <XCircle className="h-8 w-8 text-red-600" />
+                                    <XCircle className="h-10 w-10 text-red-600 opacity-50" />
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-yellow-50 rounded-lg">
+                            <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-yellow-600 mb-1">Bỏ qua</p>
-                                        <p className="text-2xl font-bold text-yellow-900">
+                                        <p className="text-sm text-yellow-600 mb-1 font-medium">Bỏ qua</p>
+                                        <p className="text-3xl font-bold text-yellow-900">
                                             {importResults.skipped}
                                         </p>
                                     </div>
-                                    <AlertCircle className="h-8 w-8 text-yellow-600" />
+                                    <AlertCircle className="h-10 w-10 text-yellow-600 opacity-50" />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Errors */}
                         {importResults.errors && importResults.errors.length > 0 && (
                             <div className="mb-6">
                                 <h4 className="text-sm font-semibold text-gray-900 mb-3">
                                     Lỗi chi tiết ({importResults.errors.length})
                                 </h4>
-                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl">
                                     {importResults.errors.map((error, index) => (
                                         <div
                                             key={index}
@@ -505,25 +541,24 @@ export default function EvidenceImport() {
                             </div>
                         )}
 
-                        {/* Success Items */}
                         {importResults.successItems && importResults.successItems.length > 0 && (
                             <div className="mb-6">
                                 <h4 className="text-sm font-semibold text-gray-900 mb-3">
                                     Đã import thành công ({importResults.successItems.length})
                                 </h4>
-                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl">
                                     {importResults.successItems.slice(0, 10).map((item, index) => (
                                         <div
                                             key={index}
-                                            className="p-3 border-b border-gray-200 last:border-b-0 text-sm"
+                                            className="p-3 border-b border-gray-200 last:border-b-0 text-sm hover:bg-gray-50"
                                         >
-                                            <span className="font-mono text-blue-600">{item.code}</span>
+                                            <span className="font-mono text-indigo-600 font-medium">{item.code}</span>
                                             {' - '}
                                             <span className="text-gray-900">{item.name}</span>
                                         </div>
                                     ))}
                                     {importResults.successItems.length > 10 && (
-                                        <div className="p-3 text-sm text-gray-500 text-center">
+                                        <div className="p-3 text-sm text-gray-500 text-center bg-gray-50">
                                             ... và {importResults.successItems.length - 10} minh chứng khác
                                         </div>
                                     )}
@@ -531,18 +566,19 @@ export default function EvidenceImport() {
                             </div>
                         )}
 
-                        <div className="flex justify-end space-x-3">
+                        <div className="flex justify-end space-x-4">
                             <button
                                 onClick={handleReset}
-                                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                                className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all font-medium"
                             >
                                 Import file khác
                             </button>
                             <button
                                 onClick={handleViewEvidences}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                             >
-                                Xem danh sách minh chứng
+                                <span>Xem danh sách minh chứng</span>
+                                <ArrowRight className="h-5 w-5 ml-2" />
                             </button>
                         </div>
                     </div>
