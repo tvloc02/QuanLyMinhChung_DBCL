@@ -44,7 +44,7 @@ export default function UserGroupsManagement() {
                 ...(searchTerm && { search: searchTerm })
             }
 
-            const response = await api.get('/user-groups', { params })
+            const response = await api.get('/api/user-groups', { params })
             if (response.data.success) {
                 setGroups(response.data.data.groups)
                 setTotalPages(response.data.data.pagination.pages)
@@ -59,7 +59,7 @@ export default function UserGroupsManagement() {
 
     const fetchPermissions = async () => {
         try {
-            const response = await api.get('/permissions/by-module')
+            const response = await api.get('/api/permissions/by-module')
             if (response.data.success) {
                 setPermissions(response.data.data)
             }
@@ -70,7 +70,7 @@ export default function UserGroupsManagement() {
 
     const fetchUsers = async () => {
         try {
-            const response = await api.get('/users', { params: { limit: 1000 } })
+            const response = await api.get('/api/users', { params: { limit: 1000 } })
             if (response.data.success) {
                 setAllUsers(response.data.data.users)
             }
@@ -81,7 +81,7 @@ export default function UserGroupsManagement() {
 
     const handleCreateGroup = async (formData) => {
         try {
-            const response = await api.post('/user-groups', formData)
+            const response = await api.post('/api/user-groups', formData)
             if (response.data.success) {
                 toast.success('Tạo nhóm thành công')
                 setShowCreateModal(false)
@@ -94,7 +94,7 @@ export default function UserGroupsManagement() {
 
     const handleUpdateGroup = async (id, formData) => {
         try {
-            const response = await api.put(`/user-groups/${id}`, formData)
+            const response = await api.put(`/api/user-groups/${id}`, formData)
             if (response.data.success) {
                 toast.success('Cập nhật nhóm thành công')
                 setShowEditModal(false)
@@ -110,7 +110,7 @@ export default function UserGroupsManagement() {
         if (!confirm('Bạn có chắc chắn muốn xóa nhóm này?')) return
 
         try {
-            const response = await api.delete(`/user-groups/${groupId}`)
+            const response = await api.delete(`/api/user-groups/${groupId}`)
             if (response.data.success) {
                 toast.success('Xóa nhóm thành công')
                 fetchGroups()
@@ -124,7 +124,7 @@ export default function UserGroupsManagement() {
         if (!confirm('Khởi tạo nhóm mặc định? Hành động này sẽ tạo các nhóm hệ thống cơ bản.')) return
 
         try {
-            const response = await api.post('/user-groups/seed')
+            const response = await api.post('/api/user-groups/seed')
             if (response.data.success) {
                 toast.success(response.data.message)
                 fetchGroups()

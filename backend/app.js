@@ -40,17 +40,13 @@ const reportRoutes = require('./routes/report/reports');
 const evaluationRoutes = require('./routes/report/evaluations');
 const notificationRoutes = require('./routes/system/notifications');
 const userGroupRoutes = require('./routes/user/userGroup');
-const PermissionRoutes = require('./models/User/Permission');
 const systemRoutes = require('./routes/system/system');
 const importBatchRoutes = require('./routes/report/importBatch');
 const permissionRoutes = require('./routes/report/permission');
-
 app.use('/api/user-groups', userGroupRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/import-batches', importBatchRoutes);
 app.use('/api/system', systemRoutes);
-app.use('/api/user-groups', userGroupRoutes);
-app.use('/api/permissions', auth, PermissionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 app.use('/api/users', usersRoutes);

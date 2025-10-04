@@ -348,23 +348,23 @@ export const apiMethods = {
 
     // Permissions
     permissions: {
-        getAll: (params) => api.get('/permissions', { params }),
-        getByModule: () => api.get('/permissions/by-module'),
-        getById: (id) => api.get(`/permissions/${id}`),
-        create: (data) => api.post('/permissions', data),
-        update: (id, data) => api.put(`/permissions/${id}`, data),
-        delete: (id) => api.delete(`/permissions/${id}`),
-        seed: () => api.post('/permissions/seed')
+        getAll: (params) => api.get('/api/permissions', { params }),
+        getByModule: () => api.get('/api/permissions/by-module'),
+        getById: (id) => api.get(`/api/permissions/${id}`),
+        create: (data) => api.post('/api/permissions', data),
+        update: (id, data) => api.put(`/api/permissions/${id}`, data),
+        delete: (id) => api.delete(`/api/permissions/${id}`),
+        seed: () => api.post('/api/permissions/seed')
     },
 
     // User Groups - FIXED: Removed /api prefix
     userGroups: {
-        getAll: (params) => api.get('/user-groups', { params }),
-        getById: (id) => api.get(`/user-groups/${id}`),
-        create: (data) => api.post('/user-groups', data),
-        update: (id, data) => api.put(`/user-groups/${id}`, data),
-        delete: (id) => api.delete(`/user-groups/${id}`),
-        seed: () => api.post('/user-groups/seed'),
+        getAll: (params) => api.get('/api/user-groups', { params }),
+        getById: (id) => api.get(`/api/user-groups/${id}`),
+        create: (data) => api.post('/api/user-groups', data),
+        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
+        delete: (id) => api.delete(`/api/user-groups/${id}`),
+        seed: () => api.post('/api/user-groups/seed'),
 
         addPermissions: (id, permissionIds) => api.post(`/user-groups/${id}/permissions`, { permissionIds }),
         removePermissions: (id, permissionIds) => api.delete(`/user-groups/${id}/permissions`, { data: { permissionIds } }),
