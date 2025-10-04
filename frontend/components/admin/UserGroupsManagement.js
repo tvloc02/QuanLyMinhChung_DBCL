@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
-import PermissionsMatrixModal from './PermissionsMatrixModal' // Import modal mới
+import PermissionsMatrixModal from './PermissionsMatrixModal'
 
 export default function UserGroupsManagement() {
     const [groups, setGroups] = useState([])
@@ -13,10 +13,9 @@ export default function UserGroupsManagement() {
     const [selectedGroup, setSelectedGroup] = useState(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [showEditModal, setShowEditModal] = useState(false)
-    const [showPermissionsModal, setShowPermissionsModal] = useState(false)
     const [showMembersModal, setShowMembersModal] = useState(false)
     const [showDetailModal, setShowDetailModal] = useState(false)
-    const [showPermissionsMatrixModal, setShowPermissionsMatrixModal] = useState(false) // Modal mới
+    const [showPermissionsMatrixModal, setShowPermissionsMatrixModal] = useState(false)
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('')
@@ -65,6 +64,25 @@ export default function UserGroupsManagement() {
             }
         } catch (error) {
             console.error('Error fetching users:', error)
+        }
+    }
+
+    const handleSavePermissionsMatrix = async (permissions) => {
+        try {
+            // Call API để lưu permissions matrix
+            const response = await api.post(`/api/user-groups/${selectedGroup._id}/permissions/matrix`, {
+                permissions
+            })
+
+            if (response.data.success) {
+                toast.success('Cập nhật phân quyền thành công')
+                setShowPermissionsMatrixModal(false)
+                setSelectedGroup(null)
+                fetchGroups()
+            }
+        } catch (error) {
+            console.error('Error saving permissions:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi cập nhật phân quyền')
         }
     }
 
@@ -131,10 +149,10 @@ export default function UserGroupsManagement() {
             const toRemove = currentUserIds.filter(id => !userIds.includes(id))
 
             if (toAdd.length > 0) {
-                await api.post(`/user-groups/${groupId}/members`, { userIds: toAdd })
+                await api.post(`/api/user-groups/${groupId}/members`, { userIds: toAdd })
             }
             if (toRemove.length > 0) {
-                await api.delete(`/user-groups/${groupId}/members`, { data: { userIds: toRemove } })
+                await api.delete(`/api/user-groups/${groupId}/members`, { data: { userIds: toRemove } })
             }
 
             toast.success('Cập nhật thành viên thành công')
@@ -142,22 +160,6 @@ export default function UserGroupsManagement() {
             fetchGroups()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Lỗi khi cập nhật thành viên')
-        }
-    }
-
-    // Handler cho Permissions Matrix Modal
-    const handleSavePermissionsMatrix = async (permissions) => {
-        try {
-            // TODO: Call API để lưu permissions matrix
-            // Format: { menuId: { view: true, create: true, update: false, delete: false } }
-
-            console.log('Saving permissions for group:', selectedGroup._id, permissions)
-
-            toast.success('Cập nhật phân quyền thành công')
-            setShowPermissionsMatrixModal(false)
-            setSelectedGroup(null)
-        } catch (error) {
-            toast.error('Lỗi khi cập nhật phân quyền')
         }
     }
 
@@ -330,7 +332,7 @@ export default function UserGroupsManagement() {
                                                 className="p-1 text-orange-600 hover:bg-orange-50 rounded"
                                                 title="Phân quyền chi tiết"
                                             >
-                                                <Settings className="w-4 h-4" />
+                                                <Lock className="w-4 h-4" />
                                             </button>
                                             {group.type !== 'system' && (
                                                 <button
@@ -413,6 +415,37 @@ export default function UserGroupsManagement() {
             </div>
 
             {/* Modals */}
+            {showCreateModal && (
+                <CreateGroupModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSubmit={handleCreateGroup}
+                />
+            )}
+
+            {showEditModal && selectedGroup && (
+                <EditGroupModal
+                    group={selectedGroup}
+                    onClose={() => { setShowEditModal(false); setSelectedGroup(null); }}
+                    onSubmit={handleUpdateGroup}
+                />
+            )}
+
+            {showDetailModal && selectedGroup && (
+                <DetailModal
+                    group={selectedGroup}
+                    onClose={() => { setShowDetailModal(false); setSelectedGroup(null); }}
+                />
+            )}
+
+            {showMembersModal && selectedGroup && (
+                <MembersModal
+                    group={selectedGroup}
+                    users={allUsers}
+                    onClose={() => { setShowMembersModal(false); setSelectedGroup(null); }}
+                    onSave={handleUpdateMembers}
+                />
+            )}
+
             {showPermissionsMatrixModal && selectedGroup && (
                 <PermissionsMatrixModal
                     group={selectedGroup}
@@ -423,8 +456,262 @@ export default function UserGroupsManagement() {
                     onSave={handleSavePermissionsMatrix}
                 />
             )}
+        </div>
+    )
+}
 
-            {/* Other modals can be added here: Create, Edit, Members, Detail */}
+// Modal Components
+function CreateGroupModal({ onClose, onSubmit }) {
+    const [formData, setFormData] = useState({
+        code: '',
+        name: '',
+        description: '',
+        priority: 50
+    })
+
+    const handleSubmit = () => {
+        if (!formData.code || !formData.name) {
+            toast.error('Vui lòng điền đầy đủ thông tin bắt buộc')
+            return
+        }
+        onSubmit(formData)
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full">
+                <div className="p-6 border-b">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">Tạo nhóm người dùng mới</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Mã nhóm <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.code}
+                            onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tên nhóm <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows={3}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                    <div className="flex gap-3 justify-end pt-4">
+                        <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                            Hủy
+                        </button>
+                        <button onClick={handleSubmit} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            Tạo nhóm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function EditGroupModal({ group, onClose, onSubmit }) {
+    const [formData, setFormData] = useState({
+        name: group.name,
+        description: group.description || '',
+        priority: group.priority || 50,
+        status: group.status
+    })
+
+    const handleSubmit = () => {
+        onSubmit(group._id, formData)
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full">
+                <div className="p-6 border-b">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">Cập nhật nhóm: {group.name}</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên nhóm</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows={3}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                        <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        >
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                        </select>
+                    </div>
+                    <div className="flex gap-3 justify-end pt-4">
+                        <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                            Hủy
+                        </button>
+                        <button onClick={handleSubmit} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            Cập nhật
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function DetailModal({ group, onClose }) {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">Chi tiết nhóm: {group.name}</h2>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-sm font-medium text-gray-500">Mã nhóm</label>
+                            <p className="text-gray-900 font-mono">{group.code}</p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-500">Loại</label>
+                            <p className="text-gray-900">{group.type === 'system' ? 'Nhóm hệ thống' : 'Nhóm tùy chỉnh'}</p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-500">Số thành viên</label>
+                            <p className="text-gray-900">{group.memberCount || 0}</p>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-500">Số quyền</label>
+                            <p className="text-gray-900">{group.permissionCount || 0}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-500">Mô tả</label>
+                        <p className="text-gray-900">{group.description || 'Không có mô tả'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function MembersModal({ group, users, onClose, onSave }) {
+    const [selectedUsers, setSelectedUsers] = useState(
+        group.members?.map(u => u._id || u) || []
+    )
+    const [search, setSearch] = useState('')
+
+    const filteredUsers = users.filter(u =>
+        u.fullName.toLowerCase().includes(search.toLowerCase()) ||
+        u.email.toLowerCase().includes(search.toLowerCase())
+    )
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b sticky top-0 bg-white">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-xl font-bold">Quản lý thành viên: {group.name}</h2>
+                            <p className="text-sm text-gray-500 mt-1">Đã chọn: {selectedUsers.length} người</p>
+                        </div>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Tìm kiếm người dùng..."
+                            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        />
+                    </div>
+                </div>
+                <div className="p-6 space-y-2">
+                    {filteredUsers.map((user) => (
+                        <label key={user._id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={selectedUsers.includes(user._id)}
+                                onChange={(e) => {
+                                    if (e.target.checked) {
+                                        setSelectedUsers([...selectedUsers, user._id])
+                                    } else {
+                                        setSelectedUsers(selectedUsers.filter(id => id !== user._id))
+                                    }
+                                }}
+                                className="w-4 h-4 text-purple-600 rounded"
+                            />
+                            <div className="flex-1">
+                                <div className="font-medium">{user.fullName}</div>
+                                <div className="text-sm text-gray-500">{user.email}</div>
+                            </div>
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">{user.role}</span>
+                        </label>
+                    ))}
+                </div>
+                <div className="p-6 border-t sticky bottom-0 bg-white flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                        Hủy
+                    </button>
+                    <button
+                        onClick={() => onSave(group._id, selectedUsers)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    >
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }
