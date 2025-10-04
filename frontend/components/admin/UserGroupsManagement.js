@@ -70,7 +70,7 @@ export default function UserGroupsManagement() {
 
     const fetchUsers = async () => {
         try {
-            const response = await api.get('/api/users', { params: { limit: 1000 } })
+            const response = await api.get('/api/users', { params: {} })
             if (response.data.success) {
                 setAllUsers(response.data.data.users)
             }
