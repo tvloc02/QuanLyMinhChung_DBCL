@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Trash2, Info } from 'lucide-react'
+import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -26,10 +26,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 standardId: criteria.standardId?._id || criteria.standardId || '',
                 indicators: criteria.indicators || [],
                 status: criteria.status || 'draft',
-                autoGenerateCode: false // Khi edit, không auto
+                autoGenerateCode: false
             })
 
-            // Tìm standard được chọn
             if (criteria.standardId) {
                 const standard = standards.find(s =>
                     s._id === (criteria.standardId?._id || criteria.standardId)
@@ -55,7 +54,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         setFormData(prev => ({
             ...prev,
             standardId,
-            // Reset code nếu đổi tiêu chuẩn và chưa có code cũ
             code: criteria ? prev.code : ''
         }))
 
@@ -66,15 +64,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
 
     const handleCodeChange = (e) => {
         let value = e.target.value
-
-        // Chỉ cho phép nhập số
         value = value.replace(/[^\d]/g, '')
-
-        // Giới hạn 2 chữ số
         if (value.length > 2) {
             value = value.slice(0, 2)
         }
-
         setFormData(prev => ({ ...prev, code: value }))
         if (errors.code) {
             setErrors(prev => ({ ...prev, code: '' }))
@@ -124,7 +117,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
 
-        // Chỉ validate code nếu không auto và có nhập code
         if (!formData.autoGenerateCode && formData.code && !/^\d{1,2}$/.test(formData.code)) {
             newErrors.code = 'Mã phải là số từ 1-99'
         }
@@ -158,31 +150,50 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        {criteria ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí mới'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <X size={24} />
-                    </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                {/* Header với gradient */}
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                                <CheckSquare className="w-7 h-7 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">
+                                    {criteria ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí mới'}
+                                </h2>
+                                <p className="text-purple-100 text-sm">
+                                    {criteria ? 'Cập nhật thông tin tiêu chí đánh giá' : 'Tạo tiêu chí đánh giá mới'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="w-10 h-10 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all flex items-center justify-center text-white"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
                     {/* Tiêu chuẩn */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tiêu chuẩn <span className="text-red-500">*</span>
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center mr-2">
+                                <span className="text-white text-xs">1</span>
+                            </div>
+                            Tiêu chuẩn <span className="text-red-500 ml-1">*</span>
                         </label>
                         <select
                             name="standardId"
                             value={formData.standardId}
                             onChange={handleStandardChange}
                             disabled={!!criteria}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                errors.standardId ? 'border-red-500' : 'border-gray-300'
-                            } ${criteria ? 'bg-gray-100' : ''}`}
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                errors.standardId ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'
+                            } ${criteria ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
                             <option value="">Chọn tiêu chuẩn</option>
                             {standards.map(s => (
@@ -191,17 +202,25 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 </option>
                             ))}
                         </select>
-                        {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
+                        {errors.standardId && (
+                            <p className="mt-2 text-sm text-red-600 flex items-center">
+                                <Info size={14} className="mr-1" />
+                                {errors.standardId}
+                            </p>
+                        )}
                     </div>
 
                     {/* Mã tiêu chí */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mã tiêu chí {!formData.autoGenerateCode && <span className="text-red-500">*</span>}
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <div className="w-6 h-6 bg-indigo-500 rounded-lg flex items-center justify-center mr-2">
+                                <span className="text-white text-xs">2</span>
+                            </div>
+                            Mã tiêu chí {!formData.autoGenerateCode && <span className="text-red-500 ml-1">*</span>}
                         </label>
 
                         {!criteria && (
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-3 mb-3 p-3 bg-white rounded-lg border border-indigo-200">
                                 <input
                                     type="checkbox"
                                     id="autoGenerateCode"
@@ -211,9 +230,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                         autoGenerateCode: e.target.checked,
                                         code: e.target.checked ? '' : prev.code
                                     }))}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    className="w-5 h-5 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
                                 />
-                                <label htmlFor="autoGenerateCode" className="text-sm text-gray-600 cursor-pointer">
+                                <label htmlFor="autoGenerateCode" className="text-sm text-gray-700 cursor-pointer flex items-center">
+                                    <Sparkles size={16} className="mr-2 text-indigo-500" />
                                     Tự động tạo mã tiêu chí
                                 </label>
                             </div>
@@ -225,99 +245,128 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             value={formData.code}
                             onChange={handleCodeChange}
                             disabled={!!criteria || formData.autoGenerateCode}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                errors.code ? 'border-red-500' : 'border-gray-300'
-                            } ${criteria || formData.autoGenerateCode ? 'bg-gray-100' : ''}`}
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                errors.code ? 'border-red-300 bg-red-50' : 'border-indigo-200 bg-white'
+                            } ${criteria || formData.autoGenerateCode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder={formData.autoGenerateCode ? "Sẽ tự động tạo" : "VD: 1, 01, 12"}
                         />
-                        {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
+                        {errors.code && (
+                            <p className="mt-2 text-sm text-red-600 flex items-center">
+                                <Info size={14} className="mr-1" />
+                                {errors.code}
+                            </p>
+                        )}
                         {formData.autoGenerateCode && !criteria && (
-                            <p className="mt-1 text-xs text-blue-600">
-                                <Info size={12} className="inline mr-1" />
+                            <p className="mt-2 text-sm text-indigo-600 flex items-center bg-indigo-100 p-2 rounded-lg">
+                                <Info size={14} className="mr-2 flex-shrink-0" />
                                 Mã sẽ tự động tăng dần dựa trên tiêu chí cuối cùng của tiêu chuẩn đã chọn
                             </p>
                         )}
                     </div>
 
                     {/* Tên tiêu chí */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tên tiêu chí <span className="text-red-500">*</span>
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center mr-2">
+                                <span className="text-white text-xs">3</span>
+                            </div>
+                            Tên tiêu chí <span className="text-red-500 ml-1">*</span>
                         </label>
                         <input
                             type="text"
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                                errors.name ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
+                                errors.name ? 'border-red-300 bg-red-50' : 'border-purple-200 bg-white'
                             }`}
                             placeholder="Nhập tên tiêu chí"
                         />
-                        {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                        {errors.name && (
+                            <p className="mt-2 text-sm text-red-600 flex items-center">
+                                <Info size={14} className="mr-1" />
+                                {errors.name}
+                            </p>
+                        )}
                     </div>
 
                     {/* Trạng thái */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center mr-2">
+                                <span className="text-white text-xs">4</span>
+                            </div>
                             Trạng thái
                         </label>
                         <select
                             name="status"
                             value={formData.status}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
                         >
-                            <option value="draft">Nháp</option>
-                            <option value="active">Hoạt động</option>
-                            <option value="inactive">Không hoạt động</option>
-                            <option value="archived">Lưu trữ</option>
+                            <option value="draft">📝 Nháp</option>
+                            <option value="active">✅ Hoạt động</option>
+                            <option value="inactive">⏸️ Không hoạt động</option>
+                            <option value="archived">📦 Lưu trữ</option>
                         </select>
                     </div>
 
                     {/* Indicators */}
-                    <div className="border-t border-gray-200 pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Chỉ số đánh giá</h3>
+                    <div className="border-t-2 border-dashed border-gray-200 pt-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+                                    <CheckSquare className="w-5 h-5 text-white" />
+                                </div>
+                                Chỉ số đánh giá
+                            </h3>
                             <button
                                 type="button"
                                 onClick={addIndicator}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-medium"
                             >
-                                <Plus size={16} />
+                                <Plus size={18} />
                                 Thêm chỉ số
                             </button>
                         </div>
 
                         {formData.indicators.length === 0 ? (
-                            <p className="text-gray-500 text-sm text-center py-4">
-                                Chưa có chỉ số đánh giá nào. Click "Thêm chỉ số" để thêm mới.
-                            </p>
+                            <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-dashed border-gray-300">
+                                <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-500 text-sm">
+                                    Chưa có chỉ số đánh giá nào. Click "Thêm chỉ số" để thêm mới.
+                                </p>
+                            </div>
                         ) : (
                             <div className="space-y-4">
                                 {formData.indicators.map((indicator, index) => (
-                                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <span className="text-sm font-semibold text-gray-700">
-                                                Chỉ số {index + 1}
-                                            </span>
+                                    <div key={index} className="border-2 border-gray-200 rounded-xl p-5 bg-gradient-to-br from-white to-gray-50 hover:shadow-md transition-all">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                                                    <span className="text-white text-xs font-bold">{index + 1}</span>
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-800">
+                                                    Chỉ số {index + 1}
+                                                </span>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => removeIndicator(index)}
-                                                className="text-red-600 hover:text-red-800"
+                                                className="w-8 h-8 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-all flex items-center justify-center"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="md:col-span-2">
                                                 <input
                                                     type="text"
                                                     value={indicator.name}
                                                     onChange={(e) => updateIndicator(index, 'name', e.target.value)}
                                                     placeholder="Tên chỉ số"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm bg-white"
                                                 />
                                             </div>
                                             <div className="md:col-span-2">
@@ -326,7 +375,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.description}
                                                     onChange={(e) => updateIndicator(index, 'description', e.target.value)}
                                                     placeholder="Mô tả chỉ số"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
                                                 />
                                             </div>
                                             <div className="md:col-span-2">
@@ -335,7 +384,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.measurementMethod}
                                                     onChange={(e) => updateIndicator(index, 'measurementMethod', e.target.value)}
                                                     placeholder="Phương pháp đo"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
                                                 />
                                             </div>
                                             <div>
@@ -344,7 +393,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.targetValue}
                                                     onChange={(e) => updateIndicator(index, 'targetValue', e.target.value)}
                                                     placeholder="Giá trị mục tiêu"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    className="w-full px-4 py-2.5 border-2 border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-sm bg-white"
                                                 />
                                             </div>
                                             <div>
@@ -353,7 +402,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.unit}
                                                     onChange={(e) => updateIndicator(index, 'unit', e.target.value)}
                                                     placeholder="Đơn vị"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    className="w-full px-4 py-2.5 border-2 border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
                                                 />
                                             </div>
                                         </div>
@@ -364,29 +413,30 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     </div>
                 </form>
 
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+                {/* Footer Actions */}
+                <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                        className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-50 font-medium"
                     >
                         Hủy
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
                     >
                         {loading ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                 <span>Đang lưu...</span>
                             </>
                         ) : (
                             <>
-                                <Save size={18} />
-                                <span>Lưu</span>
+                                <Save size={20} />
+                                <span>Lưu tiêu chí</span>
                             </>
                         )}
                     </button>
