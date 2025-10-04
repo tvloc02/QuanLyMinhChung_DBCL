@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { AlertCircle, Save, X, Eye, EyeOff, Plus, Trash, Users, Shield } from 'lucide-react'
+import { AlertCircle, Save, X, Eye, EyeOff, Plus, Trash, Users, Shield, Sparkles, Zap, Loader2 } from 'lucide-react'
 import api from '../../services/api'
 
 export default function CreateUserForm() {
@@ -220,20 +220,30 @@ export default function CreateUserForm() {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Message Alert */}
                 {message.text && (
-                    <div className={`p-4 rounded-lg ${
-                        message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                    <div className={`p-4 rounded-xl border-2 ${
+                        message.type === 'success'
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                            : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
                     }`}>
-                        <div className="flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
-                            <div>
-                                <p>{message.text}</p>
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                            }`}>
+                                <AlertCircle className={`w-6 h-6 ${
+                                    message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                }`} />
+                            </div>
+                            <div className="flex-1">
+                                <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                    {message.text}
+                                </p>
                                 {generatedPassword && (
-                                    <p className="mt-2 font-mono font-bold">
+                                    <p className="mt-2 font-mono font-bold text-green-900 flex items-center gap-2">
                                         Mật khẩu: {showPassword ? generatedPassword : '••••••••'}
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="ml-2 text-sm underline"
+                                            className="ml-2 text-sm text-green-700 hover:text-green-900 underline"
                                         >
                                             {showPassword ? 'Ẩn' : 'Hiện'}
                                         </button>
@@ -244,20 +254,22 @@ export default function CreateUserForm() {
                     </div>
                 )}
 
-                {/* Layout 2 cột cho màn hình lớn */}
+                {/* Layout 2 cột */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Cột trái */}
                     <div className="space-y-6">
                         {/* Thông tin cơ bản */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Users className="w-5 h-5" />
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                    <Users className="w-6 h-6 text-indigo-600" />
+                                </div>
                                 Thông tin cơ bản
                             </h3>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Email <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -265,19 +277,22 @@ export default function CreateUserForm() {
                                         name="email"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                                            errors.email ? 'border-red-500' : 'border-gray-300'
+                                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
+                                            errors.email ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                         }`}
                                         placeholder="vd: nguyenvana"
                                     />
                                     {errors.email && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                                            <AlertCircle className="w-4 h-4 mr-1" />
+                                            {errors.email}
+                                        </p>
                                     )}
-                                    <p className="mt-1 text-xs text-gray-500">Nhập tên đăng nhập (không cần @cmcu.edu.vn)</p>
+                                    <p className="mt-2 text-xs text-gray-500">Nhập tên đăng nhập (không cần @cmcu.edu.vn)</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Họ và tên <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -285,18 +300,21 @@ export default function CreateUserForm() {
                                         name="fullName"
                                         value={formData.fullName}
                                         onChange={handleChange}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                                            errors.fullName ? 'border-red-500' : 'border-gray-300'
+                                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
+                                            errors.fullName ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                         }`}
                                         placeholder="Nguyễn Văn A"
                                     />
                                     {errors.fullName && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+                                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                                            <AlertCircle className="w-4 h-4 mr-1" />
+                                            {errors.fullName}
+                                        </p>
                                     )}
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Số điện thoại
                                     </label>
                                     <input
@@ -304,26 +322,29 @@ export default function CreateUserForm() {
                                         name="phoneNumber"
                                         value={formData.phoneNumber}
                                         onChange={handleChange}
-                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                                            errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
+                                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
+                                            errors.phoneNumber ? 'border-red-500 bg-red-50' : 'border-gray-200'
                                         }`}
                                         placeholder="0123456789"
                                     />
                                     {errors.phoneNumber && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.phoneNumber}</p>
+                                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                                            <AlertCircle className="w-4 h-4 mr-1" />
+                                            {errors.phoneNumber}
+                                        </p>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Vai trò <span className="text-red-500">*</span>
                                         </label>
                                         <select
                                             name="role"
                                             value={formData.role}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                         >
                                             <option value="expert">Chuyên gia đánh giá</option>
                                             <option value="advisor">Tư vấn/Giám sát</option>
@@ -333,14 +354,14 @@ export default function CreateUserForm() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Trạng thái
                                         </label>
                                         <select
                                             name="status"
                                             value={formData.status}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                         >
                                             <option value="active">Hoạt động</option>
                                             <option value="inactive">Không hoạt động</option>
@@ -351,7 +372,7 @@ export default function CreateUserForm() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Phòng ban
                                     </label>
                                     <input
@@ -359,13 +380,13 @@ export default function CreateUserForm() {
                                         name="department"
                                         value={formData.department}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                         placeholder="Phòng Đảm bảo chất lượng"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Chức vụ
                                     </label>
                                     <input
@@ -373,7 +394,7 @@ export default function CreateUserForm() {
                                         name="position"
                                         value={formData.position}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                         placeholder="Chuyên viên"
                                     />
                                 </div>
@@ -381,15 +402,17 @@ export default function CreateUserForm() {
                         </div>
 
                         {/* Mật khẩu và Bảo mật */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Shield className="w-5 h-5" />
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <Shield className="w-6 h-6 text-purple-600" />
+                                </div>
                                 Mật khẩu và Bảo mật
                             </h3>
 
                             <div className="space-y-4">
-                                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl">
+                                    <label className="flex items-center gap-3 cursor-pointer">
                                         <input
                                             type="radio"
                                             checked={!useCustomPassword}
@@ -397,34 +420,38 @@ export default function CreateUserForm() {
                                                 setUseCustomPassword(false)
                                                 setFormData(prev => ({ ...prev, password: '' }))
                                             }}
-                                            className="w-4 h-4 text-blue-600"
+                                            className="w-5 h-5 text-indigo-600"
                                         />
-                                        <span className="text-sm font-medium text-gray-700">
+                                        <span className="text-sm font-semibold text-indigo-900">
                                             Sử dụng mật khẩu mặc định
                                         </span>
                                     </label>
                                 </div>
 
                                 {!useCustomPassword && (
-                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Sparkles className="w-5 h-5 text-blue-600" />
+                                            <p className="text-sm font-semibold text-blue-900">Mật khẩu mặc định</p>
+                                        </div>
                                         <p className="text-sm text-blue-800">
-                                            <strong>Mật khẩu mặc định:</strong> Định dạng:
-                                            <code className="ml-1 px-2 py-1 bg-blue-100 rounded">TênĐăngNhập@123</code>
+                                            Định dạng:
+                                            <code className="ml-2 px-3 py-1 bg-blue-100 rounded-lg font-mono">TênĐăngNhập@123</code>
                                         </p>
-                                        <p className="text-xs text-blue-600 mt-1">
+                                        <p className="text-xs text-blue-600 mt-2">
                                             Ví dụ: nguyenvana → Nguyenvana@123
                                         </p>
                                     </div>
                                 )}
 
-                                <div className="p-4 border border-gray-200 rounded-lg">
+                                <div className="p-4 border-2 border-gray-200 rounded-xl">
                                     <label className="flex items-start gap-3 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             name="mustChangePassword"
                                             checked={formData.mustChangePassword}
                                             onChange={handleChange}
-                                            className="w-4 h-4 mt-1 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                            className="w-5 h-5 mt-1 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
                                         />
                                         <div>
                                             <span className="text-sm font-medium text-gray-900">
@@ -440,10 +467,10 @@ export default function CreateUserForm() {
                         </div>
 
                         {/* Lĩnh vực chuyên môn */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Lĩnh vực chuyên môn</h3>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6">Lĩnh vực chuyên môn</h3>
 
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
@@ -451,14 +478,14 @@ export default function CreateUserForm() {
                                         onChange={(e) => setExpertiseInput(e.target.value)}
                                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addExpertise())}
                                         placeholder="Nhập lĩnh vực chuyên môn"
-                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                     />
                                     <button
                                         type="button"
                                         onClick={addExpertise}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                                        className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg flex items-center gap-2 transition-all"
                                     >
-                                        <Plus className="w-4 h-4" />
+                                        <Plus className="w-5 h-5" />
                                         Thêm
                                     </button>
                                 </div>
@@ -468,13 +495,13 @@ export default function CreateUserForm() {
                                         {formData.expertise.map((item, index) => (
                                             <div
                                                 key={index}
-                                                className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full"
+                                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border-2 border-indigo-200"
                                             >
-                                                <span className="text-sm">{item}</span>
+                                                <span className="text-sm font-medium">{item}</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeExpertise(index)}
-                                                    className="text-blue-600 hover:text-blue-800"
+                                                    className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 rounded-full p-1 transition-all"
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </button>
@@ -486,115 +513,81 @@ export default function CreateUserForm() {
                         </div>
 
                         {/* Cài đặt thông báo */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Cài đặt thông báo</h3>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6">Cài đặt thông báo</h3>
 
                             <div className="space-y-3">
-                                <label className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationSettings.email"
-                                        checked={formData.notificationSettings.email}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">Nhận thông báo qua email</span>
-                                </label>
-
-                                <label className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationSettings.inApp"
-                                        checked={formData.notificationSettings.inApp}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">Nhận thông báo trong ứng dụng</span>
-                                </label>
-
-                                <label className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationSettings.assignment"
-                                        checked={formData.notificationSettings.assignment}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">Thông báo phân công công việc</span>
-                                </label>
-
-                                <label className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationSettings.evaluation"
-                                        checked={formData.notificationSettings.evaluation}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">Thông báo đánh giá</span>
-                                </label>
-
-                                <label className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        name="notificationSettings.deadline"
-                                        checked={formData.notificationSettings.deadline}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <span className="text-sm text-gray-700">Thông báo deadline</span>
-                                </label>
+                                {[
+                                    { name: 'email', label: 'Nhận thông báo qua email' },
+                                    { name: 'inApp', label: 'Nhận thông báo trong ứng dụng' },
+                                    { name: 'assignment', label: 'Thông báo phân công công việc' },
+                                    { name: 'evaluation', label: 'Thông báo đánh giá' },
+                                    { name: 'deadline', label: 'Thông báo deadline' }
+                                ].map((item) => (
+                                    <label key={item.name} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl cursor-pointer transition-all">
+                                        <input
+                                            type="checkbox"
+                                            name={`notificationSettings.${item.name}`}
+                                            checked={formData.notificationSettings[item.name]}
+                                            onChange={handleChange}
+                                            className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-gray-700 font-medium">{item.label}</span>
+                                    </label>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* Cột phải */}
+                    {/* Cột phải - Tiếp theo trong response tiếp theo */}
                     <div className="space-y-6">
                         {/* Nhóm người dùng */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Users className="w-5 h-5" />
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <Users className="w-6 h-6 text-green-600" />
+                                </div>
                                 Nhóm người dùng
                             </h3>
 
                             {accessOptions.userGroups.length === 0 ? (
-                                <p className="text-sm text-gray-500 text-center py-4">
+                                <p className="text-sm text-gray-500 text-center py-8 bg-gray-50 rounded-xl">
                                     Chưa có nhóm người dùng nào
                                 </p>
                             ) : (
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
                                     {accessOptions.userGroups.map((group) => (
                                         <label
                                             key={group._id}
-                                            className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                            className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
                                                 formData.userGroups?.includes(group._id)
-                                                    ? 'border-blue-500 bg-blue-50'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                                    ? 'border-indigo-500 bg-gradient-to-r from-indigo-50 to-purple-50'
+                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                             }`}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={formData.userGroups?.includes(group._id)}
                                                 onChange={() => handleMultiSelect('userGroups', group._id)}
-                                                className="w-5 h-5 mt-0.5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                                className="w-5 h-5 mt-1 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
                                             />
                                             <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-gray-900">{group.name}</div>
-                                                <div className="text-xs text-gray-500 mt-1">{group.code}</div>
+                                                <div className="font-semibold text-gray-900">{group.name}</div>
+                                                <div className="text-xs text-gray-500 mt-1 font-mono">{group.code}</div>
                                                 {group.description && (
-                                                    <div className="text-xs text-gray-600 mt-1">{group.description}</div>
+                                                    <div className="text-xs text-gray-600 mt-2">{group.description}</div>
                                                 )}
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                                        group.type === 'system' ? 'bg-purple-100 text-purple-700' :
-                                                            group.type === 'department' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-green-100 text-green-700'
+                                                <div className="flex items-center gap-2 mt-3">
+                                                    <span className={`text-xs px-3 py-1 rounded-full font-medium border ${
+                                                        group.type === 'system' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                                            group.type === 'department' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                                'bg-green-100 text-green-700 border-green-200'
                                                     }`}>
                                                         {group.type === 'system' ? 'Hệ thống' :
                                                             group.type === 'department' ? 'Phòng ban' : 'Tùy chỉnh'}
                                                     </span>
                                                     {group.permissions && (
-                                                        <span className="text-xs text-gray-500">
+                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
                                                             {group.permissions.length} quyền
                                                         </span>
                                                     )}
@@ -607,149 +600,61 @@ export default function CreateUserForm() {
                         </div>
 
                         {/* Phân quyền truy cập */}
-                        <div className="bg-white rounded-lg shadow-sm p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <Shield className="w-5 h-5" />
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                    <Shield className="w-6 h-6 text-orange-600" />
+                                </div>
                                 Phân quyền truy cập
                             </h3>
 
                             <div className="space-y-6">
-                                {/* Năm học */}
-                                {accessOptions.academicYears.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Năm học ({formData.academicYearAccess.length} đã chọn)
-                                        </label>
-                                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                                            {accessOptions.academicYears.map((item) => (
-                                                <label
-                                                    key={item._id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.academicYearAccess.includes(item._id)}
-                                                        onChange={() => handleMultiSelect('academicYearAccess', item._id)}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                    <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
-                                                </label>
-                                            ))}
+                                {[
+                                    { key: 'academicYearAccess', label: 'Năm học', options: accessOptions.academicYears },
+                                    { key: 'programAccess', label: 'Chương trình', options: accessOptions.programs },
+                                    { key: 'organizationAccess', label: 'Tổ chức', options: accessOptions.organizations },
+                                    { key: 'standardAccess', label: 'Tiêu chuẩn', options: accessOptions.standards },
+                                    { key: 'criteriaAccess', label: 'Tiêu chí', options: accessOptions.criteria }
+                                ].map((section) => (
+                                    section.options.length > 0 && (
+                                        <div key={section.key}>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                                {section.label}
+                                                <span className="ml-2 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+                                                    {formData[section.key].length} đã chọn
+                                                </span>
+                                            </label>
+                                            <div className="max-h-48 overflow-y-auto border-2 border-gray-200 rounded-xl p-3 space-y-2">
+                                                {section.options.map((item) => (
+                                                    <label
+                                                        key={item._id}
+                                                        className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-lg cursor-pointer transition-all"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={formData[section.key].includes(item._id)}
+                                                            onChange={() => handleMultiSelect(section.key, item._id)}
+                                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                                                        />
+                                                        <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Chương trình */}
-                                {accessOptions.programs.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Chương trình ({formData.programAccess.length} đã chọn)
-                                        </label>
-                                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                                            {accessOptions.programs.map((item) => (
-                                                <label
-                                                    key={item._id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.programAccess.includes(item._id)}
-                                                        onChange={() => handleMultiSelect('programAccess', item._id)}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                    <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Tổ chức */}
-                                {accessOptions.organizations.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Tổ chức ({formData.organizationAccess.length} đã chọn)
-                                        </label>
-                                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                                            {accessOptions.organizations.map((item) => (
-                                                <label
-                                                    key={item._id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.organizationAccess.includes(item._id)}
-                                                        onChange={() => handleMultiSelect('organizationAccess', item._id)}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                    <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Tiêu chuẩn */}
-                                {accessOptions.standards.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Tiêu chuẩn ({formData.standardAccess.length} đã chọn)
-                                        </label>
-                                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                                            {accessOptions.standards.map((item) => (
-                                                <label
-                                                    key={item._id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.standardAccess.includes(item._id)}
-                                                        onChange={() => handleMultiSelect('standardAccess', item._id)}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                    <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Tiêu chí */}
-                                {accessOptions.criteria.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Tiêu chí ({formData.criteriaAccess.length} đã chọn)
-                                        </label>
-                                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                                            {accessOptions.criteria.map((item) => (
-                                                <label
-                                                    key={item._id}
-                                                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.criteriaAccess.includes(item._id)}
-                                                        onChange={() => handleMultiSelect('criteriaAccess', item._id)}
-                                                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                    />
-                                                    <span className="text-sm text-gray-700">{item.code} - {item.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                    )
+                                ))}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Actions - Sticky bottom */}
-                <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 -mx-6 -mb-6">
+                <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200 px-6 py-4 -mx-6 -mb-6 rounded-b-xl">
                     <div className="flex gap-3 justify-end">
                         <button
                             type="button"
                             onClick={() => router.back()}
-                            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                            className="px-6 py-3 border-2 border-gray-300 bg-white rounded-xl hover:bg-gray-50 flex items-center gap-2 font-medium transition-all"
                         >
                             <X className="w-5 h-5" />
                             Hủy
@@ -757,10 +662,19 @@ export default function CreateUserForm() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                            className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 flex items-center gap-2 font-medium transition-all"
                         >
-                            <Save className="w-5 h-5" />
-                            {loading ? 'Đang tạo...' : 'Tạo người dùng'}
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Đang tạo...
+                                </>
+                            ) : (
+                                <>
+                                    <Zap className="w-5 h-5" />
+                                    Tạo người dùng
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
