@@ -37,7 +37,7 @@ export default function AddEvidencePage() {
 
     return (
         <Layout
-            title="Thêm minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">
