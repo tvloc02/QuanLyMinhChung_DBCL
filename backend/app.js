@@ -43,7 +43,9 @@ const userGroupRoutes = require('./routes/user/userGroup');
 const PermissionRoutes = require('./models/User/Permission');
 const systemRoutes = require('./routes/system/system');
 const importBatchRoutes = require('./routes/report/importBatch');
+const permissionRoutes = require('./routes/report/permission');
 
+app.use('/api', permissionRoutes);
 app.use('/api/import-batches', importBatchRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/user-groups', userGroupRoutes);
