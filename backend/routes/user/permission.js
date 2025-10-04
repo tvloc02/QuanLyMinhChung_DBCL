@@ -5,7 +5,8 @@ const { auth, requirePermission } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
 const permissionController = require('../../controllers/user/permissionController');
 
-router.get('/permissions',
+// GET /api/permissions (list all)
+router.get('/',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     [
@@ -20,19 +21,22 @@ router.get('/permissions',
     permissionController.getPermissions
 );
 
-router.get('/permissions/by-module',
+// GET /api/permissions/by-module
+router.get('/by-module',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     permissionController.getPermissionsByModule
 );
 
-router.post('/permissions/seed',
+// POST /api/permissions/seed
+router.post('/seed',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     permissionController.seedPermissions
 );
 
-router.get('/permissions/:id',
+// GET /api/permissions/:id
+router.get('/:id',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     [param('id').isMongoId()],
@@ -40,7 +44,8 @@ router.get('/permissions/:id',
     permissionController.getPermissionById
 );
 
-router.post('/permissions',
+// POST /api/permissions (create new)
+router.post('/',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     [
@@ -61,7 +66,8 @@ router.post('/permissions',
     permissionController.createPermission
 );
 
-router.put('/permissions/:id',
+// PUT /api/permissions/:id
+router.put('/:id',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     [
@@ -75,7 +81,8 @@ router.put('/permissions/:id',
     permissionController.updatePermission
 );
 
-router.delete('/permissions/:id',
+// DELETE /api/permissions/:id
+router.delete('/:id',
     auth,
     requirePermission('SYSTEM.MANAGE'),
     [param('id').isMongoId()],
