@@ -34,7 +34,7 @@ export default function EvidenceTreePage() {
 
     return (
         <Layout
-            title="Cây minh chứng"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <EvidenceTree />
