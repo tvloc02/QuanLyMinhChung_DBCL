@@ -141,28 +141,21 @@ export default function ProgramList() {
             const formData = new FormData()
             formData.append('file', file)
 
-            const response = await apiMethods.programs.import?.(formData) ||
-                await apiMethods.programs.bulkImport?.(formData)
+            const response = await apiMethods.programs.import(formData)
 
             if (response.data.success) {
-                toast.success(`Import thành công ${response.data.data.success} chương trình`)
+                toast.success(`Import thành công ${response.data.data.success || ''} chương trình`)
                 loadPrograms()
                 setShowImportModal(false)
+            } else {
+                toast.error(response.data.message || 'Import thất bại')
             }
         } catch (error) {
-            const errorMsg = error.response?.data?.message || 'Import thất bại'
-            const details = error.response?.data?.details
-
-            if (details && Array.isArray(details)) {
-                const errorList = details.map((err, idx) =>
-                    `\n${idx + 1}. Dòng ${err.row}: ${err.message}`
-                ).join('')
-                toast.error(`${errorMsg}${errorList}`, { duration: 8000 })
-            } else {
-                toast.error(errorMsg, { duration: 5000 })
-            }
+            console.error(error)
+            toast.error(error.response?.data?.message || 'Import thất bại')
         }
     }
+
 
     const handleDelete = async (id) => {
         if (!confirm('Bạn có chắc muốn xóa chương trình này?')) return

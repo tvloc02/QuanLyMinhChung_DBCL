@@ -117,7 +117,8 @@ export const apiMethods = {
         create: (data) => axios.post('http://localhost:5000/api/programs', data),
         update: (id, data) => axios.put(`http://localhost:5000/api/programs/${id}`, data),
         delete: (id) => axios.delete(`http://localhost:5000/api/programs/${id}`),
-        getByAcademicYear: (academicYearId) => axios.get(`http://localhost:5000/api/programs/academic-year/${academicYearId}`)
+        getByAcademicYear: (academicYearId) => axios.get(`http://localhost:5000/api/programs/academic-year/${academicYearId}`),
+        bulkImport: (data) => api.post('http://localhost:5000/api/programs/bulkImport', data),
     },
 
     organizations: {
