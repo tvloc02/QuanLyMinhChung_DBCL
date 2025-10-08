@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
+
 import {
     ChevronDown,
     ChevronRight,
@@ -178,14 +180,68 @@ export default function EvidenceTree() {
         try {
             setImporting(true)
 
-            // Đọc file
-            const text = await file.text()
-            const lines = text.split('\n').filter(line => line.trim())
+            const fileName = file.name.toLowerCase()
+            let rows = []
 
-            if (lines.length < 2) {
-                toast.error('File không đúng định dạng')
+            // Xử lý file Excel (.xlsx, .xls)
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+
+                const data = await file.arrayBuffer()
+                const workbook = XLSX.read(data, { type: 'array' })
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+
+                // Chuyển đổi sang array, giữ nguyên cell trống
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
+                    header: 1,
+                    defval: '',
+                    blankrows: false
+                })
+
+                rows = jsonData.map(row => {
+                    // Đảm bảo mỗi row có ít nhất 3 cột
+                    while (row.length < 3) row.push('')
+                    return row.map(cell => String(cell || '').trim())
+                })
+            }
+            // Xử lý file CSV
+            else if (fileName.endsWith('.csv')) {
+                const text = await file.text()
+                const lines = text.split('\n')
+
+                rows = lines.map(line => {
+                    const columns = []
+                    let currentCol = ''
+                    let inQuotes = false
+
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j]
+                        if (char === '"') {
+                            inQuotes = !inQuotes
+                        } else if (char === ',' && !inQuotes) {
+                            columns.push(currentCol.trim())
+                            currentCol = ''
+                        } else {
+                            currentCol += char
+                        }
+                    }
+                    columns.push(currentCol.trim())
+
+                    // Đảm bảo có 3 cột
+                    while (columns.length < 3) columns.push('')
+                    return columns
+                })
+            } else {
+                toast.error('Định dạng file không được hỗ trợ. Vui lòng sử dụng .xlsx, .xls hoặc .csv')
                 return
             }
+
+            if (rows.length < 2) {
+                toast.error('File không có dữ liệu')
+                return
+            }
+
+            console.log('Total rows:', rows.length)
+            console.log('First 5 rows:', rows.slice(0, 5))
 
             // Parse dữ liệu
             const evidencesToImport = []
@@ -194,76 +250,67 @@ export default function EvidenceTree() {
             let currentCriteria = ''
             let currentCriteriaName = ''
 
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim()
-                if (!line) continue
+            // Bỏ qua dòng header (dòng đầu tiên)
+            for (let i = 1; i < rows.length; i++) {
+                const [tt, code, name] = rows[i]
 
-                // Parse CSV line (handle quotes and commas)
-                const columns = []
-                let currentCol = ''
-                let inQuotes = false
+                if (!code && !name) continue // Bỏ qua dòng trống
 
-                for (let j = 0; j < line.length; j++) {
-                    const char = line[j]
-                    if (char === '"') {
-                        inQuotes = !inQuotes
-                    } else if (char === ',' && !inQuotes) {
-                        columns.push(currentCol.trim())
-                        currentCol = ''
-                    } else {
-                        currentCol += char
-                    }
-                }
-                columns.push(currentCol.trim())
+                console.log(`Row ${i}:`, { tt, code, name })
 
-                const [tt, code, name] = columns
-
-                // Dòng tiêu chuẩn:
-                // - Cột A có số hoặc trống
-                // - Cột B bắt đầu "Tiêu chuẩn"
-                // - Cột C có thể có hoặc không có nội dung
-                if (code && code.match(/^Tiêu chuẩn\s+\d+:/i)) {
+                // Kiểm tra dòng tiêu chuẩn
+                // Pattern: "Tiêu chuẩn X:" hoặc chỉ số ở cột A và "Tiêu chuẩn" ở cột B
+                if (code && code.includes('Tiêu chuẩn')) {
                     currentStandard = code
                     currentStandardName = name || code
                     currentCriteria = ''
                     currentCriteriaName = ''
+                    console.log('Found Standard:', currentStandard)
                     continue
                 }
 
-                // Dòng tiêu chí:
-                // - Cột A trống hoặc có text "Tiêu chí"
-                // - Cột B bắt đầu "Tiêu chí"
-                // - Cột C có thể có hoặc không
-                if (code && code.match(/^Tiêu chí\s+\d+\.\d+:/i)) {
+                // Kiểm tra dòng tiêu chí
+                // Pattern: "Tiêu chí X.Y:"
+                if (code && code.includes('Tiêu chí')) {
                     currentCriteria = code
                     currentCriteriaName = name || code
+                    console.log('Found Criteria:', currentCriteria)
                     continue
                 }
 
-                // Dòng minh chứng:
-                // - Cột B có mã minh chứng dạng H*.**.**.**
-                // - Cột C có tên minh chứng
-                // - Cột A (TT) có thể trống hoặc có số - không quan trọng
-                if (code && name && currentStandard && currentCriteria) {
-                    // Kiểm tra code có dạng minh chứng (VD: H1.01.01.01, H2.02.01.02)
-                    if (code.match(/^H\d+\.\d+\.\d+\.\d+$/i)) {
-                        evidencesToImport.push({
-                            code: code.toUpperCase(),
-                            name: name.trim(),
-                            standard: currentStandard,
-                            standardName: currentStandardName,
-                            criteria: currentCriteria,
-                            criteriaName: currentCriteriaName,
-                            programId: selectedProgram,
-                            organizationId: selectedOrganization,
-                            order: tt && !isNaN(tt) ? parseInt(tt) : null
-                        })
+                // Kiểm tra dòng minh chứng
+                // Cột B phải có mã dạng H*.**.**.** và cột C phải có tên
+                if (code && name && code.match(/^H\d+\.\d+\.\d+\.\d+$/i)) {
+                    if (!currentStandard || !currentCriteria) {
+                        console.warn(`Evidence ${code} bị bỏ qua vì thiếu Tiêu chuẩn hoặc Tiêu chí`)
+                        continue
                     }
+
+                    const evidence = {
+                        code: code.toUpperCase(),
+                        name: name.trim(),
+                        standard: currentStandard,
+                        standardName: currentStandardName,
+                        criteria: currentCriteria,
+                        criteriaName: currentCriteriaName,
+                        programId: selectedProgram,
+                        organizationId: selectedOrganization,
+                        order: tt && !isNaN(tt) ? parseInt(tt) : null
+                    }
+
+                    evidencesToImport.push(evidence)
+                    console.log('Added Evidence:', evidence.code)
                 }
             }
 
+            console.log('Total evidences found:', evidencesToImport.length)
+
             if (evidencesToImport.length === 0) {
-                toast.error('Không tìm thấy minh chứng nào trong file. Vui lòng kiểm tra định dạng file.')
+                toast.error(`Không tìm thấy minh chứng nào trong file. 
+                    \nVui lòng kiểm tra:
+                    \n- Cột B phải có "Tiêu chuẩn X:" hoặc "Tiêu chí X.Y:" hoặc mã "HX.XX.XX.XX"
+                    \n- Cột C phải có tên minh chứng
+                    \n- Mã minh chứng phải theo format HX.XX.XX.XX`)
                 return
             }
 
