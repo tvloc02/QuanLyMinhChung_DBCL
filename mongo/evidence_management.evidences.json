@@ -1,0 +1,362 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088bc"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "code": "H1.01.01.01",
+  "name": "Quyết định ban hành mục tiêu chương trình đào tạo",
+  "description": "Quyết định của hiệu trưởng ban hành mục tiêu chương trình đào tạo ngành",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "criteriaId": {
+    "$oid": "68d8b25effe9c2eccae088ba"
+  },
+  "documentNumber": "123/QĐ-ĐHCMC",
+  "issueDate": {
+    "$date": "2024-01-15T00:00:00.000Z"
+  },
+  "effectiveDate": {
+    "$date": "2024-02-01T00:00:00.000Z"
+  },
+  "issuingAgency": "Đại học Công nghệ Thành phố Hồ Chí Minh",
+  "documentType": "Quyết định",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "files": [
+    {
+      "$oid": "68df9de5bd63d7568a113778"
+    }
+  ],
+  "notes": "Quyết định ban hành mục tiêu chương trình đào tạo các ngành",
+  "tags": [
+    "mục tiêu",
+    "chương trình đào tạo",
+    "quyết định"
+  ],
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.082Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-03T09:56:53.975Z"
+  },
+  "changeHistory": [
+    {
+      "action": "created",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b1"
+      },
+      "changedAt": {
+        "$date": "2025-09-28T03:58:22.082Z"
+      },
+      "description": "Tạo mới minh chứng"
+    },
+    {
+      "action": "updated",
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68df9de5bd63d7568a11377a"
+      },
+      "changedAt": {
+        "$date": "2025-10-03T09:56:53.976Z"
+      }
+    }
+  ],
+  "__v": 1,
+  "downloadStats": {
+    "totalDownloads": 0
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088bd"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "code": "H1.01.02.01",
+  "name": "Báo cáo khảo sát nhu cầu xã hội",
+  "description": "Báo cáo kết quả khảo sát nhu cầu nguồn nhân lực của xã hội",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "criteriaId": {
+    "$oid": "68d8b25effe9c2eccae088bb"
+  },
+  "documentNumber": "BC-KS-2024",
+  "issueDate": {
+    "$date": "2024-03-20T00:00:00.000Z"
+  },
+  "effectiveDate": {
+    "$date": "2024-03-20T00:00:00.000Z"
+  },
+  "issuingAgency": "Phòng Khảo thí và Đảm bảo chất lượng",
+  "documentType": "Báo cáo",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "files": [],
+  "notes": "Báo cáo khảo sát nhu cầu nguồn nhân lực năm 2024",
+  "tags": [
+    "khảo sát",
+    "nhu cầu xã hội",
+    "báo cáo"
+  ],
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.082Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.082Z"
+  },
+  "changeHistory": [
+    {
+      "action": "created",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b1"
+      },
+      "changedAt": {
+        "$date": "2025-09-28T03:58:22.082Z"
+      },
+      "description": "Tạo mới minh chứng"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "code": "H1.01.01.02",
+  "name": "Đánh giá chất lượng chương trình đào tạo đại học",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "criteriaId": {
+    "$oid": "68d8b25effe9c2eccae088ba"
+  },
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "files": [
+    {
+      "$oid": "68e5be1d70de6790d9aab628"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab64f"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab65d"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab66c"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab67c"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab68d"
+    },
+    {
+      "$oid": "68e5be3370de6790d9aab69f"
+    }
+  ],
+  "tags": [],
+  "downloadStats": {
+    "totalDownloads": 0
+  },
+  "createdAt": {
+    "$date": "2025-10-07T09:15:19.992Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.529Z"
+  },
+  "changeHistory": [
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be1e70de6790d9aab62a"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:27:58.016Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab651"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.195Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab65f"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.269Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab66e"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.350Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab67e"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.420Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab68f"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.487Z"
+      }
+    },
+    {
+      "action": "updated",
+      "changedBy": {
+        "$oid": "68d8b25effe9c2eccae088b0"
+      },
+      "changes": [
+        "files",
+        "updatedAt"
+      ],
+      "_id": {
+        "$oid": "68e5be3370de6790d9aab6a1"
+      },
+      "changedAt": {
+        "$date": "2025-10-08T01:28:19.530Z"
+      }
+    }
+  ],
+  "__v": 7
+},
+{
+  "_id": {
+    "$oid": "68e5c0096f40e9caf7812304"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "code": "H1.01.03.01",
+  "name": "Đánh giá chất lượng chương trình đào tạo đại học",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "criteriaId": {
+    "$oid": "68df4b6d805b3ef5b106bdba"
+  },
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "files": [],
+  "tags": [],
+  "downloadStats": {
+    "totalDownloads": 0
+  },
+  "createdAt": {
+    "$date": "2025-10-08T01:36:09.014Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:36:09.014Z"
+  },
+  "changeHistory": [],
+  "__v": 0
+}]

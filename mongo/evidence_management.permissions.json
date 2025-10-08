@@ -1,0 +1,731 @@
+[{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b0f"
+  },
+  "code": "REPORTS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.455Z"
+  },
+  "level": "intermediate",
+  "module": "reports",
+  "name": "Tạo báo cáo TĐG",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.455Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b10"
+  },
+  "code": "REPORTS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.460Z"
+  },
+  "level": "basic",
+  "module": "reports",
+  "name": "Xem báo cáo TĐG",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.460Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b11"
+  },
+  "code": "REPORTS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.462Z"
+  },
+  "level": "intermediate",
+  "module": "reports",
+  "name": "Cập nhật báo cáo TĐG",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.462Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b12"
+  },
+  "code": "REPORTS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.464Z"
+  },
+  "level": "advanced",
+  "module": "reports",
+  "name": "Xóa báo cáo TĐG",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.464Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b13"
+  },
+  "code": "REPORTS.APPROVE",
+  "action": "approve",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.466Z"
+  },
+  "level": "advanced",
+  "module": "reports",
+  "name": "Phê duyệt báo cáo",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.466Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b14"
+  },
+  "code": "REPORTS.EXPORT",
+  "action": "export",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.468Z"
+  },
+  "level": "basic",
+  "module": "reports",
+  "name": "Xuất báo cáo",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.468Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b15"
+  },
+  "code": "EVALUATIONS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.469Z"
+  },
+  "level": "intermediate",
+  "module": "evaluations",
+  "name": "Tạo đánh giá",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.469Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b16"
+  },
+  "code": "EVALUATIONS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.472Z"
+  },
+  "level": "basic",
+  "module": "evaluations",
+  "name": "Xem đánh giá",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.472Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b17"
+  },
+  "code": "EVALUATIONS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.473Z"
+  },
+  "level": "intermediate",
+  "module": "evaluations",
+  "name": "Cập nhật đánh giá",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.473Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b18"
+  },
+  "code": "EVALUATIONS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.475Z"
+  },
+  "level": "advanced",
+  "module": "evaluations",
+  "name": "Xóa đánh giá",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.475Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b19"
+  },
+  "code": "EVALUATIONS.APPROVE",
+  "action": "approve",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.476Z"
+  },
+  "level": "advanced",
+  "module": "evaluations",
+  "name": "Phê duyệt đánh giá",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.476Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1a"
+  },
+  "code": "USERS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.478Z"
+  },
+  "level": "advanced",
+  "module": "users",
+  "name": "Tạo người dùng",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.478Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1b"
+  },
+  "code": "USERS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.480Z"
+  },
+  "level": "basic",
+  "module": "users",
+  "name": "Xem người dùng",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.480Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1c"
+  },
+  "code": "USERS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.481Z"
+  },
+  "level": "advanced",
+  "module": "users",
+  "name": "Cập nhật người dùng",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.481Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1d"
+  },
+  "code": "USERS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.483Z"
+  },
+  "level": "critical",
+  "module": "users",
+  "name": "Xóa người dùng",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.483Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1e"
+  },
+  "code": "USERS.MANAGE",
+  "action": "manage",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.484Z"
+  },
+  "level": "critical",
+  "module": "users",
+  "name": "Quản lý toàn bộ người dùng",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.484Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b1f"
+  },
+  "code": "STANDARDS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.485Z"
+  },
+  "level": "advanced",
+  "module": "standards",
+  "name": "Tạo tiêu chuẩn",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.485Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b20"
+  },
+  "code": "STANDARDS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.489Z"
+  },
+  "level": "basic",
+  "module": "standards",
+  "name": "Xem tiêu chuẩn",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.489Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b21"
+  },
+  "code": "STANDARDS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.491Z"
+  },
+  "level": "advanced",
+  "module": "standards",
+  "name": "Cập nhật tiêu chuẩn",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.491Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b22"
+  },
+  "code": "STANDARDS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.493Z"
+  },
+  "level": "critical",
+  "module": "standards",
+  "name": "Xóa tiêu chuẩn",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.493Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b23"
+  },
+  "code": "CRITERIA.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.495Z"
+  },
+  "level": "advanced",
+  "module": "criteria",
+  "name": "Tạo tiêu chí",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.495Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b24"
+  },
+  "code": "CRITERIA.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.497Z"
+  },
+  "level": "basic",
+  "module": "criteria",
+  "name": "Xem tiêu chí",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.497Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b25"
+  },
+  "code": "CRITERIA.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.498Z"
+  },
+  "level": "advanced",
+  "module": "criteria",
+  "name": "Cập nhật tiêu chí",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.498Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b26"
+  },
+  "code": "CRITERIA.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.499Z"
+  },
+  "level": "critical",
+  "module": "criteria",
+  "name": "Xóa tiêu chí",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b27"
+  },
+  "code": "PROGRAMS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.501Z"
+  },
+  "level": "advanced",
+  "module": "programs",
+  "name": "Tạo chương trình",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.501Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b28"
+  },
+  "code": "PROGRAMS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.503Z"
+  },
+  "level": "basic",
+  "module": "programs",
+  "name": "Xem chương trình",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.503Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b29"
+  },
+  "code": "PROGRAMS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.505Z"
+  },
+  "level": "advanced",
+  "module": "programs",
+  "name": "Cập nhật chương trình",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.505Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2a"
+  },
+  "code": "PROGRAMS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.507Z"
+  },
+  "level": "critical",
+  "module": "programs",
+  "name": "Xóa chương trình",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.507Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2b"
+  },
+  "code": "ORGANIZATIONS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.274Z"
+  },
+  "level": "advanced",
+  "module": "organizations",
+  "name": "Tạo tổ chức",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.274Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2c"
+  },
+  "code": "ORGANIZATIONS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.275Z"
+  },
+  "level": "basic",
+  "module": "organizations",
+  "name": "Xem tổ chức",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.275Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2d"
+  },
+  "code": "ORGANIZATIONS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.277Z"
+  },
+  "level": "advanced",
+  "module": "organizations",
+  "name": "Cập nhật tổ chức",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.277Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2e"
+  },
+  "code": "ORGANIZATIONS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.279Z"
+  },
+  "level": "critical",
+  "module": "organizations",
+  "name": "Xóa tổ chức",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.279Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b2f"
+  },
+  "code": "ACADEMIC_YEARS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.280Z"
+  },
+  "level": "advanced",
+  "module": "academic_years",
+  "name": "Tạo năm học",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.280Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b30"
+  },
+  "code": "ACADEMIC_YEARS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.281Z"
+  },
+  "level": "basic",
+  "module": "academic_years",
+  "name": "Xem năm học",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.281Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b31"
+  },
+  "code": "ACADEMIC_YEARS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.283Z"
+  },
+  "level": "advanced",
+  "module": "academic_years",
+  "name": "Cập nhật năm học",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.283Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b32"
+  },
+  "code": "ACADEMIC_YEARS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.284Z"
+  },
+  "level": "critical",
+  "module": "academic_years",
+  "name": "Xóa năm học",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.284Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b33"
+  },
+  "code": "ASSIGNMENTS.CREATE",
+  "action": "create",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.285Z"
+  },
+  "level": "intermediate",
+  "module": "assignments",
+  "name": "Tạo phân công",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.285Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b34"
+  },
+  "code": "ASSIGNMENTS.READ",
+  "action": "read",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.286Z"
+  },
+  "level": "basic",
+  "module": "assignments",
+  "name": "Xem phân công",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.286Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b35"
+  },
+  "code": "ASSIGNMENTS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.288Z"
+  },
+  "level": "intermediate",
+  "module": "assignments",
+  "name": "Cập nhật phân công",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.288Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b36"
+  },
+  "code": "ASSIGNMENTS.DELETE",
+  "action": "delete",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.290Z"
+  },
+  "level": "advanced",
+  "module": "assignments",
+  "name": "Xóa phân công",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.290Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b37"
+  },
+  "code": "ASSIGNMENTS.ASSIGN",
+  "action": "assign",
+  "createdAt": {
+    "$date": "2025-10-02T06:28:50.291Z"
+  },
+  "level": "intermediate",
+  "module": "assignments",
+  "name": "Phân công công việc",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-02T06:28:50.291Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b38"
+  },
+  "code": "SYSTEM.MANAGE",
+  "action": "manage",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.508Z"
+  },
+  "level": "critical",
+  "module": "system",
+  "name": "Quản trị hệ thống",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.508Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68de1ba2c63d44cee2115b39"
+  },
+  "code": "SETTINGS.UPDATE",
+  "action": "update",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.509Z"
+  },
+  "level": "advanced",
+  "module": "settings",
+  "name": "Cập nhật cài đặt",
+  "status": "active",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.509Z"
+  }
+}]

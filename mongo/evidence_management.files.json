@@ -1,0 +1,304 @@
+[{
+  "_id": {
+    "$oid": "68df9de5bd63d7568a113778"
+  },
+  "originalName": "BÃ¡o cÃ¡o thá»±c táº­p nghá» nghiá»p.docx",
+  "storedName": "H1.01.01.01-Quyet dinh ban hanh muc tieu chuong trinh dao tao.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.01-Quyet dinh ban hanh muc tieu chuong trinh dao tao.docx",
+  "size": 133831,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68d8b25effe9c2eccae088bc"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.01-Quyet dinh ban hanh muc tieu chuong trinh dao tao.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-03T09:56:53.950Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-03T09:56:53.950Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be1d70de6790d9aab628"
+  },
+  "originalName": "Khoa ICT_HÆ°á»ng dáº«n trÃ¬nh bÃ y bÃ¡o cÃ¡o thá»±c táº­p FN1.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 132343,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:27:57.995Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:27:57.996Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab64f"
+  },
+  "originalName": "Khoa ICT_HÆ°á»ng dáº«n trÃ¬nh bÃ y bÃ¡o cÃ¡o thá»±c táº­p FN1.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 132343,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.189Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.189Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab65d"
+  },
+  "originalName": "Máº«u 04. Nháº­t kÃ½ thá»±c táº­p nghá» nghiá»p.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 40731,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.263Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.263Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab66c"
+  },
+  "originalName": "Máº«u 06. Phiáº¿u Tá»± ÄÃ¡nh giÃ¡ thá»±c táº­p.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 26715,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.341Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.341Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab67c"
+  },
+  "originalName": "Máº«u 07. Phiáº¿u cháº¥m Äiá»m cá»§a giáº£ng viÃªn hÆ°á»ng dáº«n.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 27716,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.409Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.409Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab68d"
+  },
+  "originalName": "Máº«u 08. Phiáº¿u cháº¥m Äiá»m cá»§a ÄÆ¡n vá» thá»±c táº­p.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 27432,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.483Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.483Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5be3370de6790d9aab69f"
+  },
+  "originalName": "TranVietLoc_BIT230242_Káº¿ hoáº¡ch thá»±c táº­p nghá» nghiá»p.docx",
+  "storedName": "H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "filePath": "uploads\\evidences\\H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "size": 41558,
+  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "extension": ".docx",
+  "type": "file",
+  "evidenceId": {
+    "$oid": "68e4da273f0a462ac90abe3d"
+  },
+  "uploadedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "url": "/uploads/evidences/H1.01.01.02-Danh gia chat luong chuong trinh dao tao dai hoc.docx",
+  "parentFolder": null,
+  "children": [],
+  "folderMetadata": {
+    "fileCount": 0,
+    "totalSize": 0
+  },
+  "status": "active",
+  "virusScanResult": {
+    "scanned": false,
+    "clean": true
+  },
+  "downloadCount": 0,
+  "uploadedAt": {
+    "$date": "2025-10-08T01:28:19.520Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-08T01:28:19.521Z"
+  },
+  "__v": 0
+}]

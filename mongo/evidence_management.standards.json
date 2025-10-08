@@ -1,0 +1,96 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Mục tiêu chương trình đào tạo",
+  "code": "1",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "objectives": "Đánh giá tính phù hợp của mục tiêu chương trình đào tạo",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalCriteria": 0,
+    "totalEvidences": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b8"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Chuẩn đầu ra chương trình đào tạo",
+  "code": "2",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "objectives": "Đánh giá chất lượng chuẩn đầu ra",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalCriteria": 0,
+    "totalEvidences": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b9"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Chương trình đào tạo",
+  "code": "3",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "objectives": "Đánh giá chất lượng thiết kế chương trình đào tạo",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalCriteria": 0,
+    "totalEvidences": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.073Z"
+  }
+}]

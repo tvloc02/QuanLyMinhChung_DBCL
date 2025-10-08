@@ -1,0 +1,505 @@
+[{
+  "_id": {
+    "$oid": "68e0874e578adf58b246f65e"
+  },
+  "code": "SUPER_ADMIN",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.533Z"
+  },
+  "description": "Toàn quyền quản trị hệ thống",
+  "members": [
+    {
+      "$oid": "68d8b25effe9c2eccae088b0"
+    }
+  ],
+  "metadata": {
+    "color": "#DC2626",
+    "icon": "shield",
+    "autoAssign": false
+  },
+  "name": "Quản trị viên hệ thống",
+  "permissions": [
+    {
+      "$oid": "68de1ba2c63d44cee2115b0f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b10"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b11"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b12"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b13"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b14"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b15"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b16"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b17"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b18"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b19"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1a"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1d"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1e"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b20"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b21"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b22"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b23"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b24"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b25"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b26"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b27"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b28"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b29"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2a"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2d"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2e"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b30"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b31"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b32"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b33"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b34"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b35"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b36"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b37"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b38"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b39"
+    }
+  ],
+  "priority": 100,
+  "status": "active",
+  "type": "system",
+  "updatedAt": {
+    "$date": "2025-10-04T04:29:15.801Z"
+  },
+  "__v": 1,
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e0874e578adf58b246f65f"
+  },
+  "code": "REPORT_MANAGER",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.535Z"
+  },
+  "description": "Quản lý và phê duyệt báo cáo tự đánh giá",
+  "members": [
+    {
+      "$oid": "68d8b25effe9c2eccae088b1"
+    }
+  ],
+  "metadata": {
+    "color": "#2563EB",
+    "icon": "file-text",
+    "autoAssign": false
+  },
+  "name": "Cán bộ quản lý báo cáo TĐG",
+  "permissions": [
+    {
+      "$oid": "68de1ba2c63d44cee2115b0f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b10"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b11"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b12"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b13"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b14"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b18"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b19"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1a"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b21"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b23"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b25"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b27"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b29"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2d"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b31"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b36"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b39"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b16"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b20"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b24"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b28"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b30"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b34"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b15"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b17"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b33"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b35"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b37"
+    }
+  ],
+  "priority": 80,
+  "status": "active",
+  "type": "system",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.535Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e0874e578adf58b246f660"
+  },
+  "code": "EVALUATION_EXPERT",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.540Z"
+  },
+  "description": "Thực hiện đánh giá các tiêu chí",
+  "members": [
+    {
+      "$oid": "68d8b25effe9c2eccae088b2"
+    },
+    {
+      "$oid": "68dcf5de99a947aefc999740"
+    }
+  ],
+  "metadata": {
+    "color": "#10B981",
+    "icon": "clipboard-check",
+    "autoAssign": false
+  },
+  "name": "Chuyên gia đánh giá",
+  "permissions": [
+    {
+      "$oid": "68de1ba2c63d44cee2115b2f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b30"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b31"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b33"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b34"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b35"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b23"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b24"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b25"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b15"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b16"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b17"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2d"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b27"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b28"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b29"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b0f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b10"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b11"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1f"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b20"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b21"
+    }
+  ],
+  "priority": 60,
+  "status": "active",
+  "type": "system",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.540Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e0874e578adf58b246f661"
+  },
+  "code": "ADVISOR",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.543Z"
+  },
+  "description": "Tư vấn và giám sát quá trình đánh giá",
+  "members": [
+    {
+      "$oid": "68d8b25effe9c2eccae088b3"
+    }
+  ],
+  "metadata": {
+    "color": "#8B5CF6",
+    "icon": "eye",
+    "autoAssign": false
+  },
+  "name": "Tư vấn/Giám sát",
+  "permissions": [
+    {
+      "$oid": "68de1ba2c63d44cee2115b10"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b16"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b20"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b24"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b28"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b30"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b34"
+    }
+  ],
+  "priority": 40,
+  "status": "active",
+  "type": "system",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.543Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68e0874e578adf58b246f662"
+  },
+  "code": "VIEWER",
+  "createdAt": {
+    "$date": "2025-10-04T02:32:46.545Z"
+  },
+  "description": "Chỉ có quyền xem thông tin",
+  "members": [],
+  "metadata": {
+    "color": "#6B7280",
+    "icon": "eye",
+    "autoAssign": false
+  },
+  "name": "Người xem",
+  "permissions": [
+    {
+      "$oid": "68de1ba2c63d44cee2115b10"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b16"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b1b"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b20"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b24"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b28"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b2c"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b30"
+    },
+    {
+      "$oid": "68de1ba2c63d44cee2115b34"
+    }
+  ],
+  "priority": 20,
+  "status": "active",
+  "type": "system",
+  "updatedAt": {
+    "$date": "2025-10-04T02:32:46.545Z"
+  }
+}]

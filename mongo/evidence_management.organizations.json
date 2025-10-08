@@ -1,0 +1,31 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Bộ Giáo dục và Đào tạo",
+  "code": "MOET",
+  "level": "national",
+  "contactEmail": "contact@moet.gov.vn",
+  "contactPhone": "0243 869 8113",
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalPrograms": 1,
+    "totalStandards": 3,
+    "totalEvidences": 2
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.070Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.070Z"
+  }
+}]

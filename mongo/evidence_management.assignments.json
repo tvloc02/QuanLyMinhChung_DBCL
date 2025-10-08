@@ -1,0 +1,53 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088bf"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "reportId": {
+    "$oid": "68d8b25effe9c2eccae088be"
+  },
+  "expertId": {
+    "$oid": "68d8b25effe9c2eccae088b2"
+  },
+  "assignedBy": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "assignmentNote": "Vui lòng đánh giá báo cáo phân tích tiêu chí 1.1",
+  "deadline": {
+    "$date": "2025-10-05T03:58:22.088Z"
+  },
+  "priority": "normal",
+  "evaluationCriteria": [
+    {
+      "name": "Tính chính xác",
+      "description": "Đánh giá độ chính xác của phân tích",
+      "maxScore": 10,
+      "weight": 0.3
+    },
+    {
+      "name": "Tính đầy đủ",
+      "description": "Đánh giá tính đầy đủ của nội dung",
+      "maxScore": 10,
+      "weight": 0.3
+    },
+    {
+      "name": "Chất lượng minh chứng",
+      "description": "Đánh giá chất lượng minh chứng được sử dụng",
+      "maxScore": 10,
+      "weight": 0.4
+    }
+  ],
+  "status": "pending",
+  "metadata": {
+    "estimatedDuration": 240,
+    "complexity": "medium"
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.088Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.088Z"
+  }
+}]

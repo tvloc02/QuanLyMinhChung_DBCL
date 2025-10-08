@@ -1,0 +1,63 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088be"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "title": "Phiếu phân tích tiêu chí 1.1 - Mục tiêu chương trình đào tạo",
+  "code": "CA-20242025-01-01-001",
+  "type": "criteria_analysis",
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "criteriaId": {
+    "$oid": "68d8b25effe9c2eccae088ba"
+  },
+  "content": "\n    <h2>PHÂN TÍCH TIÊU CHÍ 1.1</h2>\n    <h3>Mục tiêu chương trình đào tạo được xây dựng phù hợp với tầm nhìn, sứ mệnh của cơ sở giáo dục</h3>\n    \n    <h4>1. Mô tả hiện trạng</h4>\n    <p>Mục tiêu chương trình đào tạo đã được xây dựng và ban hành theo quyết định H1.01.01.01.</p>\n    \n    <h4>2. Căn cứ đánh giá</h4>\n    <p>- Quyết định ban hành mục tiêu chương trình đào tạo (H1.01.01.01)</p>\n    <p>- Tầm nhìn, sứ mệnh của trường đại học</p>\n    \n    <h4>3. Kết quả đánh giá</h4>\n    <p>Mục tiêu chương trình đào tạo đã được xây dựng phù hợp với tầm nhìn và sứ mệnh của trường.</p>\n    ",
+  "contentMethod": "online_editor",
+  "referencedEvidences": [
+    {
+      "evidenceId": {
+        "$oid": "68d8b25effe9c2eccae088bc"
+      },
+      "contextText": "Quyết định ban hành mục tiêu chương trình đào tạo",
+      "linkedText": "H1.01.01.01"
+    }
+  ],
+  "status": "draft",
+  "summary": "Phân tích tiêu chí về mục tiêu chương trình đào tạo",
+  "keywords": [
+    "mục tiêu",
+    "chương trình đào tạo",
+    "tầm nhìn",
+    "sứ mệnh"
+  ],
+  "wordCount": 150,
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "versions": [],
+  "evaluations": [],
+  "metadata": {
+    "viewCount": 0,
+    "downloadCount": 0,
+    "evaluationCount": 0,
+    "averageScore": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.086Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.086Z"
+  }
+}]

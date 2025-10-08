@@ -1,0 +1,125 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088ba"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Mục tiêu chương trình đào tạo được xây dựng phù hợp với tầm nhìn, sứ mệnh của cơ sở giáo dục",
+  "code": "01",
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "indicators": [
+    {
+      "name": "Tỷ lệ mục tiêu phù hợp",
+      "description": "Tỷ lệ các mục tiêu phù hợp với tầm nhìn sứ mệnh",
+      "measurementMethod": "Đánh giá định tính",
+      "targetValue": "100%",
+      "unit": "%"
+    }
+  ],
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalEvidences": 0,
+    "totalFiles": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.077Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.077Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088bb"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Mục tiêu chương trình đào tạo được xây dựng phù hợp với yêu cầu của xã hội",
+  "code": "02",
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "indicators": [
+    {
+      "name": "Mức độ phù hợp với nhu cầu xã hội",
+      "description": "Đánh giá mức độ phù hợp của mục tiêu với nhu cầu xã hội",
+      "measurementMethod": "Khảo sát đánh giá",
+      "targetValue": "≥ 4.0/5.0",
+      "unit": "điểm"
+    }
+  ],
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalEvidences": 0,
+    "totalFiles": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.077Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.077Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68df4b6d805b3ef5b106bdba"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "code": "03",
+  "standardId": {
+    "$oid": "68d8b25effe9c2eccae088b7"
+  },
+  "programId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "organizationId": {
+    "$oid": "68d8b25effe9c2eccae088b5"
+  },
+  "indicators": [],
+  "status": "active",
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "metadata": {
+    "totalEvidences": 0,
+    "totalFiles": 0,
+    "completionRate": 0
+  },
+  "createdAt": {
+    "$date": "2025-10-03T04:05:01.696Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-03T04:05:01.696Z"
+  },
+  "__v": 0
+}]

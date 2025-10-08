@@ -1,0 +1,1848 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088c1"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_create",
+  "description": "Tạo mới năm học: Năm học 2024-2025",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "severity": "medium",
+  "result": "success",
+  "isAuditRequired": false,
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.101Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088c2"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "program_create",
+  "description": "Tạo mới chương trình: Đánh giá chất lượng chương trình đào tạo đại học",
+  "targetType": "Program",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b6"
+  },
+  "targetName": "Đánh giá chất lượng chương trình đào tạo đại học",
+  "severity": "medium",
+  "result": "success",
+  "isAuditRequired": false,
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.101Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088c3"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "assignment_create",
+  "description": "Tạo phân công đánh giá mới",
+  "targetType": "Assignment",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088bf"
+  },
+  "targetName": "Phân công đánh giá",
+  "severity": "medium",
+  "result": "success",
+  "isAuditRequired": false,
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.101Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68da1142699a76a3e6237f7e"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T04:55:30.140Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68da41d63767bdb459240b1d"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "user_create",
+  "description": "Tạo người dùng mới: Trần Việt Lộc (locvt)",
+  "targetType": "User",
+  "targetId": {
+    "$oid": "68da41d63767bdb459240b1b"
+  },
+  "targetName": "Trần Việt Lộc",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "critical",
+  "result": "success",
+  "tags": [],
+  "metadata": {
+    "role": "expert",
+    "department": "",
+    "hasDefaultPassword": true
+  },
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T08:22:46.673Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68da43ae3767bdb459240b8a"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "user_create",
+  "description": "Tạo người dùng mới: La Thị Nghê (nga)",
+  "targetType": "User",
+  "targetId": {
+    "$oid": "68da43ad3767bdb459240b88"
+  },
+  "targetName": "La Thị Nghê",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "critical",
+  "result": "success",
+  "tags": [],
+  "metadata": {
+    "role": "manager",
+    "department": "",
+    "hasDefaultPassword": true
+  },
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T08:30:38.131Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68da4f77ddbce268d153d5d3"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2027 (2025-2027)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T09:20:55.182Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dab311c690d3fb6d23b54d"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T16:25:53.132Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dab39cc690d3fb6d23b5a6"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da4f62ddbce268d153d5b8"
+  },
+  "action": "academic_year_delete",
+  "description": "Xóa năm học: Năm học 2025-2027 (2025-2027)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da4f62ddbce268d153d5b8"
+  },
+  "targetName": "Năm học 2025-2027 (2025-2027)",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T16:28:12.772Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dab39cc690d3fb6d23b5a8"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "academic_year_delete",
+  "description": "Xóa năm học: Năm học 2025-2027 (2025-2027)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da4f62ddbce268d153d5b8"
+  },
+  "targetName": "Năm học 2025-2027 (2025-2027)",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "critical",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T16:28:12.774Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dab3aac690d3fb6d23b5b7"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-29T16:28:26.109Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db300dc690d3fb6d23b5fc"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T01:19:09.821Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db301ac690d3fb6d23b60a"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T01:19:22.759Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db4086c690d3fb6d23b6dd"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T02:29:26.099Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db4c99a3940c8fa0d691f9"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:20:57.115Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db4c9da3940c8fa0d69214"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:21:01.598Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db510c134bbfeb257b47ae"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:39:56.173Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db51b0134bbfeb257b47c9"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:42:40.412Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db54aae5bbd2a0d7c8078e"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:55:22.352Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db556ae5bbd2a0d7c80805"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T03:58:34.899Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db57f3e7dd0b6aac86e5ab"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T04:09:23.070Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db585ee7dd0b6aac86e646"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T04:11:10.642Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db78d56f8e94d9bac16634"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T06:29:41.527Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db7f3ca54da6b40b81bd7a"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T06:57:00.112Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db8e96a54da6b40b81c112"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T08:02:30.054Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db8eaaa54da6b40b81c14b"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T08:02:50.543Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db8ee2a54da6b40b81c18a"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T08:03:46.519Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68db8fb5978243431644acbe"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T08:07:17.163Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dba167ac6dbe29adafb737"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T09:22:47.759Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dbaa38ac6dbe29adafb78c"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-09-30T10:00:24.026Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dc9c01783c06601d89bc26"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T03:12:01.156Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dc9d2d96568932637b3bcb"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T03:17:01.016Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcca54a1a20e3888ab7245"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T06:29:40.813Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dccaada1a20e3888ab7324"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "program_delete",
+  "description": "Xóa chương trình: Đánh giá chất lượng chương trình đào tạo đại học",
+  "targetType": "Program",
+  "targetId": {
+    "$oid": "68db54b5e5bbd2a0d7c807a5"
+  },
+  "targetName": "Đánh giá chất lượng chương trình đào tạo đại học",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T06:31:09.988Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dccb0116e32c76b88b9208"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T06:32:33.941Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcd43a5e761b7bd5cd828d"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T07:11:54.182Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcd4b25e761b7bd5cd830d"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T07:13:54.683Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcf33e162f5b69a5bcffed"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "criteria_delete",
+  "description": "Xóa tiêu chí: Tiêu chí 04: CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "targetType": "Criteria",
+  "targetId": {
+    "$oid": "68dcf299162f5b69a5bcff45"
+  },
+  "targetName": "Tiêu chí 04: CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T09:24:14.239Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcf35a162f5b69a5bd0002"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "criteria_delete",
+  "description": "Xóa tiêu chí: Tiêu chí 03: CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "targetType": "Criteria",
+  "targetId": {
+    "$oid": "68dcf318162f5b69a5bcff9c"
+  },
+  "targetName": "Tiêu chí 03: CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T09:24:42.458Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcf3c4162f5b69a5bd0025"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "criteria_delete",
+  "description": "Xóa tiêu chí: Tiêu chí 01: Mục tiêu của CTĐT được xác định rõ ràng, phù hợp với sứ mạng và tầm nhìn của CSGD đại học, phù hợp với mục tiêu của giáo dục đại học quy định tại Luật giáo dục đại học.",
+  "targetType": "Criteria",
+  "targetId": {
+    "$oid": "68dcf2d0162f5b69a5bcff63"
+  },
+  "targetName": "Tiêu chí 01: Mục tiêu của CTĐT được xác định rõ ràng, phù hợp với sứ mạng và tầm nhìn của CSGD đại học, phù hợp với mục tiêu của giáo dục đại học quy định tại Luật giáo dục đại học.",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T09:26:28.103Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dcf5df99a947aefc999742"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "user_create",
+  "description": "Tạo người dùng mới: Trần Việt Lộc (locvt)",
+  "targetType": "User",
+  "targetId": {
+    "$oid": "68dcf5de99a947aefc999740"
+  },
+  "targetName": "Trần Việt Lộc",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "critical",
+  "result": "success",
+  "tags": [],
+  "metadata": {
+    "role": "expert",
+    "department": "",
+    "hasDefaultPassword": true
+  },
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-01T09:35:27.259Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dddbe673f3cf759cc25e83"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-02T01:56:54.168Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68dddbea73f3cf759cc25eac"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-02T01:56:58.733Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df29487b1ff549e7e48e96"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "academic_year_update",
+  "description": "Cập nhật năm học: Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "active"
+  },
+  "newData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "archived"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "low",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": false,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T01:39:20.448Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df29737b1ff549e7e48f27"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T01:40:03.647Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df2a967ffe6598c0845dad"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T01:44:54.554Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df2ba2e8e673a78269471d"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "academic_year_update",
+  "description": "Cập nhật năm học: Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "active"
+  },
+  "newData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "active"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "low",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": false,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T01:49:22.110Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df2bb8e8e673a78269475c"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "action": "academic_year_activate",
+  "description": "Kích hoạt năm học Năm học 2025-2026 (2025-2026)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "targetName": "Năm học 2025-2026 (2025-2026)",
+  "oldData": {
+    "currentYear": "Năm học 2024-2025 (2024-2025)"
+  },
+  "newData": {
+    "currentYear": "Năm học 2025-2026 (2025-2026)"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T01:49:44.221Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df45c5bcb7dc2c1fb4298e"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "criteria_delete",
+  "description": "Xóa tiêu chí: Tiêu chí 02: CĐR của CTĐT được xác định rõ ràng, bao quát được cả các yêu cầu chung và yêu cầu chuyên biệt mà NH cần đạt được sau khi hoàn thành CTĐT.",
+  "targetType": "Criteria",
+  "targetId": {
+    "$oid": "68dcf2ff162f5b69a5bcff81"
+  },
+  "targetName": "Tiêu chí 02: CĐR của CTĐT được xác định rõ ràng, bao quát được cả các yêu cầu chung và yêu cầu chuyên biệt mà NH cần đạt được sau khi hoàn thành CTĐT.",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T03:40:53.689Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df54f5e1f3c014dcd4e9f3"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "academic_year_update",
+  "description": "Cập nhật năm học: Năm học 2024-2025 (2024-2025)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "targetName": "Năm học 2024-2025 (2024-2025)",
+  "oldData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "active"
+  },
+  "newData": {
+    "name": "Năm học 2024-2025",
+    "code": "2024-2025",
+    "status": "archived"
+  },
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "low",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": false,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T04:45:41.071Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df9d996192b5222aaa0710"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "file_delete",
+  "description": "Xóa file: Máº«u 06. Phiáº¿u Tá»± ÄÃ¡nh giÃ¡ thá»±c táº­p.docx",
+  "targetType": "File",
+  "targetId": {
+    "$oid": "68df9d916192b5222aaa06f4"
+  },
+  "targetName": "Máº«u 06. Phiáº¿u Tá»± ÄÃ¡nh giÃ¡ thá»±c táº­p.docx",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "medium",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T09:55:37.981Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df9eab3df64d4ca7998c08"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "file_delete",
+  "description": "Xóa file: BÃ¡o cÃ¡o thá»±c táº­p nghá» nghiá»p.docx",
+  "targetType": "File",
+  "targetId": {
+    "$oid": "68df9dab6192b5222aaa0727"
+  },
+  "targetName": "BÃ¡o cÃ¡o thá»±c táº­p nghá» nghiá»p.docx",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "medium",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T10:00:11.780Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68df9eab3df64d4ca7998c0b"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "file_delete",
+  "description": "Xóa file: BÃ¡o cÃ¡o thá»±c táº­p nghá» nghiá»p.docx",
+  "targetType": "File",
+  "targetId": {
+    "$oid": "68df9e09bd63d7568a1138ed"
+  },
+  "targetName": "BÃ¡o cÃ¡o thá»±c táº­p nghá» nghiá»p.docx",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "medium",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-03T10:00:11.791Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5e3d932346cfb38395dda"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "action": "academic_year_delete",
+  "description": "Xóa năm học: Năm học 2026-2027 (2026-2027)",
+  "targetType": "AcademicYear",
+  "targetId": {
+    "$oid": "68e4d96e24c1c07a5669669f"
+  },
+  "targetName": "Năm học 2026-2027 (2026-2027)",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "critical",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-08T04:08:57.878Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e5e45b32346cfb38395e44"
+  },
+  "userId": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "academicYearId": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "action": "program_delete",
+  "description": "Xóa chương trình: CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "targetType": "Program",
+  "targetId": {
+    "$oid": "68e4d94224c1c07a56696620"
+  },
+  "targetName": "CĐR của CTĐT phản ánh được yêu cầu của các bên liên quan, được định kỳ rà soát, điều chỉnh và được công bố công khai.",
+  "requestInfo": {
+    "method": "POST"
+  },
+  "severity": "high",
+  "result": "success",
+  "tags": [],
+  "isAuditRequired": true,
+  "isReversible": false,
+  "createdAt": {
+    "$date": "2025-10-08T04:11:07.511Z"
+  },
+  "__v": 0
+}]

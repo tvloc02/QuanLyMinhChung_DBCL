@@ -1,0 +1,90 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b4"
+  },
+  "name": "Năm học 2024-2025",
+  "code": "2024-2025",
+  "startYear": 2024,
+  "endYear": 2025,
+  "startDate": {
+    "$date": "2024-09-01T00:00:00.000Z"
+  },
+  "endDate": {
+    "$date": "2025-06-30T00:00:00.000Z"
+  },
+  "status": "active",
+  "isCurrent": true,
+  "copySettings": {
+    "programs": true,
+    "organizations": true,
+    "standards": true,
+    "criteria": true,
+    "evidenceTemplates": false
+  },
+  "metadata": {
+    "totalPrograms": 1,
+    "totalStandards": 3,
+    "totalCriteria": 2,
+    "totalEvidences": 2,
+    "totalFiles": 0,
+    "completionRate": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.067Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-07T09:09:58.672Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68da10d2699a76a3e6237f55"
+  },
+  "name": "Năm học 2025-2026",
+  "code": "2025-2026",
+  "startYear": 2025,
+  "endYear": 2026,
+  "startDate": {
+    "$date": "2025-01-05T00:00:00.000Z"
+  },
+  "endDate": {
+    "$date": "2026-01-05T00:00:00.000Z"
+  },
+  "description": "",
+  "status": "active",
+  "isCurrent": false,
+  "copySettings": {
+    "programs": false,
+    "organizations": false,
+    "standards": false,
+    "criteria": false,
+    "evidenceTemplates": false
+  },
+  "metadata": {
+    "totalPrograms": 0,
+    "totalStandards": 0,
+    "totalCriteria": 0,
+    "totalEvidences": 0,
+    "totalFiles": 0,
+    "completionRate": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-09-29T04:53:38.093Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-07T09:06:20.860Z"
+  },
+  "__v": 0
+}]
