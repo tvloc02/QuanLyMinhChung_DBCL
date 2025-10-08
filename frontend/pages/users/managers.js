@@ -33,7 +33,7 @@ export default function ManagersPage() {
 
     return (
         <Layout
-            title="Danh sách cán bộ quản lý"
+            title=""
             breadcrumbItems={breadcrumbItems}
         >
             <ManagersList />
