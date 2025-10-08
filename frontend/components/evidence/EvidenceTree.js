@@ -280,7 +280,9 @@ export default function EvidenceTree() {
 
                 // Kiểm tra dòng minh chứng
                 // Cột B phải có mã dạng H*.**.**.** và cột C phải có tên
-                if (code && name && code.match(/^H\d+\.\d+\.\d+\.\d+$/i)) {
+                const cleanCode = code.replace(/\s+/g, '').trim()
+                const cleanName = name.trim()
+                if (cleanCode && cleanName && cleanCode.match(/^H\d*\.\d+\.\d+\.\d+$/i)) {
                     if (!currentStandard || !currentCriteria) {
                         console.warn(`Evidence ${code} bị bỏ qua vì thiếu Tiêu chuẩn hoặc Tiêu chí`)
                         continue
