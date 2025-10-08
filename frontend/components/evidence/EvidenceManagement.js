@@ -480,236 +480,163 @@ export default function EvidenceManagement() {
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            Danh sách minh chứng
-                            <span className="ml-2 text-sm font-normal text-gray-500">
-                                ({pagination.total} kết quả)
-                            </span>
-                        </h2>
-                    </div>
-                </div>
+            <div className="overflow-x-auto">
+                <table className="w-full border border-gray-300 text-sm">
+                    <thead className="bg-gray-100 text-gray-700 border-b border-gray-300">
+                    <tr>
+                        <th className="border border-gray-300 px-3 py-2 w-10 text-center">
+                            <input
+                                type="checkbox"
+                                checked={selectedItems.length === evidences.length}
+                                onChange={toggleSelectAll}
+                                className="rounded border-gray-400 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                            />
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Mã MC</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold w-64">
+                            Tên minh chứng
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold w-48">
+                            Tiêu chuẩn
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-left font-semibold w-48">
+                            Tiêu chí
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold w-24">
+                            Files
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold w-32">
+                            Trạng thái
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold w-32">
+                            Ngày tạo
+                        </th>
+                        <th className="border border-gray-300 px-3 py-2 text-right font-semibold w-36">
+                            Thao tác
+                        </th>
+                    </tr>
+                    </thead>
 
-                {loading ? (
-                    <div className="flex flex-col justify-center items-center py-16">
-                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-                        <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
-                    </div>
-                ) : evidences.length === 0 ? (
-                    <div className="p-16 text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FileText className="h-10 w-10 text-gray-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có minh chứng nào'}
-                        </h3>
-                        <p className="text-gray-500 mb-6">
-                            {hasActiveFilters
-                                ? 'Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác'
-                                : 'Bắt đầu bằng cách tạo minh chứng đầu tiên'
-                            }
-                        </p>
-                        {hasActiveFilters ? (
-                            <button
-                                onClick={clearFilters}
-                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                            >
-                                Xóa bộ lọc
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => router.push('/evidence/create')}
-                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                            >
-                                <Plus className="h-5 w-5 mr-2" />
-                                Tạo minh chứng mới
-                            </button>
-                        )}
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                                <tr>
-                                    <th className="px-6 py-4 text-left">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedItems.length === evidences.length}
-                                            onChange={toggleSelectAll}
-                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                        />
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Mã MC
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Tên minh chứng
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Tiêu chuẩn/Tiêu chí
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Files
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Trạng thái
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Ngày tạo
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Thao tác
-                                    </th>
-                                </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                {evidences.map((evidence) => (
-                                    <tr key={evidence._id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedItems.includes(evidence._id)}
-                                                onChange={() => toggleSelectItem(evidence._id)}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                                                {evidence.code}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="max-w-xs">
-                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {evidence.name}
-                                                </p>
-                                                {evidence.documentNumber && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Số: {evidence.documentNumber}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-xs space-y-1">
-                                                <p className="text-gray-900 font-medium">
-                                                    {evidence.standardId?.code} - {evidence.standardId?.name}
-                                                </p>
-                                                <p className="text-gray-500">
-                                                    {evidence.criteriaId?.code} - {evidence.criteriaId?.name}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                                {evidence.files?.length || 0} files
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(evidence.status)}`}>
-                                                {getStatusLabel(evidence.status)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {formatDate(evidence.createdAt)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                            <div className="flex items-center justify-end space-x-2">
-                                                <button
-                                                    onClick={() => handleViewDetail(evidence._id)}
-                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleEdit(evidence)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleMove(evidence)}
-                                                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                    title="Di chuyển"
-                                                >
-                                                    <ArrowRightLeft className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(evidence._id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    <tbody className="divide-y divide-gray-200">
+                    {evidences.map((evidence) => (
+                        <tr
+                            key={evidence._id}
+                            className="hover:bg-indigo-50 transition-colors border-b border-gray-200"
+                        >
+                            <td className="border border-gray-300 px-3 py-2 text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedItems.includes(evidence._id)}
+                                    onChange={() => toggleSelectItem(evidence._id)}
+                                    className="rounded border-gray-400 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                />
+                            </td>
 
-                        {pagination.pages > 1 && (
-                            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm text-gray-700">
-                                        Hiển thị <strong>{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                        <strong>{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                        <strong>{pagination.total}</strong> kết quả
+                            <td className="border border-gray-300 px-3 py-2 font-mono text-indigo-700 text-sm text-center">
+                                {evidence.code}
+                            </td>
+
+                            {/* Tên minh chứng - xuống dòng */}
+                            <td className="border border-gray-300 px-3 py-2 align-top">
+                                <p className="font-semibold text-gray-900 break-words whitespace-pre-wrap leading-snug">
+                                    {evidence.name}
+                                </p>
+                                {evidence.documentNumber && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Số: {evidence.documentNumber}
                                     </p>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() => handlePageChange(pagination.current - 1)}
-                                            disabled={!pagination.hasPrev}
-                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-                                        >
-                                            Trước
-                                        </button>
-                                        {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
-                                            let pageNum;
-                                            if (pagination.pages <= 7) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.current <= 4) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.current >= pagination.pages - 3) {
-                                                pageNum = pagination.pages - 6 + i;
-                                            } else {
-                                                pageNum = pagination.current - 3 + i;
-                                            }
+                                )}
+                            </td>
 
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${
-                                                        pagination.current === pageNum
-                                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                                            : 'border-2 border-gray-200 hover:bg-white'
-                                                    }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                        <button
-                                            onClick={() => handlePageChange(pagination.current + 1)}
-                                            disabled={!pagination.hasNext}
-                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-                                        >
-                                            Sau
-                                        </button>
-                                    </div>
+                            {/* Tiêu chuẩn - xuống dòng */}
+                            <td className="border border-gray-300 px-3 py-2 align-top">
+                                <p className="text-gray-800 text-sm font-medium">
+                                    {evidence.standardId?.code || '--'}
+                                </p>
+                                <p className="text-xs text-gray-600 break-words whitespace-pre-wrap leading-snug mt-0.5">
+                                    {evidence.standardId?.name || ''}
+                                </p>
+                            </td>
+
+                            {/* Tiêu chí - xuống dòng */}
+                            <td className="border border-gray-300 px-3 py-2 align-top">
+                                <p className="text-gray-800 text-sm font-medium">
+                                    {evidence.criteriaId?.code || '--'}
+                                </p>
+                                <p className="text-xs text-gray-600 break-words whitespace-pre-wrap leading-snug mt-0.5">
+                                    {evidence.criteriaId?.name || ''}
+                                </p>
+                            </td>
+
+                            <td className="border border-gray-300 px-3 py-2 text-center">
+        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+          {evidence.files?.length || 0}
+        </span>
+                            </td>
+
+                            <td className="border border-gray-300 px-3 py-2 text-center">
+        <span
+            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                evidence.status
+            )}`}
+        >
+          {getStatusLabel(evidence.status)}
+        </span>
+                            </td>
+
+                            <td className="border border-gray-300 px-3 py-2 text-center text-xs text-gray-600">
+                                {formatDate(evidence.createdAt)}
+                            </td>
+
+                            <td className="border border-gray-300 px-3 py-2 text-right">
+                                <div className="flex items-center justify-end space-x-1">
+                                    <button
+                                        onClick={() => handleViewDetail(evidence._id)}
+                                        className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-md"
+                                        title="Xem chi tiết"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleEdit(evidence)}
+                                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md"
+                                        title="Chỉnh sửa"
+                                    >
+                                        <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleMove(evidence)}
+                                        className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-md"
+                                        title="Di chuyển"
+                                    >
+                                        <ArrowRightLeft className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(evidence._id)}
+                                        className="p-1.5 text-red-600 hover:bg-red-100 rounded-md"
+                                        title="Xóa"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
                                 </div>
-                            </div>
-                        )}
-                    </>
-                )}
+                            </td>
+                        </tr>
+                    ))}
+
+                    {evidences.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan="9"
+                                className="text-center py-6 text-gray-500 italic border border-gray-200"
+                            >
+                                Không có minh chứng nào
+                            </td>
+                        </tr>
+                    )}
+                    </tbody>
+                </table>
             </div>
+
 
             {showMoveModal && selectedEvidence && (
                 <MoveEvidenceModal

@@ -45,7 +45,6 @@ export default function Sidebar({ open, onClose }) {
     const router = useRouter()
     const [collapsed, setCollapsed] = useState(false)
     const [expandedMenus, setExpandedMenus] = useState({})
-
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth < 1024) {
@@ -222,15 +221,8 @@ export default function Sidebar({ open, onClose }) {
 
             <aside
                 id="sidebar"
-                className={`${
-                    open ? 'translate-x-0' : '-translate-x-full'
-                } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 ${
-                    collapsed ? 'w-20' : 'w-72'
-                } bg-white shadow-xl transform transition-all duration-300 ease-in-out lg:transform-none border-r flex flex-col`}
-                style={{
-                    height: '100vh',
-                    borderColor: '#E2E8F0'
-                }}
+                className={`${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 ${collapsed ? 'w-20' : 'w-72'} bg-white shadow-xl transform transition-all duration-300 ease-in-out lg:transform-none border-r flex flex-col h-screen`}
+                style={{ borderColor: '#E2E8F0' }}
             >
                 {/* Header - Fixed */}
                 <div className="flex items-center justify-between p-5 border-b bg-white flex-shrink-0"
@@ -269,8 +261,7 @@ export default function Sidebar({ open, onClose }) {
                 </div>
 
                 {/* Navigation - Scrollable */}
-                <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto"
-                     style={{ maxHeight: 'calc(100vh - 140px)' }}>
+                <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
                     {sidebarItems.map((item, index) => {
                         return (
                             <div key={index}>
