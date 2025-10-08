@@ -1,0 +1,419 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    /* BankDash Color Scheme */
+    --primary: #5B52E1;
+    --primary-dark: #4A42C8;
+    --primary-light: #7B74E8;
+    --secondary: #3B82F6;
+    --accent: #F59E0B;
+    --success: #10B981;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+
+    /* Backgrounds */
+    --bg-primary: #F5F7FA;
+    --bg-secondary: #FFFFFF;
+    --bg-card: #FFFFFF;
+
+    /* Text Colors */
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+    --text-tertiary: #94A3B8;
+
+    /* Border Colors */
+    --border-light: #E2E8F0;
+    --border-medium: #CBD5E1;
+}
+
+[data-theme='dark'] {
+    --primary: #7B74E8;
+    --bg-primary: #0F172A;
+    --bg-secondary: #1E293B;
+    --bg-card: #1E293B;
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --text-tertiary: #94A3B8;
+    --border-light: #334155;
+    --border-medium: #475569;
+}
+
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+
+html,
+body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    background: var(--bg-primary);
+}
+
+body {
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Custom Scrollbar - BankDash Style */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+    background: #1E293B;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+    background: #64748B;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    @apply w-8 h-8 border-2 rounded-full animate-spin;
+    border-color: var(--primary);
+    border-top-color: transparent;
+}
+
+/* Form Inputs - BankDash Style */
+.form-input {
+    @apply w-full px-4 py-3 border rounded-xl shadow-sm transition-all duration-200;
+    background: var(--bg-secondary);
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+.form-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(91, 82, 225, 0.1);
+}
+
+/* Buttons - BankDash Style */
+.btn-primary {
+    @apply font-medium py-3 px-6 rounded-xl transition-all duration-200;
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(91, 82, 225, 0.25);
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(91, 82, 225, 0.35);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    @apply font-medium py-3 px-6 rounded-xl transition-all duration-200;
+    background: #F1F5F9;
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: #E2E8F0;
+}
+
+.btn-danger {
+    @apply font-medium py-3 px-6 rounded-xl transition-all duration-200;
+    background: var(--danger);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-danger:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+}
+
+/* Table - BankDash Style */
+.table {
+    @apply min-w-full divide-y;
+    divide-color: var(--border-light);
+}
+
+.table th {
+    @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider;
+    background: #F8FAFC;
+    color: var(--text-secondary);
+}
+
+.table td {
+    @apply px-6 py-4 whitespace-nowrap text-sm;
+    color: var(--text-primary);
+}
+
+.table tbody tr {
+    @apply transition-colors duration-150;
+}
+
+.table tbody tr:hover {
+    background: #F8FAFC;
+}
+
+/* Modal - BankDash Style */
+.modal-overlay {
+    @apply fixed inset-0 overflow-y-auto h-full w-full z-50;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    @apply relative mx-auto p-6 border shadow-2xl rounded-2xl;
+    background: var(--bg-card);
+    border-color: var(--border-light);
+    max-width: 500px;
+    margin-top: 5vh;
+}
+
+/* Card - BankDash Style */
+.card {
+    @apply overflow-hidden shadow-sm rounded-2xl transition-all duration-200;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+}
+
+.card:hover {
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.card-header {
+    @apply px-6 py-5;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.card-body {
+    @apply px-6 py-6;
+}
+
+.card-footer {
+    @apply px-6 py-4;
+    background: #F8FAFC;
+    border-top: 1px solid var(--border-light);
+}
+
+/* Gradient Card - BankDash Featured Style */
+.card-gradient {
+    @apply overflow-hidden shadow-lg rounded-2xl;
+    background: linear-gradient(135deg, var(--primary) 0%, #3B82F6 100%);
+    border: none;
+    color: white;
+}
+
+/* Badge - BankDash Style */
+.badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+    background: rgba(91, 82, 225, 0.1);
+    color: var(--primary);
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+/* Sidebar - BankDash Style */
+.sidebar {
+    @apply fixed inset-y-0 left-0 z-50 w-64 shadow-xl transform transition-all duration-300 ease-in-out;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-light);
+}
+
+.sidebar-open {
+    @apply translate-x-0;
+}
+
+.sidebar-closed {
+    @apply -translate-x-full;
+}
+
+/* Status Indicators */
+.status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+}
+
+.status-dot-active {
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot-inactive {
+    background: var(--text-tertiary);
+}
+
+/* Dropdown - BankDash Style */
+.dropdown-menu {
+    @apply rounded-xl shadow-lg border;
+    background: var(--bg-card);
+    border-color: var(--border-light);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.1);
+}
+
+.dropdown-item {
+    @apply px-4 py-3 text-sm transition-colors duration-150 rounded-lg;
+    color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+    background: #F8FAFC;
+    color: var(--primary);
+}
+
+/* Responsive Utilities */
+@media (max-width: 640px) {
+    .container {
+        @apply px-4;
+    }
+
+    .modal-container {
+        @apply w-11/12 max-w-md mx-4;
+    }
+
+    .card-body {
+        @apply px-4 py-4;
+    }
+}
+
+@media (max-width: 768px) {
+    .form-input {
+        @apply py-2.5 px-3;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        @apply py-2.5 px-5 text-sm;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .print-break {
+        page-break-before: always;
+    }
+
+    body {
+        background: white;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #E2E8F0;
+    }
+}
+
+/* Animation Classes */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Focus Styles */
+*:focus {
+    outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    box-shadow: 0 0 0 3px rgba(91, 82, 225, 0.2);
+}
+
+/* Selection */
+::selection {
+    background: rgba(91, 82, 225, 0.2);
+    color: var(--text-primary);
+}
