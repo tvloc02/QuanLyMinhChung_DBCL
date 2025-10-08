@@ -190,7 +190,9 @@ export default function EvidenceTree() {
             // Parse dữ liệu
             const evidencesToImport = []
             let currentStandard = ''
+            let currentStandardName = ''
             let currentCriteria = ''
+            let currentCriteriaName = ''
 
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim()
@@ -216,53 +218,77 @@ export default function EvidenceTree() {
 
                 const [tt, code, name] = columns
 
-                // Dòng tiêu chuẩn: Cột A có số (như "1"), Cột B bắt đầu "Tiêu chuẩn", Cột C trống
-                if (tt && !isNaN(tt) && code && code.startsWith('Tiêu chuẩn') && !name) {
+                // Dòng tiêu chuẩn:
+                // - Cột A có số hoặc trống
+                // - Cột B bắt đầu "Tiêu chuẩn"
+                // - Cột C có thể có hoặc không có nội dung
+                if (code && code.match(/^Tiêu chuẩn\s+\d+:/i)) {
                     currentStandard = code
+                    currentStandardName = name || code
                     currentCriteria = ''
+                    currentCriteriaName = ''
                     continue
                 }
 
-                // Dòng tiêu chí: Cột A trống hoặc là text "Tiêu chí", Cột B có "Tiêu chí"
-                if (code && code.startsWith('Tiêu chí')) {
+                // Dòng tiêu chí:
+                // - Cột A trống hoặc có text "Tiêu chí"
+                // - Cột B bắt đầu "Tiêu chí"
+                // - Cột C có thể có hoặc không
+                if (code && code.match(/^Tiêu chí\s+\d+\.\d+:/i)) {
                     currentCriteria = code
+                    currentCriteriaName = name || code
                     continue
                 }
 
-                // Dòng minh chứng: Có TT là số, có code dạng H1.xx.xx.xx, có tên
-                if (tt && !isNaN(tt) && code && name && currentStandard && currentCriteria) {
-                    // Kiểm tra code có dạng minh chứng (VD: H1.01.01.01)
-                    if (code.match(/^H\d+\.\d+\.\d+\.\d+$/)) {
+                // Dòng minh chứng:
+                // - Cột B có mã minh chứng dạng H*.**.**.**
+                // - Cột C có tên minh chứng
+                // - Cột A (TT) có thể trống hoặc có số - không quan trọng
+                if (code && name && currentStandard && currentCriteria) {
+                    // Kiểm tra code có dạng minh chứng (VD: H1.01.01.01, H2.02.01.02)
+                    if (code.match(/^H\d+\.\d+\.\d+\.\d+$/i)) {
                         evidencesToImport.push({
-                            code: code,
-                            name: name,
+                            code: code.toUpperCase(),
+                            name: name.trim(),
                             standard: currentStandard,
+                            standardName: currentStandardName,
                             criteria: currentCriteria,
+                            criteriaName: currentCriteriaName,
                             programId: selectedProgram,
-                            organizationId: selectedOrganization
+                            organizationId: selectedOrganization,
+                            order: tt && !isNaN(tt) ? parseInt(tt) : null
                         })
                     }
                 }
             }
 
             if (evidencesToImport.length === 0) {
-                toast.error('Không tìm thấy minh chứng nào trong file')
+                toast.error('Không tìm thấy minh chứng nào trong file. Vui lòng kiểm tra định dạng file.')
                 return
             }
 
             // Gọi API import
-            await apiMethods.evidences.importFromFile({
+            const result = await apiMethods.evidences.importFromFile({
                 evidences: evidencesToImport,
                 programId: selectedProgram,
                 organizationId: selectedOrganization
             })
 
-            toast.success(`Import thành công ${evidencesToImport.length} minh chứng`)
+            const successCount = result?.data?.data?.successCount || evidencesToImport.length
+            const failCount = result?.data?.data?.failCount || 0
+
+            if (failCount > 0) {
+                toast.success(`Import thành công ${successCount} minh chứng, ${failCount} thất bại`)
+            } else {
+                toast.success(`Import thành công ${successCount} minh chứng`)
+            }
+
             fetchTreeData() // Refresh data
 
         } catch (error) {
             console.error('Import error:', error)
-            toast.error('Lỗi khi import dữ liệu: ' + (error.message || 'Unknown error'))
+            const errorMsg = error?.response?.data?.message || error.message || 'Có lỗi xảy ra'
+            toast.error('Lỗi khi import: ' + errorMsg)
         } finally {
             setImporting(false)
             event.target.value = '' // Reset input
