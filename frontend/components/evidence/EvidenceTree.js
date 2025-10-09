@@ -284,21 +284,24 @@ export default function EvidenceTree() {
 
 
             if (response.data.success) {
-                // SỬA LỖI: Sử dụng Optional Chaining (?. ) và giá trị mặc định [] để tránh lỗi
-                // Cannot read properties of undefined (reading 'length')
-                const { created, updated } = response.data.data
-                const errors = response.data.data.errors || []; // Khai báo errors là mảng rỗng nếu nó undefined
+                // SỬA LỖI: Xử lý errors an toàn và THÊM LỌC SỐ LƯỢNG LỖI TẠO MỚI
+                const { created, updated } = response.data.data.data || response.data.data;
+                const errors = response.data.data.details?.errors || [];
 
-                let message = `Import hoàn tất! (Lỗi: ${errors.length})\n`
-                if (created > 0) message += `- Tổng tạo mới (TC, TC, MC): ${created}\n`
-                if (updated > 0) message += `- Minh chứng cập nhật: ${updated}\n`
+                // Lấy thông báo từ backend (chứa tổng số lượng tạo/cập nhật)
+                let message = response.data.message || `Import hoàn tất! (Lỗi: ${errors.length})\n`
+
                 if (errors.length > 0) {
-                    message += `(Chi tiết ${errors.length} lỗi trong log server)`
+                    // Nếu có lỗi, chỉ hiển thị thông báo lỗi và yêu cầu kiểm tra log
+                    message += `\n- Tồn tại ${errors.length} lỗi (Xem chi tiết trong log server)`
+                    toast.error(message, { duration: 8000 });
+                } else {
+                    // Nếu KHÔNG có lỗi, hiển thị thông báo thành công chi tiết
+                    toast.success(message, { duration: 6000 });
                 }
 
-
-                toast.success(message, { duration: 6000 })
-                fetchTreeData()
+                // QUAN TRỌNG: Tải lại dữ liệu để cập nhật cây minh chứng
+                fetchTreeData();
             } else {
                 toast.error(response.data.message || 'Import thất bại')
             }
