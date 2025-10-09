@@ -136,7 +136,9 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
         const criteriaMap = {};
         allCriteria.forEach(crit => {
-            const standard = allStandards.find(s => s._id.toString() === crit.standardId.toString());
+            const standard = allStandards.find(s =>
+                s._id.toString() === crit.standardId.toString()
+            );
             if (standard) {
                 const key = `${standard.code}.${crit.code}`;
                 criteriaMap[key] = crit._id;
