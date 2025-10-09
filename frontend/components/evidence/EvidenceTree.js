@@ -65,7 +65,7 @@ export default function EvidenceTree() {
     // THAY THẾ: Lấy academicYearId và userId từ nguồn thực tế
     // =========================================================
     // Giả định academicYearId được truyền qua query params.
-    const academicYearId = router.query.academicYearId || '60c72b2f9a941a0015b6d5f6'; // ObjectId hợp lệ giả định
+    const academicYearId = router.query.academicYearId || '68d8b25effe9c2eccae088b4'; // ObjectId hợp lệ giả định
     const userId = user.id; // Lấy ID người dùng từ hook auth
     // =========================================================
 
