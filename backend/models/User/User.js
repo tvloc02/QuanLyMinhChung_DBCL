@@ -40,13 +40,20 @@ const userSchema = new mongoose.Schema({
         }
     },
 
-    // GIỮ LẠI role cũ để tương thích ngược
+    // ============ CẬP NHẬT: ROLES LÀ ARRAY ============
+    roles: [{
+        type: String,
+        enum: ['admin', 'manager', 'expert', 'advisor'],
+        required: true
+    }],
+
+    // GIỮ LẠI role CŨ để tương thích (deprecated)
     role: {
         type: String,
         enum: ['admin', 'manager', 'expert', 'advisor'],
-        default: 'expert',
-        required: [true, 'Vai trò là bắt buộc']
+        default: 'expert'
     },
+    // ==================================================
 
     status: {
         type: String,
@@ -54,20 +61,17 @@ const userSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    // ============ HỆ THỐNG NHÓM MỚI ============
-    // Danh sách nhóm người dùng thuộc về
+    // ============ HỆ THỐNG NHÓM ============
     userGroups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'UserGroup'
     }],
 
-    // Quyền riêng cá nhân (ngoài quyền từ nhóm)
     individualPermissions: [{
         permission: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Permission'
         },
-        // granted: cấp quyền, denied: từ chối quyền
         type: {
             type: String,
             enum: ['granted', 'denied'],
@@ -82,9 +86,8 @@ const userSchema = new mongoose.Schema({
             default: Date.now
         }
     }],
-    // ==========================================
 
-    // Quyền truy cập theo resource (GIỮ LẠI để tương thích)
+    // Quyền truy cập theo resource
     academicYearAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear'
@@ -121,6 +124,72 @@ const userSchema = new mongoose.Schema({
         maxlength: [100, 'Lĩnh vực chuyên môn không được quá 100 ký tự']
     }],
 
+    // ============ THÔNG TIN BỔ SUNG ============
+    avatar: {
+        type: String,
+        default: null
+    },
+
+    dateOfBirth: {
+        type: Date
+    },
+
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other'],
+        default: null
+    },
+
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        country: String,
+        zipCode: String
+    },
+
+    socialLinks: {
+        linkedin: String,
+        facebook: String,
+        twitter: String
+    },
+
+    bio: {
+        type: String,
+        maxlength: [500, 'Bio không được quá 500 ký tự']
+    },
+
+    languages: [{
+        type: String
+    }],
+
+    certifications: [{
+        name: String,
+        issuer: String,
+        issueDate: Date,
+        expiryDate: Date,
+        credentialId: String
+    }],
+
+    education: [{
+        institution: String,
+        degree: String,
+        fieldOfStudy: String,
+        startDate: Date,
+        endDate: Date,
+        description: String
+    }],
+
+    workExperience: [{
+        company: String,
+        position: String,
+        startDate: Date,
+        endDate: Date,
+        current: Boolean,
+        description: String
+    }],
+    // ==========================================
+
     notificationSettings: {
         email: { type: Boolean, default: true },
         inApp: { type: Boolean, default: true },
@@ -154,7 +223,7 @@ const userSchema = new mongoose.Schema({
 
 // Indexes
 userSchema.index({ email: 1 });
-userSchema.index({ role: 1, status: 1 });
+userSchema.index({ roles: 1, status: 1 });
 userSchema.index({ fullName: 'text' });
 userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
@@ -165,6 +234,11 @@ userSchema.virtual('isLocked').get(function() {
 
 // Pre-save middleware
 userSchema.pre('save', async function(next) {
+    // Sync roles and role for backward compatibility
+    if (this.isModified('roles') && this.roles.length > 0) {
+        this.role = this.roles[0]; // Set role to first role in array
+    }
+
     if (!this.isModified('password')) {
         if (this.isModified() && !this.isNew) {
             this.updatedAt = Date.now();
@@ -184,13 +258,9 @@ userSchema.pre('save', async function(next) {
 });
 
 // ============ METHODS MỚI CHO HỆ THỐNG PHÂN QUYỀN ============
-
-// Lấy tất cả quyền của user (từ nhóm + quyền cá nhân)
 userSchema.methods.getAllPermissions = async function() {
     const UserGroup = mongoose.model('UserGroup');
-    const Permission = mongoose.model('Permission');
 
-    // Populate user groups với permissions
     await this.populate({
         path: 'userGroups',
         match: { status: 'active' },
@@ -200,7 +270,6 @@ userSchema.methods.getAllPermissions = async function() {
         }
     });
 
-    // Tập hợp tất cả permissions từ các nhóm
     const groupPermissions = new Map();
     if (this.userGroups) {
         for (const group of this.userGroups) {
@@ -214,7 +283,6 @@ userSchema.methods.getAllPermissions = async function() {
         }
     }
 
-    // Xử lý quyền cá nhân
     await this.populate({
         path: 'individualPermissions.permission',
         match: { status: 'active' }
@@ -226,7 +294,6 @@ userSchema.methods.getAllPermissions = async function() {
                 if (item.type === 'granted') {
                     groupPermissions.set(item.permission.code, item.permission);
                 } else if (item.type === 'denied') {
-                    // Quyền bị denied sẽ ghi đè quyền từ nhóm
                     groupPermissions.delete(item.permission.code);
                 }
             }
@@ -236,13 +303,11 @@ userSchema.methods.getAllPermissions = async function() {
     return Array.from(groupPermissions.values());
 };
 
-// Kiểm tra user có quyền cụ thể không
 userSchema.methods.hasPermission = async function(permissionCode) {
     const permissions = await this.getAllPermissions();
     return permissions.some(p => p.code === permissionCode.toUpperCase());
 };
 
-// Kiểm tra user có quyền trên module
 userSchema.methods.hasModulePermission = async function(module, action = null) {
     const permissions = await this.getAllPermissions();
 
@@ -251,11 +316,9 @@ userSchema.methods.hasModulePermission = async function(module, action = null) {
         return permissions.some(p => p.code === code);
     }
 
-    // Kiểm tra có bất kỳ quyền nào trong module
     return permissions.some(p => p.module === module);
 };
 
-// Kiểm tra user có nhiều quyền (AND logic)
 userSchema.methods.hasAllPermissions = async function(permissionCodes) {
     const permissions = await this.getAllPermissions();
     const codes = permissions.map(p => p.code);
@@ -265,7 +328,6 @@ userSchema.methods.hasAllPermissions = async function(permissionCodes) {
     );
 };
 
-// Kiểm tra user có ít nhất một trong các quyền (OR logic)
 userSchema.methods.hasAnyPermission = async function(permissionCodes) {
     const permissions = await this.getAllPermissions();
     const codes = permissions.map(p => p.code);
@@ -275,13 +337,34 @@ userSchema.methods.hasAnyPermission = async function(permissionCodes) {
     );
 };
 
-// Thêm user vào nhóm
+// ============ METHODS CHO ROLES ============
+userSchema.methods.hasRole = function(role) {
+    return this.roles.includes(role);
+};
+
+userSchema.methods.hasAnyRole = function(roles) {
+    return roles.some(role => this.roles.includes(role));
+};
+
+userSchema.methods.hasAllRoles = function(roles) {
+    return roles.every(role => this.roles.includes(role));
+};
+
+userSchema.methods.addRole = function(role) {
+    if (!this.roles.includes(role)) {
+        this.roles.push(role);
+    }
+};
+
+userSchema.methods.removeRole = function(role) {
+    this.roles = this.roles.filter(r => r !== role);
+};
+
 userSchema.methods.addToGroup = async function(groupId) {
     if (!this.userGroups.includes(groupId)) {
         this.userGroups.push(groupId);
         await this.save();
 
-        // Cập nhật danh sách members trong group
         const UserGroup = mongoose.model('UserGroup');
         await UserGroup.findByIdAndUpdate(groupId, {
             $addToSet: { members: this._id }
@@ -290,14 +373,12 @@ userSchema.methods.addToGroup = async function(groupId) {
     return this;
 };
 
-// Xóa user khỏi nhóm
 userSchema.methods.removeFromGroup = async function(groupId) {
     this.userGroups = this.userGroups.filter(id =>
         id.toString() !== groupId.toString()
     );
     await this.save();
 
-    // Cập nhật danh sách members trong group
     const UserGroup = mongoose.model('UserGroup');
     await UserGroup.findByIdAndUpdate(groupId, {
         $pull: { members: this._id }
@@ -306,14 +387,11 @@ userSchema.methods.removeFromGroup = async function(groupId) {
     return this;
 };
 
-// Cấp quyền cá nhân
 userSchema.methods.grantPermission = async function(permissionId, grantedBy) {
-    // Xóa quyền cũ nếu có
     this.individualPermissions = this.individualPermissions.filter(
         ip => ip.permission.toString() !== permissionId.toString()
     );
 
-    // Thêm quyền mới
     this.individualPermissions.push({
         permission: permissionId,
         type: 'granted',
@@ -325,14 +403,11 @@ userSchema.methods.grantPermission = async function(permissionId, grantedBy) {
     return this;
 };
 
-// Từ chối quyền (deny)
 userSchema.methods.denyPermission = async function(permissionId, grantedBy) {
-    // Xóa quyền cũ nếu có
     this.individualPermissions = this.individualPermissions.filter(
         ip => ip.permission.toString() !== permissionId.toString()
     );
 
-    // Thêm deny
     this.individualPermissions.push({
         permission: permissionId,
         type: 'denied',
@@ -344,7 +419,6 @@ userSchema.methods.denyPermission = async function(permissionId, grantedBy) {
     return this;
 };
 
-// Xóa quyền cá nhân
 userSchema.methods.removeIndividualPermission = async function(permissionId) {
     this.individualPermissions = this.individualPermissions.filter(
         ip => ip.permission.toString() !== permissionId.toString()
