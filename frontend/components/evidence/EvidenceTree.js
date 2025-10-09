@@ -193,12 +193,12 @@ export default function EvidenceTree() {
             ['5', 'H1.01.02.02', 'Ma trận kiến thức kỹ năng'],
             ['', '2', 'Tiêu chuẩn 2: Chương trình đào tạo'],
             ['', '2.1', 'Tiêu chí 2.1: Cấu trúc chương trình đáp ứng chuẩn đầu ra'],
-            ['6', 'H1.02.01.01', 'Quyết định ban hành chương trình đào tạo'],
-            ['7', 'H1.02.01.02', 'Ma trận kiến thức, kỹ năng theo chuẩn đầu ra'],
+            ['6', 'H2.02.01.01', 'Quyết định ban hành chương trình đào tạo'],
+            ['7', 'H2.02.01.02', 'Ma trận kiến thức, kỹ năng theo chuẩn đầu ra'],
             ['', '3', 'Tiêu chuẩn 3: Đội ngũ giảng viên'],
             ['', '3.1', 'Tiêu chí 3.1: Đội ngũ giảng viên đáp ứng yêu cầu'],
-            ['8', 'H1.03.01.01', 'Danh sách giảng viên cơ hữu'],
-            ['9', 'H1.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên'],
+            ['8', 'H3.03.01.01', 'Danh sách giảng viên cơ hữu'],
+            ['9', 'H3.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên'],
         ]
 
         // Tạo worksheet
