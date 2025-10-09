@@ -189,7 +189,12 @@ export default function EvidenceTree() {
             formData.append('organizationId', selectedOrganization)
             formData.append('mode', importMode)
 
-            const response = await apiMethods.evidences.import(formData)
+            // Sử dụng method import cũ nhưng truyền formData đúng cách
+            const response = await apiMethods.evidences.import(selectedFile, {
+                programId: selectedProgram,
+                organizationId: selectedOrganization,
+                mode: importMode
+            })
 
             if (response.data.success) {
                 const { created, updated, errors } = response.data.data

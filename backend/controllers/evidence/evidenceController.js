@@ -825,8 +825,16 @@ const { importEvidencesFromExcel } = require('../../services/importService');
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
-        const { programId, organizationId, mode = 'create' } = req.body;
+        const { programId, organizationId, mode } = req.body;
         const academicYearId = req.academicYearId;
+
+        console.log('Import request:', {
+            hasFile: !!file,
+            programId,
+            organizationId,
+            mode,
+            body: req.body
+        });
 
         if (!file) {
             return res.status(400).json({
@@ -842,8 +850,11 @@ const importEvidences = async (req, res) => {
             });
         }
 
+        // Mặc định là create nếu không có mode
+        const importMode = mode || 'create';
+
         // Kiểm tra mode hợp lệ
-        if (!['create', 'update'].includes(mode)) {
+        if (!['create', 'update'].includes(importMode)) {
             return res.status(400).json({
                 success: false,
                 message: 'Mode phải là "create" hoặc "update"'
@@ -856,7 +867,7 @@ const importEvidences = async (req, res) => {
             programId,
             organizationId,
             req.user.id,
-            mode
+            importMode
         );
 
         // Xóa file tạm
@@ -868,6 +879,16 @@ const importEvidences = async (req, res) => {
 
     } catch (error) {
         console.error('Import evidences error:', error);
+
+        // Xóa file tạm nếu có lỗi
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+                console.error('Error deleting temp file:', unlinkError);
+            }
+        }
+
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi import minh chứng: ' + error.message
@@ -979,6 +1000,7 @@ const getFullEvidenceTree = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     getEvidences,
