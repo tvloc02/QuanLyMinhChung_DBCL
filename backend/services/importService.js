@@ -186,39 +186,138 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
             try {
                 if (identified.type === 'standard') {
-                    // Cập nhật context tiêu chuẩn hiện tại
                     currentStandardCode = identified.parsed.standardCode;
+
+                    // Lấy tên tiêu chuẩn từ cột tên (nameCol)
+                    let standardName = nameStr || `Tiêu chuẩn ${currentStandardCode}`;
+
+                    // Tìm kiếm Standard đã tồn tại
+                    let existingStandard = allStandards.find(s => s.code === currentStandardCode);
+
+                    if (existingStandard) {
+                        // Cập nhật Standard (nếu muốn)
+                        currentStandardId = existingStandard._id;
+                        console.log(`  → Found existing standard: ${currentStandardCode}`);
+                    } else {
+                        // TẠO MỚI STANDARD
+                        if (standardName) {
+                            const newStandard = new StandardModel({
+                                academicYearId,
+                                code: currentStandardCode,
+                                name: standardName,
+                                programId,
+                                organizationId,
+                                createdBy: userId,
+                                updatedBy: userId
+                            });
+
+                            const savedStandard = await newStandard.save();
+                            currentStandardId = savedStandard._id;
+
+                            // Cập nhật lại Standard Map và danh sách
+                            standardMap[currentStandardCode] = currentStandardId;
+                            allStandards.push(savedStandard.toObject());
+
+                            results.created.push({
+                                row: rowNum,
+                                code: codeStr,
+                                message: `Tạo mới Tiêu chuẩn ${currentStandardCode}`
+                            });
+                            console.log(`  → Created new standard: ${currentStandardCode}`);
+                        } else {
+                            results.errors.push({
+                                row: rowNum,
+                                code: codeStr,
+                                message: `Không tìm thấy Tiêu chuẩn ${currentStandardCode} và thiếu tên để tạo mới`
+                            });
+                            currentStandardId = null;
+                        }
+                    }
+
+                    if (currentStandardId) {
+                        console.log(`  → Set current standard: ${currentStandardCode}`);
+                    } else {
+                        results.errors.push({
+                            row: rowNum,
+                            code: codeStr,
+                            message: `Không tìm thấy hoặc tạo được Tiêu chuẩn ${currentStandardCode}`
+                        });
+                    }
+
+                    currentCriteriaId = null;
+
+                } else if (identified.type === 'criteria') {
+                    currentStandardCode = identified.parsed.standardCode;
+                    currentCriteriaCode = identified.parsed.criteriaCode;
+                    const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
+
                     currentStandardId = standardMap[currentStandardCode];
+                    let criteriaName = nameStr || `Tiêu chí ${criteriaKey}`;
+
 
                     if (!currentStandardId) {
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy tiêu chuẩn ${currentStandardCode} trong hệ thống`
-                        });
-                        currentStandardId = null;
-                    } else {
-                        console.log(`  → Set current standard: ${currentStandardCode}`);
-                    }
-                    currentCriteriaId = null;
-
-                } else if (identified.type === 'criteria') {
-                    // Cập nhật context tiêu chí hiện tại
-                    currentStandardCode = identified.parsed.standardCode;
-                    currentCriteriaCode = identified.parsed.criteriaCode;
-                    const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
-                    currentCriteriaId = criteriaMap[criteriaKey];
-                    currentStandardId = standardMap[currentStandardCode];
-
-                    if (!currentCriteriaId) {
-                        results.errors.push({
-                            row: rowNum,
-                            code: codeStr,
-                            message: `Không tìm thấy tiêu chí ${criteriaKey} trong hệ thống`
+                            message: `Tiêu chuẩn ${currentStandardCode} chưa tồn tại. Không thể tạo Tiêu chí ${criteriaKey}.`
                         });
                         currentCriteriaId = null;
+                        currentStandardId = null; // Đặt lại để tránh nhầm lẫn
+
                     } else {
+                        // Tìm kiếm Criteria đã tồn tại
+                        let existingCriteria = allCriteria.find(c => {
+                            const stdIdString = c.standardId.toString();
+                            const parentStd = allStandards.find(s => s._id.toString() === stdIdString);
+                            return parentStd && parentStd.code === currentStandardCode && c.code === currentCriteriaCode;
+                        });
+
+                        if (existingCriteria) {
+                            // Cập nhật Criteria (nếu muốn)
+                            currentCriteriaId = existingCriteria._id;
+                            console.log(`  → Found existing criteria: ${criteriaKey}`);
+                        } else {
+                            // TẠO MỚI CRITERIA
+                            if (criteriaName) {
+                                const newCriteria = new CriteriaModel({
+                                    academicYearId,
+                                    code: currentCriteriaCode,
+                                    name: criteriaName,
+                                    programId,
+                                    organizationId,
+                                    standardId: currentStandardId,
+                                    createdBy: userId,
+                                    updatedBy: userId
+                                });
+
+                                const savedCriteria = await newCriteria.save();
+                                currentCriteriaId = savedCriteria._id;
+
+                                // Cập nhật lại Criteria Map và danh sách
+                                criteriaMap[criteriaKey] = currentCriteriaId;
+                                allCriteria.push(savedCriteria.toObject());
+
+                                results.created.push({
+                                    row: rowNum,
+                                    code: codeStr,
+                                    message: `Tạo mới Tiêu chí ${criteriaKey}`
+                                });
+                                console.log(`  → Created new criteria: ${criteriaKey}`);
+                            } else {
+                                results.errors.push({
+                                    row: rowNum,
+                                    code: codeStr,
+                                    message: `Không tìm thấy Tiêu chí ${criteriaKey} và thiếu tên để tạo mới`
+                                });
+                                currentCriteriaId = null;
+                            }
+                        }
+                    }
+
+                    if (currentCriteriaId) {
                         console.log(`  → Set current criteria: ${criteriaKey}`);
+                    } else {
+                        currentCriteriaId = null;
                     }
 
                 } else if (identified.type === 'evidence') {
