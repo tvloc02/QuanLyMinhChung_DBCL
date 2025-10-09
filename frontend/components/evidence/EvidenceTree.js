@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react' // Thêm useRef
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
@@ -26,8 +26,27 @@ import {
     AlertCircle
 } from 'lucide-react'
 
+// =========================================================
+// THÊM: HOOK GIẢ ĐỊNH useAuth
+// BẠN PHẢI THAY THẾ HOOK NÀY BẰNG HOOK AUTH THỰC TẾ CỦA BẠN
+// (Nơi lưu trữ thông tin người dùng và ID của họ)
+// =========================================================
+const useAuth = () => {
+    // Trong ứng dụng thực tế, bạn sẽ dùng useContext(AuthContext)
+    // Giả định người dùng đăng nhập và có ID hợp lệ
+    const user = {
+        id: '60c72b2f9a941a0015b6d5f7', // ObjectId hợp lệ giả định
+        isLoggedIn: true
+    };
+    return user;
+};
+// =========================================================
+
+
 export default function EvidenceTree() {
     const router = useRouter()
+    const user = useAuth(); // Lấy thông tin người dùng
+
     const [loading, setLoading] = useState(true)
     const [treeData, setTreeData] = useState([])
     const [expandedNodes, setExpandedNodes] = useState({})
@@ -43,14 +62,12 @@ export default function EvidenceTree() {
     const [statistics, setStatistics] = useState(null)
 
     // =========================================================
-    // THÊM: Biến giả định cho academicYearId và userId
-    // BẠN PHẢI THAY THẾ CHÚNG BẰNG LOGIC LẤY ID THỰC TẾ
-    // Ví dụ: Lấy từ Context, Props, hoặc Router Query
+    // THAY THẾ: Lấy academicYearId và userId từ nguồn thực tế
     // =========================================================
-    const academicYearId = router.query.academicYearId || 'GIẢ ĐỊNH_ACADEMIC_YEAR_ID';
-    const userId = 'GIẢ ĐỊNH_USER_ID';
+    // Giả định academicYearId được truyền qua query params.
+    const academicYearId = router.query.academicYearId || '60c72b2f9a941a0015b6d5f6'; // ObjectId hợp lệ giả định
+    const userId = user.id; // Lấy ID người dùng từ hook auth
     // =========================================================
-
 
     useEffect(() => {
         fetchPrograms()
@@ -69,6 +86,7 @@ export default function EvidenceTree() {
             const programsData = response.data.data.programs || response.data.data || []
             setPrograms(programsData)
             if (programsData.length > 0) {
+                // Đảm bảo ID được chọn là một ObjectId hợp lệ (vì nó đến từ DB)
                 setSelectedProgram(programsData[0]._id)
             }
         } catch (error) {
@@ -83,6 +101,7 @@ export default function EvidenceTree() {
             const organizationsData = response.data.data.organizations || response.data.data || []
             setOrganizations(organizationsData)
             if (organizationsData.length > 0) {
+                // Đảm bảo ID được chọn là một ObjectId hợp lệ (vì nó đến từ DB)
                 setSelectedOrganization(organizationsData[0]._id)
             }
         } catch (error) {
@@ -215,6 +234,7 @@ export default function EvidenceTree() {
         const file = event.target.files?.[0]
         if (!file) return
 
+        // BƯỚC 2: Đảm bảo các ID hợp lệ đã được chọn
         if (!selectedProgram || !selectedOrganization) {
             toast.error('Vui lòng chọn Chương trình và Tổ chức trước')
             event.target.value = ''
@@ -223,7 +243,7 @@ export default function EvidenceTree() {
 
         // Kiểm tra hai biến quan trọng mà backend cần
         if (!academicYearId || !userId) {
-            toast.error('Không tìm thấy ID Năm học hoặc ID Người dùng. Vui lòng kiểm tra đăng nhập/cấu hình.')
+            toast.error('Không tìm thấy ID Năm học hoặc ID Người dùng. Vui lòng kiểm tra cấu hình.')
             event.target.value = ''
             return
         }
@@ -232,9 +252,6 @@ export default function EvidenceTree() {
         setShowImportModal(true)
     }
 
-    // =================================================================
-    // SỬA LỖI: Cập nhật hàm handleImport để truyền đầy đủ tham số
-    // =================================================================
     const handleImport = async () => {
         if (!selectedFile) return
 
@@ -253,27 +270,21 @@ export default function EvidenceTree() {
             formData.append('file', selectedFile)
 
             // 2. Thêm các tham số BẮT BUỘC vào FormData
+            // Đảm bảo các giá trị này là ObjectId hợp lệ để tránh lỗi 400 (CastError)
             formData.append('programId', selectedProgram)
             formData.append('organizationId', selectedOrganization)
             formData.append('mode', importMode)
 
-            // THÊM 2 THAM SỐ CÒN THIẾU
+            // BƯỚC 1: Thêm academicYearId và userId (được giả định là ObjectId hợp lệ)
             formData.append('academicYearId', academicYearId)
             formData.append('userId', userId)
 
-            // THAY ĐỔI: Gọi API với FormData
-            // HÀM apiMethods.evidences.import (từ dòng 231 cũ) SẼ ĐƯỢC GỌI VỚI FORMDATA
-            // và KHÔNG còn dùng object params {programId: ...} nữa.
+            // Gọi API với FormData
             const response = await apiMethods.evidences.import(formData);
 
 
             if (response.data.success) {
-                // Backend mới trả về thông tin chi tiết hơn
                 const { created, updated, errors } = response.data.data
-
-                // Lọc số lượng Evidence được tạo (vì created giờ bao gồm Standard/Criteria)
-                const createdEvidences = created - (errors.filter(e => e.type === 'standard').length + errors.filter(e => e.type === 'criteria').length);
-
 
                 let message = `Import hoàn tất! (Lỗi: ${errors.length})\n`
                 if (created > 0) message += `- Tổng tạo mới (TC, TC, MC): ${created}\n`
@@ -286,7 +297,8 @@ export default function EvidenceTree() {
             }
 
         } catch (error) {
-            console.error('Import error:', error)
+            console.error('Import error:', error.response?.data || error);
+            // Lỗi 400 thường chứa thông báo chi tiết từ backend
             const errorMessage = error.response?.data?.message || error.message;
             toast.error('Lỗi khi import: ' + errorMessage)
         } finally {
@@ -298,7 +310,6 @@ export default function EvidenceTree() {
             if (fileInput) fileInput.value = ''
         }
     }
-    // =================================================================
 
 
     const handleExport = async () => {
@@ -415,19 +426,17 @@ export default function EvidenceTree() {
                         </select>
                     </div>
 
+                    {/* Hiển thị ID năm học (giả định) */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Search className="h-4 w-4 inline mr-1" />
-                            Tìm kiếm
+                            <FileText className="h-4 w-4 inline mr-1" />
+                            ID Năm học
                         </label>
-                        <input
-                            type="text"
-                            placeholder="Tìm theo tên hoặc mã..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        />
+                        <div className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-xl truncate">
+                            {academicYearId || 'Đang tải...'}
+                        </div>
                     </div>
+
 
                     <div className="flex items-end">
                         <button
