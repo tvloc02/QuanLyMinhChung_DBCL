@@ -408,12 +408,31 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                 }
 
             } catch (error) {
-                console.error(`  → Error processing row ${rowNum} (${identified.type}):`, error.message);
-                results.errors.push({
-                    row: rowNum,
-                    code: codeStr,
-                    message: error.message
-                });
+                // SỬA: Log toàn bộ chi tiết lỗi Validation hoặc CastError
+                const errorMessage = error.message || 'Lỗi không xác định';
+                console.error(`  → Error processing row ${rowNum} (${identified.type}):`, errorMessage, error);
+
+                // Nếu là lỗi validation Mongoose, lấy thông báo chi tiết
+                if (error.name === 'ValidationError') {
+                    const messages = Object.values(error.errors).map(err => err.message).join('; ');
+                    results.errors.push({
+                        row: rowNum,
+                        code: codeStr,
+                        message: `Lỗi Validation: ${messages}` // Sửa lỗi chi tiết hơn
+                    });
+                } else if (error.name === 'CastError') {
+                    results.errors.push({
+                        row: rowNum,
+                        code: codeStr,
+                        message: `Lỗi định dạng ID: ${error.reason.message}`
+                    });
+                } else {
+                    results.errors.push({
+                        row: rowNum,
+                        code: codeStr,
+                        message: errorMessage // Lỗi chung (như "Không tìm thấy tiêu chuẩn")
+                    });
+                }
             }
         }
 
