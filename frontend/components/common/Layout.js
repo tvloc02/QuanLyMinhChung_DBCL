@@ -19,21 +19,7 @@ export default function Layout({ children, title, breadcrumbItems }) {
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
-    // Tính toán margin và width để content kéo dãn
-    const getContentStyles = () => {
-        if (!isDesktop) {
-            return {
-                marginLeft: '0',
-                width: '100%'
-            }
-        }
-
-        const sidebarWidth = sidebarCollapsed ? 80 : 288
-        return {
-            marginLeft: `${sidebarWidth}px`,
-            width: `calc(100% - ${sidebarWidth}px)`
-        }
-    }
+    const sidebarWidth = isDesktop ? (sidebarCollapsed ? 80 : 288) : 0
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
@@ -49,13 +35,18 @@ export default function Layout({ children, title, breadcrumbItems }) {
                     onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                 />
 
-                {/* Main Content - Kéo dãn theo sidebar */}
+                {/* Main Content - PHÓNG TO THẬT SỰ */}
                 <div
-                    className="flex flex-col flex-1 transition-all duration-300"
-                    style={getContentStyles()}
+                    className="flex flex-col transition-all duration-300"
+                    style={{
+                        marginLeft: `${sidebarWidth}px`,
+                        width: `calc(100% - ${sidebarWidth}px)`,
+                        minHeight: 'calc(100vh - 80px)'
+                    }}
                 >
+                    {/* BỎ max-w-7xl để content tự do kéo dãn toàn màn hình */}
                     <main className="flex-grow p-6 overflow-y-auto w-full">
-                        <div className="max-w-7xl mx-auto w-full">
+                        <div className="w-full">
                             {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
 
                             {title && (
@@ -64,6 +55,7 @@ export default function Layout({ children, title, breadcrumbItems }) {
                                 </div>
                             )}
 
+                            {/* Children sẽ tự động chiếm toàn bộ width */}
                             {children}
                         </div>
                     </main>
