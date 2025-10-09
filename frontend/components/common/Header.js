@@ -210,7 +210,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             case 'high':
                 return <AlertTriangle className="h-4 w-4 text-orange-500" />
             default:
-                return <Info className="h-4 w-4" style={{ color: '#6366F1' }} />
+                return <Info className="h-4 w-4" style={{ color: '#5B52E1' }} />
         }
     }
 
@@ -321,8 +321,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
         const configs = {
             active: {
                 label: 'Đang hoạt động',
-                color: 'text-emerald-700 bg-emerald-50',
-                dot: 'bg-emerald-500'
+                color: 'text-green-700 bg-green-50',
+                dot: 'bg-green-500'
             },
             completed: {
                 label: 'Đã hoàn thành',
@@ -331,8 +331,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             },
             draft: {
                 label: 'Nháp',
-                color: 'text-amber-700 bg-amber-50',
-                dot: 'bg-amber-500'
+                color: 'text-yellow-700 bg-yellow-50',
+                dot: 'bg-yellow-500'
             },
             archived: {
                 label: 'Đã lưu trữ',
@@ -357,47 +357,51 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     }, [])
 
     return (
-        <header className="fixed top-0 left-0 right-0 bg-white shadow-md border-b z-50" style={{ borderColor: '#E5E7EB', height: '80px' }}>
-            <div className="flex items-center justify-between px-6 h-full">
+        <header className="bg-white shadow-sm border-b sticky top-0 z-50" style={{ borderColor: '#E2E8F0' }}>
+            <div className="flex items-center justify-between px-6 py-4">
                 {/* Left side */}
                 <div className="flex items-center space-x-4">
                     <button
                         onClick={onMenuClick}
-                        className="p-2 rounded-xl text-gray-500 hover:bg-indigo-50 lg:hidden transition-colors"
+                        className="p-2 rounded-xl text-gray-500 hover:bg-gray-50 lg:hidden transition-colors"
                     >
                         {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                     </button>
 
                     <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-                             style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
-                            <span className="text-white font-bold text-lg">TĐG</span>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                             style={{ background: 'linear-gradient(135deg, #5B52E1 0%, #3B82F6 100%)' }}>
+                            <span className="text-white font-bold text-base">TĐG</span>
                         </div>
                         <div className="hidden sm:block">
-                            <h1 className="text-xl font-bold text-gray-900">CMC University</h1>
-                            <p className="text-sm text-gray-500">Hệ thống đánh giá chất lượng</p>
+                            <h1 className="text-lg font-bold" style={{ color: '#0F172A' }}>CMC University</h1>
+                            <p className="text-sm" style={{ color: '#64748B' }}>Hệ thống đánh giá chất lượng</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Center - Search */}
-                <div className="hidden md:flex flex-1 max-w-2xl mx-8">
+                <div className="hidden md:flex flex-1 max-w-lg mx-8">
                     <div className="relative w-full">
-                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5" style={{ color: '#94A3B8' }} />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm minh chứng, báo cáo, tiêu chí..."
-                            className="w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-all text-gray-700 bg-gray-50"
-                            style={{ borderColor: '#E5E7EB' }}
+                            placeholder="Tìm kiếm minh chứng, báo cáo..."
+                            className="w-full pl-12 pr-4 py-3 border rounded-xl focus:outline-none transition-all"
+                            style={{
+                                borderColor: '#E2E8F0',
+                                color: '#1E293B',
+                                background: '#F8FAFC'
+                            }}
                             onFocus={(e) => {
-                                e.target.style.borderColor = '#6366F1'
-                                e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                                e.target.style.borderColor = '#5B52E1'
+                                e.target.style.boxShadow = '0 0 0 3px rgba(91, 82, 225, 0.1)'
                                 e.target.style.background = 'white'
                             }}
                             onBlur={(e) => {
-                                e.target.style.borderColor = '#E5E7EB'
+                                e.target.style.borderColor = '#E2E8F0'
                                 e.target.style.boxShadow = 'none'
-                                e.target.style.background = '#F9FAFB'
+                                e.target.style.background = '#F8FAFC'
                             }}
                         />
                     </div>
@@ -410,24 +414,24 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         <button
                             onClick={() => !changing && setAcademicYearDropdownOpen(!academicYearDropdownOpen)}
                             disabled={changing}
-                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-indigo-50 border-2 transition-all ${
+                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-gray-50 border transition-all ${
                                 changing ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
-                            style={{ borderColor: '#E5E7EB' }}
+                            style={{ borderColor: '#E2E8F0' }}
                             title="Chọn năm học"
                         >
                             {changing ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#5B52E1' }} />
                             ) : (
-                                <Calendar className="h-5 w-5 text-indigo-600" />
+                                <Calendar className="h-4 w-4" style={{ color: '#5B52E1' }} />
                             )}
 
                             <div className="hidden lg:block text-left min-w-0">
-                                <p className="text-sm font-bold text-gray-900 truncate">
+                                <p className="text-sm font-semibold truncate" style={{ color: '#0F172A' }}>
                                     {loading ? 'Đang tải...' : currentAcademicYear?.name || 'Chọn năm học'}
                                 </p>
                                 {currentAcademicYear && !loading && (
-                                    <p className="text-xs text-gray-500 truncate">
+                                    <p className="text-xs truncate" style={{ color: '#64748B' }}>
                                         {getStatusConfig(currentAcademicYear.status).label}
                                     </p>
                                 )}
@@ -435,25 +439,31 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     <p className="text-xs text-red-500 truncate">Lỗi tải dữ liệu</p>
                                 )}
                             </div>
-                            <ChevronDown className={`h-4 w-4 transition-transform text-gray-500 ${
+                            <ChevronDown className={`h-4 w-4 transition-transform ${
                                 academicYearDropdownOpen ? 'rotate-180' : ''
-                            }`} />
+                            }`} style={{ color: '#64748B' }} />
                         </button>
 
                         {academicYearDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border-2 z-50 max-h-96 overflow-hidden"
-                                 style={{ borderColor: '#E5E7EB' }}>
-                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50"
-                                     style={{ borderColor: '#E5E7EB' }}>
+                            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border z-50 max-h-96 overflow-hidden"
+                                 style={{
+                                     borderColor: '#E2E8F0',
+                                     boxShadow: '0 10px 40px rgba(15, 23, 42, 0.1)'
+                                 }}>
+                                <div className="px-4 py-3 border-b" style={{
+                                    borderColor: '#E2E8F0',
+                                    background: '#F8FAFC'
+                                }}>
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-bold text-gray-900">Chọn năm học</p>
-                                            <p className="text-xs text-gray-600">Dữ liệu sẽ được cập nhật theo năm học đã chọn</p>
+                                            <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Chọn năm học</p>
+                                            <p className="text-xs" style={{ color: '#64748B' }}>Dữ liệu sẽ được cập nhật theo năm học đã chọn</p>
                                         </div>
                                         <a
                                             href="/academic-years/create"
-                                            className="p-2 rounded-lg hover:bg-white transition-colors text-indigo-600"
+                                            className="p-2 rounded-lg hover:bg-white transition-colors"
                                             title="Tạo năm học mới"
+                                            style={{ color: '#5B52E1' }}
                                         >
                                             <Plus className="h-4 w-4" />
                                         </a>
@@ -463,8 +473,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 <div className="max-h-64 overflow-y-auto">
                                     {loading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                                            <span className="ml-2 text-sm text-gray-600">Đang tải...</span>
+                                            <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#5B52E1' }} />
+                                            <span className="ml-2 text-sm" style={{ color: '#64748B' }}>Đang tải...</span>
                                         </div>
                                     ) : error ? (
                                         <div className="px-4 py-6 text-center">
@@ -472,7 +482,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <p className="text-sm text-red-600 mb-2">Không thể tải danh sách năm học</p>
                                             <button
                                                 onClick={fetchAcademicYears}
-                                                className="text-xs font-medium text-indigo-600"
+                                                className="text-xs font-medium"
+                                                style={{ color: '#5B52E1' }}
                                             >
                                                 Thử lại
                                             </button>
@@ -480,10 +491,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     ) : academicYears.length === 0 ? (
                                         <div className="px-4 py-8 text-center">
                                             <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                            <p className="text-sm mb-2 text-gray-600">Chưa có năm học nào</p>
+                                            <p className="text-sm mb-2" style={{ color: '#64748B' }}>Chưa có năm học nào</p>
                                             <a
                                                 href="/academic-years/create"
-                                                className="text-sm font-medium text-indigo-600"
+                                                className="text-sm font-medium"
+                                                style={{ color: '#5B52E1' }}
                                             >
                                                 Tạo năm học đầu tiên
                                             </a>
@@ -496,28 +508,29 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                     key={year._id}
                                                     onClick={() => handleAcademicYearChange(year)}
                                                     disabled={changing}
-                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-indigo-50 transition-colors ${
-                                                        currentAcademicYear?._id === year._id ? 'border-r-4 bg-indigo-50' : ''
+                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                                                        currentAcademicYear?._id === year._id ? 'border-r-2' : ''
                                                     } ${changing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     style={currentAcademicYear?._id === year._id ? {
-                                                        borderRightColor: '#6366F1'
+                                                        background: '#F0EFFE',
+                                                        borderRightColor: '#5B52E1'
                                                     } : {}}
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center space-x-2 mb-1">
-                                                            <p className="text-sm font-bold text-gray-900 truncate">
+                                                            <p className="text-sm font-semibold truncate" style={{ color: '#0F172A' }}>
                                                                 {year.name}
                                                             </p>
                                                             {currentAcademicYear?._id === year._id && (
-                                                                <Check className="h-4 w-4 flex-shrink-0 text-indigo-600" />
+                                                                <Check className="h-4 w-4 flex-shrink-0" style={{ color: '#5B52E1' }} />
                                                             )}
                                                         </div>
                                                         <div className="flex items-center space-x-2">
-                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${statusConfig.color}`}>
+                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${statusConfig.color}`}>
                                                                 <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${statusConfig.dot}`}></div>
                                                                 {statusConfig.label}
                                                             </span>
-                                                            <span className="text-xs text-gray-500 truncate">
+                                                            <span className="text-xs truncate" style={{ color: '#64748B' }}>
                                                                 {year.code}
                                                             </span>
                                                         </div>
@@ -529,10 +542,17 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 </div>
 
                                 {academicYears.length > 0 && (
-                                    <div className="px-4 py-2 border-t-2 bg-gray-50" style={{ borderColor: '#E5E7EB' }}>
-                                        <div className="flex items-center justify-between text-xs text-gray-600">
-                                            <span className="font-semibold">{academicYears.length} năm học</span>
-                                            <a href="/academic-years" className="font-bold text-indigo-600">
+                                    <div className="px-4 py-2 border-t" style={{
+                                        borderColor: '#E2E8F0',
+                                        background: '#F8FAFC'
+                                    }}>
+                                        <div className="flex items-center justify-between text-xs" style={{ color: '#64748B' }}>
+                                            <span>{academicYears.length} năm học</span>
+                                            <a
+                                                href="/academic-years"
+                                                className="font-medium"
+                                                style={{ color: '#5B52E1' }}
+                                            >
                                                 Quản lý →
                                             </a>
                                         </div>
@@ -542,56 +562,58 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         )}
                     </div>
 
-                    {/* Notification Bell with Backdrop */}
+                    {/* Notification Bell */}
                     <div className="relative dropdown-container">
-                        <div className="relative">
+                        <button
+                            onClick={() => {
+                                setNotificationDropdownOpen(!notificationDropdownOpen)
+                                if (!notificationDropdownOpen) {
+                                    fetchNotifications()
+                                }
+                            }}
+                            className="p-2.5 rounded-xl hover:bg-gray-50 relative transition-colors"
+                            style={{ color: '#64748B' }}
+                        >
+                            <Bell className="h-5 w-5" />
                             {unreadCount > 0 && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-pink-500 rounded-xl blur-md opacity-50 animate-pulse"></div>
+                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
                             )}
-                            <button
-                                onClick={() => {
-                                    setNotificationDropdownOpen(!notificationDropdownOpen)
-                                    if (!notificationDropdownOpen) {
-                                        fetchNotifications()
-                                    }
-                                }}
-                                className="relative p-3 rounded-xl hover:bg-indigo-50 transition-colors border-2"
-                                style={{ borderColor: unreadCount > 0 ? '#EF4444' : '#E5E7EB' }}
-                            >
-                                <Bell className="h-5 w-5 text-gray-600" />
-                                {unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 h-6 w-6 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
-                                        {unreadCount > 99 ? '99+' : unreadCount}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
+                        </button>
 
                         {notificationDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border-2 z-50 max-h-[32rem] overflow-hidden"
-                                 style={{ borderColor: '#E5E7EB' }}>
-                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50"
-                                     style={{ borderColor: '#E5E7EB' }}>
+                            <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border z-50 max-h-[32rem] overflow-hidden"
+                                 style={{
+                                     borderColor: '#E2E8F0',
+                                     boxShadow: '0 10px 40px rgba(15, 23, 42, 0.1)'
+                                 }}>
+                                <div className="px-4 py-3 border-b" style={{
+                                    borderColor: '#E2E8F0',
+                                    background: '#F8FAFC'
+                                }}>
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-bold text-gray-900">Thông báo</p>
+                                            <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Thông báo</p>
                                             {unreadCount > 0 && (
-                                                <p className="text-xs text-gray-600">{unreadCount} thông báo chưa đọc</p>
+                                                <p className="text-xs" style={{ color: '#64748B' }}>{unreadCount} thông báo chưa đọc</p>
                                             )}
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             {unreadCount > 0 && (
                                                 <button
                                                     onClick={handleMarkAllAsRead}
-                                                    className="text-xs font-medium p-1 rounded-lg hover:bg-white transition-colors text-indigo-600"
+                                                    className="text-xs font-medium p-1 rounded-lg hover:bg-white transition-colors"
                                                     title="Đánh dấu tất cả đã đọc"
+                                                    style={{ color: '#5B52E1' }}
                                                 >
                                                     <CheckCheck className="h-4 w-4" />
                                                 </button>
                                             )}
                                             <button
                                                 onClick={() => router.push('/notifications/notifications')}
-                                                className="text-xs font-bold text-indigo-600"
+                                                className="text-xs"
+                                                style={{ color: '#5B52E1' }}
                                             >
                                                 Xem tất cả →
                                             </button>
@@ -602,24 +624,24 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 <div className="max-h-96 overflow-y-auto">
                                     {notificationsLoading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                                            <span className="ml-2 text-sm text-gray-600">Đang tải...</span>
+                                            <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#5B52E1' }} />
+                                            <span className="ml-2 text-sm" style={{ color: '#64748B' }}>Đang tải...</span>
                                         </div>
                                     ) : notifications.length === 0 ? (
                                         <div className="px-4 py-12 text-center">
                                             <Bell className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                            <p className="text-sm mb-1 text-gray-600 font-semibold">Không có thông báo mới</p>
-                                            <p className="text-xs text-gray-500">Các thông báo của bạn sẽ xuất hiện ở đây</p>
+                                            <p className="text-sm mb-1" style={{ color: '#64748B' }}>Không có thông báo mới</p>
+                                            <p className="text-xs" style={{ color: '#94A3B8' }}>Các thông báo của bạn sẽ xuất hiện ở đây</p>
                                         </div>
                                     ) : (
                                         notifications.map((notification) => (
                                             <div
                                                 key={notification._id}
                                                 onClick={() => handleNotificationClick(notification)}
-                                                className={`px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b-2 transition-colors ${
+                                                className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b transition-colors ${
                                                     notification.isUnread ? 'bg-blue-50' : ''
                                                 }`}
-                                                style={{ borderColor: '#E5E7EB' }}
+                                                style={{ borderColor: '#E2E8F0' }}
                                             >
                                                 <div className="flex items-start space-x-3">
                                                     <div className="flex-shrink-0 mt-1">
@@ -627,30 +649,31 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start justify-between mb-1">
-                                                            <p className={`text-sm font-bold ${
+                                                            <p className={`text-sm font-semibold ${
                                                                 notification.isUnread ? 'text-gray-900' : 'text-gray-700'
-                                                            }`}>
+                                                            }`} style={notification.isUnread ? { color: '#0F172A' } : { color: '#475569' }}>
                                                                 {notification.title}
                                                             </p>
                                                             {notification.isUnread && (
                                                                 <div className="flex-shrink-0 ml-2">
-                                                                    <div className="h-2 w-2 rounded-full bg-indigo-600"></div>
+                                                                    <div className="h-2 w-2 rounded-full" style={{ background: '#5B52E1' }}></div>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <p className="text-xs mb-2 line-clamp-2 text-gray-600">
+                                                        <p className="text-xs mb-2 line-clamp-2" style={{ color: '#64748B' }}>
                                                             {notification.message}
                                                         </p>
                                                         <div className="flex items-center justify-between">
-                                                            <div className="flex items-center text-xs text-gray-500">
+                                                            <div className="flex items-center text-xs" style={{ color: '#94A3B8' }}>
                                                                 <Clock className="h-3 w-3 mr-1" />
                                                                 {formatNotificationTime(notification.createdAt)}
                                                             </div>
                                                             {notification.isUnread && (
                                                                 <button
                                                                     onClick={(e) => handleMarkAsRead(e, notification._id)}
-                                                                    className="text-xs font-medium text-indigo-600"
+                                                                    className="text-xs font-medium"
                                                                     title="Đánh dấu đã đọc"
+                                                                    style={{ color: '#5B52E1' }}
                                                                 >
                                                                     <Eye className="h-3 w-3" />
                                                                 </button>
@@ -664,13 +687,17 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 </div>
 
                                 {notifications.length > 0 && (
-                                    <div className="px-4 py-3 border-t-2 bg-gray-50" style={{ borderColor: '#E5E7EB' }}>
+                                    <div className="px-4 py-3 border-t" style={{
+                                        borderColor: '#E2E8F0',
+                                        background: '#F8FAFC'
+                                    }}>
                                         <button
                                             onClick={() => {
                                                 setNotificationDropdownOpen(false)
                                                 router.push('/notifications')
                                             }}
-                                            className="w-full text-center text-sm font-bold text-indigo-600"
+                                            className="w-full text-center text-sm font-medium"
+                                            style={{ color: '#5B52E1' }}
                                         >
                                             Xem tất cả thông báo
                                         </button>
@@ -684,45 +711,50 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     <div className="relative dropdown-container">
                         <button
                             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-indigo-50 transition-colors border-2"
-                            style={{ borderColor: '#E5E7EB' }}
+                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-gray-50 transition-colors"
                         >
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
-                                 style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
-                                <span className="text-white text-sm font-bold">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                                 style={{ background: 'linear-gradient(135deg, #5B52E1 0%, #3B82F6 100%)' }}>
+                                <span className="text-white text-sm font-semibold">
                                     {user?.fullName ? user.fullName.charAt(0).toUpperCase() :
                                         user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </span>
                             </div>
                             <div className="hidden sm:block text-left">
-                                <p className="text-sm font-bold text-gray-900">
+                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>
                                     {user?.fullName || user?.name || user?.email || 'User'}
                                 </p>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs" style={{ color: '#64748B' }}>
                                     {user?.role === 'admin' ? 'Quản trị viên' :
                                         user?.role === 'manager' ? 'Cán bộ quản lý' :
                                             user?.role === 'expert' ? 'Chuyên gia đánh giá' :
                                                 user?.role === 'advisor' ? 'Tư vấn/Giám sát' : 'Người dùng'}
                                 </p>
                             </div>
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                            <ChevronDown className="h-4 w-4" style={{ color: '#64748B' }} />
                         </button>
 
                         {userDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border-2"
-                                 style={{ borderColor: '#E5E7EB' }}>
-                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
-                                    <User className="h-4 w-4 mr-3 text-gray-600" />
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border"
+                                 style={{
+                                     borderColor: '#E2E8F0',
+                                     boxShadow: '0 10px 40px rgba(15, 23, 42, 0.1)'
+                                 }}>
+                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-gray-50 transition-colors rounded-lg mx-2"
+                                   style={{ color: '#0F172A' }}>
+                                    <User className="h-4 w-4 mr-3" style={{ color: '#64748B' }} />
                                     Thông tin tài khoản
                                 </a>
-                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
-                                    <Settings className="h-4 w-4 mr-3 text-gray-600" />
+                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-gray-50 transition-colors rounded-lg mx-2"
+                                   style={{ color: '#0F172A' }}>
+                                    <Settings className="h-4 w-4 mr-3" style={{ color: '#64748B' }} />
                                     Cài đặt
                                 </a>
-                                <hr className="my-2" style={{ borderColor: '#E5E7EB' }} />
+                                <hr className="my-2" style={{ borderColor: '#E2E8F0' }} />
                                 <button
                                     onClick={handleLogout}
-                                    className="flex items-center w-full px-4 py-3 text-sm hover:bg-red-50 transition-colors rounded-lg mx-2 text-red-600 font-bold"
+                                    className="flex items-center w-full px-4 py-3 text-sm hover:bg-gray-50 transition-colors rounded-lg mx-2"
+                                    style={{ color: '#EF4444' }}
                                 >
                                     <LogOut className="h-4 w-4 mr-3" />
                                     Đăng xuất
@@ -730,6 +762,91 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Mobile Academic Year Selector */}
+            <div className="lg:hidden px-4 pb-3">
+                <div className="relative dropdown-container">
+                    <button
+                        onClick={() => !changing && setAcademicYearDropdownOpen(!academicYearDropdownOpen)}
+                        disabled={changing}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border transition-all ${
+                            changing ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        style={{ borderColor: '#E2E8F0' }}
+                    >
+                        <div className="flex items-center space-x-2">
+                            {changing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#5B52E1' }} />
+                            ) : (
+                                <Calendar className="h-4 w-4" style={{ color: '#5B52E1' }} />
+                            )}
+                            <span className="text-sm font-semibold" style={{ color: '#0F172A' }}>
+                                {loading ? 'Đang tải...' : currentAcademicYear?.name || 'Chọn năm học'}
+                            </span>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${
+                            academicYearDropdownOpen ? 'rotate-180' : ''
+                        }`} style={{ color: '#64748B' }} />
+                    </button>
+
+                    {academicYearDropdownOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border z-50 max-h-64 overflow-hidden"
+                             style={{
+                                 borderColor: '#E2E8F0',
+                                 boxShadow: '0 10px 40px rgba(15, 23, 42, 0.1)'
+                             }}>
+                            <div className="px-4 py-2 border-b" style={{
+                                borderColor: '#E2E8F0',
+                                background: '#F8FAFC'
+                            }}>
+                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>Chọn năm học</p>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto">
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#5B52E1' }} />
+                                        <span className="ml-2 text-sm" style={{ color: '#64748B' }}>Đang tải...</span>
+                                    </div>
+                                ) : academicYears.length === 0 ? (
+                                    <div className="px-4 py-6 text-center text-sm" style={{ color: '#64748B' }}>
+                                        Không có dữ liệu năm học
+                                    </div>
+                                ) : (
+                                    academicYears.map((year) => {
+                                        const statusConfig = getStatusConfig(year.status)
+                                        return (
+                                            <button
+                                                key={year._id}
+                                                onClick={() => handleAcademicYearChange(year)}
+                                                disabled={changing}
+                                                className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                                                    currentAcademicYear?._id === year._id ? 'bg-blue-50' : ''
+                                                } ${changing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                                <div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>
+                                                            {year.name}
+                                                        </p>
+                                                        {currentAcademicYear?._id === year._id && (
+                                                            <Check className="h-4 w-4" style={{ color: '#5B52E1' }} />
+                                                        )}
+                                                    </div>
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium mt-1 ${statusConfig.color}`}>
+                                                        <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${statusConfig.dot}`}></div>
+                                                        {statusConfig.label}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>
