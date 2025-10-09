@@ -74,11 +74,12 @@ export default function EvidenceTree() {
         fetchOrganizations()
     }, [])
 
+    // Thêm academicYearId vào dependency array để đảm bảo fetchTreeData luôn có ID mới nhất
     useEffect(() => {
-        if (selectedProgram && selectedOrganization) {
+        if (selectedProgram && selectedOrganization && academicYearId) {
             fetchTreeData()
         }
-    }, [selectedProgram, selectedOrganization])
+    }, [selectedProgram, selectedOrganization, academicYearId])
 
     const fetchPrograms = async () => {
         try {
@@ -124,7 +125,8 @@ export default function EvidenceTree() {
 
             console.log('Fetching tree with:', {
                 programId: selectedProgram,
-                organizationId: selectedOrganization
+                organizationId: selectedOrganization,
+                academicYearId: academicYearId // Log để kiểm tra ID năm học
             })
 
             const response = await apiMethods.evidences.getFullTree(
@@ -300,8 +302,12 @@ export default function EvidenceTree() {
                     toast.success(message, { duration: 6000 });
                 }
 
-                // QUAN TRỌNG: Tải lại dữ liệu để cập nhật cây minh chứng
-                fetchTreeData();
+                // QUAN TRỌNG: Thêm độ trễ nhỏ để Mongoose kịp hoàn tất việc ghi và cache kịp refresh
+                // Điều này giúp khắc phục lỗi "tạo thành công nhưng không hiển thị"
+                setTimeout(() => {
+                    fetchTreeData();
+                }, 500); // 500ms là độ trễ hợp lý
+
             } else {
                 toast.error(response.data.message || 'Import thất bại')
             }
@@ -381,7 +387,7 @@ export default function EvidenceTree() {
                             <FolderOpen className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Cây minh chứng</h1>
+                            <h1 className="3xl font-bold mb-1">Cây minh chứng</h1>
                             <p className="text-indigo-100">Cấu trúc phân cấp minh chứng theo tiêu chuẩn và tiêu chí</p>
                         </div>
                     </div>
@@ -538,7 +544,7 @@ export default function EvidenceTree() {
                             <div className="text-sm text-emerald-700">TC có minh chứng</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
+                            <div className="2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
                             <div className="text-sm text-purple-700">Tổng minh chứng</div>
                         </div>
                     </div>
@@ -557,7 +563,7 @@ export default function EvidenceTree() {
                         <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Folder className="h-10 w-10 text-indigo-600" />
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
+                        <h3 className="lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
                         <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức để xem cây minh chứng</p>
                     </div>
                 ) : filteredTreeData.length === 0 ? (
@@ -565,7 +571,7 @@ export default function EvidenceTree() {
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Folder className="h-10 w-10 text-gray-400" />
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        <h3 className="lg font-medium text-gray-900 mb-2">
                             {searchTerm ? 'Không tìm thấy minh chứng phù hợp' : 'Chưa có dữ liệu'}
                         </h3>
                         <p className="text-gray-500">
