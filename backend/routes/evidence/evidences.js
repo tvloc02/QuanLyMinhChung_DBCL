@@ -17,7 +17,8 @@ const {
     getStatistics,
     copyEvidenceToAnotherYear,
     exportEvidences,
-    importEvidences
+    importEvidences,
+    getFullEvidenceTree
 } = require('../../controllers/evidence/evidenceController');
 
 // Apply academic year context to all routes
@@ -193,5 +194,18 @@ router.delete('/:id', [
 
 // Copy evidence to another academic year
 router.post('/:id/copy-to-year', copyMoveValidation, validation, copyEvidenceToAnotherYear);
+
+// Lấy cây minh chứng đầy đủ (bao gồm cả tiêu chuẩn/tiêu chí không có minh chứng)
+router.get('/full-tree', [
+    query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
+    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
+], validation, getFullEvidenceTree);
+
+// Import với mode create hoặc update
+router.post('/import', upload.single('file'), [
+    body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
+    body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
+    body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
+], validation, importEvidences);
 
 module.exports = router;
