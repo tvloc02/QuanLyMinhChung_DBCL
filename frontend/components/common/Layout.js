@@ -19,9 +19,20 @@ export default function Layout({ children, title, breadcrumbItems }) {
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
-    const getMarginLeft = () => {
-        if (!isDesktop) return '0'
-        return sidebarCollapsed ? '80px' : '288px'
+    // Tính toán margin và width để content kéo dãn
+    const getContentStyles = () => {
+        if (!isDesktop) {
+            return {
+                marginLeft: '0',
+                width: '100%'
+            }
+        }
+
+        const sidebarWidth = sidebarCollapsed ? 80 : 288
+        return {
+            marginLeft: `${sidebarWidth}px`,
+            width: `calc(100% - ${sidebarWidth}px)`
+        }
     }
 
     return (
@@ -38,26 +49,26 @@ export default function Layout({ children, title, breadcrumbItems }) {
                     onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                 />
 
-                {/* Main Content */}
+                {/* Main Content - Kéo dãn theo sidebar */}
                 <div
                     className="flex flex-col flex-1 transition-all duration-300"
-                    style={{
-                        marginLeft: getMarginLeft()
-                    }}
+                    style={getContentStyles()}
                 >
-                    <main className="flex-grow p-6 overflow-y-auto max-w-7xl mx-auto w-full">
-                        {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
+                    <main className="flex-grow p-6 overflow-y-auto w-full">
+                        <div className="max-w-7xl mx-auto w-full">
+                            {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
 
-                        {title && (
-                            <div className="mb-8">
-                                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-                            </div>
-                        )}
+                            {title && (
+                                <div className="mb-8">
+                                    <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+                                </div>
+                            )}
 
-                        {children}
+                            {children}
+                        </div>
                     </main>
 
-                    <Footer />
+                    <Footer collapsed={sidebarCollapsed} isDesktop={isDesktop} />
                 </div>
             </div>
         </div>
