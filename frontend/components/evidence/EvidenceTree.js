@@ -284,11 +284,18 @@ export default function EvidenceTree() {
 
 
             if (response.data.success) {
-                const { created, updated, errors } = response.data.data
+                // SỬA LỖI: Sử dụng Optional Chaining (?. ) và giá trị mặc định [] để tránh lỗi
+                // Cannot read properties of undefined (reading 'length')
+                const { created, updated } = response.data.data
+                const errors = response.data.data.errors || []; // Khai báo errors là mảng rỗng nếu nó undefined
 
                 let message = `Import hoàn tất! (Lỗi: ${errors.length})\n`
                 if (created > 0) message += `- Tổng tạo mới (TC, TC, MC): ${created}\n`
                 if (updated > 0) message += `- Minh chứng cập nhật: ${updated}\n`
+                if (errors.length > 0) {
+                    message += `(Chi tiết ${errors.length} lỗi trong log server)`
+                }
+
 
                 toast.success(message, { duration: 6000 })
                 fetchTreeData()
