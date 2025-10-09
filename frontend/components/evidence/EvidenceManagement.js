@@ -53,6 +53,18 @@ export default function EvidenceManagement() {
     const [showMoveModal, setShowMoveModal] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
     const [showFilters, setShowFilters] = useState(false)
+    const [expandedRows, setExpandedRows] = useState({})
+    const [columnWidths, setColumnWidths] = useState({
+        checkbox: 60,
+        code: 120,
+        name: 250,
+        standard: 200,
+        criteria: 200,
+        files: 100,
+        date: 120,
+        actions: 180
+    })
+    const [resizing, setResizing] = useState(null)
 
     useEffect(() => {
         fetchPrograms()
@@ -80,6 +92,31 @@ export default function EvidenceManagement() {
             setFilters(prev => ({ ...prev, criteriaId: '' }))
         }
     }, [filters.standardId])
+
+    useEffect(() => {
+        if (!resizing) return
+
+        const handleMouseMove = (e) => {
+            const diff = e.clientX - resizing.startX
+            const newWidth = Math.max(60, resizing.startWidth + diff)
+            setColumnWidths(prev => ({
+                ...prev,
+                [resizing.column]: newWidth
+            }))
+        }
+
+        const handleMouseUp = () => {
+            setResizing(null)
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+        }
+    }, [resizing])
 
     const fetchEvidences = async () => {
         try {
@@ -243,6 +280,18 @@ export default function EvidenceManagement() {
         }
     }
 
+    const toggleExpandRow = (id, field) => {
+        setExpandedRows(prev => ({
+            ...prev,
+            [`${id}-${field}`]: !prev[`${id}-${field}`]
+        }))
+    }
+
+    const handleMouseDown = (e, column) => {
+        e.preventDefault()
+        setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] })
+    }
+
     const clearFilters = () => {
         setFilters({
             search: '',
@@ -256,26 +305,6 @@ export default function EvidenceManagement() {
             sortBy: 'createdAt',
             sortOrder: 'desc'
         })
-    }
-
-    const getStatusColor = (status) => {
-        const colors = {
-            active: 'bg-green-100 text-green-800 border-green-200',
-            inactive: 'bg-red-100 text-red-800 border-red-200',
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            archived: 'bg-gray-100 text-gray-800 border-gray-200'
-        }
-        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-
-    const getStatusLabel = (status) => {
-        const labels = {
-            active: 'Hoạt động',
-            inactive: 'Không hoạt động',
-            pending: 'Chờ xử lý',
-            archived: 'Lưu trữ'
-        }
-        return labels[status] || status
     }
 
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
@@ -531,44 +560,96 @@ export default function EvidenceManagement() {
                 ) : (
                     <>
                         <div className="overflow-x-auto">
-                            <table className="w-full">
+                            <table className="w-full border-collapse">
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                 <tr>
-                                    <th className="px-6 py-4 text-left">
+                                    <th
+                                        className="px-4 py-4 text-left border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.checkbox }}
+                                    >
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === evidences.length}
                                             onChange={toggleSelectAll}
                                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                                         />
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.code }}
+                                    >
                                         Mã MC
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'code')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.name }}
+                                    >
                                         Tên minh chứng
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'name')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Tiêu chuẩn/Tiêu chí
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.standard }}
+                                    >
+                                        Tiêu chuẩn
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'standard')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.criteria }}
+                                    >
+                                        Tiêu chí
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'criteria')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.files }}
+                                    >
                                         Files
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'files')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Trạng thái
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.date }}
+                                    >
                                         Ngày tạo
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-indigo-400 group-hover:bg-indigo-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'date')}
+                                        />
                                     </th>
-                                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th
+                                        className="px-4 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-300"
+                                        style={{ width: columnWidths.actions }}
+                                    >
                                         Thao tác
                                     </th>
                                 </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white">
                                 {evidences.map((evidence) => (
-                                    <tr key={evidence._id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                    <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.checkbox }}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.includes(evidence._id)}
@@ -576,47 +657,62 @@ export default function EvidenceManagement() {
                                                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                                             />
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.code }}>
                                             <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
                                                 {evidence.code}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="max-w-xs">
-                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.name }}>
+                                            <div className="relative">
+                                                <p
+                                                    className={`text-sm font-medium text-gray-900 cursor-pointer hover:text-indigo-600 ${
+                                                        expandedRows[`${evidence._id}-name`] ? '' : 'truncate'
+                                                    }`}
+                                                    onClick={() => toggleExpandRow(evidence._id, 'name')}
+                                                    title={evidence.name}
+                                                >
                                                     {evidence.name}
                                                 </p>
                                                 {evidence.documentNumber && (
-                                                    <p className="text-xs text-gray-500 mt-1">
+                                                    <p className="text-xs text-gray-500 mt-1 truncate" title={`Số: ${evidence.documentNumber}`}>
                                                         Số: {evidence.documentNumber}
                                                     </p>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-xs space-y-1">
-                                                <p className="text-gray-900 font-medium">
-                                                    {evidence.standardId?.code} - {evidence.standardId?.name}
-                                                </p>
-                                                <p className="text-gray-500">
-                                                    {evidence.criteriaId?.code} - {evidence.criteriaId?.name}
-                                                </p>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.standard }}>
+                                            <div
+                                                className={`text-xs cursor-pointer hover:text-indigo-600 ${
+                                                    expandedRows[`${evidence._id}-standard`] ? '' : 'truncate'
+                                                }`}
+                                                onClick={() => toggleExpandRow(evidence._id, 'standard')}
+                                                title={`${evidence.standardId?.code} - ${evidence.standardId?.name}`}
+                                            >
+                                                <span className="font-semibold">{evidence.standardId?.code}</span>
+                                                {evidence.standardId?.name && ` - ${evidence.standardId?.name}`}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.criteria }}>
+                                            <div
+                                                className={`text-xs cursor-pointer hover:text-indigo-600 ${
+                                                    expandedRows[`${evidence._id}-criteria`] ? '' : 'truncate'
+                                                }`}
+                                                onClick={() => toggleExpandRow(evidence._id, 'criteria')}
+                                                title={`${evidence.criteriaId?.code} - ${evidence.criteriaId?.name}`}
+                                            >
+                                                <span className="font-semibold">{evidence.criteriaId?.code}</span>
+                                                {evidence.criteriaId?.name && ` - ${evidence.criteriaId?.name}`}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.files }}>
                                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                                {evidence.files?.length || 0} files
+                                                {evidence.files?.length || 0}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(evidence.status)}`}>
-                                                {getStatusLabel(evidence.status)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td className="px-4 py-3 border-r border-gray-200 text-sm text-gray-500" style={{ width: columnWidths.date }}>
                                             {formatDate(evidence.createdAt)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        <td className="px-4 py-3 text-right" style={{ width: columnWidths.actions }}>
                                             <div className="flex items-center justify-end space-x-2">
                                                 <button
                                                     onClick={() => handleViewDetail(evidence._id)}
