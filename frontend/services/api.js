@@ -191,24 +191,14 @@ export const apiMethods = {
             api.post(`/api/evidences/${id}/move`, { targetStandardId, targetCriteriaId }),
         getByAcademicYear: (academicYearId) => api.get(`/api/evidences/academic-year/${academicYearId}`),
 
-        import: (file, options) => {
-            const formData = new FormData()
-            formData.append('file', file)
-            if (options) {
-                Object.keys(options).forEach(key => {
-                    formData.append(key, options[key])
-                })
-            }
+        // SỬA LỖI: Đổi tên importWithMode thành import và chỉ nhận formData
+        import: (formData) => {
             return api.post('/api/evidences/import', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
 
-        importWithMode: (formData) => {
-            return api.post('/api/evidences/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
-        },
+        // Hàm importWithMode cũ (và import cũ) đã được hợp nhất vào hàm import phía trên.
 
         export: (params) => api.get('/api/evidences/export', {
             params,
