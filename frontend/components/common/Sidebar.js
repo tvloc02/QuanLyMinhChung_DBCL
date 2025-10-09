@@ -42,10 +42,25 @@ import {
     Book
 } from 'lucide-react'
 
-export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
+export default function Sidebar({ open, onClose }) {
     const router = useRouter()
+    const [collapsed, setCollapsed] = useState(false)
     const [expandedMenus, setExpandedMenus] = useState({})
     const [searchQuery, setSearchQuery] = useState('')
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 1024) {
+                setCollapsed(true)
+            } else {
+                setCollapsed(false)
+            }
+        }
+
+        handleResize()
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     const sidebarItems = [
         {
@@ -177,9 +192,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
     }
 
     const toggleCollapse = () => {
-        if (onToggleCollapse) {
-            onToggleCollapse()
-        }
+        setCollapsed(!collapsed)
     }
 
     useEffect(() => {
@@ -228,30 +241,50 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 style={{
                     top: '80px',
                     height: 'calc(100vh - 80px)',
-                    borderColor: '#E5E7EB',
+                    borderColor: '#ffffff',
                     left: 0
                 }}
             >
                 {/* Header with Logo and Collapse Button */}
                 <div className="flex items-center justify-between p-4 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50 flex-shrink-0"
-                     style={{ borderColor: '#E5E7EB' }}>
+                     style={{ borderColor: '#ffffff' }}>
                     {!collapsed ? (
-                        <>
-                            <button
-                                onClick={toggleCollapse}
-                                className="p-2 rounded-xl hover:bg-white transition-colors hidden lg:block text-gray-600"
-                                title="Thu gọn"
-                            >
-                                <ChevronRight className="h-5 w-5" />
-                            </button>
-                        </>
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
+                                 style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
+                                <span className="text-white font-bold text-sm">TĐG</span>
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-gray-900">HỆ THỐNG TĐG</h2>
+                                <p className="text-xs font-semibold text-gray-600">CMC University</p>
+                            </div>
+                        </div>
                     ) : (
+                        <div className="flex items-center justify-center w-full">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
+                                 style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
+                                <span className="text-white font-bold text-sm">TĐG</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {!collapsed && (
                         <button
                             onClick={toggleCollapse}
-                            className="p-2 rounded-xl hover:bg-white transition-colors hidden lg:block text-gray-600 mx-auto"
+                            className="p-2 rounded-xl hover:bg-white transition-colors hidden lg:block text-gray-600"
+                            title="Thu gọn"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    )}
+
+                    {collapsed && (
+                        <button
+                            onClick={toggleCollapse}
+                            className="p-2 rounded-xl hover:bg-white transition-colors hidden lg:block text-gray-600 absolute top-4 right-2"
                             title="Mở rộng"
                         >
-                            <Menu className="h-5 w-5" />
+                            <ChevronRight className="h-4 w-4" />
                         </button>
                     )}
 
@@ -289,17 +322,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     </div>
                 )}
 
-                {collapsed && (
-                    <div className="p-3 border-b-2" style={{ borderColor: '#E5E7EB' }}>
-                        <div className="flex justify-center">
-                            <Search className="h-5 w-5 text-gray-400" />
-                        </div>
-                    </div>
-                )}
-
                 {/* Navigation - Scrollable */}
                 <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto"
-                     style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                     style={{ maxHeight: 'calc(100vh - 240px)' }}>
                     {filteredItems.map((item, index) => {
                         return (
                             <div key={index}>
@@ -366,17 +391,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                         )
                     })}
                 </nav>
-
-                {/* Footer Info */}
-                {!collapsed && (
-                    <div className="p-4 border-t-2 bg-gradient-to-r from-indigo-50 to-purple-50 flex-shrink-0"
-                         style={{ borderColor: '#E5E7EB' }}>
-                        <div className="text-center">
-                            <p className="text-xs font-bold text-gray-600">Phiên bản 1.0.0</p>
-                            <p className="text-xs text-gray-500 mt-1">© 2025 CMC University</p>
-                        </div>
-                    </div>
-                )}
             </aside>
         </>
     )
