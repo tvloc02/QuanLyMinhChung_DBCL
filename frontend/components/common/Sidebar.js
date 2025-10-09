@@ -241,13 +241,13 @@ export default function Sidebar({ open, onClose }) {
                 style={{
                     top: '80px',
                     height: 'calc(100vh - 80px)',
-                    borderColor: '#ffffff',
+                    borderColor: '#E5E7EB',
                     left: 0
                 }}
             >
                 {/* Header with Logo and Collapse Button */}
                 <div className="flex items-center justify-between p-4 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50 flex-shrink-0"
-                     style={{ borderColor: '#ffffff' }}>
+                     style={{ borderColor: '#E5E7EB' }}>
                     {!collapsed ? (
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
@@ -391,6 +391,7 @@ export default function Sidebar({ open, onClose }) {
                         )
                     })}
                 </nav>
+
             </aside>
         </>
     )
