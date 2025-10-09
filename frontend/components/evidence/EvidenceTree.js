@@ -149,7 +149,7 @@ export default function EvidenceTree() {
     }
 
     const downloadTemplate = () => {
-        // Tạo template Excel với định dạng mới
+        // Tạo template Excel với định dạng đúng
         const templateData = [
             ['STT', 'Mã', 'Tên minh chứng'],
             ['', '1', 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra của chương trình'],
@@ -170,19 +170,34 @@ export default function EvidenceTree() {
             ['9', 'H1.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên'],
         ]
 
+        // Tạo worksheet
         const ws = XLSX.utils.aoa_to_sheet(templateData)
 
-        // Set column widths
+        // Set độ rộng cột
         ws['!cols'] = [
             { wch: 5 },  // STT
             { wch: 15 }, // Mã
-            { wch: 60 }  // Tên
+            { wch: 70 }  // Tên minh chứng
         ]
 
+        // Style cho header row (optional, nhưng giúp dễ nhìn)
+        const headerRange = XLSX.utils.decode_range(ws['!ref'])
+        for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
+            const address = XLSX.utils.encode_col(C) + "1"
+            if (!ws[address]) continue
+            ws[address].s = {
+                font: { bold: true },
+                fill: { fgColor: { rgb: "4F81BD" } }
+            }
+        }
+
+        // Tạo workbook
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Minh chứng')
 
+        // Download file
         XLSX.writeFile(wb, 'template-import-minh-chung.xlsx')
+
         toast.success('Đã tải file mẫu Excel')
     }
 
