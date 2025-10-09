@@ -167,10 +167,17 @@ export const apiMethods = {
         delete: (id) => api.delete(`/api/evidences/${id}`),
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
+
         getTree: (programId, organizationId) =>
             api.get('/api/evidences/tree', {
                 params: { programId, organizationId }
             }),
+
+        getFullTree: (programId, organizationId) =>
+            api.get('/api/evidences/full-tree', {
+                params: { programId, organizationId }
+            }),
+
         getStatistics: () => api.get('/api/evidences/statistics'),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
@@ -183,6 +190,7 @@ export const apiMethods = {
         move: (id, targetStandardId, targetCriteriaId) =>
             api.post(`/api/evidences/${id}/move`, { targetStandardId, targetCriteriaId }),
         getByAcademicYear: (academicYearId) => api.get(`/api/evidences/academic-year/${academicYearId}`),
+
         import: (file, options) => {
             const formData = new FormData()
             formData.append('file', file)
@@ -195,7 +203,19 @@ export const apiMethods = {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
+
+        importWithMode: (formData) => {
+            return api.post('/api/evidences/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+        },
+
         export: (params) => api.get('/api/evidences/export', {
+            params,
+            responseType: 'blob'
+        }),
+
+        exportData: (params) => api.get('/api/evidences/export', {
             params,
             responseType: 'blob'
         })
