@@ -693,42 +693,6 @@ const exportEvidences = async (req, res) => {
     }
 };
 
-const importEvidences = async (req, res) => {
-    try {
-        const file = req.file;
-        const { programId, organizationId } = req.body;
-        const academicYearId = req.academicYearId;
-
-        if (!file) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không có file được upload'
-            });
-        }
-
-        const result = await importService.importEvidences(
-            file.path,
-            academicYearId,
-            programId,
-            organizationId,
-            req.user.id
-        );
-
-        if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-        }
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('Import evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi import minh chứng'
-        });
-    }
-};
-
 const incrementEvidenceDownload = async (req, res) => {
     try {
         const { id } = req.params;
@@ -856,6 +820,166 @@ const moveEvidence = async (req, res) => {
     }
 };
 
+const { importEvidencesFromExcel } = require('../../services/importService');
+
+const importEvidences = async (req, res) => {
+    try {
+        const file = req.file;
+        const { programId, organizationId, mode = 'create' } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        if (!programId || !organizationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin programId hoặc organizationId'
+            });
+        }
+
+        // Kiểm tra mode hợp lệ
+        if (!['create', 'update'].includes(mode)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mode phải là "create" hoặc "update"'
+            });
+        }
+
+        const result = await importEvidencesFromExcel(
+            file.path,
+            academicYearId,
+            programId,
+            organizationId,
+            req.user.id,
+            mode
+        );
+
+        // Xóa file tạm
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json(result);
+
+    } catch (error) {
+        console.error('Import evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi import minh chứng: ' + error.message
+        });
+    }
+};
+
+// Endpoint để lấy cây đầy đủ (bao gồm cả tiêu chuẩn/tiêu chí không có minh chứng)
+const getFullEvidenceTree = async (req, res) => {
+    try {
+        const { programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
+
+        if (!programId || !organizationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin programId hoặc organizationId'
+            });
+        }
+
+        const mongoose = require('mongoose');
+        const StandardModel = mongoose.model('Standard');
+        const CriteriaModel = mongoose.model('Criteria');
+
+        // Lấy tất cả standards và criteria
+        const [standards, criteria, evidences] = await Promise.all([
+            StandardModel.find({ academicYearId, programId }).sort({ code: 1 }).lean(),
+            CriteriaModel.find({ academicYearId, programId }).sort({ standardCode: 1, code: 1 }).lean(),
+            Evidence.find({
+                academicYearId,
+                programId,
+                organizationId
+            })
+                .populate('standardId', 'name code')
+                .populate('criteriaId', 'name code')
+                .populate('files')
+                .sort({ code: 1 })
+                .lean()
+        ]);
+
+        // Build tree structure
+        const tree = [];
+
+        standards.forEach(standard => {
+            const standardCriteria = criteria.filter(c => c.standardCode === standard.code);
+
+            const standardNode = {
+                id: standard._id,
+                code: standard.code,
+                name: standard.name,
+                type: 'standard',
+                hasEvidence: false,
+                criteria: []
+            };
+
+            standardCriteria.forEach(criterion => {
+                const criterionEvidences = evidences.filter(e =>
+                    e.standardId?.code === standard.code &&
+                    e.criteriaId?.code === criterion.code
+                );
+
+                const criterionNode = {
+                    id: criterion._id,
+                    code: criterion.code,
+                    name: criterion.name,
+                    type: 'criteria',
+                    hasEvidence: criterionEvidences.length > 0,
+                    evidences: criterionEvidences.map(e => ({
+                        id: e._id,
+                        code: e.code,
+                        name: e.name,
+                        fileCount: e.files?.length || 0,
+                        status: e.status
+                    }))
+                };
+
+                if (criterionNode.hasEvidence) {
+                    standardNode.hasEvidence = true;
+                }
+
+                standardNode.criteria.push(criterionNode);
+            });
+
+            tree.push(standardNode);
+        });
+
+        res.json({
+            success: true,
+            data: {
+                tree,
+                academicYear: req.currentAcademicYear,
+                statistics: {
+                    totalStandards: standards.length,
+                    totalCriteria: criteria.length,
+                    totalEvidences: evidences.length,
+                    standardsWithEvidence: tree.filter(s => s.hasEvidence).length,
+                    criteriaWithEvidence: tree.reduce((sum, s) =>
+                        sum + s.criteria.filter(c => c.hasEvidence).length, 0
+                    )
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Get full evidence tree error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy cây minh chứng đầy đủ'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -871,5 +995,6 @@ module.exports = {
     importEvidences,
     incrementEvidenceDownload,
     validateEvidenceFileName,
-    moveEvidence
+    moveEvidence,
+    getFullEvidenceTree
 };
