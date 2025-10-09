@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
@@ -9,7 +9,6 @@ import {
     FileText,
     Folder,
     FolderOpen,
-    Search,
     Download,
     Eye,
     RefreshCw,
@@ -26,26 +25,8 @@ import {
     AlertCircle
 } from 'lucide-react'
 
-// =========================================================
-// THÊM: HOOK GIẢ ĐỊNH useAuth
-// BẠN PHẢI THAY THẾ HOOK NÀY BẰNG HOOK AUTH THỰC TẾ CỦA BẠN
-// (Nơi lưu trữ thông tin người dùng và ID của họ)
-// =========================================================
-const useAuth = () => {
-    // Trong ứng dụng thực tế, bạn sẽ dùng useContext(AuthContext)
-    // Giả định người dùng đăng nhập và có ID hợp lệ
-    const user = {
-        id: '60c72b2f9a941a0015b6d5f7', // ObjectId hợp lệ giả định
-        isLoggedIn: true
-    };
-    return user;
-};
-// =========================================================
-
-
 export default function EvidenceTree() {
     const router = useRouter()
-    const user = useAuth(); // Lấy thông tin người dùng
 
     const [loading, setLoading] = useState(true)
     const [treeData, setTreeData] = useState([])
@@ -61,25 +42,16 @@ export default function EvidenceTree() {
     const [selectedFile, setSelectedFile] = useState(null)
     const [statistics, setStatistics] = useState(null)
 
-    // =========================================================
-    // THAY THẾ: Lấy academicYearId và userId từ nguồn thực tế
-    // =========================================================
-    // Giả định academicYearId được truyền qua query params.
-    const academicYearId = router.query.academicYearId || '68d8b25effe9c2eccae088b4'; // ObjectId hợp lệ giả định
-    const userId = user.id; // Lấy ID người dùng từ hook auth
-    // =========================================================
-
     useEffect(() => {
         fetchPrograms()
         fetchOrganizations()
     }, [])
 
-    // Thêm academicYearId vào dependency array để đảm bảo fetchTreeData luôn có ID mới nhất
     useEffect(() => {
-        if (selectedProgram && selectedOrganization && academicYearId) {
+        if (selectedProgram && selectedOrganization) {
             fetchTreeData()
         }
-    }, [selectedProgram, selectedOrganization, academicYearId])
+    }, [selectedProgram, selectedOrganization])
 
     const fetchPrograms = async () => {
         try {
@@ -87,7 +59,6 @@ export default function EvidenceTree() {
             const programsData = response.data.data.programs || response.data.data || []
             setPrograms(programsData)
             if (programsData.length > 0) {
-                // Đảm bảo ID được chọn là một ObjectId hợp lệ (vì nó đến từ DB)
                 setSelectedProgram(programsData[0]._id)
             }
         } catch (error) {
@@ -102,7 +73,6 @@ export default function EvidenceTree() {
             const organizationsData = response.data.data.organizations || response.data.data || []
             setOrganizations(organizationsData)
             if (organizationsData.length > 0) {
-                // Đảm bảo ID được chọn là một ObjectId hợp lệ (vì nó đến từ DB)
                 setSelectedOrganization(organizationsData[0]._id)
             }
         } catch (error) {
@@ -115,7 +85,6 @@ export default function EvidenceTree() {
         try {
             setLoading(true)
 
-            // Validate trước khi gọi API
             if (!selectedProgram || !selectedOrganization) {
                 console.warn('Missing programId or organizationId')
                 setTreeData([])
@@ -125,8 +94,7 @@ export default function EvidenceTree() {
 
             console.log('Fetching tree with:', {
                 programId: selectedProgram,
-                organizationId: selectedOrganization,
-                academicYearId: academicYearId // Log để kiểm tra ID năm học
+                organizationId: selectedOrganization
             })
 
             const response = await apiMethods.evidences.getFullTree(
@@ -180,7 +148,6 @@ export default function EvidenceTree() {
     }
 
     const downloadTemplate = () => {
-        // Tạo template Excel với định dạng đúng
         const templateData = [
             ['STT', 'Mã', 'Tên minh chứng'],
             ['', '1', 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra của chương trình'],
@@ -201,17 +168,14 @@ export default function EvidenceTree() {
             ['9', 'H3.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên'],
         ]
 
-        // Tạo worksheet
         const ws = XLSX.utils.aoa_to_sheet(templateData)
 
-        // Set độ rộng cột
         ws['!cols'] = [
-            { wch: 5 },  // STT
-            { wch: 15 }, // Mã
-            { wch: 70 }  // Tên minh chứng
+            { wch: 5 },
+            { wch: 15 },
+            { wch: 70 }
         ]
 
-        // Style cho header row (optional, nhưng giúp dễ nhìn)
         const headerRange = XLSX.utils.decode_range(ws['!ref'])
         for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
             const address = XLSX.utils.encode_col(C) + "1"
@@ -222,11 +186,9 @@ export default function EvidenceTree() {
             }
         }
 
-        // Tạo workbook
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Minh chứng')
 
-        // Download file
         XLSX.writeFile(wb, 'template-import-minh-chung.xlsx')
 
         toast.success('Đã tải file mẫu Excel')
@@ -236,16 +198,8 @@ export default function EvidenceTree() {
         const file = event.target.files?.[0]
         if (!file) return
 
-        // BƯỚC 2: Đảm bảo các ID hợp lệ đã được chọn
         if (!selectedProgram || !selectedOrganization) {
             toast.error('Vui lòng chọn Chương trình và Tổ chức trước')
-            event.target.value = ''
-            return
-        }
-
-        // Kiểm tra hai biến quan trọng mà backend cần
-        if (!academicYearId || !userId) {
-            toast.error('Không tìm thấy ID Năm học hoặc ID Người dùng. Vui lòng kiểm tra cấu hình.')
             event.target.value = ''
             return
         }
@@ -257,9 +211,8 @@ export default function EvidenceTree() {
     const handleImport = async () => {
         if (!selectedFile) return
 
-        // Kiểm tra lần cuối các ID quan trọng
-        if (!selectedProgram || !selectedOrganization || !academicYearId || !userId) {
-            toast.error('Thiếu thông tin Chương trình, Tổ chức, Năm học hoặc Người dùng. Không thể import.')
+        if (!selectedProgram || !selectedOrganization) {
+            toast.error('Thiếu thông tin Chương trình hoặc Tổ chức. Không thể import.')
             setShowImportModal(false)
             return
         }
@@ -267,46 +220,30 @@ export default function EvidenceTree() {
         try {
             setImporting(true)
 
-            // 1. Tạo FormData để gửi file và tất cả metadata
             const formData = new FormData()
             formData.append('file', selectedFile)
-
-            // 2. Thêm các tham số BẮT BUỘC vào FormData
-            // Đảm bảo các giá trị này là ObjectId hợp lệ để tránh lỗi 400 (CastError)
             formData.append('programId', selectedProgram)
             formData.append('organizationId', selectedOrganization)
             formData.append('mode', importMode)
 
-            // BƯỚC 1: Thêm academicYearId và userId (được giả định là ObjectId hợp lệ)
-            formData.append('academicYearId', academicYearId)
-            formData.append('userId', userId)
-
-            // Gọi API với FormData
             const response = await apiMethods.evidences.import(formData);
 
-
             if (response.data.success) {
-                // SỬA LỖI: Xử lý errors an toàn và THÊM LỌC SỐ LƯỢNG LỖI TẠO MỚI
                 const { created, updated } = response.data.data.data || response.data.data;
                 const errors = response.data.data.details?.errors || [];
 
-                // Lấy thông báo từ backend (chứa tổng số lượng tạo/cập nhật)
                 let message = response.data.message || `Import hoàn tất! (Lỗi: ${errors.length})\n`
 
                 if (errors.length > 0) {
-                    // Nếu có lỗi, chỉ hiển thị thông báo lỗi và yêu cầu kiểm tra log
                     message += `\n- Tồn tại ${errors.length} lỗi (Xem chi tiết trong log server)`
                     toast.error(message, { duration: 8000 });
                 } else {
-                    // Nếu KHÔNG có lỗi, hiển thị thông báo thành công chi tiết
                     toast.success(message, { duration: 6000 });
                 }
 
-                // QUAN TRỌNG: Thêm độ trễ nhỏ để Mongoose kịp hoàn tất việc ghi và cache kịp refresh
-                // Điều này giúp khắc phục lỗi "tạo thành công nhưng không hiển thị"
                 setTimeout(() => {
                     fetchTreeData();
-                }, 500); // 500ms là độ trễ hợp lý
+                }, 500);
 
             } else {
                 toast.error(response.data.message || 'Import thất bại')
@@ -314,19 +251,16 @@ export default function EvidenceTree() {
 
         } catch (error) {
             console.error('Import error:', error.response?.data || error);
-            // Lỗi 400 thường chứa thông báo chi tiết từ backend
             const errorMessage = error.response?.data?.message || error.message;
             toast.error('Lỗi khi import: ' + errorMessage)
         } finally {
             setImporting(false)
             setShowImportModal(false)
             setSelectedFile(null)
-            // Reset file input
             const fileInput = document.getElementById('file-upload')
             if (fileInput) fileInput.value = ''
         }
     }
-
 
     const handleExport = async () => {
         try {
@@ -379,7 +313,6 @@ export default function EvidenceTree() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -387,7 +320,7 @@ export default function EvidenceTree() {
                             <FolderOpen className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="3xl font-bold mb-1">Cây minh chứng</h1>
+                            <h1 className="text-3xl font-bold mb-1">Cây minh chứng</h1>
                             <p className="text-indigo-100">Cấu trúc phân cấp minh chứng theo tiêu chuẩn và tiêu chí</p>
                         </div>
                     </div>
@@ -401,9 +334,8 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <BookOpen className="h-4 w-4 inline mr-1" />
@@ -442,18 +374,6 @@ export default function EvidenceTree() {
                         </select>
                     </div>
 
-                    {/* Hiển thị ID năm học (giả định) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <FileText className="h-4 w-4 inline mr-1" />
-                            ID Năm học
-                        </label>
-                        <div className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-xl truncate">
-                            {academicYearId || 'Đang tải...'}
-                        </div>
-                    </div>
-
-
                     <div className="flex items-end">
                         <button
                             onClick={fetchTreeData}
@@ -467,7 +387,6 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Actions */}
             <div className="flex justify-between items-center">
                 <div className="flex space-x-3">
                     <button
@@ -523,7 +442,6 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Statistics */}
             {statistics && !searchTerm && (
                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -544,14 +462,13 @@ export default function EvidenceTree() {
                             <div className="text-sm text-emerald-700">TC có minh chứng</div>
                         </div>
                         <div className="text-center">
-                            <div className="2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
+                            <div className="text-2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
                             <div className="text-sm text-purple-700">Tổng minh chứng</div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Tree View */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
@@ -563,7 +480,7 @@ export default function EvidenceTree() {
                         <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Folder className="h-10 w-10 text-indigo-600" />
                         </div>
-                        <h3 className="lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
                         <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức để xem cây minh chứng</p>
                     </div>
                 ) : filteredTreeData.length === 0 ? (
@@ -571,7 +488,7 @@ export default function EvidenceTree() {
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Folder className="h-10 w-10 text-gray-400" />
                         </div>
-                        <h3 className="lg font-medium text-gray-900 mb-2">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
                             {searchTerm ? 'Không tìm thấy minh chứng phù hợp' : 'Chưa có dữ liệu'}
                         </h3>
                         <p className="text-gray-500">
@@ -594,7 +511,6 @@ export default function EvidenceTree() {
                                         }`}
                                         onClick={() => toggleNode(`std-${stdIdx}`)}
                                     >
-                                        {/* Status indicator */}
                                         <div className="flex-shrink-0">
                                             {hasEvidence ? (
                                                 <CheckCircle2 className="h-6 w-6 text-green-600" />
@@ -603,7 +519,6 @@ export default function EvidenceTree() {
                                             )}
                                         </div>
 
-                                        {/* Expand/Collapse icon */}
                                         {isStandardExpanded ? (
                                             <ChevronDown className={`h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform ${
                                                 hasEvidence ? 'text-green-600' : 'text-red-600'
@@ -614,7 +529,6 @@ export default function EvidenceTree() {
                                             }`} />
                                         )}
 
-                                        {/* Folder icon */}
                                         {isStandardExpanded ? (
                                             <FolderOpen className={`h-6 w-6 flex-shrink-0 ${
                                                 hasEvidence ? 'text-green-600' : 'text-red-600'
@@ -654,7 +568,6 @@ export default function EvidenceTree() {
                                                             }`}
                                                             onClick={() => toggleNode(criteriaNodeKey)}
                                                         >
-                                                            {/* Status indicator */}
                                                             <div className="flex-shrink-0">
                                                                 {criteriaHasEvidence ? (
                                                                     <CheckCircle2 className="h-5 w-5 text-blue-600" />
@@ -663,7 +576,6 @@ export default function EvidenceTree() {
                                                                 )}
                                                             </div>
 
-                                                            {/* Expand/Collapse icon */}
                                                             {isCriteriaExpanded ? (
                                                                 <ChevronDown className={`h-4 w-4 flex-shrink-0 group-hover:scale-110 transition-transform ${
                                                                     criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
@@ -674,7 +586,6 @@ export default function EvidenceTree() {
                                                                 }`} />
                                                             )}
 
-                                                            {/* Folder icon */}
                                                             {isCriteriaExpanded ? (
                                                                 <FolderOpen className={`h-5 w-5 flex-shrink-0 ${
                                                                     criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
@@ -745,7 +656,6 @@ export default function EvidenceTree() {
                 )}
             </div>
 
-            {/* Import Modal */}
             {showImportModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
