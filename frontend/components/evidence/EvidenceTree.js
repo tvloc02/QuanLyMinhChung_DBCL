@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react' // Thêm useRef
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
@@ -41,6 +41,16 @@ export default function EvidenceTree() {
     const [showImportModal, setShowImportModal] = useState(false)
     const [selectedFile, setSelectedFile] = useState(null)
     const [statistics, setStatistics] = useState(null)
+
+    // =========================================================
+    // THÊM: Biến giả định cho academicYearId và userId
+    // BẠN PHẢI THAY THẾ CHÚNG BẰNG LOGIC LẤY ID THỰC TẾ
+    // Ví dụ: Lấy từ Context, Props, hoặc Router Query
+    // =========================================================
+    const academicYearId = router.query.academicYearId || 'GIẢ ĐỊNH_ACADEMIC_YEAR_ID';
+    const userId = 'GIẢ ĐỊNH_USER_ID';
+    // =========================================================
+
 
     useEffect(() => {
         fetchPrograms()
@@ -211,38 +221,65 @@ export default function EvidenceTree() {
             return
         }
 
+        // Kiểm tra hai biến quan trọng mà backend cần
+        if (!academicYearId || !userId) {
+            toast.error('Không tìm thấy ID Năm học hoặc ID Người dùng. Vui lòng kiểm tra đăng nhập/cấu hình.')
+            event.target.value = ''
+            return
+        }
+
         setSelectedFile(file)
         setShowImportModal(true)
     }
 
+    // =================================================================
+    // SỬA LỖI: Cập nhật hàm handleImport để truyền đầy đủ tham số
+    // =================================================================
     const handleImport = async () => {
         if (!selectedFile) return
+
+        // Kiểm tra lần cuối các ID quan trọng
+        if (!selectedProgram || !selectedOrganization || !academicYearId || !userId) {
+            toast.error('Thiếu thông tin Chương trình, Tổ chức, Năm học hoặc Người dùng. Không thể import.')
+            setShowImportModal(false)
+            return
+        }
 
         try {
             setImporting(true)
 
+            // 1. Tạo FormData để gửi file và tất cả metadata
             const formData = new FormData()
             formData.append('file', selectedFile)
+
+            // 2. Thêm các tham số BẮT BUỘC vào FormData
             formData.append('programId', selectedProgram)
             formData.append('organizationId', selectedOrganization)
             formData.append('mode', importMode)
 
-            // Sử dụng method import cũ nhưng truyền formData đúng cách
-            const response = await apiMethods.evidences.import(selectedFile, {
-                programId: selectedProgram,
-                organizationId: selectedOrganization,
-                mode: importMode
-            })
+            // THÊM 2 THAM SỐ CÒN THIẾU
+            formData.append('academicYearId', academicYearId)
+            formData.append('userId', userId)
+
+            // THAY ĐỔI: Gọi API với FormData
+            // HÀM apiMethods.evidences.import (từ dòng 231 cũ) SẼ ĐƯỢC GỌI VỚI FORMDATA
+            // và KHÔNG còn dùng object params {programId: ...} nữa.
+            const response = await apiMethods.evidences.import(formData);
+
 
             if (response.data.success) {
+                // Backend mới trả về thông tin chi tiết hơn
                 const { created, updated, errors } = response.data.data
 
-                let message = `Import thành công!\n`
-                if (created > 0) message += `- Tạo mới: ${created}\n`
-                if (updated > 0) message += `- Cập nhật: ${updated}\n`
-                if (errors > 0) message += `- Lỗi: ${errors}`
+                // Lọc số lượng Evidence được tạo (vì created giờ bao gồm Standard/Criteria)
+                const createdEvidences = created - (errors.filter(e => e.type === 'standard').length + errors.filter(e => e.type === 'criteria').length);
 
-                toast.success(message)
+
+                let message = `Import hoàn tất! (Lỗi: ${errors.length})\n`
+                if (created > 0) message += `- Tổng tạo mới (TC, TC, MC): ${created}\n`
+                if (updated > 0) message += `- Minh chứng cập nhật: ${updated}\n`
+
+                toast.success(message, { duration: 6000 })
                 fetchTreeData()
             } else {
                 toast.error(response.data.message || 'Import thất bại')
@@ -250,7 +287,8 @@ export default function EvidenceTree() {
 
         } catch (error) {
             console.error('Import error:', error)
-            toast.error('Lỗi khi import: ' + (error.response?.data?.message || error.message))
+            const errorMessage = error.response?.data?.message || error.message;
+            toast.error('Lỗi khi import: ' + errorMessage)
         } finally {
             setImporting(false)
             setShowImportModal(false)
@@ -260,6 +298,8 @@ export default function EvidenceTree() {
             if (fileInput) fileInput.value = ''
         }
     }
+    // =================================================================
+
 
     const handleExport = async () => {
         try {
