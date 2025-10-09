@@ -1,0 +1,254 @@
+[{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "email": "admin",
+  "fullName": "Quản trị viên hệ thống",
+  "password": "$2a$12$ySAumRZjytObRHMmh972JO33pJlh5xkGViR.QO89Wv0iyBqkRw21e",
+  "role": "admin",
+  "status": "active",
+  "phoneNumber": "0123456789",
+  "department": "IT Department",
+  "position": "System Administrator",
+  "notificationSettings": {
+    "email": true,
+    "inApp": true,
+    "assignment": true,
+    "evaluation": true,
+    "deadline": true
+  },
+  "metadata": {
+    "totalReports": 0,
+    "totalEvaluations": 0,
+    "averageEvaluationScore": 0,
+    "totalAssignments": 0
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.053Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-09T01:54:03.701Z"
+  },
+  "failedLoginAttempts": 0,
+  "__v": 1,
+  "academicYearAccess": [],
+  "criteriaAccess": [],
+  "expertise": [],
+  "loginCount": 130,
+  "mustChangePassword": false,
+  "organizationAccess": [],
+  "programAccess": [],
+  "standardAccess": [],
+  "lastLogin": {
+    "$date": "2025-10-09T01:54:03.696Z"
+  },
+  "individualPermissions": [],
+  "userGroups": [
+    {
+      "$oid": "68e0874e578adf58b246f65e"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b1"
+  },
+  "email": "manager",
+  "fullName": "Cán bộ quản lý báo cáo TĐG",
+  "password": "$2a$12$4.VkORT2L8jkaGVhnk1mNekbafeOYTCu958X9HlzbQ4ysPKGENhKa",
+  "role": "manager",
+  "status": "active",
+  "phoneNumber": "0123456788",
+  "department": "Báo cáo TĐG",
+  "position": "Cán bộ quản lý báo cáo TĐG",
+  "notificationSettings": {
+    "email": true,
+    "inApp": true,
+    "assignment": true,
+    "evaluation": true,
+    "deadline": true
+  },
+  "metadata": {
+    "totalReports": 0,
+    "totalEvaluations": 0,
+    "averageEvaluationScore": 0,
+    "totalAssignments": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.058Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-06T03:22:42.300Z"
+  },
+  "__v": 1,
+  "academicYearAccess": [],
+  "criteriaAccess": [],
+  "expertise": [],
+  "failedLoginAttempts": 0,
+  "loginCount": 2,
+  "mustChangePassword": false,
+  "organizationAccess": [],
+  "programAccess": [],
+  "standardAccess": [],
+  "lastLogin": {
+    "$date": "2025-10-06T03:22:42.299Z"
+  },
+  "individualPermissions": [],
+  "userGroups": [
+    {
+      "$oid": "68e0874e578adf58b246f65f"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b2"
+  },
+  "email": "expert",
+  "fullName": "Chuyên gia đánh giá",
+  "password": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/UnuTaVcDgVUfNu6gO",
+  "role": "expert",
+  "status": "active",
+  "phoneNumber": "0123456787",
+  "department": "Academic Department",
+  "position": "Senior Expert",
+  "expertise": [
+    "Quality Assurance",
+    "Education Standards"
+  ],
+  "notificationSettings": {
+    "email": true,
+    "inApp": true,
+    "assignment": true,
+    "evaluation": true,
+    "deadline": true
+  },
+  "metadata": {
+    "totalReports": 0,
+    "totalEvaluations": 0,
+    "averageEvaluationScore": 0,
+    "totalAssignments": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.060Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.060Z"
+  },
+  "individualPermissions": [],
+  "userGroups": [
+    {
+      "$oid": "68e0874e578adf58b246f660"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "68d8b25effe9c2eccae088b3"
+  },
+  "email": "advisor",
+  "fullName": "Tư vấn giám sát",
+  "password": "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/UnuTaVcDgVUfNu6gO",
+  "role": "advisor",
+  "status": "active",
+  "phoneNumber": "0123456786",
+  "department": "Advisory Board",
+  "position": "Senior Advisor",
+  "expertise": [
+    "Educational Policy",
+    "Quality Management"
+  ],
+  "notificationSettings": {
+    "email": true,
+    "inApp": true,
+    "assignment": true,
+    "evaluation": true,
+    "deadline": true
+  },
+  "metadata": {
+    "totalReports": 0,
+    "totalEvaluations": 0,
+    "averageEvaluationScore": 0,
+    "totalAssignments": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-09-28T03:58:22.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-28T03:58:22.061Z"
+  },
+  "individualPermissions": [],
+  "userGroups": [
+    {
+      "$oid": "68e0874e578adf58b246f661"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "68dcf5de99a947aefc999740"
+  },
+  "email": "locvt",
+  "fullName": "Trần Việt Lộc",
+  "password": "$2a$12$JrElJCySd2pztPi0c/QG5ed3ZH.9B4OOQvxfIgHPmZM8jUxbYseuy",
+  "phoneNumber": "0987655124",
+  "role": "expert",
+  "status": "active",
+  "academicYearAccess": [],
+  "programAccess": [],
+  "organizationAccess": [],
+  "standardAccess": [],
+  "criteriaAccess": [],
+  "department": "",
+  "position": "",
+  "expertise": [],
+  "notificationSettings": {
+    "email": true,
+    "inApp": true,
+    "assignment": true,
+    "evaluation": true,
+    "deadline": true
+  },
+  "loginCount": 1,
+  "failedLoginAttempts": 0,
+  "mustChangePassword": true,
+  "metadata": {
+    "totalReports": 0,
+    "totalEvaluations": 0,
+    "averageEvaluationScore": 0,
+    "totalAssignments": 0
+  },
+  "createdBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "updatedBy": {
+    "$oid": "68d8b25effe9c2eccae088b0"
+  },
+  "createdAt": {
+    "$date": "2025-10-01T09:35:26.777Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-01T09:36:46.503Z"
+  },
+  "__v": 0,
+  "lastLogin": {
+    "$date": "2025-10-01T09:36:46.502Z"
+  },
+  "individualPermissions": [],
+  "userGroups": [
+    {
+      "$oid": "68e0874e578adf58b246f660"
+    }
+  ]
+}]
+
+
