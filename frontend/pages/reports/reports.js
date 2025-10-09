@@ -1,494 +1,885 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
-import Layout from '../../components/common/Layout'
+import { apiMethods } from '../../services/api'
+import toast from 'react-hot-toast'
 import {
-    BarChart3,
-    PieChart,
-    TrendingUp,
+    Plus,
+    Search,
+    Filter,
+    Eye,
+    Edit,
+    Trash2,
+    RefreshCw,
     FileText,
     Download,
-    Calendar,
-    Filter,
-    RefreshCw,
-    Users,
-    Building,
-    BookOpen,
+    Upload,
     CheckCircle,
-    AlertCircle,
-    Clock,
-    Eye
+    X,
+    Loader2,
+    BarChart3
 } from 'lucide-react'
-import { formatDate, formatNumber } from '../../utils/helpers'
-import toast from 'react-hot-toast'
+import { formatDate } from '../../utils/helpers'
 
-export default function ReportsPage() {
-    const { user, isLoading } = useAuth()
+export default function ReportsManagement() {
     const router = useRouter()
+
+    const [reports, setReports] = useState([])
     const [loading, setLoading] = useState(true)
-    const [refreshing, setRefreshing] = useState(false)
-    const [selectedProgram, setSelectedProgram] = useState('')
-    const [selectedPeriod, setSelectedPeriod] = useState('month')
-    const [statistics, setStatistics] = useState(null)
-    const [chartData, setChartData] = useState(null)
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pages: 1,
+        total: 0
+    })
+
+    const [filters, setFilters] = useState({
+        search: '',
+        type: '',
+        status: '',
+        programId: '',
+        organizationId: '',
+        standardId: '',
+        criteriaId: '',
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+    })
+
     const [programs, setPrograms] = useState([])
+    const [organizations, setOrganizations] = useState([])
+    const [standards, setStandards] = useState([])
+    const [criteria, setCriteria] = useState([])
+
+    const [selectedItems, setSelectedItems] = useState([])
+    const [showFilters, setShowFilters] = useState(false)
+    const [expandedRows, setExpandedRows] = useState({})
+    const [columnWidths, setColumnWidths] = useState({
+        checkbox: 60,
+        code: 150,
+        title: 300,
+        type: 180,
+        standard: 180,
+        criteria: 180,
+        creator: 150,
+        date: 120,
+        actions: 200
+    })
+    const [resizing, setResizing] = useState(null)
 
     useEffect(() => {
-        if (!isLoading && !user) {
-            router.replace('/login')
-        }
-    }, [user, isLoading, router])
+        fetchPrograms()
+        fetchOrganizations()
+    }, [])
 
     useEffect(() => {
-        if (user) {
-            fetchData()
+        fetchReports()
+    }, [filters.page, filters.type, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
+
+    useEffect(() => {
+        if (filters.programId && filters.organizationId) {
+            fetchStandards()
+        } else {
+            setStandards([])
+            setFilters(prev => ({ ...prev, standardId: '', criteriaId: '' }))
         }
-    }, [user, selectedProgram, selectedPeriod])
+    }, [filters.programId, filters.organizationId])
 
-    const breadcrumbItems = [
-        { name: 'Báo cáo thống kê', icon: BarChart3 }
-    ]
+    useEffect(() => {
+        if (filters.standardId) {
+            fetchCriteria()
+        } else {
+            setCriteria([])
+            setFilters(prev => ({ ...prev, criteriaId: '' }))
+        }
+    }, [filters.standardId])
 
-    const fetchData = async () => {
+    useEffect(() => {
+        if (!resizing) return
+
+        const handleMouseMove = (e) => {
+            const diff = e.clientX - resizing.startX
+            const newWidth = Math.max(60, resizing.startWidth + diff)
+            setColumnWidths(prev => ({
+                ...prev,
+                [resizing.column]: newWidth
+            }))
+        }
+
+        const handleMouseUp = () => {
+            setResizing(null)
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+        }
+    }, [resizing])
+
+    const fetchReports = async () => {
         try {
             setLoading(true)
-            // Mock API call - replace with actual service
-            await new Promise(resolve => setTimeout(resolve, 1000))
 
-            // Mock data
-            const mockStatistics = {
-                overview: {
-                    totalEvidences: 0,
-                    totalPrograms: 0,
-                    totalStandards: 0,
-                    totalCriteria: 0,
-                    totalUsers: 0,
-                    totalOrganizations: 0
-                },
-                evidenceStats: {
-                    approved: 0,
-                    pending: 0,
-                    rejected: 0,
-                    draft: 0,
-                    byMonth: [
-                        { month: '', count: 0 },
-                        { month: '', count: 0 },
-                        { month: '', count: 0 },
-                        { month: '', count: 0 },
-                        { month: '', count: 0 },
-                        { month: '', count: 0 }
-                    ]
-                },
-                programStats: [
-                    { name: '', evidences: 0, completion: 0 },
-                    { name: '', evidences: 0, completion: 0 },
-                    { name: '', evidences: 0, completion: 0 },
-                    { name: '', evidences: 0, completion: 0 },
-                    { name: '', evidences: 0, completion: 0 }
-                ],
-                userActivity: [
-                    { name: '', evidences: 0, role: '' },
-                    { name: '', evidences: 0, role: '' },
-                    { name: '', evidences: 0, role: '' },
-                    { name: '', evidences: 0, role: '' },
-                    { name: '', evidences: 0, role: '' }
-                ],
-                recentActivities: [
-                    { type: '', user: '', action: '', time: '' },
-                    { type: '', user: '', action: '', time: '' },
-                    { type: '', user: '', action: '', time: '' },
-                    { type: '', user: '', action: '', time: '' }
-                ]
+            const params = {
+                page: filters.page,
+                limit: filters.limit,
+                sortBy: filters.sortBy,
+                sortOrder: filters.sortOrder
             }
 
-            const mockPrograms = [
-                { id: '', name: '' },
-                { id: '', name: '' }
-            ]
+            if (filters.search) params.search = filters.search
+            if (filters.type) params.type = filters.type
+            if (filters.status) params.status = filters.status
+            if (filters.programId) params.programId = filters.programId
+            if (filters.organizationId) params.organizationId = filters.organizationId
+            if (filters.standardId) params.standardId = filters.standardId
+            if (filters.criteriaId) params.criteriaId = filters.criteriaId
 
-            setStatistics(mockStatistics)
-            setPrograms(mockPrograms)
+            const response = await apiMethods.reports.getAll(params)
+            const data = response.data?.data || response.data
+
+            setReports(data?.reports || [])
+            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
         } catch (error) {
-            toast.error('Lỗi tải dữ liệu báo cáo')
+            console.error('Fetch reports error:', error)
+            toast.error('Lỗi khi tải danh sách báo cáo')
+            setReports([])
         } finally {
             setLoading(false)
-            setRefreshing(false)
         }
     }
 
-    const handleRefresh = async () => {
-        setRefreshing(true)
-        await fetchData()
-        toast.success('Đã cập nhật dữ liệu mới nhất')
-    }
-
-    const handleExportReport = async (type) => {
+    const fetchPrograms = async () => {
         try {
-            toast.loading('Đang xuất báo cáo...')
-            // Mock export - replace with actual API call
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            toast.dismiss()
-            toast.success(`Xuất báo cáo ${type} thành công`)
+            const response = await apiMethods.programs.getAll()
+            setPrograms(response.data?.data?.programs || [])
         } catch (error) {
-            toast.dismiss()
-            toast.error('Lỗi xuất báo cáo')
+            console.error('Fetch programs error:', error)
         }
     }
 
-    const getStatusIcon = (type) => {
-        switch (type) {
-            case 'create':
-                return <CheckCircle className="h-4 w-4 text-green-500" />
-            case 'approve':
-                return <CheckCircle className="h-4 w-4 text-blue-500" />
-            case 'update':
-                return <Clock className="h-4 w-4 text-yellow-500" />
-            case 'reject':
-                return <AlertCircle className="h-4 w-4 text-red-500" />
-            default:
-                return <Eye className="h-4 w-4 text-gray-500" />
+    const fetchOrganizations = async () => {
+        try {
+            const response = await apiMethods.organizations.getAll()
+            setOrganizations(response.data?.data?.organizations || [])
+        } catch (error) {
+            console.error('Fetch organizations error:', error)
         }
     }
 
-    const StatCard = ({ title, value, icon: Icon, color, change, trend }) => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <p className="text-sm font-medium text-gray-600">{title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatNumber(value)}</p>
-                    {change && (
-                        <div className={`flex items-center mt-2 text-sm ${
-                            trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-600'
-                        }`}>
-                            <TrendingUp className={`h-4 w-4 mr-1 ${
-                                trend === 'down' ? 'rotate-180' : ''
-                            }`} />
-                            <span>{change}</span>
-                        </div>
-                    )}
-                </div>
-                <div className={`p-3 rounded-full ${color}`}>
-                    <Icon className="h-6 w-6 text-white" />
-                </div>
-            </div>
-        </div>
-    )
+    const fetchStandards = async () => {
+        try {
+            const response = await apiMethods.standards.getAll({
+                programId: filters.programId,
+                organizationId: filters.organizationId
+            })
+            setStandards(response.data?.data?.standards || response.data?.data || [])
+        } catch (error) {
+            console.error('Fetch standards error:', error)
+            setStandards([])
+        }
+    }
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+    const fetchCriteria = async () => {
+        try {
+            const response = await apiMethods.criteria.getAll({
+                standardId: filters.standardId
+            })
+            const criteriaData = response.data?.data?.criterias ||
+                response.data?.data?.criteria ||
+                response.data?.data || []
+            setCriteria(criteriaData)
+        } catch (error) {
+            console.error('Fetch criteria error:', error)
+            setCriteria([])
+        }
+    }
+
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({
+            ...prev,
+            [name]: value,
+            page: 1
+        }))
+    }
+
+    const handleSearch = (e) => {
+        e.preventDefault()
+        fetchReports()
+    }
+
+    const handlePageChange = (page) => {
+        setFilters(prev => ({ ...prev, page }))
+    }
+
+    const handleViewDetail = (id) => {
+        router.push(`/reports/${id}`)
+    }
+
+    const handleEdit = (id) => {
+        router.push(`/reports/${id}/edit`)
+    }
+
+    const handleDelete = async (id) => {
+        if (!confirm('Bạn có chắc chắn muốn xóa báo cáo này?')) return
+
+        try {
+            await apiMethods.reports.delete(id)
+            toast.success('Xóa báo cáo thành công')
+            fetchReports()
+        } catch (error) {
+            console.error('Delete error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi xóa báo cáo')
+        }
+    }
+
+    const handlePublish = async (id) => {
+        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+
+        try {
+            await apiMethods.reports.publish(id)
+            toast.success('Xuất bản báo cáo thành công')
+            fetchReports()
+        } catch (error) {
+            console.error('Publish error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản báo cáo')
+        }
+    }
+
+    const handleDownload = async (id, format = 'html') => {
+        try {
+            const response = await apiMethods.reports.download(id, format)
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `report-${id}.${format}`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            toast.success('Tải xuống báo cáo thành công')
+        } catch (error) {
+            console.error('Download error:', error)
+            toast.error('Lỗi khi tải xuống báo cáo')
+        }
+    }
+
+    const toggleSelectItem = (id) => {
+        setSelectedItems(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
         )
     }
 
-    if (!user) {
-        return null
+    const toggleSelectAll = () => {
+        if (selectedItems.length === reports.length) {
+            setSelectedItems([])
+        } else {
+            setSelectedItems(reports.map(r => r._id))
+        }
     }
 
-    return (
-        <Layout
-            title=""
-            breadcrumbItems={breadcrumbItems}
-        >
-            <div className="space-y-6">
-                {/* Header & Controls */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Báo cáo thống kê</h1>
-                        <p className="text-gray-600">Tổng quan về hệ thống quản lý minh chứng</p>
-                    </div>
+    const toggleExpandRow = (id, field) => {
+        setExpandedRows(prev => ({
+            ...prev,
+            [`${id}-${field}`]: !prev[`${id}-${field}`]
+        }))
+    }
 
-                    <div className="flex items-center space-x-3">
+    const handleMouseDown = (e, column) => {
+        e.preventDefault()
+        setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] })
+    }
+
+    const clearFilters = () => {
+        setFilters({
+            search: '',
+            type: '',
+            status: '',
+            programId: '',
+            organizationId: '',
+            standardId: '',
+            criteriaId: '',
+            page: 1,
+            limit: 20,
+            sortBy: 'createdAt',
+            sortOrder: 'desc'
+        })
+    }
+
+    const getStatusColor = (status) => {
+        const colors = {
+            draft: 'bg-gray-100 text-gray-800 border-gray-200',
+            under_review: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            published: 'bg-green-100 text-green-800 border-green-200',
+            archived: 'bg-blue-100 text-blue-800 border-blue-200'
+        }
+        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+
+    const getStatusLabel = (status) => {
+        const labels = {
+            draft: 'Bản nháp',
+            under_review: 'Đang xem xét',
+            published: 'Đã xuất bản',
+            archived: 'Lưu trữ'
+        }
+        return labels[status] || status
+    }
+
+    const getTypeLabel = (type) => {
+        const labels = {
+            criteria_analysis: 'Phân tích tiêu chí',
+            standard_analysis: 'Phân tích tiêu chuẩn',
+            comprehensive_report: 'Báo cáo tổng hợp'
+        }
+        return labels[type] || type
+    }
+
+    const hasActiveFilters = filters.search || filters.type || filters.status || filters.programId ||
+        filters.organizationId || filters.standardId || filters.criteriaId
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <FileText className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Quản lý báo cáo</h1>
+                            <p className="text-blue-100">
+                                Quản lý và đánh giá các báo cáo trong hệ thống
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
                         <button
-                            onClick={handleRefresh}
-                            disabled={refreshing}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                            onClick={() => router.push('/reports/assignments')}
+                            className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-medium"
                         >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                            <BarChart3 className="h-5 w-5 mr-2" />
+                            Phân công
+                        </button>
+                        <button
+                            onClick={() => router.push('/reports/create')}
+                            className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:bg-blue-50 transition-all font-medium shadow-lg"
+                        >
+                            <Plus className="h-5 w-5 mr-2" />
+                            Tạo báo cáo mới
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Search & Filters */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="flex-1">
+                        <form onSubmit={handleSearch} className="relative">
+                            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm theo tiêu đề, mã báo cáo..."
+                                value={filters.search}
+                                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                            />
+                        </form>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-medium ${
+                                showFilters || hasActiveFilters
+                                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
+                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                            <Filter className="h-5 w-5 mr-2" />
+                            Bộ lọc
+                            {hasActiveFilters && (
+                                <span className="ml-2 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-bold">
+                                    {[filters.type, filters.status, filters.programId, filters.organizationId,
+                                        filters.standardId, filters.criteriaId].filter(Boolean).length}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            onClick={fetchReports}
+                            disabled={loading}
+                            className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
+                        >
+                            <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Làm mới
                         </button>
-
-                        <div className="relative">
-                            <select
-                                value={selectedProgram}
-                                onChange={(e) => setSelectedProgram(e.target.value)}
-                                className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Tất cả chương trình</option>
-                                {programs.map(program => (
-                                    <option key={program.id} value={program.id}>
-                                        {program.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <Filter className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
                     </div>
                 </div>
 
-                {/* Loading State */}
+                {showFilters && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-semibold text-gray-900">Lọc nâng cao</h3>
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                    Xóa tất cả bộ lọc
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Loại báo cáo
+                                </label>
+                                <select
+                                    value={filters.type}
+                                    onChange={(e) => handleFilterChange('type', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả loại</option>
+                                    <option value="criteria_analysis">Phân tích tiêu chí</option>
+                                    <option value="standard_analysis">Phân tích tiêu chuẩn</option>
+                                    <option value="comprehensive_report">Báo cáo tổng hợp</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Trạng thái
+                                </label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="draft">Bản nháp</option>
+                                    <option value="under_review">Đang xem xét</option>
+                                    <option value="published">Đã xuất bản</option>
+                                    <option value="archived">Lưu trữ</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Chương trình
+                                </label>
+                                <select
+                                    value={filters.programId}
+                                    onChange={(e) => handleFilterChange('programId', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả chương trình</option>
+                                    {programs.map(p => (
+                                        <option key={p._id} value={p._id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tổ chức
+                                </label>
+                                <select
+                                    value={filters.organizationId}
+                                    onChange={(e) => handleFilterChange('organizationId', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả tổ chức</option>
+                                    {organizations.map(o => (
+                                        <option key={o._id} value={o._id}>{o.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tiêu chuẩn
+                                </label>
+                                <select
+                                    value={filters.standardId}
+                                    onChange={(e) => handleFilterChange('standardId', e.target.value)}
+                                    disabled={!filters.programId || !filters.organizationId}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                >
+                                    <option value="">Tất cả tiêu chuẩn</option>
+                                    {standards.map(s => (
+                                        <option key={s._id} value={s._id}>{s.code} - {s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tiêu chí
+                                </label>
+                                <select
+                                    value={filters.criteriaId}
+                                    onChange={(e) => handleFilterChange('criteriaId', e.target.value)}
+                                    disabled={!filters.standardId}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                >
+                                    <option value="">Tất cả tiêu chí</option>
+                                    {criteria.map(c => (
+                                        <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Bulk Actions */}
+            {selectedItems.length > 0 && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-blue-900 font-medium">
+                            Đã chọn <strong className="text-lg">{selectedItems.length}</strong> báo cáo
+                        </span>
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={() => setSelectedItems([])}
+                                className="inline-flex items-center px-4 py-2 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-200 font-medium transition-all"
+                            >
+                                <X className="h-4 w-4 mr-1" />
+                                Hủy chọn
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Danh sách báo cáo
+                            <span className="ml-2 text-sm font-normal text-gray-500">
+                                ({pagination.total} kết quả)
+                            </span>
+                        </h2>
+                    </div>
+                </div>
+
                 {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600 ml-3">Đang tải dữ liệu...</p>
+                    <div className="flex flex-col justify-center items-center py-16">
+                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                        <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+                    </div>
+                ) : reports.length === 0 ? (
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FileText className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có báo cáo nào'}
+                        </h3>
+                        <p className="text-gray-500 mb-6">
+                            {hasActiveFilters
+                                ? 'Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác'
+                                : 'Bắt đầu bằng cách tạo báo cáo đầu tiên'
+                            }
+                        </p>
+                        {hasActiveFilters ? (
+                            <button
+                                onClick={clearFilters}
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                            >
+                                Xóa bộ lọc
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => router.push('/reports/create')}
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                            >
+                                <Plus className="h-5 w-5 mr-2" />
+                                Tạo báo cáo mới
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <>
-                        {/* Overview Stats */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-                            <StatCard
-                                title="Tổng minh chứng"
-                                value={statistics?.overview.totalEvidences}
-                                icon={FileText}
-                                color="bg-blue-500"
-                                change="+12%"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Chương trình"
-                                value={statistics?.overview.totalPrograms}
-                                icon={BookOpen}
-                                color="bg-green-500"
-                                change="+2"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Tiêu chuẩn"
-                                value={statistics?.overview.totalStandards}
-                                icon={BarChart3}
-                                color="bg-purple-500"
-                            />
-                            <StatCard
-                                title="Tiêu chí"
-                                value={statistics?.overview.totalCriteria}
-                                icon={FileText}
-                                color="bg-yellow-500"
-                            />
-                            <StatCard
-                                title="Người dùng"
-                                value={statistics?.overview.totalUsers}
-                                icon={Users}
-                                color="bg-red-500"
-                                change="+3"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Tổ chức"
-                                value={statistics?.overview.totalOrganizations}
-                                icon={Building}
-                                color="bg-indigo-500"
-                            />
-                        </div>
-
-                        {/* Evidence Status Chart */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Trạng thái minh chứng</h3>
-                                    <PieChart className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                                            <span className="text-sm text-gray-600">Đã phê duyệt</span>
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-900">
-                                            {formatNumber(statistics?.evidenceStats.approved)}
-                                            <span className="text-gray-500 ml-1">
-                                                ({Math.round(statistics?.evidenceStats.approved / statistics?.overview.totalEvidences * 100)}%)
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                <tr>
+                                    <th
+                                        className="px-4 py-4 text-left border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.checkbox }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedItems.length === reports.length}
+                                            onChange={toggleSelectAll}
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                        />
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'checkbox')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.code }}
+                                    >
+                                        Mã BC
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'code')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.title }}
+                                    >
+                                        Tiêu đề báo cáo
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'title')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.type }}
+                                    >
+                                        Loại
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'type')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.standard }}
+                                    >
+                                        Tiêu chuẩn
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'standard')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.criteria }}
+                                    >
+                                        Tiêu chí
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'criteria')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.creator }}
+                                    >
+                                        Người tạo
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'creator')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
+                                        style={{ width: columnWidths.date }}
+                                    >
+                                        Ngày tạo
+                                        <div
+                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 group-hover:bg-blue-300"
+                                            onMouseDown={(e) => handleMouseDown(e, 'date')}
+                                        />
+                                    </th>
+                                    <th
+                                        className="px-4 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-300"
+                                        style={{ width: columnWidths.actions }}
+                                    >
+                                        Thao tác
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody className="bg-white">
+                                {reports.map((report) => (
+                                    <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.checkbox }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.includes(report._id)}
+                                                onChange={() => toggleSelectItem(report._id)}
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.code }}>
+                                            <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                                {report.code}
                                             </span>
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                                            <span className="text-sm text-gray-600">Chờ xử lý</span>
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-900">
-                                            {formatNumber(statistics?.evidenceStats.pending)}
-                                            <span className="text-gray-500 ml-1">
-                                                ({Math.round(statistics?.evidenceStats.pending / statistics?.overview.totalEvidences * 100)}%)
-                                            </span>
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                                            <span className="text-sm text-gray-600">Từ chối</span>
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-900">
-                                            {formatNumber(statistics?.evidenceStats.rejected)}
-                                            <span className="text-gray-500 ml-1">
-                                                ({Math.round(statistics?.evidenceStats.rejected / statistics?.overview.totalEvidences * 100)}%)
-                                            </span>
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
-                                            <span className="text-sm text-gray-600">Nháp</span>
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-900">
-                                            {formatNumber(statistics?.evidenceStats.draft)}
-                                            <span className="text-gray-500 ml-1">
-                                                ({Math.round(statistics?.evidenceStats.draft / statistics?.overview.totalEvidences * 100)}%)
-                                            </span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Program Progress */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Tiến độ chương trình</h3>
-                                    <BarChart3 className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-4">
-                                    {statistics?.programStats.map((program, index) => (
-                                        <div key={index}>
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-sm font-medium text-gray-900 truncate">
-                                                    {program.name}
-                                                </span>
-                                                <span className="text-sm text-gray-500">
-                                                    {program.completion}%
-                                                </span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                <div
-                                                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                                    style={{ width: `${program.completion}%` }}
-                                                ></div>
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {formatNumber(program.evidences)} minh chứng
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* User Activity & Recent Activities */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Top Users */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Người dùng tích cực</h3>
-                                    <Users className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-3">
-                                    {statistics?.userActivity.map((user, index) => (
-                                        <div key={index} className="flex items-center justify-between">
-                                            <div className="flex items-center">
-                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                                                    <span className="text-xs font-medium text-gray-600">
-                                                        {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.title }}>
+                                            <div className="relative">
+                                                <p
+                                                    className={`text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 ${
+                                                        expandedRows[`${report._id}-title`] ? '' : 'truncate'
+                                                    }`}
+                                                    onClick={() => toggleExpandRow(report._id, 'title')}
+                                                    title={report.title}
+                                                >
+                                                    {report.title}
+                                                </p>
+                                                {report.summary && (
+                                                    <p className="text-xs text-gray-500 mt-1 truncate" title={report.summary}>
+                                                        {report.summary}
+                                                    </p>
+                                                )}
+                                                <div className="mt-1">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
+                                                        {getStatusLabel(report.status)}
                                                     </span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                                                    <p className="text-xs text-gray-500">{user.role}</p>
-                                                </div>
                                             </div>
-                                            <span className="text-sm font-medium text-blue-600">
-                                                {user.evidences} minh chứng
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200 text-xs" style={{ width: columnWidths.type }}>
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                                {getTypeLabel(report.type)}
                                             </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Recent Activities */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Hoạt động gần đây</h3>
-                                    <Clock className="h-5 w-5 text-gray-400" />
-                                </div>
-
-                                <div className="space-y-3">
-                                    {statistics?.recentActivities.map((activity, index) => (
-                                        <div key={index} className="flex items-start">
-                                            <div className="flex-shrink-0 mr-3 mt-0.5">
-                                                {getStatusIcon(activity.type)}
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.standard }}>
+                                            <div
+                                                className={`text-xs cursor-pointer hover:text-blue-600 ${
+                                                    expandedRows[`${report._id}-standard`] ? '' : 'truncate'
+                                                }`}
+                                                onClick={() => toggleExpandRow(report._id, 'standard')}
+                                                title={`${report.standardId?.code} - ${report.standardId?.name}`}
+                                            >
+                                                <span className="font-semibold">{report.standardId?.code}</span>
+                                                {report.standardId?.name && ` - ${report.standardId?.name}`}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm text-gray-900">
-                                                    <span className="font-medium">{activity.user}</span>{' '}
-                                                    {activity.action}
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    {formatDate(activity.time, 'DD/MM/YYYY HH:mm')}
-                                                </p>
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.criteria }}>
+                                            <div
+                                                className={`text-xs cursor-pointer hover:text-blue-600 ${
+                                                    expandedRows[`${report._id}-criteria`] ? '' : 'truncate'
+                                                }`}
+                                                onClick={() => toggleExpandRow(report._id, 'criteria')}
+                                                title={`${report.criteriaId?.code} - ${report.criteriaId?.name}`}
+                                            >
+                                                <span className="font-semibold">{report.criteriaId?.code}</span>
+                                                {report.criteriaId?.name && ` - ${report.criteriaId?.name}`}
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200 text-sm text-gray-700" style={{ width: columnWidths.creator }}>
+                                            {report.createdBy?.fullName || 'N/A'}
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-200 text-sm text-gray-500" style={{ width: columnWidths.date }}>
+                                            {formatDate(report.createdAt)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right" style={{ width: columnWidths.actions }}>
+                                            <div className="flex items-center justify-end space-x-2">
+                                                <button
+                                                    onClick={() => handleViewDetail(report._id)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                    title="Xem chi tiết"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleEdit(report._id)}
+                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                                                    title="Chỉnh sửa"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
+                                                {report.status === 'draft' && (
+                                                    <button
+                                                        onClick={() => handlePublish(report._id)}
+                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                        title="Xuất bản"
+                                                    >
+                                                        <CheckCircle className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleDownload(report._id)}
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                    title="Tải xuống"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(report._id)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
                         </div>
 
-                        {/* Export Section */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Xuất báo cáo</h3>
+                        {pagination.pages > 1 && (
+                            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm text-gray-700">
+                                        Hiển thị <strong>{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
+                                        <strong>{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
+                                        <strong>{pagination.total}</strong> kết quả
+                                    </p>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current - 1)}
+                                            disabled={!pagination.hasPrev}
+                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                        >
+                                            Trước
+                                        </button>
+                                        {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
+                                            let pageNum;
+                                            if (pagination.pages <= 7) {
+                                                pageNum = i + 1;
+                                            } else if (pagination.current <= 4) {
+                                                pageNum = i + 1;
+                                            } else if (pagination.current >= pagination.pages - 3) {
+                                                pageNum = pagination.pages - 6 + i;
+                                            } else {
+                                                pageNum = pagination.current - 3 + i;
+                                            }
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <button
-                                    onClick={() => handleExportReport('excel')}
-                                    className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <Download className="h-5 w-5 mr-2 text-green-600" />
-                                    <div className="text-left">
-                                        <div className="text-sm font-medium text-gray-900">Excel</div>
-                                        <div className="text-xs text-gray-500">Báo cáo tổng hợp</div>
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => handlePageChange(pageNum)}
+                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${
+                                                        pagination.current === pageNum
+                                                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                                                            : 'border-2 border-gray-200 hover:bg-white'
+                                                    }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        })}
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current + 1)}
+                                            disabled={!pagination.hasNext}
+                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                        >
+                                            Sau
+                                        </button>
                                     </div>
-                                </button>
-
-                                <button
-                                    onClick={() => handleExportReport('pdf')}
-                                    className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <Download className="h-5 w-5 mr-2 text-red-600" />
-                                    <div className="text-left">
-                                        <div className="text-sm font-medium text-gray-900">PDF</div>
-                                        <div className="text-xs text-gray-500">Báo cáo chi tiết</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => handleExportReport('statistics')}
-                                    className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                                    <div className="text-left">
-                                        <div className="text-sm font-medium text-gray-900">Thống kê</div>
-                                        <div className="text-xs text-gray-500">Biểu đồ & số liệu</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => handleExportReport('custom')}
-                                    className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    <Calendar className="h-5 w-5 mr-2 text-purple-600" />
-                                    <div className="text-left">
-                                        <div className="text-sm font-medium text-gray-900">Tùy chỉnh</div>
-                                        <div className="text-xs text-gray-500">Theo khoảng thời gian</div>
-                                    </div>
-                                </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 )}
             </div>
-        </Layout>
+        </div>
     )
 }
