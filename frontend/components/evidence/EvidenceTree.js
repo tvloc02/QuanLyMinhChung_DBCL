@@ -325,7 +325,7 @@ export default function EvidenceTree() {
                         </div>
                     </div>
                     <button
-                        onClick={() => router.push('/evidence-management')}
+                        onClick={() => router.push('/evidence/evidence-management')}
                         className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
                     >
                         <ArrowLeft className="w-4 h-4" />
