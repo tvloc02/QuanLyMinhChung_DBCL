@@ -2,7 +2,7 @@ const Evidence = require('../../models/Evidence/Evidence');
 const File = require('../../models/Evidence/File');
 const AcademicYear = require('../../models/system/AcademicYear');
 const exportService = require('../../services/exportService');
-const { importEvidencesFromExcel } = require('../../services/importService');
+const { importEvidencesFromExcel } = require('../../services/importService'); // <- Đã require đúng hàm
 const searchService = require('../../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
@@ -697,8 +697,11 @@ const exportEvidences = async (req, res) => {
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
-        const { programId, organizationId } = req.body;
-        const academicYearId = req.academicYearId;
+        const { programId, organizationId, mode, academicYearId, userId } = req.body; // Đã thêm academicYearId và userId vào body
+
+        // academicYearId và userId đã được kiểm tra ở Router Validation.
+        // req.academicYearId cũng có sẵn từ middleware, nhưng ta dùng req.body.academicYearId
+        // để đảm bảo khớp với giá trị được validation.
 
         if (!file) {
             return res.status(400).json({
@@ -707,25 +710,39 @@ const importEvidences = async (req, res) => {
             });
         }
 
-        const result = await importService.importEvidences(
+        // SỬA LỖI GỐC: Gọi hàm importEvidencesFromExcel đã được require.
+        // Dòng lỗi 710 của bạn đã sử dụng một biến không tồn tại (importService.importEvidences).
+        const result = await importEvidencesFromExcel(
             file.path,
             academicYearId,
             programId,
             organizationId,
-            req.user.id
+            userId,
+            mode
         );
 
         if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
         }
 
+        // Log kết quả trả về (để debug lỗi 400 nếu nó xuất hiện lại)
+        console.log('Import success/failure summary:', result);
+
         res.json(result);
 
     } catch (error) {
         console.error('Import evidences error:', error);
+        // THÊM: Xử lý lỗi validation Mongoose rõ ràng hơn
+        if (error.message.includes('Lỗi khi import file:')) {
+            return res.status(400).json({
+                success: false,
+                message: error.message.replace('Lỗi khi import file: ', '')
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi import minh chứng'
+            message: 'Lỗi hệ thống khi import minh chứng: ' + error.message
         });
     }
 };
