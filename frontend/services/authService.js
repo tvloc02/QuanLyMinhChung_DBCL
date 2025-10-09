@@ -1,0 +1,472 @@
+import { apiMethods } from './api'
+import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/helpers'
+
+class AuthService {
+    constructor() {
+        this.token = null
+        this.user = null
+        this.refreshTokenTimer = null
+    }
+
+    // Initialize auth service
+    init() {
+        const token = getLocalStorage('token')
+        const user = getLocalStorage('user')
+
+        if (token) {
+            this.token = token
+            this.user = user
+            this.startRefreshTokenTimer()
+        }
+    }
+
+    // Login user
+    async login(email, password, rememberMe = false) {
+        try {
+            const response = await apiMethods.login({ email, password })
+
+            if (response.data.success) {
+                const { token, user, refreshToken } = response.data.data
+
+                this.token = token
+                this.user = user
+
+                // Store in localStorage or sessionStorage based on rememberMe
+                if (rememberMe) {
+                    setLocalStorage('token', token)
+                    setLocalStorage('user', user)
+                    if (refreshToken) {
+                        setLocalStorage('refreshToken', refreshToken)
+                    }
+                } else {
+                    sessionStorage.setItem('token', token)
+                    sessionStorage.setItem('user', JSON.stringify(user))
+                    if (refreshToken) {
+                        sessionStorage.setItem('refreshToken', refreshToken)
+                    }
+                }
+
+                this.startRefreshTokenTimer()
+
+                return {
+                    success: true,
+                    user,
+                    token
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message || 'Đăng nhập thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi kết nối'
+            }
+        }
+    }
+
+    // Logout user
+    async logout() {
+        try {
+            await apiMethods.logout()
+        } catch (error) {
+            console.error('Logout API error:', error)
+        } finally {
+            this.clearAuth()
+        }
+    }
+
+    // Clear authentication data
+    clearAuth() {
+        this.token = null
+        this.user = null
+
+        // Clear from both localStorage and sessionStorage
+        removeLocalStorage('token')
+        removeLocalStorage('user')
+        removeLocalStorage('refreshToken')
+
+        sessionStorage.removeItem('token')
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('refreshToken')
+
+        this.stopRefreshTokenTimer()
+    }
+
+    // Get current user
+    async getCurrentUser() {
+        try {
+            if (!this.token) {
+                return { success: false, message: 'Không có token' }
+            }
+
+            const response = await apiMethods.getMe()
+
+            if (response.data.success) {
+                this.user = response.data.data
+
+                // Update stored user data
+                const storedToken = getLocalStorage('token')
+                if (storedToken) {
+                    setLocalStorage('user', this.user)
+                } else {
+                    sessionStorage.setItem('user', JSON.stringify(this.user))
+                }
+
+                return {
+                    success: true,
+                    user: this.user
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message
+            }
+        } catch (error) {
+            if (error.response?.status === 401) {
+                this.clearAuth()
+                return {
+                    success: false,
+                    message: 'Phiên đăng nhập đã hết hạn',
+                    requireLogin: true
+                }
+            }
+
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi xác thực'
+            }
+        }
+    }
+
+    // Change password
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const response = await apiMethods.changePassword({
+                currentPassword,
+                newPassword
+            })
+
+            if (response.data.success) {
+                return {
+                    success: true,
+                    message: 'Đổi mật khẩu thành công'
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message || 'Đổi mật khẩu thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi đổi mật khẩu'
+            }
+        }
+    }
+
+    // Forgot password
+    async forgotPassword(email) {
+        try {
+            const response = await apiMethods.forgotPassword(email)
+
+            if (response.data.success) {
+                return {
+                    success: true,
+                    message: 'Email khôi phục mật khẩu đã được gửi'
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message || 'Gửi email thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi gửi email'
+            }
+        }
+    }
+
+    // Reset password
+    async resetPassword(token, newPassword) {
+        try {
+            const response = await apiMethods.resetPassword(token, newPassword)
+
+            if (response.data.success) {
+                return {
+                    success: true,
+                    message: 'Đặt lại mật khẩu thành công'
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message || 'Đặt lại mật khẩu thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi đặt lại mật khẩu'
+            }
+        }
+    }
+
+    // Refresh token
+    async refreshToken() {
+        try {
+            const refreshToken = getLocalStorage('refreshToken') ||
+                sessionStorage.getItem('refreshToken')
+
+            if (!refreshToken) {
+                throw new Error('No refresh token available')
+            }
+
+            const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refreshToken })
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                const { token, user } = data.data
+
+                this.token = token
+                this.user = user
+
+                // Update stored tokens
+                const isRemembered = getLocalStorage('token')
+                if (isRemembered) {
+                    setLocalStorage('token', token)
+                    setLocalStorage('user', user)
+                } else {
+                    sessionStorage.setItem('token', token)
+                    sessionStorage.setItem('user', JSON.stringify(user))
+                }
+
+                this.startRefreshTokenTimer()
+
+                return {
+                    success: true,
+                    token,
+                    user
+                }
+            }
+
+            throw new Error(data.message || 'Refresh token failed')
+        } catch (error) {
+            this.clearAuth()
+            return {
+                success: false,
+                message: error.message
+            }
+        }
+    }
+
+    // Start refresh token timer
+    startRefreshTokenTimer() {
+        if (!this.token) return
+
+        // Decode token to get expiry time
+        try {
+            const tokenPayload = JSON.parse(atob(this.token.split('.')[1]))
+            const expiryTime = tokenPayload.exp * 1000 // Convert to milliseconds
+            const currentTime = Date.now()
+            const timeUntilRefresh = expiryTime - currentTime - (5 * 60 * 1000) // Refresh 5 minutes before expiry
+
+            if (timeUntilRefresh > 0) {
+                this.refreshTokenTimer = setTimeout(async () => {
+                    const result = await this.refreshToken()
+                    if (!result.success) {
+                        // Redirect to login if refresh fails
+                        window.location.href = '/login'
+                    }
+                }, timeUntilRefresh)
+            }
+        } catch (error) {
+            console.error('Error parsing token:', error)
+        }
+    }
+
+    // Stop refresh token timer
+    stopRefreshTokenTimer() {
+        if (this.refreshTokenTimer) {
+            clearTimeout(this.refreshTokenTimer)
+            this.refreshTokenTimer = null
+        }
+    }
+
+    // Check if user is authenticated
+    isAuthenticated() {
+        return !!this.token && !!this.user
+    }
+
+    // Get current token
+    getToken() {
+        return this.token || getLocalStorage('token') || sessionStorage.getItem('token')
+    }
+
+    // Get current user
+    getUser() {
+        return this.user || getLocalStorage('user') ||
+            JSON.parse(sessionStorage.getItem('user') || 'null')
+    }
+
+    // Check if user has specific role
+    hasRole(role) {
+        const user = this.getUser()
+        return user && user.role === role
+    }
+
+    // Check if user has any of the specified roles
+    hasAnyRole(roles) {
+        const user = this.getUser()
+        return user && roles.includes(user.role)
+    }
+
+    // Check if user has specific permission
+    hasPermission(permission) {
+        const user = this.getUser()
+        return user && user.permissions && user.permissions.includes(permission)
+    }
+
+    // Check if user has all specified permissions
+    hasAllPermissions(permissions) {
+        const user = this.getUser()
+        if (!user || !user.permissions) return false
+
+        return permissions.every(permission => user.permissions.includes(permission))
+    }
+
+    // Check if user has any of the specified permissions
+    hasAnyPermission(permissions) {
+        const user = this.getUser()
+        if (!user || !user.permissions) return false
+
+        return permissions.some(permission => user.permissions.includes(permission))
+    }
+
+    // Update user profile
+    async updateProfile(userData) {
+        try {
+            const user = this.getUser()
+            if (!user) {
+                throw new Error('User not authenticated')
+            }
+
+            const response = await apiMethods.updateUser(user.id, userData)
+
+            if (response.data.success) {
+                const updatedUser = response.data.data
+                this.user = updatedUser
+
+                // Update stored user data
+                const storedToken = getLocalStorage('token')
+                if (storedToken) {
+                    setLocalStorage('user', updatedUser)
+                } else {
+                    sessionStorage.setItem('user', JSON.stringify(updatedUser))
+                }
+
+                return {
+                    success: true,
+                    user: updatedUser,
+                    message: 'Cập nhật thông tin thành công'
+                }
+            }
+
+            return {
+                success: false,
+                message: response.data.message || 'Cập nhật thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Lỗi cập nhật thông tin'
+            }
+        }
+    }
+
+    // Verify email
+    async verifyEmail(token) {
+        try {
+            const response = await fetch('/api/auth/verify-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token })
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: 'Xác thực email thành công'
+                }
+            }
+
+            return {
+                success: false,
+                message: data.message || 'Xác thực email thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Lỗi xác thực email'
+            }
+        }
+    }
+
+    // Resend verification email
+    async resendVerificationEmail() {
+        try {
+            const response = await fetch('/api/auth/resend-verification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            })
+
+            const data = await response.json()
+
+            if (data.success) {
+                return {
+                    success: true,
+                    message: 'Email xác thực đã được gửi lại'
+                }
+            }
+
+            return {
+                success: false,
+                message: data.message || 'Gửi email thất bại'
+            }
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Lỗi gửi email xác thực'
+            }
+        }
+    }
+}
+
+// Create singleton instance
+const authService = new AuthService()
+
+// Initialize on import
+if (typeof window !== 'undefined') {
+    authService.init()
+}
+
+export default authService
