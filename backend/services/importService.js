@@ -96,6 +96,11 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             throw new Error('File không có dữ liệu');
         }
 
+        // Kiểm tra tham số bắt buộc
+        if (!academicYearId || !programId || !organizationId || !userId) {
+            throw new Error('Thiếu các tham số bắt buộc (academicYearId, programId, organizationId, userId).');
+        }
+
         const findColumn = (row, possibleNames) => {
             for (const name of possibleNames) {
                 if (row[name] !== undefined) return name;
@@ -118,9 +123,10 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
 
+        // Load tất cả Standard và Criteria thuộc năm học hiện tại
         const [allStandards, allCriteria] = await Promise.all([
-            StandardModel.find({ academicYearId }).lean(),
-            CriteriaModel.find({ academicYearId }).lean()
+            StandardModel.find({ academicYearId, programId, organizationId }).lean(),
+            CriteriaModel.find({ academicYearId, programId, organizationId }).lean()
         ]);
 
         console.log('Found in DB:', {
@@ -165,7 +171,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             const codeStr = String(row[codeCol] || '').trim();
             const nameStr = nameCol ? String(row[nameCol] || '').trim() : '';
 
-            if (!codeStr) continue;
+            if (!codeStr && !nameStr) continue;
+            if (!codeStr) continue; // Bỏ qua nếu không có mã
 
             console.log(`Row ${rowNum}: Processing code="${codeStr}", name="${nameStr}"`);
 
@@ -187,73 +194,53 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             try {
                 if (identified.type === 'standard') {
                     currentStandardCode = identified.parsed.standardCode;
-
-                    // Lấy tên tiêu chuẩn từ cột tên (nameCol)
                     let standardName = nameStr || `Tiêu chuẩn ${currentStandardCode}`;
 
-                    // Tìm kiếm Standard đã tồn tại
-                    let existingStandard = allStandards.find(s => s.code === currentStandardCode);
+                    // 1. Tìm kiếm Standard đã tồn tại
+                    currentStandardId = standardMap[currentStandardCode];
 
-                    if (existingStandard) {
-                        // Cập nhật Standard (nếu muốn)
-                        currentStandardId = existingStandard._id;
-                        console.log(`  → Found existing standard: ${currentStandardCode}`);
-                    } else {
+                    if (!currentStandardId && standardName) {
                         // TẠO MỚI STANDARD
-                        if (standardName) {
-                            const newStandard = new StandardModel({
-                                academicYearId,
-                                code: currentStandardCode,
-                                name: standardName,
-                                programId,
-                                organizationId,
-                                createdBy: userId,
-                                updatedBy: userId
-                            });
+                        const newStandard = new StandardModel({
+                            academicYearId,
+                            code: currentStandardCode,
+                            name: standardName,
+                            programId,
+                            organizationId,
+                            createdBy: userId,
+                            updatedBy: userId
+                        });
 
-                            const savedStandard = await newStandard.save();
-                            currentStandardId = savedStandard._id;
+                        const savedStandard = await newStandard.save();
+                        currentStandardId = savedStandard._id;
 
-                            // Cập nhật lại Standard Map và danh sách
-                            standardMap[currentStandardCode] = currentStandardId;
-                            allStandards.push(savedStandard.toObject());
+                        // Cập nhật lại Map và danh sách
+                        standardMap[currentStandardCode] = currentStandardId;
+                        allStandards.push(savedStandard.toObject());
 
-                            results.created.push({
-                                row: rowNum,
-                                code: codeStr,
-                                message: `Tạo mới Tiêu chuẩn ${currentStandardCode}`
-                            });
-                            console.log(`  → Created new standard: ${currentStandardCode}`);
-                        } else {
-                            results.errors.push({
-                                row: rowNum,
-                                code: codeStr,
-                                message: `Không tìm thấy Tiêu chuẩn ${currentStandardCode} và thiếu tên để tạo mới`
-                            });
-                            currentStandardId = null;
-                        }
-                    }
+                        results.created.push({ row: rowNum, code: codeStr, name: standardName, type: 'standard' });
+                        console.log(`  → CREATED new standard: ${currentStandardCode}`);
 
-                    if (currentStandardId) {
-                        console.log(`  → Set current standard: ${currentStandardCode}`);
-                    } else {
+                    } else if (!currentStandardId) {
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy hoặc tạo được Tiêu chuẩn ${currentStandardCode}`
+                            message: `Không tìm thấy Tiêu chuẩn ${currentStandardCode} và thiếu tên để tạo mới`
                         });
+                    } else {
+                        console.log(`  → Found existing standard: ${currentStandardCode}`);
                     }
 
-                    currentCriteriaId = null;
+                    currentCriteriaId = null; // Reset Criteria context
 
                 } else if (identified.type === 'criteria') {
                     currentStandardCode = identified.parsed.standardCode;
                     currentCriteriaCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
-
-                    currentStandardId = standardMap[currentStandardCode];
                     let criteriaName = nameStr || `Tiêu chí ${criteriaKey}`;
 
+                    // Lấy Standard cha (Nếu nó vừa được tạo ở trên hoặc đã tồn tại)
+                    currentStandardId = standardMap[currentStandardCode];
 
                     if (!currentStandardId) {
                         results.errors.push({
@@ -262,62 +249,43 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             message: `Tiêu chuẩn ${currentStandardCode} chưa tồn tại. Không thể tạo Tiêu chí ${criteriaKey}.`
                         });
                         currentCriteriaId = null;
-                        currentStandardId = null; // Đặt lại để tránh nhầm lẫn
-
-                    } else {
-                        // Tìm kiếm Criteria đã tồn tại
-                        let existingCriteria = allCriteria.find(c => {
-                            const stdIdString = c.standardId.toString();
-                            const parentStd = allStandards.find(s => s._id.toString() === stdIdString);
-                            return parentStd && parentStd.code === currentStandardCode && c.code === currentCriteriaCode;
-                        });
-
-                        if (existingCriteria) {
-                            // Cập nhật Criteria (nếu muốn)
-                            currentCriteriaId = existingCriteria._id;
-                            console.log(`  → Found existing criteria: ${criteriaKey}`);
-                        } else {
-                            // TẠO MỚI CRITERIA
-                            if (criteriaName) {
-                                const newCriteria = new CriteriaModel({
-                                    academicYearId,
-                                    code: currentCriteriaCode,
-                                    name: criteriaName,
-                                    programId,
-                                    organizationId,
-                                    standardId: currentStandardId,
-                                    createdBy: userId,
-                                    updatedBy: userId
-                                });
-
-                                const savedCriteria = await newCriteria.save();
-                                currentCriteriaId = savedCriteria._id;
-
-                                // Cập nhật lại Criteria Map và danh sách
-                                criteriaMap[criteriaKey] = currentCriteriaId;
-                                allCriteria.push(savedCriteria.toObject());
-
-                                results.created.push({
-                                    row: rowNum,
-                                    code: codeStr,
-                                    message: `Tạo mới Tiêu chí ${criteriaKey}`
-                                });
-                                console.log(`  → Created new criteria: ${criteriaKey}`);
-                            } else {
-                                results.errors.push({
-                                    row: rowNum,
-                                    code: codeStr,
-                                    message: `Không tìm thấy Tiêu chí ${criteriaKey} và thiếu tên để tạo mới`
-                                });
-                                currentCriteriaId = null;
-                            }
-                        }
+                        continue;
                     }
 
-                    if (currentCriteriaId) {
-                        console.log(`  → Set current criteria: ${criteriaKey}`);
+                    // 1. Tìm kiếm Criteria đã tồn tại
+                    currentCriteriaId = criteriaMap[criteriaKey];
+
+                    if (!currentCriteriaId && criteriaName) {
+                        // TẠO MỚI CRITERIA
+                        const newCriteria = new CriteriaModel({
+                            academicYearId,
+                            code: currentCriteriaCode,
+                            name: criteriaName,
+                            programId,
+                            organizationId,
+                            standardId: currentStandardId,
+                            createdBy: userId,
+                            updatedBy: userId
+                        });
+
+                        const savedCriteria = await newCriteria.save();
+                        currentCriteriaId = savedCriteria._id;
+
+                        // Cập nhật lại Map và danh sách
+                        criteriaMap[criteriaKey] = currentCriteriaId;
+                        allCriteria.push(savedCriteria.toObject());
+
+                        results.created.push({ row: rowNum, code: codeStr, name: criteriaName, type: 'criteria' });
+                        console.log(`  → CREATED new criteria: ${criteriaKey}`);
+
+                    } else if (!currentCriteriaId) {
+                        results.errors.push({
+                            row: rowNum,
+                            code: codeStr,
+                            message: `Không tìm thấy Tiêu chí ${criteriaKey} và thiếu tên để tạo mới`
+                        });
                     } else {
-                        currentCriteriaId = null;
+                        console.log(`  → Found existing criteria: ${criteriaKey}`);
                     }
 
                 } else if (identified.type === 'evidence') {
@@ -344,7 +312,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy tiêu chuẩn ${stdCode} hoặc tiêu chí ${criteriaKey}`
+                            message: `Không tìm thấy tiêu chuẩn ${stdCode} hoặc tiêu chí ${criteriaKey}. Hãy đảm bảo chúng nằm trên hoặc đã tồn tại.`
                         });
                         console.log(`  → Error: Standard or Criteria not found`);
                         continue;
@@ -362,8 +330,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             existingEvidence.name = nameStr;
                             existingEvidence.standardId = evidenceStandardId;
                             existingEvidence.criteriaId = evidenceCriteriaId;
-                            existingEvidence.programId = programId;
-                            existingEvidence.organizationId = organizationId;
+                            existingEvidence.programId = programId; // Lấy từ tham số
+                            existingEvidence.organizationId = organizationId; // Lấy từ tham số
                             existingEvidence.updatedBy = userId;
 
                             await existingEvidence.save();
@@ -380,8 +348,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                                 academicYearId,
                                 code: identified.original,
                                 name: nameStr,
-                                programId,
-                                organizationId,
+                                programId, // Lấy từ tham số
+                                organizationId, // Lấy từ tham số
                                 standardId: evidenceStandardId,
                                 criteriaId: evidenceCriteriaId,
                                 createdBy: userId,
@@ -413,8 +381,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             academicYearId,
                             code: identified.original,
                             name: nameStr,
-                            programId,
-                            organizationId,
+                            programId, // Lấy từ tham số
+                            organizationId, // Lấy từ tham số
                             standardId: evidenceStandardId,
                             criteriaId: evidenceCriteriaId,
                             createdBy: userId,
@@ -440,7 +408,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                 }
 
             } catch (error) {
-                console.error(`  → Error processing row ${rowNum}:`, error);
+                console.error(`  → Error processing row ${rowNum} (${identified.type}):`, error.message);
                 results.errors.push({
                     row: rowNum,
                     code: codeStr,
@@ -449,16 +417,23 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             }
         }
 
+        const createdStandards = results.created.filter(r => r.type === 'standard').length;
+        const createdCriteria = results.created.filter(r => r.type === 'criteria').length;
+        const createdEvidences = results.created.filter(r => r.type !== 'standard' && r.type !== 'criteria').length;
+
+
         console.log('\n=== Import Summary ===');
-        console.log('Created:', results.created.length);
+        console.log('Created Standards:', createdStandards);
+        console.log('Created Criteria:', createdCriteria);
+        console.log('Created Evidences:', createdEvidences);
         console.log('Updated:', results.updated.length);
         console.log('Errors:', results.errors.length);
 
         return {
             success: true,
-            message: `Import hoàn tất: ${results.created.length} tạo mới, ${results.updated.length} cập nhật, ${results.errors.length} lỗi`,
+            message: `Import hoàn tất: ${createdStandards} TC, ${createdCriteria} TC, ${createdEvidences} MC tạo mới, ${results.updated.length} MC cập nhật, ${results.errors.length} lỗi`,
             data: {
-                total: results.success.length,
+                total: results.success.length + createdStandards + createdCriteria,
                 created: results.created.length,
                 updated: results.updated.length,
                 errors: results.errors.length,
