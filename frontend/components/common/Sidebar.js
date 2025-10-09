@@ -241,13 +241,13 @@ export default function Sidebar({ open, onClose }) {
                 style={{
                     top: '80px',
                     height: 'calc(100vh - 80px)',
-                    borderColor: '#E5E7EB',
+                    borderColor: '#ffffff',
                     left: 0
                 }}
             >
                 {/* Header with Logo and Collapse Button */}
                 <div className="flex items-center justify-between p-4 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50 flex-shrink-0"
-                     style={{ borderColor: '#E5E7EB' }}>
+                     style={{ borderColor: '#ffffff' }}>
                     {!collapsed ? (
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
@@ -391,17 +391,6 @@ export default function Sidebar({ open, onClose }) {
                         )
                     })}
                 </nav>
-
-                {/* Footer Info */}
-                {!collapsed && (
-                    <div className="p-4 border-t-2 bg-gradient-to-r from-indigo-50 to-purple-50 flex-shrink-0"
-                         style={{ borderColor: '#E5E7EB' }}>
-                        <div className="text-center">
-                            <p className="text-xs font-bold text-gray-600">Phiên bản 1.0.0</p>
-                            <p className="text-xs text-gray-500 mt-1">© 2025 CMC University</p>
-                        </div>
-                    </div>
-                )}
             </aside>
         </>
     )
