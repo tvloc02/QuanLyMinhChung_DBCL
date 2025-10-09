@@ -28,8 +28,8 @@ const identifyCodeType = (code) => {
         return {
             type: 'criteria',
             parsed: {
-                standardCode: criteriaMatch[1].padStart(2, '0'),
-                criteriaCode: criteriaMatch[2].padStart(2, '0')
+                standardCode: criteriaMatch[1],  // Bỏ .padStart(2, '0')
+                criteriaCode: criteriaMatch[2]   // Bỏ .padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -41,7 +41,7 @@ const identifyCodeType = (code) => {
         return {
             type: 'standard',
             parsed: {
-                standardCode: standardMatch[1].padStart(2, '0')
+                standardCode: standardMatch[1]  // Bỏ .padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -53,7 +53,7 @@ const identifyCodeType = (code) => {
         return {
             type: 'standard',
             parsed: {
-                standardCode: standardTextMatch[1].padStart(2, '0')
+                standardCode: standardTextMatch[1]  // Bỏ .padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -65,8 +65,8 @@ const identifyCodeType = (code) => {
         return {
             type: 'criteria',
             parsed: {
-                standardCode: criteriaTextMatch[1].padStart(2, '0'),
-                criteriaCode: criteriaTextMatch[2].padStart(2, '0')
+                standardCode: criteriaTextMatch[1],  // Bỏ .padStart(2, '0')
+                criteriaCode: criteriaTextMatch[2]   // Bỏ .padStart(2, '0')
             },
             original: trimmedCode
         };
