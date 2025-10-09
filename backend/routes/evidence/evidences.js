@@ -91,6 +91,8 @@ router.get('/export', [
 router.post('/import', upload.single('file'), [
     body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
+    body('academicYearId').notEmpty().isMongoId().withMessage('ID năm học là bắt buộc'),
+    body('userId').notEmpty().isMongoId().withMessage('ID người dùng là bắt buộc'),
     body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
 ], validation, importEvidences);
 
