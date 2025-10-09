@@ -697,11 +697,11 @@ const exportEvidences = async (req, res) => {
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
-        const { programId, organizationId, mode, academicYearId, userId } = req.body; // Đã thêm academicYearId và userId vào body
+        const { programId, organizationId, mode } = req.body;
 
-        // academicYearId và userId đã được kiểm tra ở Router Validation.
-        // req.academicYearId cũng có sẵn từ middleware, nhưng ta dùng req.body.academicYearId
-        // để đảm bảo khớp với giá trị được validation.
+        // Lấy từ middleware và auth thay vì req.body
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         if (!file) {
             return res.status(400).json({
@@ -710,8 +710,6 @@ const importEvidences = async (req, res) => {
             });
         }
 
-        // SỬA LỖI GỐC: Gọi hàm importEvidencesFromExcel đã được require.
-        // Dòng lỗi 710 của bạn đã sử dụng một biến không tồn tại (importService.importEvidences).
         const result = await importEvidencesFromExcel(
             file.path,
             academicYearId,
@@ -725,14 +723,12 @@ const importEvidences = async (req, res) => {
             fs.unlinkSync(file.path);
         }
 
-        // Log kết quả trả về (để debug lỗi 400 nếu nó xuất hiện lại)
         console.log('Import success/failure summary:', result);
 
         res.json(result);
 
     } catch (error) {
         console.error('Import evidences error:', error);
-        // THÊM: Xử lý lỗi validation Mongoose rõ ràng hơn
         if (error.message.includes('Lỗi khi import file:')) {
             return res.status(400).json({
                 success: false,
