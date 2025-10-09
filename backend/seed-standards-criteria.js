@@ -15,104 +15,53 @@ async function seed() {
 
         const academicYearId = '67479b24dd26de3b1c5acfb3';
         const programId = '674e0ac63d1c11c1c5c37c3d';
-        const organizationId = 'YOUR_ORG_ID'; // Thay org ID thật
+        const organizationId = '674e0b043d1c11c1c5c37c4a';
         const userId = '67479b24dd26de3b1c5acfb0';
 
-        const standards = [
-            {
-                code: '01',
-                name: 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
-            {
-                code: '02',
-                name: 'Tiêu chuẩn 2: Chương trình đào tạo',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
-            {
-                code: '03',
-                name: 'Tiêu chuẩn 3: Đội ngũ giảng viên',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
+        // Tạo Standards
+        const standardsData = [
+            { code: '01', name: 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra' },
+            { code: '02', name: 'Tiêu chuẩn 2: Chương trình đào tạo' },
+            { code: '03', name: 'Tiêu chuẩn 3: Đội ngũ giảng viên' },
         ];
 
-        for (const std of standards) {
-            const created = await Standard.create(std);
-            console.log(`✅ Standard ${created.code}`);
+        const createdStandards = {};
+
+        for (const stdData of standardsData) {
+            const standard = await Standard.create({
+                ...stdData,
+                academicYearId,
+                programId,
+                organizationId,
+                status: 'active',
+                createdBy: userId,
+                updatedBy: userId
+            });
+            createdStandards[stdData.code] = standard._id;
+            console.log(`✅ Standard ${standard.code}: ${standard._id}`);
         }
 
-        const criteria = [
-            {
-                code: '01',
-                standardCode: '01',
-                name: 'Tiêu chí 1.1: Mục tiêu CTĐT',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
-            {
-                code: '02',
-                standardCode: '01',
-                name: 'Tiêu chí 1.2: CĐR được xác định',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
-            {
-                code: '01',
-                standardCode: '02',
-                name: 'Tiêu chí 2.1: Cấu trúc CT',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
-            {
-                code: '01',
-                standardCode: '03',
-                name: 'Tiêu chí 3.1: Đội ngũ GV',
-                academicYearId,
-                programId,
-                organizationId,
-                description: '',
-                status: 'active',
-                createdBy: userId,
-                updatedBy: userId
-            },
+        // Tạo Criteria với standardId
+        const criteriaData = [
+            { standardCode: '01', code: '01', name: 'Tiêu chí 1.1: Mục tiêu CTĐT' },
+            { standardCode: '01', code: '02', name: 'Tiêu chí 1.2: CĐR được xác định' },
+            { standardCode: '02', code: '01', name: 'Tiêu chí 2.1: Cấu trúc CT' },
+            { standardCode: '03', code: '01', name: 'Tiêu chí 3.1: Đội ngũ GV' },
         ];
 
-        for (const crit of criteria) {
-            const created = await Criteria.create(crit);
-            console.log(`✅ Criteria ${created.standardCode}.${created.code}`);
+        for (const critData of criteriaData) {
+            const criteria = await Criteria.create({
+                code: critData.code,
+                name: critData.name,
+                standardId: createdStandards[critData.standardCode],
+                academicYearId,
+                programId,
+                organizationId,
+                status: 'active',
+                createdBy: userId,
+                updatedBy: userId
+            });
+            console.log(`✅ Criteria ${critData.standardCode}.${criteria.code}: ${criteria._id}`);
         }
 
         console.log('\n✅ Done!');
