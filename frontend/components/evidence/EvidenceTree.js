@@ -451,7 +451,7 @@ export default function EvidenceTree() {
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-green-900">{statistics.standardsWithEvidence}</div>
-                            <div className="text-sm text-green-700">TC có minh chứng</div>
+                            <div className="text-sm text-green-700">Tiêu chuẩn có MC</div>
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-blue-900">{statistics.totalCriteria}</div>
@@ -459,7 +459,7 @@ export default function EvidenceTree() {
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-emerald-900">{statistics.criteriaWithEvidence}</div>
-                            <div className="text-sm text-emerald-700">TC có minh chứng</div>
+                            <div className="text-sm text-emerald-700">Tiêu chí có MC</div>
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
