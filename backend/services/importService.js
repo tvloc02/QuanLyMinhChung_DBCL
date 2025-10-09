@@ -28,8 +28,8 @@ const identifyCodeType = (code) => {
         return {
             type: 'criteria',
             parsed: {
-                standardCode: criteriaMatch[1],  // Bỏ .padStart(2, '0')
-                criteriaCode: criteriaMatch[2]   // Bỏ .padStart(2, '0')
+                standardCode: criteriaMatch[1].padStart(2, '0'),
+                criteriaCode: criteriaMatch[2].padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -41,7 +41,7 @@ const identifyCodeType = (code) => {
         return {
             type: 'standard',
             parsed: {
-                standardCode: standardMatch[1]  // Bỏ .padStart(2, '0')
+                standardCode: standardMatch[1].padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -53,7 +53,7 @@ const identifyCodeType = (code) => {
         return {
             type: 'standard',
             parsed: {
-                standardCode: standardTextMatch[1]  // Bỏ .padStart(2, '0')
+                standardCode: standardTextMatch[1].padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -65,8 +65,8 @@ const identifyCodeType = (code) => {
         return {
             type: 'criteria',
             parsed: {
-                standardCode: criteriaTextMatch[1],  // Bỏ .padStart(2, '0')
-                criteriaCode: criteriaTextMatch[2]   // Bỏ .padStart(2, '0')
+                standardCode: criteriaTextMatch[1].padStart(2, '0'),
+                criteriaCode: criteriaTextPattern[2].padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -136,8 +136,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
         const standardMap = {};
         allStandards.forEach(std => {
-            standardMap[std.code] = std._id;
-            standardMap[parseInt(std.code, 10)] = std._id;
+            const code = std.code.padStart(2, '0');
+            standardMap[code] = std._id;
         });
 
         const criteriaMap = {};
@@ -146,7 +146,9 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                 s._id.toString() === crit.standardId.toString()
             );
             if (standard) {
-                const key = `${standard.code}.${crit.code}`;
+                const stdCode = standard.code.padStart(2, '0');
+                const critCode = crit.code.padStart(2, '0');
+                const key = `${stdCode}.${critCode}`;
                 criteriaMap[key] = crit._id;
             }
         });
@@ -214,7 +216,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         const savedStandard = await newStandard.save();
                         currentStandardId = savedStandard._id;
 
-                        // Cập nhật lại Map và danh sách
+                        // Cập nhật lại Map NGAY LẬP TỨC
                         standardMap[currentStandardCode] = currentStandardId;
                         allStandards.push(savedStandard.toObject());
 
@@ -271,7 +273,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         const savedCriteria = await newCriteria.save();
                         currentCriteriaId = savedCriteria._id;
 
-                        // Cập nhật lại Map và danh sách
+                        // Cập nhật lại Map NGAY LẬP TỨC
                         criteriaMap[criteriaKey] = currentCriteriaId;
                         allCriteria.push(savedCriteria.toObject());
 
@@ -305,10 +307,12 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                     const critCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${stdCode}.${critCode}`;
 
+                    // TRA CỨU ID TỪ MAP (ĐÃ CÓ CÁC ID VỪA TẠO)
                     const evidenceStandardId = standardMap[stdCode];
                     const evidenceCriteriaId = criteriaMap[criteriaKey];
 
                     if (!evidenceStandardId || !evidenceCriteriaId) {
+                        // Lỗi này xảy ra khi TC/TC không tồn tại trong DB VÀ KHÔNG được tạo ở các dòng trên.
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
