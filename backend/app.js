@@ -19,12 +19,7 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests from this IP'
-});
-app.use('/api/', limiter);
+
 
 const authRoutes = require('./routes/user/auth');
 const usersRoutes = require('./routes/user/users');
