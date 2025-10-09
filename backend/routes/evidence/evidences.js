@@ -18,13 +18,101 @@ const {
     copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences,
-    getFullEvidenceTree
+    getFullEvidenceTree  // THÊM IMPORT
 } = require('../../controllers/evidence/evidenceController');
 
-// Apply academic year context to all routes
 router.use(auth, setAcademicYearContext);
 
-const createEvidenceValidation = [
+router.get('/statistics', [
+    query('programId').optional().isMongoId(),
+    query('organizationId').optional().isMongoId(),
+    query('standardId').optional().isMongoId(),
+    query('criteriaId').optional().isMongoId()
+], validation, getStatistics);
+
+router.get('/full-tree', [
+    query('programId')
+        .notEmpty()
+        .withMessage('ID chương trình là bắt buộc')
+        .isMongoId()
+        .withMessage('ID chương trình không hợp lệ'),
+    query('organizationId')
+        .notEmpty()
+        .withMessage('ID tổ chức là bắt buộc')
+        .isMongoId()
+        .withMessage('ID tổ chức không hợp lệ')
+], validation, getFullEvidenceTree);
+
+router.get('/tree', [
+    query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
+    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
+], validation, getEvidenceTree);
+
+router.post('/advanced-search', [
+    body('keyword').optional().trim().escape(),
+    body('programId').optional().isMongoId(),
+    body('organizationId').optional().isMongoId(),
+    body('standardId').optional().isMongoId(),
+    body('criteriaId').optional().isMongoId(),
+    body('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
+    body('documentType').optional().isIn(['Quyết định', 'Thông tư', 'Nghị định', 'Luật', 'Báo cáo', 'Kế hoạch', 'Khác']),
+    body('dateFrom').optional().isISO8601(),
+    body('dateTo').optional().isISO8601(),
+    body('page').optional().isInt({ min: 1 }),
+    body('limit').optional().isInt({ min: 1, max: 100 })
+], validation, advancedSearch);
+
+router.post('/generate-code', [
+    body('standardCode')
+        .notEmpty()
+        .withMessage('Mã tiêu chuẩn là bắt buộc')
+        .matches(/^\d{1,2}$/)
+        .withMessage('Mã tiêu chuẩn phải là 1-2 chữ số'),
+    body('criteriaCode')
+        .notEmpty()
+        .withMessage('Mã tiêu chí là bắt buộc')
+        .matches(/^\d{1,2}$/)
+        .withMessage('Mã tiêu chí phải là 1-2 chữ số'),
+    body('boxNumber')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Số hộp phải là số nguyên dương')
+], validation, generateCode);
+
+router.get('/export', [
+    query('programId').optional().isMongoId(),
+    query('organizationId').optional().isMongoId(),
+    query('standardId').optional().isMongoId(),
+    query('criteriaId').optional().isMongoId(),
+    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
+    query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
+], validation, exportEvidences);
+
+router.post('/import', upload.single('file'), [
+    body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
+    body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
+    body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
+], validation, importEvidences);
+
+
+router.get('/', [
+    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('search').optional().trim().escape(),
+    query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
+    query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
+    query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
+    query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
+    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
+    query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
+    query('sortOrder').optional().isIn(['asc', 'desc'])
+], validation, getEvidences);
+
+router.get('/:id', [
+    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
+], validation, getEvidenceById);
+
+router.post('/', [
     body('name')
         .notEmpty()
         .withMessage('Tên minh chứng là bắt buộc')
@@ -74,19 +162,17 @@ const createEvidenceValidation = [
         .optional()
         .isLength({ max: 1000 })
         .withMessage('Ghi chú không được quá 1000 ký tự')
-];
+], validation, createEvidence);
 
-const updateEvidenceValidation = [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
-    ...createEvidenceValidation.filter(rule =>
-        !rule.builder.fields.includes('programId') &&
-        !rule.builder.fields.includes('organizationId') &&
-        !rule.builder.fields.includes('standardId') &&
-        !rule.builder.fields.includes('criteriaId')
-    )
-];
+router.put('/:id', [
+    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
+], validation, updateEvidence);
 
-const copyMoveValidation = [
+router.delete('/:id', [
+    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
+], validation, deleteEvidence);
+
+router.post('/:id/copy-to-year', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
     body('targetAcademicYearId')
         .notEmpty()
@@ -108,104 +194,6 @@ const copyMoveValidation = [
         .withMessage('Mã minh chứng mới là bắt buộc')
         .matches(/^H\d+\.\d{2}\.\d{2}\.\d{2}$/)
         .withMessage('Mã minh chứng mới không đúng format')
-];
-
-router.get('/', [
-    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
-    query('search').optional().trim().escape(),
-    query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
-    query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
-    query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
-    query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
-    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
-    query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
-    query('sortOrder').optional().isIn(['asc', 'desc'])
-], validation, getEvidences);
-
-router.get('/statistics', [
-    query('programId').optional().isMongoId(),
-    query('organizationId').optional().isMongoId(),
-    query('standardId').optional().isMongoId(),
-    query('criteriaId').optional().isMongoId()
-], validation, getStatistics);
-
-router.get('/tree', [
-    query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
-], validation, getEvidenceTree);
-
-router.post('/advanced-search', [
-    body('keyword').optional().trim().escape(),
-    body('programId').optional().isMongoId(),
-    body('organizationId').optional().isMongoId(),
-    body('standardId').optional().isMongoId(),
-    body('criteriaId').optional().isMongoId(),
-    body('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
-    body('documentType').optional().isIn(['Quyết định', 'Thông tư', 'Nghị định', 'Luật', 'Báo cáo', 'Kế hoạch', 'Khác']),
-    body('dateFrom').optional().isISO8601(),
-    body('dateTo').optional().isISO8601(),
-    body('page').optional().isInt({ min: 1 }),
-    body('limit').optional().isInt({ min: 1, max: 100 })
-], validation, advancedSearch);
-
-router.post('/generate-code', [
-    body('standardCode')
-        .notEmpty()
-        .withMessage('Mã tiêu chuẩn là bắt buộc')
-        .matches(/^\d{1,2}$/)
-        .withMessage('Mã tiêu chuẩn phải là 1-2 chữ số'),
-    body('criteriaCode')
-        .notEmpty()
-        .withMessage('Mã tiêu chí là bắt buộc')
-        .matches(/^\d{1,2}$/)
-        .withMessage('Mã tiêu chí phải là 1-2 chữ số'),
-    body('boxNumber')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('Số hộp phải là số nguyên dương')
-], validation, generateCode);
-
-router.get('/export', [
-    query('programId').optional().isMongoId(),
-    query('organizationId').optional().isMongoId(),
-    query('standardId').optional().isMongoId(),
-    query('criteriaId').optional().isMongoId(),
-    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
-    query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
-], validation, exportEvidences);
-
-router.post('/import', upload.single('file'), [
-    body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
-], validation, importEvidences);
-
-router.get('/:id', [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
-], validation, getEvidenceById);
-
-router.post('/', createEvidenceValidation, validation, createEvidence);
-
-router.put('/:id', updateEvidenceValidation, validation, updateEvidence);
-
-router.delete('/:id', [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
-], validation, deleteEvidence);
-
-// Copy evidence to another academic year
-router.post('/:id/copy-to-year', copyMoveValidation, validation, copyEvidenceToAnotherYear);
-
-// Lấy cây minh chứng đầy đủ (bao gồm cả tiêu chuẩn/tiêu chí không có minh chứng)
-router.get('/full-tree', [
-    query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
-], validation, getFullEvidenceTree);
-
-// Import với mode create hoặc update
-router.post('/import', upload.single('file'), [
-    body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
-    body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
-], validation, importEvidences);
+], validation, copyEvidenceToAnotherYear);
 
 module.exports = router;
