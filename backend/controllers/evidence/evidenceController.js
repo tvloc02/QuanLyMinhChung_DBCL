@@ -2,11 +2,12 @@ const Evidence = require('../../models/Evidence/Evidence');
 const File = require('../../models/Evidence/File');
 const AcademicYear = require('../../models/system/AcademicYear');
 const exportService = require('../../services/exportService');
-const importService = require('../../services/importService');
+const { importEvidencesFromExcel } = require('../../services/importService');
 const searchService = require('../../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 
 let Standard, Criteria;
 
