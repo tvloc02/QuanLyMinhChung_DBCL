@@ -84,15 +84,38 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
+
+            // Validate trước khi gọi API
+            if (!selectedProgram || !selectedOrganization) {
+                console.warn('Missing programId or organizationId')
+                setTreeData([])
+                setLoading(false)
+                return
+            }
+
+            console.log('Fetching tree with:', {
+                programId: selectedProgram,
+                organizationId: selectedOrganization
+            })
+
             const response = await apiMethods.evidences.getFullTree(
                 selectedProgram,
                 selectedOrganization
             )
+
+            console.log('Tree response:', response.data)
+
             setTreeData(response.data.data.tree || [])
             setStatistics(response.data.data.statistics || null)
         } catch (error) {
             console.error('Fetch tree data error:', error)
-            toast.error('Lỗi khi tải cây minh chứng')
+            console.error('Error response:', error.response?.data)
+
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.msg
+                || 'Lỗi khi tải cây minh chứng'
+
+            toast.error(errorMessage)
             setTreeData([])
         } finally {
             setLoading(false)
