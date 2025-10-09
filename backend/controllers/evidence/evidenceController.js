@@ -693,6 +693,42 @@ const exportEvidences = async (req, res) => {
     }
 };
 
+const importEvidences = async (req, res) => {
+    try {
+        const file = req.file;
+        const { programId, organizationId } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        const result = await importService.importEvidences(
+            file.path,
+            academicYearId,
+            programId,
+            organizationId,
+            req.user.id
+        );
+
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json(result);
+
+    } catch (error) {
+        console.error('Import evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi import minh chứng'
+        });
+    }
+};
+
 const incrementEvidenceDownload = async (req, res) => {
     try {
         const { id } = req.params;
@@ -820,87 +856,15 @@ const moveEvidence = async (req, res) => {
     }
 };
 
-const { importEvidencesFromExcel } = require('../../services/importService');
 
-const importEvidences = async (req, res) => {
-    try {
-        const file = req.file;
-        const { programId, organizationId, mode } = req.body;
-        const academicYearId = req.academicYearId;
-
-        console.log('Import request:', {
-            hasFile: !!file,
-            programId,
-            organizationId,
-            mode,
-            body: req.body
-        });
-
-        if (!file) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không có file được upload'
-            });
-        }
-
-        if (!programId || !organizationId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu thông tin programId hoặc organizationId'
-            });
-        }
-
-        // Mặc định là create nếu không có mode
-        const importMode = mode || 'create';
-
-        // Kiểm tra mode hợp lệ
-        if (!['create', 'update'].includes(importMode)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Mode phải là "create" hoặc "update"'
-            });
-        }
-
-        const result = await importEvidencesFromExcel(
-            file.path,
-            academicYearId,
-            programId,
-            organizationId,
-            req.user.id,
-            importMode
-        );
-
-        // Xóa file tạm
-        if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-        }
-
-        res.json(result);
-
-    } catch (error) {
-        console.error('Import evidences error:', error);
-
-        // Xóa file tạm nếu có lỗi
-        if (req.file && fs.existsSync(req.file.path)) {
-            try {
-                fs.unlinkSync(req.file.path);
-            } catch (unlinkError) {
-                console.error('Error deleting temp file:', unlinkError);
-            }
-        }
-
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi import minh chứng: ' + error.message
-        });
-    }
-};
 
 // Endpoint để lấy cây đầy đủ (bao gồm cả tiêu chuẩn/tiêu chí không có minh chứng)
 const getFullEvidenceTree = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
+
+        console.log('getFullEvidenceTree called:', { programId, organizationId, academicYearId });
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -913,8 +877,8 @@ const getFullEvidenceTree = async (req, res) => {
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
 
-        // Lấy tất cả standards và criteria
-        const [standards, criteria, evidences] = await Promise.all([
+        // Lấy tất cả standards, criteria và evidences
+        const [standards, allCriteria, evidences] = await Promise.all([
             StandardModel.find({ academicYearId, programId }).sort({ code: 1 }).lean(),
             CriteriaModel.find({ academicYearId, programId }).sort({ standardCode: 1, code: 1 }).lean(),
             Evidence.find({
@@ -929,11 +893,24 @@ const getFullEvidenceTree = async (req, res) => {
                 .lean()
         ]);
 
+        console.log('Query results:', {
+            standards: standards.length,
+            criteria: allCriteria.length,
+            evidences: evidences.length
+        });
+
         // Build tree structure
         const tree = [];
 
         standards.forEach(standard => {
-            const standardCriteria = criteria.filter(c => c.standardCode === standard.code);
+            // Tìm criteria thuộc standard này
+            // QUAN TRỌNG: So sánh standardCode của Criteria với code của Standard
+            const standardCriteria = allCriteria.filter(c =>
+                c.standardCode === standard.code ||
+                c.standardId?.toString() === standard._id.toString()
+            );
+
+            console.log(`Standard ${standard.code} has ${standardCriteria.length} criteria`);
 
             const standardNode = {
                 id: standard._id,
@@ -945,10 +922,17 @@ const getFullEvidenceTree = async (req, res) => {
             };
 
             standardCriteria.forEach(criterion => {
-                const criterionEvidences = evidences.filter(e =>
-                    e.standardId?.code === standard.code &&
-                    e.criteriaId?.code === criterion.code
-                );
+                // Tìm evidences thuộc criterion này
+                const criterionEvidences = evidences.filter(e => {
+                    // So sánh bằng nhiều cách để đảm bảo tìm được
+                    const matchByStandardCode = e.standardId?.code === standard.code;
+                    const matchByCriteriaCode = e.criteriaId?.code === criterion.code;
+                    const matchByCriteriaId = e.criteriaId?._id?.toString() === criterion._id.toString();
+
+                    return matchByStandardCode && (matchByCriteriaCode || matchByCriteriaId);
+                });
+
+                console.log(`  Criteria ${criterion.code} has ${criterionEvidences.length} evidences`);
 
                 const criterionNode = {
                     id: criterion._id,
@@ -975,20 +959,26 @@ const getFullEvidenceTree = async (req, res) => {
             tree.push(standardNode);
         });
 
+        // Tính statistics
+        const statistics = {
+            totalStandards: standards.length,
+            totalCriteria: allCriteria.length,
+            totalEvidences: evidences.length,
+            standardsWithEvidence: tree.filter(s => s.hasEvidence).length,
+            criteriaWithEvidence: tree.reduce((sum, s) =>
+                sum + s.criteria.filter(c => c.hasEvidence).length, 0
+            )
+        };
+
+        console.log('Statistics:', statistics);
+        console.log('Tree structure:', JSON.stringify(tree, null, 2));
+
         res.json({
             success: true,
             data: {
                 tree,
                 academicYear: req.currentAcademicYear,
-                statistics: {
-                    totalStandards: standards.length,
-                    totalCriteria: criteria.length,
-                    totalEvidences: evidences.length,
-                    standardsWithEvidence: tree.filter(s => s.hasEvidence).length,
-                    criteriaWithEvidence: tree.reduce((sum, s) =>
-                        sum + s.criteria.filter(c => c.hasEvidence).length, 0
-                    )
-                }
+                statistics
             }
         });
 
@@ -996,11 +986,10 @@ const getFullEvidenceTree = async (req, res) => {
         console.error('Get full evidence tree error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy cây minh chứng đầy đủ'
+            message: 'Lỗi hệ thống khi lấy cây minh chứng đầy đủ: ' + error.message
         });
     }
 };
-
 
 module.exports = {
     getEvidences,
