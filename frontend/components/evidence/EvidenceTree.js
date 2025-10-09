@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
-const XLSX = require('xlsx');
-
+import * as XLSX from 'xlsx'
 import {
     ChevronDown,
     ChevronRight,
@@ -21,13 +20,16 @@ import {
     Maximize2,
     Minimize2,
     Upload,
-    FileDown
+    FileDown,
+    CheckCircle2,
+    XCircle,
+    AlertCircle
 } from 'lucide-react'
 
 export default function EvidenceTree() {
     const router = useRouter()
     const [loading, setLoading] = useState(true)
-    const [treeData, setTreeData] = useState({})
+    const [treeData, setTreeData] = useState([])
     const [expandedNodes, setExpandedNodes] = useState({})
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
@@ -35,6 +37,10 @@ export default function EvidenceTree() {
     const [selectedOrganization, setSelectedOrganization] = useState('')
     const [searchTerm, setSearchTerm] = useState('')
     const [importing, setImporting] = useState(false)
+    const [importMode, setImportMode] = useState('create')
+    const [showImportModal, setShowImportModal] = useState(false)
+    const [selectedFile, setSelectedFile] = useState(null)
+    const [statistics, setStatistics] = useState(null)
 
     useEffect(() => {
         fetchPrograms()
@@ -78,15 +84,16 @@ export default function EvidenceTree() {
     const fetchTreeData = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.evidences.getTree(
+            const response = await apiMethods.evidences.getFullTree(
                 selectedProgram,
                 selectedOrganization
             )
-            setTreeData(response.data.data.tree || response.data.data || {})
+            setTreeData(response.data.data.tree || [])
+            setStatistics(response.data.data.statistics || null)
         } catch (error) {
             console.error('Fetch tree data error:', error)
             toast.error('Lỗi khi tải cây minh chứng')
-            setTreeData({})
+            setTreeData([])
         } finally {
             setLoading(false)
         }
@@ -101,13 +108,11 @@ export default function EvidenceTree() {
 
     const expandAll = () => {
         const allNodes = {}
-        Object.keys(treeData).forEach(standardKey => {
-            allNodes[standardKey] = true
-            if (treeData[standardKey]?.criteria) {
-                Object.keys(treeData[standardKey].criteria).forEach(criteriaKey => {
-                    allNodes[`${standardKey}-${criteriaKey}`] = true
-                })
-            }
+        treeData.forEach((standard, stdIdx) => {
+            allNodes[`std-${stdIdx}`] = true
+            standard.criteria?.forEach((criteria, critIdx) => {
+                allNodes[`std-${stdIdx}-crit-${critIdx}`] = true
+            })
         })
         setExpandedNodes(allNodes)
     }
@@ -121,153 +126,95 @@ export default function EvidenceTree() {
     }
 
     const downloadTemplate = () => {
-        // Tạo template Excel mẫu
+        // Tạo template Excel với định dạng mới
         const templateData = [
-            ['TT', 'Mã minh chứng', 'Tên minh chứng'],
-            ['1', 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra của chương trình', ''],
-            ['Tiêu chí 1.1: Mục tiêu của CTĐT được xác định rõ ràng, phù hợp với sứ mạng của trường', '', ''],
+            ['STT', 'Mã', 'Tên minh chứng'],
+            ['', '1', 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra của chương trình'],
+            ['', '1.1', 'Tiêu chí 1.1: Mục tiêu của CTĐT được xác định rõ ràng'],
             ['1', 'H1.01.01.01', 'Quyết định công bố tầm nhìn sứ mạng, giá trị cốt lõi'],
             ['2', 'H1.01.01.02', 'Quyết định thành lập nhóm nghiên cứu mạnh, tinh hoa, xuất sắc'],
-            ['3', 'H1.01.01.03', 'Bảng thống kê diện tích sân xây dựng HV, Giảng đường - CSVC'],
-            ['4', 'H1.01.01.04', 'Bảng thống kê các phòng thí nghiệm nghiên cứu chuyên sâu - phòng thí nghiệm trung tâm của Học viện'],
-            ['5', 'H1.01.01.05', 'Quyết định công bố quy chế tuyển sinh WB'],
-            ['6', 'H1.01.01.06', 'Quy hoạch tổng thể ngành nông nghiệp đến năm 2020 và tầm nhìn 2030'],
-            ['7', 'H1.01.01.07', 'Kế hoạch xây dựng tầm nhìn sứ mạng'],
-            ['8', 'H1.01.01.08', 'Phiếu lấy ý kiến các bên về xây dựng tầm nhìn sứ mạng'],
-            ['9', 'H1.01.01.09', 'Các tài liệu phát cho sinh viên, các tờ giới thiệu TTV'],
-            ['10', 'H1.01.01.10', 'Kế hoạch nhiệm kỳ (trong đó có các hoạt động thực hiện tầm nhìn sứ mạng), kế hoạch hàng năm'],
-            ['Tiêu chí 1.2: CĐR của CTĐT được xác định rõ ràng, bao quát được cả về kiến thức, kỹ năng và thái độ', '', ''],
-            ['11', 'H1.01.02.01', 'Quyết định công bố tầm nhìn sứ mạng, giá trị cốt lõi'],
-            ['12', 'H1.01.02.02', 'Chương trình theo cấu trúc được tổ chức duyệt truyền'],
-            ['', 'Tiêu chuẩn 2: Chương trình đào tạo', ''],
-            ['Tiêu chí 2.1: Cấu trúc chương trình đáp ứng chuẩn đầu ra', '', ''],
-            ['1', 'H1.02.01.01', 'Quyết định ban hành chương trình đào tạo'],
-            ['2', 'H1.02.01.02', 'Ma trận kiến thức, kỹ năng theo chuẩn đầu ra'],
-            ['3', 'H1.02.01.03', 'Đề cương chi tiết các học phần'],
-            ['', 'Tiêu chuẩn 3: Đội ngũ giảng viên', ''],
-            ['Tiêu chí 3.1: Đội ngũ giảng viên đáp ứng yêu cầu', '', ''],
-            ['1', 'H1.03.01.01', 'Danh sách giảng viên cơ hữu'],
-            ['2', 'H1.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên']
+            ['3', 'H1.01.01.03', 'Bảng thống kê diện tích sân xây dựng HV'],
+            ['', '1.2', 'Tiêu chí 1.2: CĐR của CTĐT được xác định rõ ràng'],
+            ['4', 'H1.01.02.01', 'Quyết định công bố chuẩn đầu ra'],
+            ['5', 'H1.01.02.02', 'Ma trận kiến thức kỹ năng'],
+            ['', '2', 'Tiêu chuẩn 2: Chương trình đào tạo'],
+            ['', '2.1', 'Tiêu chí 2.1: Cấu trúc chương trình đáp ứng chuẩn đầu ra'],
+            ['6', 'H1.02.01.01', 'Quyết định ban hành chương trình đào tạo'],
+            ['7', 'H1.02.01.02', 'Ma trận kiến thức, kỹ năng theo chuẩn đầu ra'],
+            ['', '3', 'Tiêu chuẩn 3: Đội ngũ giảng viên'],
+            ['', '3.1', 'Tiêu chí 3.1: Đội ngũ giảng viên đáp ứng yêu cầu'],
+            ['8', 'H1.03.01.01', 'Danh sách giảng viên cơ hữu'],
+            ['9', 'H1.03.01.02', 'Bằng cấp và chứng chỉ của giảng viên'],
         ]
 
-        let csvContent = '\uFEFF' // UTF-8 BOM
-        templateData.forEach(row => {
-            csvContent += row.join(',') + '\n'
-        })
+        const ws = XLSX.utils.aoa_to_sheet(templateData)
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', 'template-cay-minh-chung.csv')
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-        window.URL.revokeObjectURL(url)
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 5 },  // STT
+            { wch: 15 }, // Mã
+            { wch: 60 }  // Tên
+        ]
 
-        toast.success('Đã tải template mẫu')
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Minh chứng')
+
+        XLSX.writeFile(wb, 'template-import-minh-chung.xlsx')
+        toast.success('Đã tải file mẫu Excel')
     }
 
-    const handleImport = async (event) => {
+    const handleFileSelect = (event) => {
         const file = event.target.files?.[0]
         if (!file) return
 
         if (!selectedProgram || !selectedOrganization) {
-            toast.error('Vui lòng chọn Chương trình và Tổ chức trước khi import')
+            toast.error('Vui lòng chọn Chương trình và Tổ chức trước')
+            event.target.value = ''
             return
         }
+
+        setSelectedFile(file)
+        setShowImportModal(true)
+    }
+
+    const handleImport = async () => {
+        if (!selectedFile) return
 
         try {
             setImporting(true)
 
-            // Đọc file
-            const text = await file.text()
-            const lines = text.split('\n').filter(line => line.trim())
+            const formData = new FormData()
+            formData.append('file', selectedFile)
+            formData.append('programId', selectedProgram)
+            formData.append('organizationId', selectedOrganization)
+            formData.append('mode', importMode)
 
-            if (lines.length < 2) {
-                toast.error('File không đúng định dạng')
-                return
+            const response = await apiMethods.evidences.import(formData)
+
+            if (response.data.success) {
+                const { created, updated, errors } = response.data.data
+
+                let message = `Import thành công!\n`
+                if (created > 0) message += `- Tạo mới: ${created}\n`
+                if (updated > 0) message += `- Cập nhật: ${updated}\n`
+                if (errors > 0) message += `- Lỗi: ${errors}`
+
+                toast.success(message)
+                fetchTreeData()
+            } else {
+                toast.error(response.data.message || 'Import thất bại')
             }
-
-            // Parse dữ liệu
-            const evidencesToImport = []
-            let currentStandard = ''
-            let currentCriteria = ''
-
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim()
-                if (!line) continue
-
-                // Parse CSV line (handle quotes and commas)
-                const columns = []
-                let currentCol = ''
-                let inQuotes = false
-
-                for (let j = 0; j < line.length; j++) {
-                    const char = line[j]
-                    if (char === '"') {
-                        inQuotes = !inQuotes
-                    } else if (char === ',' && !inQuotes) {
-                        columns.push(currentCol.trim())
-                        currentCol = ''
-                    } else {
-                        currentCol += char
-                    }
-                }
-                columns.push(currentCol.trim())
-
-                const [tt, code, name] = columns
-
-                // Dòng tiêu chuẩn: Cột A có số (như "1"), Cột B bắt đầu "Tiêu chuẩn", Cột C trống
-                if (tt && !isNaN(tt) && code && code.startsWith('Tiêu chuẩn') && !name) {
-                    currentStandard = code
-                    currentCriteria = ''
-                    continue
-                }
-
-                // Dòng tiêu chí: Cột A trống hoặc là text "Tiêu chí", Cột B có "Tiêu chí"
-                if (code && code.startsWith('Tiêu chí')) {
-                    currentCriteria = code
-                    continue
-                }
-
-                // Dòng minh chứng: Có TT là số, có code dạng H1.xx.xx.xx, có tên
-                if (tt && !isNaN(tt) && code && name && currentStandard && currentCriteria) {
-                    // Kiểm tra code có dạng minh chứng (VD: H1.01.01.01)
-                    if (code.match(/^H\d+\.\d+\.\d+\.\d+$/)) {
-                        evidencesToImport.push({
-                            code: code,
-                            name: name,
-                            standard: currentStandard,
-                            criteria: currentCriteria,
-                            programId: selectedProgram,
-                            organizationId: selectedOrganization
-                        })
-                    }
-                }
-            }
-
-            if (evidencesToImport.length === 0) {
-                toast.error('Không tìm thấy minh chứng nào trong file')
-                return
-            }
-
-            // Gọi API import
-            await apiMethods.evidences.importFromFile({
-                evidences: evidencesToImport,
-                programId: selectedProgram,
-                organizationId: selectedOrganization
-            })
-
-            toast.success(`Import thành công ${evidencesToImport.length} minh chứng`)
-            fetchTreeData() // Refresh data
 
         } catch (error) {
             console.error('Import error:', error)
-            toast.error('Lỗi khi import dữ liệu: ' + (error.message || 'Unknown error'))
+            toast.error('Lỗi khi import: ' + (error.response?.data?.message || error.message))
         } finally {
             setImporting(false)
-            event.target.value = '' // Reset input
+            setShowImportModal(false)
+            setSelectedFile(null)
+            // Reset file input
+            const fileInput = document.getElementById('file-upload')
+            if (fileInput) fileInput.value = ''
         }
     }
 
@@ -282,7 +229,7 @@ export default function EvidenceTree() {
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
-            link.setAttribute('download', `evidence-tree-${Date.now()}.xlsx`)
+            link.setAttribute('download', `cay-minh-chung-${Date.now()}.xlsx`)
             document.body.appendChild(link)
             link.click()
             link.remove()
@@ -298,52 +245,27 @@ export default function EvidenceTree() {
     const filterTree = (tree) => {
         if (!searchTerm) return tree
 
-        const filtered = {}
-        Object.keys(tree).forEach(standardKey => {
-            const standard = tree[standardKey]
-            const filteredCriteria = {}
+        return tree.map(standard => {
+            const filteredCriteria = standard.criteria?.map(criteria => {
+                const filteredEvidences = criteria.evidences?.filter(evidence =>
+                    evidence.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    evidence.code?.toLowerCase().includes(searchTerm.toLowerCase())
+                ) || []
 
-            if (standard?.criteria) {
-                Object.keys(standard.criteria).forEach(criteriaKey => {
-                    const criteria = standard.criteria[criteriaKey]
-                    if (criteria?.evidences) {
-                        const filteredEvidences = criteria.evidences.filter(evidence =>
-                            evidence.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            evidence.code?.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-
-                        if (filteredEvidences.length > 0) {
-                            filteredCriteria[criteriaKey] = {
-                                ...criteria,
-                                evidences: filteredEvidences
-                            }
-                        }
-                    }
-                })
-            }
-
-            if (Object.keys(filteredCriteria).length > 0) {
-                filtered[standardKey] = {
-                    ...standard,
-                    criteria: filteredCriteria
+                return {
+                    ...criteria,
+                    evidences: filteredEvidences
                 }
-            }
-        })
+            }).filter(c => c.evidences.length > 0) || []
 
-        return filtered
+            return {
+                ...standard,
+                criteria: filteredCriteria
+            }
+        }).filter(s => s.criteria.length > 0)
     }
 
-    const filteredTreeData = filterTree(treeData)
-
-    const totalStandards = Object.keys(filteredTreeData).length
-    const totalCriteria = Object.values(filteredTreeData).reduce((acc, std) =>
-        acc + (std?.criteria ? Object.keys(std.criteria).length : 0), 0
-    )
-    const totalEvidences = Object.values(filteredTreeData).reduce((acc, std) =>
-            acc + (std?.criteria ? Object.values(std.criteria).reduce((acc2, crit) =>
-                acc2 + (crit?.evidences?.length || 0), 0
-            ) : 0), 0
-    )
+    const filteredTreeData = searchTerm ? filterTree(treeData) : treeData
 
     return (
         <div className="space-y-6">
@@ -442,7 +364,7 @@ export default function EvidenceTree() {
                 <div className="flex space-x-3">
                     <button
                         onClick={expandAll}
-                        disabled={Object.keys(filteredTreeData).length === 0}
+                        disabled={filteredTreeData.length === 0}
                         className="inline-flex items-center px-4 py-2.5 text-sm border-2 border-gray-200 bg-white rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                     >
                         <Maximize2 className="h-4 w-4 mr-2" />
@@ -450,7 +372,7 @@ export default function EvidenceTree() {
                     </button>
                     <button
                         onClick={collapseAll}
-                        disabled={Object.keys(filteredTreeData).length === 0}
+                        disabled={filteredTreeData.length === 0}
                         className="inline-flex items-center px-4 py-2.5 text-sm border-2 border-gray-200 bg-white rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                     >
                         <Minimize2 className="h-4 w-4 mr-2" />
@@ -468,26 +390,18 @@ export default function EvidenceTree() {
                     </button>
 
                     <label className={`inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg transition-all font-medium ${
-                        importing || !selectedProgram || !selectedOrganization ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        !selectedProgram || !selectedOrganization ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     }`}>
                         <input
+                            id="file-upload"
                             type="file"
-                            accept=".csv,.xlsx,.xls"
-                            onChange={handleImport}
-                            disabled={importing || !selectedProgram || !selectedOrganization}
+                            accept=".xlsx,.xls"
+                            onChange={handleFileSelect}
+                            disabled={!selectedProgram || !selectedOrganization}
                             className="hidden"
                         />
-                        {importing ? (
-                            <>
-                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                                Đang import...
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="h-5 w-5 mr-2" />
-                                Import Excel
-                            </>
-                        )}
+                        <Upload className="h-5 w-5 mr-2" />
+                        Import Excel
                     </label>
 
                     <button
@@ -500,6 +414,34 @@ export default function EvidenceTree() {
                     </button>
                 </div>
             </div>
+
+            {/* Statistics */}
+            {statistics && !searchTerm && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-indigo-900">{statistics.totalStandards}</div>
+                            <div className="text-sm text-indigo-700">Tổng tiêu chuẩn</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-green-900">{statistics.standardsWithEvidence}</div>
+                            <div className="text-sm text-green-700">TC có minh chứng</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-900">{statistics.totalCriteria}</div>
+                            <div className="text-sm text-blue-700">Tổng tiêu chí</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-emerald-900">{statistics.criteriaWithEvidence}</div>
+                            <div className="text-sm text-emerald-700">TC có minh chứng</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
+                            <div className="text-sm text-purple-700">Tổng minh chứng</div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Tree View */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -516,93 +458,151 @@ export default function EvidenceTree() {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
                         <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức để xem cây minh chứng</p>
                     </div>
-                ) : Object.keys(filteredTreeData).length === 0 ? (
+                ) : filteredTreeData.length === 0 ? (
                     <div className="p-16 text-center">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Folder className="h-10 w-10 text-gray-400" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            {searchTerm ? 'Không tìm thấy minh chứng phù hợp' : 'Chưa có minh chứng nào'}
+                            {searchTerm ? 'Không tìm thấy minh chứng phù hợp' : 'Chưa có dữ liệu'}
                         </h3>
                         <p className="text-gray-500">
-                            {searchTerm ? 'Thử tìm kiếm với từ khóa khác' : 'Tạo minh chứng mới để bắt đầu'}
+                            {searchTerm ? 'Thử tìm kiếm với từ khóa khác' : 'Vui lòng kiểm tra lại dữ liệu'}
                         </p>
                     </div>
                 ) : (
                     <div className="p-6">
-                        {Object.keys(filteredTreeData).map(standardKey => {
-                            const standard = filteredTreeData[standardKey]
-                            const isStandardExpanded = expandedNodes[standardKey]
+                        {filteredTreeData.map((standard, stdIdx) => {
+                            const isStandardExpanded = expandedNodes[`std-${stdIdx}`]
+                            const hasEvidence = standard.hasEvidence
 
                             return (
-                                <div key={standardKey} className="mb-4">
+                                <div key={standard.id} className="mb-4">
                                     <div
-                                        className="flex items-center space-x-3 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 border-2 border-indigo-200 rounded-xl cursor-pointer transition-all group"
-                                        onClick={() => toggleNode(standardKey)}
+                                        className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all group ${
+                                            hasEvidence
+                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-300'
+                                                : 'bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-red-300'
+                                        }`}
+                                        onClick={() => toggleNode(`std-${stdIdx}`)}
                                     >
+                                        {/* Status indicator */}
+                                        <div className="flex-shrink-0">
+                                            {hasEvidence ? (
+                                                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                                            ) : (
+                                                <XCircle className="h-6 w-6 text-red-600" />
+                                            )}
+                                        </div>
+
+                                        {/* Expand/Collapse icon */}
                                         {isStandardExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                            <ChevronDown className={`h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform ${
+                                                hasEvidence ? 'text-green-600' : 'text-red-600'
+                                            }`} />
                                         ) : (
-                                            <ChevronRight className="h-5 w-5 text-indigo-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                            <ChevronRight className={`h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform ${
+                                                hasEvidence ? 'text-green-600' : 'text-red-600'
+                                            }`} />
                                         )}
+
+                                        {/* Folder icon */}
                                         {isStandardExpanded ? (
-                                            <FolderOpen className="h-6 w-6 text-indigo-600 flex-shrink-0" />
+                                            <FolderOpen className={`h-6 w-6 flex-shrink-0 ${
+                                                hasEvidence ? 'text-green-600' : 'text-red-600'
+                                            }`} />
                                         ) : (
-                                            <Folder className="h-6 w-6 text-indigo-600 flex-shrink-0" />
+                                            <Folder className={`h-6 w-6 flex-shrink-0 ${
+                                                hasEvidence ? 'text-green-600' : 'text-red-600'
+                                            }`} />
                                         )}
+
                                         <div className="flex-1 flex items-center justify-between">
-                                            <span className="font-semibold text-gray-900">{standardKey}</span>
-                                            <span className="px-3 py-1 bg-white border border-indigo-200 rounded-full text-sm font-medium text-indigo-700">
-                                                {standard?.criteria ? Object.keys(standard.criteria).length : 0} tiêu chí
+                                            <span className="font-semibold text-gray-900">
+                                                Tiêu chuẩn {standard.code}: {standard.name}
+                                            </span>
+                                            <span className={`px-3 py-1 bg-white rounded-full text-sm font-medium ${
+                                                hasEvidence ? 'border border-green-300 text-green-700' : 'border border-red-300 text-red-700'
+                                            }`}>
+                                                {standard.criteria?.length || 0} tiêu chí
                                             </span>
                                         </div>
                                     </div>
 
-                                    {isStandardExpanded && standard?.criteria && (
+                                    {isStandardExpanded && standard.criteria && (
                                         <div className="ml-8 mt-3 space-y-3">
-                                            {Object.keys(standard.criteria).map(criteriaKey => {
-                                                const criteria = standard.criteria[criteriaKey]
-                                                const criteriaNodeKey = `${standardKey}-${criteriaKey}`
+                                            {standard.criteria.map((criteria, critIdx) => {
+                                                const criteriaNodeKey = `std-${stdIdx}-crit-${critIdx}`
                                                 const isCriteriaExpanded = expandedNodes[criteriaNodeKey]
+                                                const criteriaHasEvidence = criteria.hasEvidence
 
                                                 return (
-                                                    <div key={criteriaKey}>
+                                                    <div key={criteria.id}>
                                                         <div
-                                                            className="flex items-center space-x-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-2 border-green-200 rounded-xl cursor-pointer transition-all group"
+                                                            className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all group ${
+                                                                criteriaHasEvidence
+                                                                    ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-300'
+                                                                    : 'bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 border-orange-300'
+                                                            }`}
                                                             onClick={() => toggleNode(criteriaNodeKey)}
                                                         >
+                                                            {/* Status indicator */}
+                                                            <div className="flex-shrink-0">
+                                                                {criteriaHasEvidence ? (
+                                                                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                                                                ) : (
+                                                                    <AlertCircle className="h-5 w-5 text-orange-600" />
+                                                                )}
+                                                            </div>
+
+                                                            {/* Expand/Collapse icon */}
                                                             {isCriteriaExpanded ? (
-                                                                <ChevronDown className="h-4 w-4 text-green-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                                                <ChevronDown className={`h-4 w-4 flex-shrink-0 group-hover:scale-110 transition-transform ${
+                                                                    criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
+                                                                }`} />
                                                             ) : (
-                                                                <ChevronRight className="h-4 w-4 text-green-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                                                <ChevronRight className={`h-4 w-4 flex-shrink-0 group-hover:scale-110 transition-transform ${
+                                                                    criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
+                                                                }`} />
                                                             )}
+
+                                                            {/* Folder icon */}
                                                             {isCriteriaExpanded ? (
-                                                                <FolderOpen className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                                                <FolderOpen className={`h-5 w-5 flex-shrink-0 ${
+                                                                    criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
+                                                                }`} />
                                                             ) : (
-                                                                <Folder className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                                                <Folder className={`h-5 w-5 flex-shrink-0 ${
+                                                                    criteriaHasEvidence ? 'text-blue-600' : 'text-orange-600'
+                                                                }`} />
                                                             )}
+
                                                             <div className="flex-1 flex items-center justify-between">
-                                                                <span className="font-medium text-gray-900">{criteriaKey}</span>
-                                                                <span className="px-2.5 py-1 bg-white border border-green-200 rounded-full text-xs font-medium text-green-700">
-                                                                    {criteria?.evidences?.length || 0} minh chứng
+                                                                <span className="font-medium text-gray-900">
+                                                                    Tiêu chí {standard.code}.{criteria.code}: {criteria.name}
+                                                                </span>
+                                                                <span className={`px-2.5 py-1 bg-white rounded-full text-xs font-medium ${
+                                                                    criteriaHasEvidence ? 'border border-blue-300 text-blue-700' : 'border border-orange-300 text-orange-700'
+                                                                }`}>
+                                                                    {criteria.evidences?.length || 0} minh chứng
                                                                 </span>
                                                             </div>
                                                         </div>
 
-                                                        {isCriteriaExpanded && criteria?.evidences && (
+                                                        {isCriteriaExpanded && criteria.evidences && criteria.evidences.length > 0 && (
                                                             <div className="ml-8 mt-2 space-y-2">
                                                                 {criteria.evidences.map(evidence => (
                                                                     <div
-                                                                        key={evidence._id}
+                                                                        key={evidence.id}
                                                                         className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl group transition-all"
                                                                     >
                                                                         <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                                                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                                                <FileText className="h-5 w-5 text-blue-600" />
+                                                                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                                                <FileText className="h-5 w-5 text-indigo-600" />
                                                                             </div>
                                                                             <div className="flex-1 min-w-0">
                                                                                 <div className="flex items-center space-x-2 mb-1">
-                                                                                    <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                                                                    <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
                                                                                         {evidence.code}
                                                                                     </span>
                                                                                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
@@ -615,7 +615,7 @@ export default function EvidenceTree() {
                                                                             </div>
                                                                         </div>
                                                                         <button
-                                                                            onClick={() => handleViewEvidence(evidence._id)}
+                                                                            onClick={() => handleViewEvidence(evidence.id)}
                                                                             className="opacity-0 group-hover:opacity-100 p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex-shrink-0"
                                                                             title="Xem chi tiết"
                                                                         >
@@ -637,30 +637,72 @@ export default function EvidenceTree() {
                 )}
             </div>
 
-            {/* Summary */}
-            {!loading && Object.keys(filteredTreeData).length > 0 && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                <Folder className="h-8 w-8 text-indigo-600" />
-                            </div>
-                            <div className="text-3xl font-bold text-indigo-900 mb-1">{totalStandards}</div>
-                            <div className="text-sm text-indigo-700 font-medium">Tiêu chuẩn</div>
+            {/* Import Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Chọn chế độ import</h3>
+
+                        <div className="space-y-3 mb-6">
+                            <label className="flex items-start space-x-3 p-4 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition-all">
+                                <input
+                                    type="radio"
+                                    name="importMode"
+                                    value="create"
+                                    checked={importMode === 'create'}
+                                    onChange={(e) => setImportMode(e.target.value)}
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <div className="font-semibold text-gray-900">Tạo mới</div>
+                                    <div className="text-sm text-gray-600">Chỉ tạo các minh chứng mới, bỏ qua mã đã tồn tại</div>
+                                </div>
+                            </label>
+
+                            <label className="flex items-start space-x-3 p-4 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition-all">
+                                <input
+                                    type="radio"
+                                    name="importMode"
+                                    value="update"
+                                    checked={importMode === 'update'}
+                                    onChange={(e) => setImportMode(e.target.value)}
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <div className="font-semibold text-gray-900">Cập nhật</div>
+                                    <div className="text-sm text-gray-600">Cập nhật minh chứng đã tồn tại, tạo mới nếu chưa có</div>
+                                </div>
+                            </label>
                         </div>
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                <FolderOpen className="h-8 w-8 text-green-600" />
-                            </div>
-                            <div className="text-3xl font-bold text-green-900 mb-1">{totalCriteria}</div>
-                            <div className="text-sm text-green-700 font-medium">Tiêu chí</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                <FileText className="h-8 w-8 text-blue-600" />
-                            </div>
-                            <div className="text-3xl font-bold text-blue-900 mb-1">{totalEvidences}</div>
-                            <div className="text-sm text-blue-700 font-medium">Minh chứng</div>
+
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(false)
+                                    setSelectedFile(null)
+                                }}
+                                disabled={importing}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleImport}
+                                disabled={importing}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium inline-flex items-center justify-center"
+                            >
+                                {importing ? (
+                                    <>
+                                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                        Đang import...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="h-5 w-5 mr-2" />
+                                        Import
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
