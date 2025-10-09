@@ -442,6 +442,330 @@ const importUsers = async (filePath, createdBy) => {
     }
 };
 
+const identifyCodeType = (code) => {
+    if (!code) return null;
+
+    const trimmedCode = code.trim();
+
+    // Kiểm tra mã minh chứng: H2.02.01.01
+    const evidencePattern = /^H(\d+)\.(\d{2})\.(\d{2})\.(\d{2})$/;
+    const evidenceMatch = trimmedCode.match(evidencePattern);
+    if (evidenceMatch) {
+        return {
+            type: 'evidence',
+            parsed: {
+                boxNumber: evidenceMatch[1],
+                standardCode: evidenceMatch[2],
+                criteriaCode: evidenceMatch[3],
+                sequenceNumber: evidenceMatch[4]
+            },
+            original: trimmedCode
+        };
+    }
+
+    // Kiểm tra mã tiêu chí: 2.1 hoặc 02.01
+    const criteriaPattern = /^(\d{1,2})\.(\d{1,2})$/;
+    const criteriaMatch = trimmedCode.match(criteriaPattern);
+    if (criteriaMatch) {
+        return {
+            type: 'criteria',
+            parsed: {
+                standardCode: criteriaMatch[1].padStart(2, '0'),
+                criteriaCode: criteriaMatch[2].padStart(2, '0')
+            },
+            original: trimmedCode
+        };
+    }
+
+    // Kiểm tra mã tiêu chuẩn: số đơn (1, 2, 3...) hoặc 01, 02...
+    const standardPattern = /^(\d{1,2})$/;
+    const standardMatch = trimmedCode.match(standardPattern);
+    if (standardMatch) {
+        return {
+            type: 'standard',
+            parsed: {
+                standardCode: standardMatch[1].padStart(2, '0')
+            },
+            original: trimmedCode
+        };
+    }
+
+    // Kiểm tra text "Tiêu chuẩn X"
+    const standardTextPattern = /Tiêu chuẩn\s+(\d+)/i;
+    const standardTextMatch = trimmedCode.match(standardTextPattern);
+    if (standardTextMatch) {
+        return {
+            type: 'standard',
+            parsed: {
+                standardCode: standardTextMatch[1].padStart(2, '0')
+            },
+            original: trimmedCode
+        };
+    }
+
+    // Kiểm tra text "Tiêu chí X.Y"
+    const criteriaTextPattern = /Tiêu chí\s+(\d+)\.(\d+)/i;
+    const criteriaTextMatch = trimmedCode.match(criteriaTextPattern);
+    if (criteriaTextMatch) {
+        return {
+            type: 'criteria',
+            parsed: {
+                standardCode: criteriaTextMatch[1].padStart(2, '0'),
+                criteriaCode: criteriaTextMatch[2].padStart(2, '0')
+            },
+            original: trimmedCode
+        };
+    }
+
+    return null;
+};
+
+const importEvidencesFromExcel = async (filePath, academicYearId, programId, organizationId, userId, mode = 'create') => {
+    try {
+        // Đọc file Excel
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (data.length < 2) {
+            throw new Error('File không có dữ liệu');
+        }
+
+        const StandardModel = mongoose.model('Standard');
+        const CriteriaModel = mongoose.model('Criteria');
+
+        // Lấy tất cả standards và criteria trong năm học
+        const [allStandards, allCriteria] = await Promise.all([
+            StandardModel.find({ academicYearId }).lean(),
+            CriteriaModel.find({ academicYearId }).lean()
+        ]);
+
+        // Tạo map để tra cứu nhanh
+        const standardMap = {};
+        allStandards.forEach(std => {
+            standardMap[std.code] = std._id;
+        });
+
+        const criteriaMap = {};
+        allCriteria.forEach(crit => {
+            const key = `${crit.standardCode}.${crit.code}`;
+            criteriaMap[key] = crit._id;
+        });
+
+        let currentStandardId = null;
+        let currentCriteriaId = null;
+        let currentStandardCode = null;
+        let currentCriteriaCode = null;
+
+        const results = {
+            success: [],
+            errors: [],
+            updated: [],
+            created: []
+        };
+
+        // Bắt đầu từ dòng 2 (bỏ qua header)
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 2) continue;
+
+            const [stt, code, name] = row;
+            const codeStr = String(code || '').trim();
+            const nameStr = String(name || '').trim();
+
+            if (!codeStr) continue;
+
+            // Nhận diện loại mã
+            const identified = identifyCodeType(codeStr);
+
+            if (!identified) {
+                results.errors.push({
+                    row: i + 1,
+                    code: codeStr,
+                    message: 'Không nhận diện được định dạng mã'
+                });
+                continue;
+            }
+
+            try {
+                if (identified.type === 'standard') {
+                    // Cập nhật context tiêu chuẩn hiện tại
+                    currentStandardCode = identified.parsed.standardCode;
+                    currentStandardId = standardMap[currentStandardCode];
+
+                    if (!currentStandardId) {
+                        results.errors.push({
+                            row: i + 1,
+                            code: codeStr,
+                            message: `Không tìm thấy tiêu chuẩn ${currentStandardCode} trong hệ thống`
+                        });
+                        currentStandardId = null;
+                    }
+                    currentCriteriaId = null;
+
+                } else if (identified.type === 'criteria') {
+                    // Cập nhật context tiêu chí hiện tại
+                    currentStandardCode = identified.parsed.standardCode;
+                    currentCriteriaCode = identified.parsed.criteriaCode;
+                    const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
+                    currentCriteriaId = criteriaMap[criteriaKey];
+                    currentStandardId = standardMap[currentStandardCode];
+
+                    if (!currentCriteriaId) {
+                        results.errors.push({
+                            row: i + 1,
+                            code: codeStr,
+                            message: `Không tìm thấy tiêu chí ${criteriaKey} trong hệ thống`
+                        });
+                        currentCriteriaId = null;
+                    }
+
+                } else if (identified.type === 'evidence') {
+                    // Xử lý minh chứng
+                    if (!nameStr) {
+                        results.errors.push({
+                            row: i + 1,
+                            code: codeStr,
+                            message: 'Thiếu tên minh chứng'
+                        });
+                        continue;
+                    }
+
+                    // Lấy standardId và criteriaId từ mã minh chứng
+                    const stdCode = identified.parsed.standardCode;
+                    const critCode = identified.parsed.criteriaCode;
+                    const criteriaKey = `${stdCode}.${critCode}`;
+
+                    const evidenceStandardId = standardMap[stdCode];
+                    const evidenceCriteriaId = criteriaMap[criteriaKey];
+
+                    if (!evidenceStandardId || !evidenceCriteriaId) {
+                        results.errors.push({
+                            row: i + 1,
+                            code: codeStr,
+                            message: `Không tìm thấy tiêu chuẩn ${stdCode} hoặc tiêu chí ${criteriaKey}`
+                        });
+                        continue;
+                    }
+
+                    // Kiểm tra xem minh chứng đã tồn tại chưa
+                    const existingEvidence = await Evidence.findOne({
+                        code: identified.original,
+                        academicYearId
+                    });
+
+                    if (mode === 'update') {
+                        if (existingEvidence) {
+                            // Cập nhật
+                            existingEvidence.name = nameStr;
+                            existingEvidence.standardId = evidenceStandardId;
+                            existingEvidence.criteriaId = evidenceCriteriaId;
+                            existingEvidence.programId = programId;
+                            existingEvidence.organizationId = organizationId;
+                            existingEvidence.updatedBy = userId;
+
+                            await existingEvidence.save();
+
+                            results.updated.push({
+                                row: i + 1,
+                                code: identified.original,
+                                name: nameStr
+                            });
+                        } else {
+                            // Tạo mới nếu chưa tồn tại
+                            const newEvidence = new Evidence({
+                                academicYearId,
+                                code: identified.original,
+                                name: nameStr,
+                                programId,
+                                organizationId,
+                                standardId: evidenceStandardId,
+                                criteriaId: evidenceCriteriaId,
+                                createdBy: userId,
+                                updatedBy: userId
+                            });
+
+                            await newEvidence.save();
+
+                            results.created.push({
+                                row: i + 1,
+                                code: identified.original,
+                                name: nameStr
+                            });
+                        }
+                    } else {
+                        // Mode create
+                        if (existingEvidence) {
+                            results.errors.push({
+                                row: i + 1,
+                                code: identified.original,
+                                message: 'Mã minh chứng đã tồn tại'
+                            });
+                            continue;
+                        }
+
+                        const newEvidence = new Evidence({
+                            academicYearId,
+                            code: identified.original,
+                            name: nameStr,
+                            programId,
+                            organizationId,
+                            standardId: evidenceStandardId,
+                            criteriaId: evidenceCriteriaId,
+                            createdBy: userId,
+                            updatedBy: userId
+                        });
+
+                        await newEvidence.save();
+
+                        results.created.push({
+                            row: i + 1,
+                            code: identified.original,
+                            name: nameStr
+                        });
+                    }
+
+                    results.success.push({
+                        row: i + 1,
+                        code: identified.original,
+                        name: nameStr,
+                        action: existingEvidence ? 'updated' : 'created'
+                    });
+                }
+
+            } catch (error) {
+                results.errors.push({
+                    row: i + 1,
+                    code: codeStr,
+                    message: error.message
+                });
+            }
+        }
+
+        return {
+            success: true,
+            message: `Import hoàn tất: ${results.created.length} tạo mới, ${results.updated.length} cập nhật, ${results.errors.length} lỗi`,
+            data: {
+                total: results.success.length,
+                created: results.created.length,
+                updated: results.updated.length,
+                errors: results.errors.length,
+                details: results
+            }
+        };
+
+    } catch (error) {
+        console.error('Import error:', error);
+        throw new Error('Lỗi khi import file: ' + error.message);
+    }
+};
+
+module.exports = {
+    importEvidencesFromExcel,
+    identifyCodeType
+};
+
 module.exports = {
     importEvidences,
     generateTemplate,

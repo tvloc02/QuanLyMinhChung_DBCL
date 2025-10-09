@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
+const XLSX = require('xlsx');
+
 import {
     ChevronDown,
     ChevronRight,
