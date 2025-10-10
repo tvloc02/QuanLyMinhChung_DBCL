@@ -7,7 +7,7 @@ const getAssignments = async (req, res) => {
     try {
         const {
             page = 1,
-            limit = 10,
+            limit = 20,
             search,
             status,
             priority,
@@ -19,7 +19,6 @@ const getAssignments = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
-
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -28,16 +27,37 @@ const getAssignments = async (req, res) => {
 
         if (req.user.role === 'expert') {
             query.expertId = req.user.id;
-        } else if (req.user.role === 'manager') {
+        } else if (req.user.role === 'manager' && !expertId && !assignedBy) {
             query.assignedBy = req.user.id;
         }
 
         if (search) {
             const reports = await Report.find({
-                title: { $regex: search, $options: 'i' }
+                academicYearId,
+                $or: [
+                    { title: { $regex: search, $options: 'i' } },
+                    { code: { $regex: search, $options: 'i' } }
+                ]
             }).select('_id');
-            const reportIds = reports.map(r => r._id);
-            query.reportId = { $in: reportIds };
+
+            if (reports.length > 0) {
+                const reportIds = reports.map(r => r._id);
+                query.reportId = { $in: reportIds };
+            } else {
+                return res.json({
+                    success: true,
+                    data: {
+                        assignments: [],
+                        pagination: {
+                            current: pageNum,
+                            pages: 0,
+                            total: 0,
+                            hasNext: false,
+                            hasPrev: false
+                        }
+                    }
+                });
+            }
         }
 
         if (status) query.status = status;
@@ -71,8 +91,7 @@ const getAssignments = async (req, res) => {
                     total,
                     hasNext: pageNum * limitNum < total,
                     hasPrev: pageNum > 1
-                },
-                academicYear: req.currentAcademicYear
+                }
             }
         });
 
@@ -91,7 +110,7 @@ const getAssignmentById = async (req, res) => {
         const academicYearId = req.academicYearId;
 
         const assignment = await Assignment.findOne({ _id: id, academicYearId })
-            .populate('reportId', 'title type code content')
+            .populate('reportId')
             .populate('expertId', 'fullName email')
             .populate('assignedBy', 'fullName email')
             .populate('evaluationId');
@@ -103,7 +122,9 @@ const getAssignmentById = async (req, res) => {
             });
         }
 
-        if (!assignment.canView(req.user.id, req.user.role)) {
+        if (req.user.role !== 'admin' &&
+            assignment.expertId._id.toString() !== req.user.id.toString() &&
+            assignment.assignedBy._id.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền xem phân công này'
@@ -166,7 +187,8 @@ const createAssignment = async (req, res) => {
         const existingAssignment = await Assignment.findOne({
             reportId,
             expertId,
-            academicYearId
+            academicYearId,
+            status: { $in: ['pending', 'accepted', 'in_progress'] }
         });
 
         if (existingAssignment) {
@@ -195,6 +217,21 @@ const createAssignment = async (req, res) => {
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
+        const Notification = mongoose.model('Notification');
+        await Notification.create({
+            recipientId: expertId,
+            senderId: req.user.id,
+            type: 'assignment_created',
+            title: 'Phân công đánh giá mới',
+            message: `Bạn được phân công đánh giá báo cáo: ${report.title}`,
+            data: {
+                assignmentId: assignment._id,
+                reportId: report._id,
+                url: `/reports/assignments/${assignment._id}`
+            },
+            priority: priority === 'urgent' ? 'high' : 'normal'
+        });
+
         res.status(201).json({
             success: true,
             message: 'Tạo phân công đánh giá thành công',
@@ -205,7 +242,7 @@ const createAssignment = async (req, res) => {
         console.error('Create assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo phân công'
+            message: error.message || 'Lỗi hệ thống khi tạo phân công'
         });
     }
 };
@@ -224,16 +261,14 @@ const updateAssignment = async (req, res) => {
             });
         }
 
-        if (!assignment.canModify(req.user.id, req.user.role)) {
+        if (req.user.role !== 'admin' && assignment.assignedBy.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền cập nhật phân công này'
             });
         }
 
-        const allowedFields = [
-            'assignmentNote', 'deadline', 'priority', 'evaluationCriteria'
-        ];
+        const allowedFields = ['assignmentNote', 'deadline', 'priority', 'evaluationCriteria'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -397,6 +432,44 @@ const rejectAssignment = async (req, res) => {
     }
 };
 
+const cancelAssignment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const assignment = await Assignment.findOne({ _id: id, academicYearId });
+        if (!assignment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy phân công'
+            });
+        }
+
+        if (req.user.role !== 'admin' && assignment.assignedBy.toString() !== req.user.id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền hủy phân công này'
+            });
+        }
+
+        await assignment.cancel(reason, req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Hủy phân công thành công',
+            data: assignment
+        });
+
+    } catch (error) {
+        console.error('Cancel assignment error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi hủy phân công'
+        });
+    }
+};
+
 const getExpertWorkload = async (req, res) => {
     try {
         const { expertId } = req.params;
@@ -423,15 +496,16 @@ const getAssignmentStats = async (req, res) => {
         const { assignedBy, expertId, status } = req.query;
         const academicYearId = req.academicYearId;
 
-        const filters = { assignedBy, expertId, status };
+        const filters = {};
+        if (assignedBy) filters.assignedBy = assignedBy;
+        if (expertId) filters.expertId = expertId;
+        if (status) filters.status = status;
+
         const stats = await Assignment.getAssignmentStats(academicYearId, filters);
 
         res.json({
             success: true,
-            data: {
-                ...stats,
-                academicYear: req.currentAcademicYear
-            }
+            data: stats
         });
 
     } catch (error) {
@@ -464,32 +538,6 @@ const getUpcomingDeadlines = async (req, res) => {
     }
 };
 
-const markOverdueAssignments = async (req, res) => {
-    try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin mới có quyền đánh dấu phân công quá hạn'
-            });
-        }
-
-        const results = await Assignment.markOverdueAssignments();
-
-        res.json({
-            success: true,
-            message: `Đã đánh dấu ${results.length} phân công quá hạn`,
-            data: { count: results.length }
-        });
-
-    } catch (error) {
-        console.error('Mark overdue assignments error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi đánh dấu phân công quá hạn'
-        });
-    }
-};
-
 module.exports = {
     getAssignments,
     getAssignmentById,
@@ -498,8 +546,8 @@ module.exports = {
     deleteAssignment,
     acceptAssignment,
     rejectAssignment,
+    cancelAssignment,
     getExpertWorkload,
     getAssignmentStats,
-    getUpcomingDeadlines,
-    markOverdueAssignments
+    getUpcomingDeadlines
 };
