@@ -40,7 +40,8 @@ import {
     Folder,
     Mail,
     Plus,
-    Book
+    Book,
+    Play
 } from 'lucide-react'
 
 export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
@@ -156,7 +157,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             submenu: [
                 { name: 'Cài đặt chung', icon: Settings, path: '/system/system' },
                 { name: 'Sao lưu dữ liệu', icon: Archive, path: '/system/backup' },
-                { name: 'Khôi phục dữ liêu', icon: Archive, path: '/system/general' },
+                { name: 'Khôi phục dữ liêu', icon: Play, path: '/system/general' },
                 { name: 'Nhật ký hệ thống', icon: Activity, path: '/system/logs' },
                 { name: 'Cấu hình mail', icon: Mail, path: '/system/mail' }
             ]
@@ -200,7 +201,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
     return (
         <>
-            {/* Overlay for mobile - Cải thiện */}
             {open && (
                 <div
                     className="fixed inset-0 z-30 lg:hidden transition-all duration-300"
@@ -228,7 +228,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     background: 'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)'
                 }}
             >
-                {/* Search Bar - Đặt trên cùng */}
                 {!collapsed && (
                     <div className="p-4 border-b-2 bg-white flex-shrink-0" style={{ borderColor: '#E5E7EB' }}>
                         <div className="relative">
@@ -255,7 +254,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     </div>
                 )}
 
-                {/* Icon tìm kiếm khi collapsed */}
                 {collapsed && (
                     <div className="p-4 border-b-2 bg-white flex-shrink-0 flex justify-center" style={{ borderColor: '#E5E7EB' }}>
                         <div className="p-2 rounded-xl bg-indigo-50">
@@ -264,7 +262,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     </div>
                 )}
 
-                {/* Navigation - Scrollable */}
                 <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto"
                      style={{
                          maxHeight: 'calc(100vh - 240px)',
@@ -310,7 +307,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                                     )}
                                 </button>
 
-                                {/* Submenu */}
                                 {item.hasSubmenu && !collapsed && expandedMenus[index] && (
                                     <div className="ml-4 mt-2 space-y-1 border-l-2 pl-4"
                                          style={{ borderColor: '#C7D2FE' }}>
@@ -338,7 +334,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     })}
                 </nav>
 
-                {/* Nút Thu gọn/Mở rộng - Đặt dưới cùng */}
                 <div className="p-4 border-t-2 bg-white flex-shrink-0" style={{ borderColor: '#E5E7EB' }}>
                     <button
                         onClick={onToggleCollapse}
