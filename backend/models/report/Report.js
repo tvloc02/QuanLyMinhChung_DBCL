@@ -57,7 +57,10 @@ const reportSchema = new mongoose.Schema({
 
     content: {
         type: String,
-        required: [true, 'Nội dung báo cáo là bắt buộc']
+        required: function() {
+            return this.contentMethod === 'online_editor';
+        },
+        default: ''
     },
 
     contentMethod: {
