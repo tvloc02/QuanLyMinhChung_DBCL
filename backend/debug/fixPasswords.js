@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 // Import User model từ project
-const User = require('./models/User/User');
+const User = require('../models/User/User');
 
 // Connect to MongoDB
 async function connectDB() {
