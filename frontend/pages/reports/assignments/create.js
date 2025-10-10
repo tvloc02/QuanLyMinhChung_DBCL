@@ -133,7 +133,7 @@ export default function CreateAssignmentPage() {
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="max-w-8xl mx-auto space-y-6">
                 {/* Message Alert */}
                 {message.text && (
                     <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
