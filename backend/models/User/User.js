@@ -1,4 +1,3 @@
-// backend/models/User/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -41,11 +40,9 @@ const userSchema = new mongoose.Schema({
         }
     },
 
-    // Nhiều vai trò
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'expert', 'advisor'],
-        required: true
+        enum: ['admin', 'manager', 'expert', 'advisor']
     }],
 
     // Giữ lại để backward compatibility
@@ -61,19 +58,16 @@ const userSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    // Phòng ban
     department: {
         type: String,
         maxlength: [100, 'Phòng ban không được quá 100 ký tự']
     },
 
-    // Chức vụ
     position: {
         type: String,
         maxlength: [100, 'Chức vụ không được quá 100 ký tự']
     },
 
-    // Hệ thống nhóm
     userGroups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'UserGroup'
@@ -99,7 +93,6 @@ const userSchema = new mongoose.Schema({
         }
     }],
 
-    // Quyền truy cập
     academicYearAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear'
@@ -139,7 +132,6 @@ const userSchema = new mongoose.Schema({
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: Date,
 
-    // THÊM: Khóa tài khoản bởi Admin
     isLockedByAdmin: { type: Boolean, default: false },
     lockedByAdmin: {
         adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -165,34 +157,50 @@ const userSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 });
 
-// Indexes
 userSchema.index({ email: 1 });
 userSchema.index({ roles: 1, status: 1 });
 userSchema.index({ fullName: 'text' });
 userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
 
-// Virtual: Kiểm tra tài khoản có bị khóa không
 userSchema.virtual('isLocked').get(function() {
-    // Khóa bởi admin
     if (this.isLockedByAdmin) {
         return true;
     }
-    // Khóa tạm thời do đăng nhập sai nhiều lần
     return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
-// Pre-save middleware
-userSchema.pre('save', async function(next) {
-    // Sync roles và role
-    if (this.isModified('roles') && this.roles.length > 0) {
+userSchema.pre('validate', function(next) {
+    // Nếu roles rỗng hoặc không tồn tại, tự động set từ role
+    if (!this.roles || this.roles.length === 0) {
+        if (this.role) {
+            this.roles = [this.role];
+        } else {
+            this.roles = ['expert'];
+            this.role = 'expert';
+        }
+    }
+
+    if (this.roles && this.roles.length > 0 && !this.role) {
         this.role = this.roles[0];
     }
 
+    next();
+});
+
+userSchema.pre('save', async function(next) {
+    // Sync roles và role (ưu tiên roles)
+    if (this.isModified('roles') && this.roles.length > 0) {
+        this.role = this.roles[0];
+    } else if (this.isModified('role') && this.role && this.roles.length === 0) {
+        this.roles = [this.role];
+    }
+
+    if (this.isModified() && !this.isNew) {
+        this.updatedAt = Date.now();
+    }
+
     if (!this.isModified('password')) {
-        if (this.isModified() && !this.isNew) {
-            this.updatedAt = Date.now();
-        }
         return next();
     }
 
@@ -207,7 +215,6 @@ userSchema.pre('save', async function(next) {
     }
 });
 
-// Methods cho roles
 userSchema.methods.hasRole = function(role) {
     return this.roles.includes(role);
 };
@@ -223,14 +230,22 @@ userSchema.methods.hasAllRoles = function(roles) {
 userSchema.methods.addRole = function(role) {
     if (!this.roles.includes(role)) {
         this.roles.push(role);
+        if (this.roles.length === 1) {
+            this.role = role;
+        }
     }
 };
 
 userSchema.methods.removeRole = function(role) {
     this.roles = this.roles.filter(r => r !== role);
+    if (this.roles.length > 0) {
+        this.role = this.roles[0];
+    } else {
+        this.role = 'expert';
+        this.roles = ['expert'];
+    }
 };
 
-// Methods cho permissions
 userSchema.methods.getAllPermissions = async function() {
     const UserGroup = mongoose.model('UserGroup');
 
@@ -281,7 +296,6 @@ userSchema.methods.hasPermission = async function(permissionCode) {
     return permissions.some(p => p.code === permissionCode.toUpperCase());
 };
 
-// Methods cho authentication
 userSchema.methods.comparePassword = async function(candidatePassword) {
     try {
         if (!this.password) return false;
@@ -316,7 +330,6 @@ userSchema.methods.incFailedLoginAttempts = function() {
     return this.updateOne(updates);
 };
 
-// Static methods
 userSchema.statics.generateDefaultPassword = function(email) {
     const username = email.split('@')[0];
     const firstChar = username.charAt(0).toUpperCase();
