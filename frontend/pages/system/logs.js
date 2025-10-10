@@ -3,22 +3,9 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import {
-    Activity,
-    Search,
-    Filter,
-    Download,
-    Calendar,
-    User,
-    AlertCircle,
-    Clock,
-    ChevronLeft,
-    ChevronRight,
-    CheckCircle,
-    XCircle,
-    AlertTriangle,
-    Info,
-    TrendingUp,
-    BarChart3
+    Activity, Search, Download, Calendar, User, AlertCircle, Clock,
+    ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertTriangle,
+    Info, RefreshCw, X, TrendingUp, BarChart3, Shield
 } from 'lucide-react'
 
 const LogsPage = () => {
@@ -27,7 +14,7 @@ const LogsPage = () => {
     const [logs, setLogs] = useState([])
     const [stats, setStats] = useState(null)
     const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [message, setMessage] = useState({ type: '', text: '' })
     const [searchTerm, setSearchTerm] = useState('')
     const [actionFilter, setActionFilter] = useState('')
     const [severityFilter, setSeverityFilter] = useState('')
@@ -35,35 +22,43 @@ const LogsPage = () => {
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
-    const [pagination, setPagination] = useState({})
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pages: 1,
+        total: 0,
+        hasNext: false,
+        hasPrev: false
+    })
 
     const breadcrumbItems = [
-        { name: 'Hệ thống', icon: Activity },
-        { name: 'Lịch sử hoạt động', icon: Clock }
+        { name: 'Hệ thống', icon: Shield },
+        { name: 'Lịch sử hoạt động', icon: Activity }
     ]
 
     const severityConfig = {
-        low: { label: 'Thấp', color: 'bg-blue-100 text-blue-800', icon: Info },
-        medium: { label: 'Trung bình', color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
-        high: { label: 'Cao', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-        critical: { label: 'Nghiêm trọng', color: 'bg-red-100 text-red-800', icon: XCircle }
+        low: { label: 'Thấp', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Info },
+        medium: { label: 'Trung bình', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: AlertTriangle },
+        high: { label: 'Cao', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: AlertCircle },
+        critical: { label: 'Nghiêm trọng', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle }
     }
 
     const resultConfig = {
-        success: { label: 'Thành công', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-        failure: { label: 'Thất bại', color: 'bg-red-100 text-red-800', icon: XCircle },
-        warning: { label: 'Cảnh báo', color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
-        info: { label: 'Thông tin', color: 'bg-blue-100 text-blue-800', icon: Info }
+        success: { label: 'Thành công', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
+        failure: { label: 'Thất bại', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
+        warning: { label: 'Cảnh báo', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: AlertTriangle },
+        info: { label: 'Thông tin', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Info }
     }
 
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
+        } else if (user && user.role !== 'admin') {
+            router.replace('/dashboard')
         }
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user) {
+        if (user && user.role === 'admin') {
             fetchLogs()
             fetchStats()
         }
@@ -75,7 +70,6 @@ const LogsPage = () => {
             const params = new URLSearchParams({
                 page: currentPage,
                 limit: 20,
-                ...(searchTerm && { search: searchTerm }),
                 ...(actionFilter && { action: actionFilter }),
                 ...(severityFilter && { severity: severityFilter }),
                 ...(resultFilter && { result: resultFilter }),
@@ -95,11 +89,11 @@ const LogsPage = () => {
 
             const result = await response.json()
             if (result.success) {
-                setLogs(result.data.logs)
+                setLogs(result.data.logs || [])
                 setPagination(result.data.pagination)
             }
         } catch (err) {
-            setError(err.message)
+            setMessage({ type: 'error', text: err.message })
         } finally {
             setLoading(false)
         }
@@ -133,7 +127,6 @@ const LogsPage = () => {
         try {
             const params = new URLSearchParams({
                 format: 'csv',
-                ...(searchTerm && { search: searchTerm }),
                 ...(actionFilter && { action: actionFilter }),
                 ...(severityFilter && { severity: severityFilter }),
                 ...(resultFilter && { result: resultFilter }),
@@ -160,8 +153,10 @@ const LogsPage = () => {
             a.click()
             window.URL.revokeObjectURL(url)
             document.body.removeChild(a)
+
+            setMessage({ type: 'success', text: 'Xuất dữ liệu thành công' })
         } catch (err) {
-            setError(err.message)
+            setMessage({ type: 'error', text: err.message })
         }
     }
 
@@ -173,8 +168,8 @@ const LogsPage = () => {
         const config = severityConfig[severity] || severityConfig.medium
         const Icon = config.icon
         return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-                <Icon className="w-3 h-3 mr-1" />
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${config.color}`}>
+                <Icon className="w-3 h-3 mr-1.5" />
                 {config.label}
             </span>
         )
@@ -184,96 +179,141 @@ const LogsPage = () => {
         const config = resultConfig[result] || resultConfig.info
         const Icon = config.icon
         return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-                <Icon className="w-3 h-3 mr-1" />
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${config.color}`}>
+                <Icon className="w-3 h-3 mr-1.5" />
                 {config.label}
             </span>
         )
     }
 
-    if (isLoading) {
+    if (isLoading || !user || user.role !== 'admin') {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+            </Layout>
         )
-    }
-
-    if (!user) {
-        return null
     }
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Lịch sử hoạt động</h1>
-                        <p className="text-gray-600 mt-1">Theo dõi và giám sát các hoạt động trong hệ thống</p>
+                {/* Message Alert */}
+                {message.text && (
+                    <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                        message.type === 'success'
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                            : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                    }`}>
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                    message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                                }`}>
+                                    <AlertCircle className={`w-7 h-7 ${
+                                        message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                    }`} />
+                                </div>
+                            </div>
+                            <div className="ml-4 flex-1">
+                                <h3 className={`font-bold text-lg mb-1 ${
+                                    message.type === 'success' ? 'text-green-900' : 'text-red-900'
+                                }`}>
+                                    {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
+                                </h3>
+                                <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                    {message.text}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setMessage({ type: '', text: '' })}
+                                className="ml-4 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <Download className="w-4 h-4" />
-                        <span>Xuất dữ liệu</span>
-                    </button>
+                )}
+
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                                <Activity className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold mb-1">Lịch sử hoạt động</h1>
+                                <p className="text-indigo-100">Theo dõi và giám sát các hoạt động trong hệ thống</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                        >
+                            <Download className="w-5 h-5" />
+                            <span>Xuất dữ liệu</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Cards */}
                 {stats && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-lg shadow p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Tổng hoạt động</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-2">{stats.total || 0}</p>
+                                    <p className="text-sm font-semibold text-gray-600">Tổng hoạt động</p>
+                                    <p className="text-3xl font-bold text-indigo-600 mt-2">{stats.total || 0}</p>
                                 </div>
-                                <div className="bg-blue-100 rounded-full p-3">
-                                    <Activity className="w-6 h-6 text-blue-600" />
+                                <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center">
+                                    <Activity className="w-7 h-7 text-indigo-600" />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Thành công</p>
-                                    <p className="text-2xl font-bold text-green-600 mt-2">
-                                        {stats.byResult?.filter(r => r._id === 'success')[0]?.count || 0}
+                                    <p className="text-sm font-semibold text-gray-600">Thành công</p>
+                                    <p className="text-3xl font-bold text-green-600 mt-2">
+                                        {stats.byResult?.find(r => r._id === 'success')?.count || 0}
                                     </p>
                                 </div>
-                                <div className="bg-green-100 rounded-full p-3">
-                                    <CheckCircle className="w-6 h-6 text-green-600" />
+                                <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+                                    <CheckCircle className="w-7 h-7 text-green-600" />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Thất bại</p>
-                                    <p className="text-2xl font-bold text-red-600 mt-2">
-                                        {stats.byResult?.filter(r => r._id === 'failure')[0]?.count || 0}
+                                    <p className="text-sm font-semibold text-gray-600">Thất bại</p>
+                                    <p className="text-3xl font-bold text-red-600 mt-2">
+                                        {stats.byResult?.find(r => r._id === 'failure')?.count || 0}
                                     </p>
                                 </div>
-                                <div className="bg-red-100 rounded-full p-3">
-                                    <XCircle className="w-6 h-6 text-red-600" />
+                                <div className="w-14 h-14 bg-gradient-to-br from-red-100 to-pink-100 rounded-xl flex items-center justify-center">
+                                    <XCircle className="w-7 h-7 text-red-600" />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow p-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Nghiêm trọng</p>
-                                    <p className="text-2xl font-bold text-orange-600 mt-2">
-                                        {stats.bySeverity?.filter(s => s._id === 'critical' || s._id === 'high').reduce((sum, s) => sum + s.count, 0) || 0}
+                                    <p className="text-sm font-semibold text-gray-600">Nghiêm trọng</p>
+                                    <p className="text-3xl font-bold text-orange-600 mt-2">
+                                        {stats.bySeverity?.filter(s => s._id === 'critical' || s._id === 'high').reduce((sum, s) => sum + (s.count || 0), 0) || 0}
                                     </p>
                                 </div>
-                                <div className="bg-orange-100 rounded-full p-3">
-                                    <AlertCircle className="w-6 h-6 text-orange-600" />
+                                <div className="w-14 h-14 bg-gradient-to-br from-orange-100 to-red-100 rounded-xl flex items-center justify-center">
+                                    <AlertCircle className="w-7 h-7 text-orange-600" />
                                 </div>
                             </div>
                         </div>
@@ -281,29 +321,14 @@ const LogsPage = () => {
                 )}
 
                 {/* Filters */}
-                <div className="bg-white rounded-lg shadow">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                            {/* Search */}
-                            <div className="md:col-span-2">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm kiếm..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Action Filter */}
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
                                 <select
                                     value={actionFilter}
                                     onChange={(e) => setActionFilter(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Tất cả hành động</option>
                                     <option value="user_login">Đăng nhập</option>
@@ -316,12 +341,11 @@ const LogsPage = () => {
                                 </select>
                             </div>
 
-                            {/* Severity Filter */}
                             <div>
                                 <select
                                     value={severityFilter}
                                     onChange={(e) => setSeverityFilter(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Tất cả mức độ</option>
                                     <option value="low">Thấp</option>
@@ -331,12 +355,11 @@ const LogsPage = () => {
                                 </select>
                             </div>
 
-                            {/* Result Filter */}
                             <div>
                                 <select
                                     value={resultFilter}
                                     onChange={(e) => setResultFilter(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Tất cả kết quả</option>
                                     <option value="success">Thành công</option>
@@ -346,98 +369,84 @@ const LogsPage = () => {
                                 </select>
                             </div>
 
-                            {/* Date Range */}
-                            <div className="md:col-span-1">
+                            <div>
                                 <input
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    placeholder="Từ ngày"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <p className="text-red-800">{error}</p>
-                    </div>
-                )}
-
                 {/* Logs List */}
-                <div className="bg-white rounded-lg shadow">
-                    {loading && logs.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <div className="w-12 h-12 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                            <p className="text-gray-500">Đang tải...</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="text-center">
+                                <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                                <p className="text-gray-600">Đang tải dữ liệu...</p>
+                            </div>
                         </div>
                     ) : logs.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Không có dữ liệu</h3>
-                            <p className="text-gray-500">Không tìm thấy hoạt động nào phù hợp</p>
+                        <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Activity className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <p className="text-gray-500 font-medium">Không có dữ liệu</p>
                         </div>
                     ) : (
                         <>
-                            {/* Table */}
                             <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                <table className="w-full">
+                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Thời gian
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Người dùng
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Hoạt động
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Mô tả
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Mức độ
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Kết quả
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            IP
-                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Thời gian</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Người dùng</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Hoạt động</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Mô tả</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Mức độ</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Kết quả</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">IP</th>
                                     </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="bg-white divide-y divide-gray-100">
                                     {logs.map((log) => (
-                                        <tr key={log._id} className="hover:bg-gray-50">
+                                        <tr key={log._id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center space-x-2">
                                                     <Clock className="w-4 h-4 text-gray-400" />
-                                                    <span className="text-sm text-gray-900">
-                                                            {formatDate(log.createdAt)}
-                                                        </span>
+                                                    <span className="text-sm text-gray-900">{formatDate(log.createdAt)}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center space-x-2">
-                                                    <User className="w-4 h-4 text-gray-400" />
-                                                    <span className="text-sm text-gray-900">
-                                                            {log.userId?.fullName || 'System'}
+                                                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                                        <span className="text-white text-xs font-bold">
+                                                            {log.userId?.fullName?.charAt(0).toUpperCase() || 'S'}
                                                         </span>
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        {log.userId?.fullName || 'System'}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        {log.actionText}
-                                                    </span>
+                                                <span className="text-sm font-semibold text-gray-900">{log.actionText}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-sm text-gray-900 max-w-md truncate">
-                                                    {log.description}
-                                                </p>
+                                                <p className="text-sm text-gray-600 max-w-md truncate">{log.description}</p>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <SeverityBadge severity={log.severity} />
@@ -445,7 +454,7 @@ const LogsPage = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <ResultBadge result={log.result} />
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                                                 {log.requestInfo?.ipAddress || 'N/A'}
                                             </td>
                                         </tr>
@@ -456,28 +465,30 @@ const LogsPage = () => {
 
                             {/* Pagination */}
                             {pagination.pages > 1 && (
-                                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t-2 border-gray-200">
                                     <div className="flex items-center justify-between">
                                         <div className="text-sm text-gray-700">
-                                            Hiển thị {((pagination.current - 1) * 20) + 1} - {Math.min(pagination.current * 20, pagination.total)} trong {pagination.total} kết quả
+                                            Hiển thị <span className="font-semibold text-indigo-600">{(pagination.current - 1) * 20 + 1}</span> đến{' '}
+                                            <span className="font-semibold text-indigo-600">{Math.min(pagination.current * 20, pagination.total)}</span>{' '}
+                                            trong tổng số <span className="font-semibold text-indigo-600">{pagination.total}</span> kết quả
                                         </div>
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center gap-3">
                                             <button
                                                 onClick={() => setCurrentPage(currentPage - 1)}
                                                 disabled={!pagination.hasPrev}
-                                                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                                                className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                             >
-                                                <ChevronLeft className="w-4 h-4" />
+                                                <ChevronLeft className="w-5 h-5" />
                                             </button>
-                                            <span className="px-3 py-2 text-sm font-medium text-gray-900">
+                                            <span className="text-sm font-semibold text-gray-700 px-4 py-2 bg-white rounded-lg border-2 border-gray-200">
                                                 Trang {pagination.current} / {pagination.pages}
                                             </span>
                                             <button
                                                 onClick={() => setCurrentPage(currentPage + 1)}
                                                 disabled={!pagination.hasNext}
-                                                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                                                className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                             >
-                                                <ChevronRight className="w-4 h-4" />
+                                                <ChevronRight className="w-5 h-5" />
                                             </button>
                                         </div>
                                     </div>
