@@ -4,14 +4,14 @@ require('dotenv').config();
 const migrateRoles = async () => {
     try {
         // Kết nối MongoDB
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/quality_assessment', {
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/evidence_management', {
             useNewUrlParser: true,
             useUnifiedTopology: true
         });
 
         console.log('✅ Đã kết nối MongoDB');
 
-        const User = mongoose.model('User');
+        const User = mongoose.model('user');
 
         // Lấy tất cả users
         const users = await User.find({});
