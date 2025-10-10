@@ -714,7 +714,6 @@ export default function CreateReportPage() {
                 )}
             </div>
 
-            {/* Evidence Viewer Overlay */}
             {showEvidenceViewer && selectedEvidenceCode && (
                 <EvidenceViewer
                     evidenceCode={selectedEvidenceCode}
