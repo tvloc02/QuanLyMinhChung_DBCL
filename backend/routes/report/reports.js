@@ -25,6 +25,7 @@ const createReportValidation = [
         .isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report'])
         .withMessage('Loại báo cáo không hợp lệ'),
     body('content')
+        .if(body('contentMethod').equals('online_editor'))
         .notEmpty()
         .withMessage('Nội dung báo cáo là bắt buộc'),
     body('programId')
@@ -44,7 +45,11 @@ const createReportValidation = [
     body('criteriaId')
         .optional()
         .isMongoId()
-        .withMessage('ID tiêu chí không hợp lệ')
+        .withMessage('ID tiêu chí không hợp lệ'),
+    body('contentMethod')
+        .optional()
+        .isIn(['online_editor', 'file_upload'])
+        .withMessage('Phương thức nhập không hợp lệ')
 ];
 
 

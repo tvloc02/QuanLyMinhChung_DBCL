@@ -200,6 +200,9 @@ export default function CreateReportPage() {
             }
             if (formData.contentMethod === 'online_editor') {
                 submitData.content = formData.content
+            } else {
+                // Gửi placeholder khi upload file để tránh lỗi validation
+                submitData.content = '[Nội dung từ file đính kèm - Sẽ được cập nhật sau khi upload]'
             }
 
             const response = await reportService.createReport(submitData)
