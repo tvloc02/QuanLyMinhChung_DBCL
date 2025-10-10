@@ -387,7 +387,9 @@ const publishReport = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        const report = await Report.findOne({ _id: id, academicYearId });
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate('attachedFile');
+
         if (!report) {
             return res.status(404).json({
                 success: false,
@@ -409,11 +411,21 @@ const publishReport = async (req, res) => {
             });
         }
 
-        if (!report.content || report.content.trim().length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Báo cáo phải có nội dung trước khi xuất bản'
-            });
+        // FIX: Validate dựa trên contentMethod
+        if (report.contentMethod === 'online_editor') {
+            if (!report.content || report.content.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có nội dung trước khi xuất bản'
+                });
+            }
+        } else if (report.contentMethod === 'file_upload') {
+            if (!report.attachedFile) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có file đính kèm trước khi xuất bản'
+                });
+            }
         }
 
         await report.publish(req.user.id);
