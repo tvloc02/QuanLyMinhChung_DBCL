@@ -7,20 +7,9 @@ import EvidencePicker from '../../components/reports/EvidencePicker'
 import EvidenceViewer from '../../components/reports/EvidenceViewer'
 import toast from 'react-hot-toast'
 import {
-    FileText,
-    Save,
-    ArrowLeft,
-    Upload,
-    Eye,
-    BookOpen,
-    Building,
-    Layers,
-    Hash,
-    FileType,
-    AlignLeft,
-    Tag,
-    X,
-    File
+    FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
+    Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
+    RefreshCw, Plus
 } from 'lucide-react'
 import reportService from '../../services/reportService'
 import { apiMethods } from '../../services/api'
@@ -32,6 +21,7 @@ export default function CreateReportPage() {
 
     const [loading, setLoading] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [message, setMessage] = useState({ type: '', text: '' })
 
     // Data lists
     const [programs, setPrograms] = useState([])
@@ -55,14 +45,14 @@ export default function CreateReportPage() {
 
     const [formErrors, setFormErrors] = useState({})
     const [keywordInput, setKeywordInput] = useState('')
-    const [showPreview, setShowPreview] = useState(false)
-
-    // File upload
     const [selectedFile, setSelectedFile] = useState(null)
-
-    // Evidence viewer
     const [selectedEvidenceCode, setSelectedEvidenceCode] = useState(null)
     const [showEvidenceViewer, setShowEvidenceViewer] = useState(false)
+
+    const breadcrumbItems = [
+        { name: 'Báo cáo', icon: FileText, path: '/reports/reports' },
+        { name: 'Tạo báo cáo mới', icon: Plus }
+    ]
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -90,7 +80,6 @@ export default function CreateReportPage() {
         }
     }, [formData.standardId])
 
-    // Add click listener for evidence codes
     useEffect(() => {
         const handleEvidenceClick = (e) => {
             if (e.target.classList.contains('evidence-code')) {
@@ -101,72 +90,50 @@ export default function CreateReportPage() {
                 }
             }
         }
-
         document.addEventListener('click', handleEvidenceClick)
         return () => document.removeEventListener('click', handleEvidenceClick)
     }, [])
 
-    const breadcrumbItems = [
-        { name: 'Báo cáo', icon: FileText, path: '/reports/reports' },
-        { name: 'Tạo báo cáo mới', icon: FileText }
-    ]
-
     const fetchInitialData = async () => {
         try {
             setLoading(true)
-
-            // ✅ DÙNG apiMethods TRỰC TIẾP GIỐNG FILE EVIDENCE
             const [programsRes, orgsRes] = await Promise.all([
                 apiMethods.programs.getAll(),
                 apiMethods.organizations.getAll()
             ])
-
-            // ✅ XỬ LÝ RESPONSE GIỐNG FILE EVIDENCE
             setPrograms(programsRes.data.data.programs || [])
             setOrganizations(orgsRes.data.data.organizations || [])
-
         } catch (error) {
             console.error('Fetch initial data error:', error)
-            toast.error('Lỗi tải dữ liệu ban đầu')
+            setMessage({ type: 'error', text: 'Lỗi tải dữ liệu ban đầu' })
         } finally {
             setLoading(false)
         }
     }
 
     const fetchStandards = async () => {
-        if (!formData.programId || !formData.organizationId) {
-            return
-        }
-
+        if (!formData.programId || !formData.organizationId) return
         try {
-            // ✅ DÙNG apiMethods GIỐNG FILE EVIDENCE
             const response = await apiMethods.standards.getAll({
                 programId: formData.programId,
                 organizationId: formData.organizationId,
                 status: 'active'
             })
-
             const standards = response.data.data.standards || response.data.data || []
             setStandards(standards)
-
         } catch (error) {
             console.error('Fetch standards error:', error)
-            toast.error('Lỗi khi tải danh sách tiêu chuẩn')
+            setMessage({ type: 'error', text: 'Lỗi khi tải danh sách tiêu chuẩn' })
         }
     }
 
     const fetchCriteria = async () => {
-        if (!formData.standardId) {
-            return
-        }
-
+        if (!formData.standardId) return
         try {
-            // ✅ DÙNG apiMethods GIỐNG FILE EVIDENCE
             const response = await apiMethods.criteria.getAll({
                 standardId: formData.standardId,
                 status: 'active'
             })
-
             let criteriaData = []
             if (response.data.data) {
                 if (Array.isArray(response.data.data.criterias)) {
@@ -177,62 +144,44 @@ export default function CreateReportPage() {
                     criteriaData = response.data.data
                 }
             }
-
             setCriteria(criteriaData)
-
         } catch (error) {
             console.error('Fetch criteria error:', error)
-            toast.error('Lỗi khi tải danh sách tiêu chí')
+            setMessage({ type: 'error', text: 'Lỗi khi tải danh sách tiêu chí' })
             setCriteria([])
         }
     }
 
     const validateForm = () => {
         const errors = {}
-
-        if (!formData.title.trim()) {
-            errors.title = 'Tiêu đề báo cáo là bắt buộc'
-        }
-
-        if (!formData.programId) {
-            errors.programId = 'Chương trình là bắt buộc'
-        }
-
-        if (!formData.organizationId) {
-            errors.organizationId = 'Tổ chức là bắt buộc'
-        }
-
+        if (!formData.title.trim()) errors.title = 'Tiêu đề báo cáo là bắt buộc'
+        if (!formData.programId) errors.programId = 'Chương trình là bắt buộc'
+        if (!formData.organizationId) errors.organizationId = 'Tổ chức là bắt buộc'
         if (formData.type !== 'comprehensive_report' && !formData.standardId) {
             errors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
-
         if (formData.type === 'criteria_analysis' && !formData.criteriaId) {
             errors.criteriaId = 'Tiêu chí là bắt buộc'
         }
-
         if (formData.contentMethod === 'online_editor' && !formData.content.trim()) {
             errors.content = 'Nội dung báo cáo là bắt buộc'
         }
-
         if (formData.contentMethod === 'file_upload' && !selectedFile) {
             errors.file = 'Vui lòng chọn file để upload'
         }
-
         setFormErrors(errors)
         return Object.keys(errors).length === 0
     }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-
         if (!validateForm()) {
-            toast.error('Vui lòng điền đầy đủ thông tin')
+            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' })
             return
         }
 
         try {
             setSubmitting(true)
-
             const submitData = {
                 title: formData.title,
                 type: formData.type,
@@ -246,11 +195,9 @@ export default function CreateReportPage() {
             if (formData.type !== 'comprehensive_report') {
                 submitData.standardId = formData.standardId
             }
-
             if (formData.type === 'criteria_analysis') {
                 submitData.criteriaId = formData.criteriaId
             }
-
             if (formData.contentMethod === 'online_editor') {
                 submitData.content = formData.content
             }
@@ -260,16 +207,15 @@ export default function CreateReportPage() {
             if (response.success) {
                 const reportId = response.data._id
 
-                // Upload file if needed
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
                         await reportService.uploadFile(reportId, selectedFile)
-                        toast.success('Tạo báo cáo và upload file thành công')
+                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' })
                     } catch (uploadError) {
-                        toast.warning('Báo cáo đã được tạo nhưng có lỗi khi upload file')
+                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' })
                     }
                 } else {
-                    toast.success('Tạo báo cáo thành công')
+                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
                 }
 
                 setTimeout(() => {
@@ -278,7 +224,7 @@ export default function CreateReportPage() {
             }
         } catch (error) {
             console.error('Create report error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi tạo báo cáo')
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Lỗi tạo báo cáo' })
         } finally {
             setSubmitting(false)
         }
@@ -304,9 +250,9 @@ export default function CreateReportPage() {
     const handleFileSelect = (e) => {
         const file = e.target.files[0]
         if (file) {
-            const maxSize = 50 * 1024 * 1024 // 50MB
+            const maxSize = 50 * 1024 * 1024
             if (file.size > maxSize) {
-                toast.error('File không được vượt quá 50MB')
+                setMessage({ type: 'error', text: 'File không được vượt quá 50MB' })
                 return
             }
 
@@ -317,11 +263,12 @@ export default function CreateReportPage() {
             ]
 
             if (!allowedTypes.includes(file.type)) {
-                toast.error('Chỉ chấp nhận file PDF hoặc Word')
+                setMessage({ type: 'error', text: 'Chỉ chấp nhận file PDF hoặc Word' })
                 return
             }
 
             setSelectedFile(file)
+            setFormErrors(prev => ({ ...prev, file: '' }))
         }
     }
 
@@ -332,221 +279,297 @@ export default function CreateReportPage() {
         }
     }
 
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }))
+        if (formErrors[field]) {
+            setFormErrors(prev => ({ ...prev, [field]: '' }))
+        }
+    }
+
     if (isLoading || loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+            </Layout>
         )
     }
 
     return (
-        <Layout title="Tạo báo cáo mới" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="flex gap-6">
                 {/* Main Form */}
                 <div className="flex-1 space-y-6">
-                    {/* Header */}
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Tạo báo cáo mới</h1>
-                            <p className="text-gray-600 mt-1">Tạo báo cáo phân tích tiêu chuẩn/tiêu chí</p>
+                    {/* Message Alert */}
+                    {message.text && (
+                        <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                            message.type === 'success'
+                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                        }`}>
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                        message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                                    }`}>
+                                        <AlertCircle className={`w-7 h-7 ${
+                                            message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                        }`} />
+                                    </div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <h3 className={`font-bold text-lg mb-1 ${
+                                        message.type === 'success' ? 'text-green-900' : 'text-red-900'
+                                    }`}>
+                                        {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
+                                    </h3>
+                                    <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                        {message.text}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setMessage({ type: '', text: '' })}
+                                    className="ml-4 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => router.back()}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Quay lại
-                        </button>
+                    )}
+
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                                    <FileText className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold mb-1">Tạo báo cáo mới</h1>
+                                    <p className="text-indigo-100">Tạo báo cáo phân tích tiêu chuẩn/tiêu chí</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => router.push('/reports/reports')}
+                                className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                                <span>Quay lại</span>
+                            </button>
+                        </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Basic Info */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <FileText className="h-5 w-5 mr-2" />
+                        {/* Thông tin cơ bản */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <FileText className="w-6 h-6 text-indigo-600" />
                                 Thông tin cơ bản
-                            </h3>
+                            </h2>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <div className="space-y-6">
+                                {/* Tiêu đề */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tiêu đề báo cáo <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.title}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.title ? 'border-red-500' : 'border-gray-300'
+                                        onChange={(e) => handleChange('title', e.target.value)}
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                            formErrors.title ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                         }`}
                                         placeholder="Nhập tiêu đề báo cáo"
                                         maxLength={500}
                                     />
                                     {formErrors.title && (
-                                        <p className="text-red-500 text-sm mt-1">{formErrors.title}</p>
+                                        <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>
                                     )}
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        <FileType className="h-4 w-4 inline mr-1" />
-                                        Loại báo cáo <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={formData.type}
-                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="criteria_analysis">Phiếu phân tích tiêu chí</option>
-                                        <option value="standard_analysis">Phiếu phân tích tiêu chuẩn</option>
-                                        <option value="comprehensive_report">Báo cáo tổng hợp</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Phương thức nhập <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={formData.contentMethod}
-                                        onChange={(e) => setFormData({ ...formData, contentMethod: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="online_editor">Soạn thảo trực tuyến</option>
-                                        <option value="file_upload">Upload file</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        <BookOpen className="h-4 w-4 inline mr-1" />
-                                        Chương trình <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={formData.programId}
-                                        onChange={(e) => setFormData({
-                                            ...formData,
-                                            programId: e.target.value,
-                                            standardId: '',
-                                            criteriaId: ''
-                                        })}
-                                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.programId ? 'border-red-500' : 'border-gray-300'
-                                        }`}
-                                    >
-                                        <option value="">Chọn chương trình</option>
-                                        {programs.map(program => (
-                                            <option key={program._id} value={program._id}>
-                                                {program.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        <Building className="h-4 w-4 inline mr-1" />
-                                        Tổ chức <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={formData.organizationId}
-                                        onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-                                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.organizationId ? 'border-red-500' : 'border-gray-300'
-                                        }`}
-                                    >
-                                        <option value="">Chọn tổ chức</option>
-                                        {organizations.map(org => (
-                                            <option key={org._id} value={org._id}>
-                                                {org.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {formData.type !== 'comprehensive_report' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Loại báo cáo */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            <Layers className="h-4 w-4 inline mr-1" />
-                                            Tiêu chuẩn <span className="text-red-500">*</span>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <FileType className="w-4 h-4 inline mr-1" />
+                                            Loại báo cáo <span className="text-red-500">*</span>
                                         </label>
                                         <select
-                                            value={formData.standardId}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                standardId: e.target.value,
-                                                criteriaId: ''
-                                            })}
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                                formErrors.standardId ? 'border-red-500' : 'border-gray-300'
-                                            }`}
-                                            disabled={!formData.programId || !formData.organizationId}
+                                            value={formData.type}
+                                            onChange={(e) => handleChange('type', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                         >
-                                            <option value="">Chọn tiêu chuẩn</option>
-                                            {standards.map(standard => (
-                                                <option key={standard._id} value={standard._id}>
-                                                    {standard.code} - {standard.name}
+                                            <option value="criteria_analysis">Phiếu phân tích tiêu chí</option>
+                                            <option value="standard_analysis">Phiếu phân tích tiêu chuẩn</option>
+                                            <option value="comprehensive_report">Báo cáo tổng hợp</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Phương thức nhập */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Phương thức nhập <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            value={formData.contentMethod}
+                                            onChange={(e) => handleChange('contentMethod', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                        >
+                                            <option value="online_editor">Soạn thảo trực tuyến</option>
+                                            <option value="file_upload">Upload file</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Chương trình */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <BookOpen className="w-4 h-4 inline mr-1" />
+                                            Chương trình <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            value={formData.programId}
+                                            onChange={(e) => {
+                                                handleChange('programId', e.target.value)
+                                                setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
+                                            }}
+                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                            }`}
+                                        >
+                                            <option value="">Chọn chương trình</option>
+                                            {programs.map(program => (
+                                                <option key={program._id} value={program._id}>
+                                                    {program.name}
                                                 </option>
                                             ))}
                                         </select>
+                                        {formErrors.programId && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>
+                                        )}
                                     </div>
-                                )}
 
-                                {formData.type === 'criteria_analysis' && (
+                                    {/* Tổ chức */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            <Hash className="h-4 w-4 inline mr-1" />
-                                            Tiêu chí <span className="text-red-500">*</span>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <Building className="w-4 h-4 inline mr-1" />
+                                            Tổ chức <span className="text-red-500">*</span>
                                         </label>
                                         <select
-                                            value={formData.criteriaId}
-                                            onChange={(e) => setFormData({ ...formData, criteriaId: e.target.value })}
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                                formErrors.criteriaId ? 'border-red-500' : 'border-gray-300'
+                                            value={formData.organizationId}
+                                            onChange={(e) => handleChange('organizationId', e.target.value)}
+                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
-                                            disabled={!formData.standardId}
                                         >
-                                            <option value="">Chọn tiêu chí</option>
-                                            {criteria.map(criterion => (
-                                                <option key={criterion._id} value={criterion._id}>
-                                                    {criterion.code} - {criterion.name}
+                                            <option value="">Chọn tổ chức</option>
+                                            {organizations.map(org => (
+                                                <option key={org._id} value={org._id}>
+                                                    {org.name}
                                                 </option>
                                             ))}
                                         </select>
+                                        {formErrors.organizationId && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* Tiêu chuẩn */}
+                                    {formData.type !== 'comprehensive_report' && (
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <Layers className="w-4 h-4 inline mr-1" />
+                                                Tiêu chuẩn <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                value={formData.standardId}
+                                                onChange={(e) => {
+                                                    handleChange('standardId', e.target.value)
+                                                    setFormData(prev => ({ ...prev, criteriaId: '' }))
+                                                }}
+                                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                    formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                }`}
+                                                disabled={!formData.programId || !formData.organizationId}
+                                            >
+                                                <option value="">Chọn tiêu chuẩn</option>
+                                                {standards.map(standard => (
+                                                    <option key={standard._id} value={standard._id}>
+                                                        {standard.code} - {standard.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {formErrors.standardId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.standardId}</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Tiêu chí */}
+                                    {formData.type === 'criteria_analysis' && (
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <Hash className="w-4 h-4 inline mr-1" />
+                                                Tiêu chí <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                value={formData.criteriaId}
+                                                onChange={(e) => handleChange('criteriaId', e.target.value)}
+                                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                    formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                }`}
+                                                disabled={!formData.standardId}
+                                            >
+                                                <option value="">Chọn tiêu chí</option>
+                                                {criteria.map(criterion => (
+                                                    <option key={criterion._id} value={criterion._id}>
+                                                        {criterion.code} - {criterion.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {formErrors.criteriaId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.criteriaId}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Content */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <FileText className="h-5 w-5 mr-2" />
+                        {/* Nội dung */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <AlignLeft className="w-6 h-6 text-indigo-600" />
                                 Nội dung báo cáo
-                            </h3>
+                            </h2>
 
                             {formData.contentMethod === 'online_editor' ? (
                                 <div>
                                     <RichTextEditor
                                         ref={editorRef}
                                         value={formData.content}
-                                        onChange={(content) => setFormData({ ...formData, content })}
+                                        onChange={(content) => handleChange('content', content)}
                                         placeholder="Nhập nội dung báo cáo..."
                                     />
                                     {formErrors.content && (
-                                        <p className="text-red-500 text-sm mt-1">{formErrors.content}</p>
+                                        <p className="text-red-500 text-sm mt-2">{formErrors.content}</p>
                                     )}
                                 </div>
                             ) : (
                                 <div>
-                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 hover:border-indigo-400 transition-all">
                                         <div className="text-center">
-                                            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                            <p className="text-sm text-gray-600 mb-2">
+                                            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Upload className="w-8 h-8 text-indigo-600" />
+                                            </div>
+                                            <p className="text-base font-medium text-gray-900 mb-2">
                                                 Kéo thả file hoặc click để chọn
                                             </p>
-                                            <p className="text-xs text-gray-500 mb-4">
+                                            <p className="text-sm text-gray-500 mb-4">
                                                 Hỗ trợ: PDF, DOC, DOCX (tối đa 50MB)
                                             </p>
                                             <input
@@ -558,20 +581,22 @@ export default function CreateReportPage() {
                                             />
                                             <label
                                                 htmlFor="file-upload"
-                                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer"
+                                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg cursor-pointer transition-all font-medium"
                                             >
-                                                <File className="h-4 w-4 mr-2" />
+                                                <File className="w-5 h-5 mr-2" />
                                                 Chọn file
                                             </label>
                                         </div>
 
                                         {selectedFile && (
-                                            <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                                            <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border-2 border-indigo-200">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center flex-1 min-w-0">
-                                                        <File className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
+                                                        <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                                                            <File className="w-6 h-6 text-indigo-600" />
+                                                        </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                            <p className="text-sm font-semibold text-gray-900 truncate">
                                                                 {selectedFile.name}
                                                             </p>
                                                             <p className="text-xs text-gray-500">
@@ -582,39 +607,40 @@ export default function CreateReportPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedFile(null)}
-                                                        className="ml-2 text-red-600 hover:text-red-700"
+                                                        className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
-                                                        <X className="h-5 w-5" />
+                                                        <X className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                     {formErrors.file && (
-                                        <p className="text-red-500 text-sm mt-1">{formErrors.file}</p>
+                                        <p className="text-red-500 text-sm mt-2">{formErrors.file}</p>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Metadata */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <Tag className="h-5 w-5 mr-2" />
+                        {/* Thông tin bổ sung */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <Tag className="w-6 h-6 text-indigo-600" />
                                 Thông tin bổ sung
-                            </h3>
+                            </h2>
 
-                            <div className="space-y-4">
+                            <div className="space-y-6">
+                                {/* Tóm tắt */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tóm tắt
                                     </label>
                                     <textarea
                                         value={formData.summary}
-                                        onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                                        rows={3}
+                                        onChange={(e) => handleChange('summary', e.target.value)}
+                                        rows={4}
                                         maxLength={1000}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
                                         placeholder="Tóm tắt ngắn gọn về nội dung báo cáo"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">
@@ -622,40 +648,41 @@ export default function CreateReportPage() {
                                     </p>
                                 </div>
 
+                                {/* Từ khóa */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Từ khóa
                                     </label>
-                                    <div className="flex gap-2 mb-2">
+                                    <div className="flex gap-3 mb-3">
                                         <input
                                             type="text"
                                             value={keywordInput}
                                             onChange={(e) => setKeywordInput(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                             placeholder="Nhập từ khóa và nhấn Enter"
                                         />
                                         <button
                                             type="button"
                                             onClick={handleAddKeyword}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                                         >
-                                            Thêm
+                                            <Plus className="w-5 h-5" />
                                         </button>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {formData.keywords.map((keyword, index) => (
                                             <span
                                                 key={index}
-                                                className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full text-sm font-medium border border-indigo-200"
                                             >
                                                 {keyword}
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveKeyword(keyword)}
-                                                    className="ml-2 text-blue-500 hover:text-blue-700"
+                                                    className="ml-2 text-indigo-500 hover:text-indigo-700"
                                                 >
-                                                    <X className="h-3 w-3" />
+                                                    <X className="w-4 h-4" />
                                                 </button>
                                             </span>
                                         ))}
@@ -665,28 +692,28 @@ export default function CreateReportPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex justify-end space-x-3">
+                        <div className="flex items-center justify-end gap-4 pt-6">
                             <button
                                 type="button"
-                                onClick={() => router.back()}
-                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                onClick={() => router.push('/reports/reports')}
+                                className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                             >
                                 Hủy
                             </button>
                             <button
                                 type="submit"
                                 disabled={submitting}
-                                className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl disabled:opacity-50 transition-all font-medium"
                             >
                                 {submitting ? (
                                     <>
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                        Đang tạo...
+                                        <RefreshCw className="w-5 h-5 animate-spin" />
+                                        <span>Đang tạo...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Save className="h-4 w-4 mr-2" />
-                                        Tạo báo cáo
+                                        <Save className="w-5 h-5" />
+                                        <span>Tạo báo cáo</span>
                                     </>
                                 )}
                             </button>
@@ -698,7 +725,7 @@ export default function CreateReportPage() {
                 {formData.contentMethod === 'online_editor' && (formData.standardId || formData.criteriaId) && (
                     <div className="w-96 flex-shrink-0">
                         <div className="sticky top-6">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                                 <EvidencePicker
                                     standardId={formData.standardId}
                                     criteriaId={formData.criteriaId}
