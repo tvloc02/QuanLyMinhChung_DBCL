@@ -18,7 +18,9 @@ const {
     removeUserFromGroups,
     grantUserPermission,
     denyUserPermission,
-    removeUserPermission
+    removeUserPermission,
+    lockUser,
+    unlockUser
 } = require('../../controllers/user/userController');
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
@@ -199,6 +201,15 @@ router.patch('/:id/status', auth, requireAdmin, [
         .isIn(['active', 'inactive', 'suspended', 'pending'])
         .withMessage('Trạng thái không hợp lệ')
 ], validation, updateUserStatus);
+
+router.post('/:id/lock', auth, requireAdmin, [
+    param('id').isMongoId(),
+    body('reason').optional().trim()
+], validation, lockUser);
+
+router.post('/:id/unlock', auth, requireAdmin, [
+    param('id').isMongoId()
+], validation, unlockUser);
 
 router.put('/:id/permissions', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
