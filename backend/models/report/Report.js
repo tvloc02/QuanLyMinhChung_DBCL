@@ -57,10 +57,8 @@ const reportSchema = new mongoose.Schema({
 
     content: {
         type: String,
-        required: function() {
-            return this.contentMethod === 'online_editor';
-        },
-        default: ''
+        default: '',
+        required: false
     },
 
     contentMethod: {
