@@ -202,7 +202,8 @@ const createReport = async (req, res) => {
             criteria?.code
         );
 
-        const report = new Report({
+        // FIX: Xử lý content dựa trên contentMethod
+        const reportData = {
             academicYearId,
             title: title.trim(),
             code,
@@ -211,18 +212,33 @@ const createReport = async (req, res) => {
             organizationId,
             standardId,
             criteriaId,
-            content: content?.trim(),
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim(),
             keywords: keywords || [],
             createdBy: req.user.id,
             updatedBy: req.user.id
-        });
+        };
 
+        // Chỉ thêm content khi dùng online editor
+        if (contentMethod === 'online_editor') {
+            if (!content || content.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Nội dung báo cáo là bắt buộc khi dùng trình soạn thảo trực tuyến'
+                });
+            }
+            reportData.content = content.trim();
+        } else {
+            reportData.content = '';
+        }
+
+        const report = new Report(reportData);
         await report.save();
 
-        await report.linkEvidences();
-        await report.save();
+        if (reportData.content && reportData.content.length > 0) {
+            await report.linkEvidences();
+            await report.save();
+        }
 
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
@@ -243,7 +259,7 @@ const createReport = async (req, res) => {
         console.error('Create report error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo báo cáo'
+            message: error.message || 'Lỗi hệ thống khi tạo báo cáo'
         });
     }
 };
