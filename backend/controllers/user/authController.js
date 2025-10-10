@@ -16,14 +16,8 @@ const login = async (req, res) => {
         const { email, password } = req.body;
 
         console.log('\n🔐 ==================== LOGIN ATTEMPT ====================');
-        console.log('🔐 Raw email input:', JSON.stringify(email));
-        console.log('🔐 Raw password input:', JSON.stringify(password));
-        console.log('🔐 Password length:', password?.length);
-        console.log('🔐 Password type:', typeof password);
-        console.log('🔐 Password first 3 chars:', password ? password.substring(0, 3) + '***' : 'undefined');
 
         if (!email || !password) {
-            console.log('❌ Missing email or password');
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng nhập email và mật khẩu'
@@ -31,24 +25,9 @@ const login = async (req, res) => {
         }
 
         const username = email.split('@')[0].toLowerCase().trim();
-        console.log('🔍 Processing input:');
-        console.log('   Original email:', email);
-        console.log('   Processed username:', username);
-
-        // Find user with detailed logging
-        console.log('🔍 Searching for user in database...');
         const user = await User.findOne({ email: username });
 
         if (!user) {
-            console.log('❌ User not found with email:', username);
-
-            // Debug: Show all users
-            const allUsers = await User.find({}, 'email fullName role').lean();
-            console.log('📋 All users in database:');
-            allUsers.forEach(u => {
-                console.log(`   - ${u.email} (${u.fullName}) - ${u.role}`);
-            });
-
             await ActivityLog.logUserAction(null, 'user_login_failed',
                 `Đăng nhập thất bại: Tài khoản ${username} không tồn tại`, {
                     requestInfo: {
@@ -57,8 +36,7 @@ const login = async (req, res) => {
                         method: 'POST',
                         endpoint: '/auth/login',
                         responseStatus: 401
-                    },
-                    metadata: { username }
+                    }
                 });
 
             return res.status(401).json({
@@ -67,20 +45,37 @@ const login = async (req, res) => {
             });
         }
 
-        console.log('✅ User found in database:');
-        console.log('   ID:', user._id);
-        console.log('   Email:', user.email);
-        console.log('   Full Name:', user.fullName);
-        console.log('   Role:', user.role);
-        console.log('   Status:', user.status);
-        console.log('   Failed attempts:', user.failedLoginAttempts);
-        console.log('   Is locked:', user.isLocked);
-        console.log('   Lock until:', user.lockUntil);
+        // KIỂM TRA: Tài khoản có bị khóa bởi admin không
+        if (user.isLockedByAdmin) {
+            console.log('❌ Account locked by admin');
+
+            await ActivityLog.logUserAction(user._id, 'user_login_failed',
+                `Đăng nhập thất bại: Tài khoản bị khóa bởi admin`, {
+                    requestInfo: {
+                        ipAddress: req.ip,
+                        userAgent: req.get('User-Agent'),
+                        method: 'POST',
+                        endpoint: '/auth/login',
+                        responseStatus: 403
+                    },
+                    metadata: {
+                        lockedBy: user.lockedByAdmin?.adminId,
+                        lockedAt: user.lockedByAdmin?.lockedAt,
+                        reason: user.lockedByAdmin?.reason
+                    }
+                });
+
+            return res.status(403).json({
+                success: false,
+                message: user.lockedByAdmin?.reason
+                    ? `Tài khoản đã bị khóa. Lý do: ${user.lockedByAdmin.reason}`
+                    : 'Tài khoản đã bị khóa bởi quản trị viên.',
+                locked: true
+            });
+        }
 
         // Check user status
         if (user.status !== 'active') {
-            console.log('❌ User status not active:', user.status);
-
             await ActivityLog.logUserAction(user._id, 'user_login_failed',
                 `Đăng nhập thất bại: Tài khoản bị ${user.status}`, {
                     requestInfo: {
@@ -89,121 +84,38 @@ const login = async (req, res) => {
                         method: 'POST',
                         endpoint: '/auth/login',
                         responseStatus: 401
-                    },
-                    metadata: { status: user.status }
+                    }
                 });
 
             return res.status(401).json({
                 success: false,
-                message: 'Tài khoản đã bị khóa hoặc vô hiệu hóa'
+                message: 'Tài khoản đã bị vô hiệu hóa'
             });
         }
 
-        // Check if account is locked
-        if (user.isLocked) {
-            console.log('❌ Account is locked until:', user.lockUntil);
-
+        // Check if account is locked temporarily (due to failed login attempts)
+        if (user.isLocked && !user.isLockedByAdmin) {
             await ActivityLog.logUserAction(user._id, 'user_login_failed',
-                `Đăng nhập thất bại: Tài khoản bị khóa`, {
+                `Đăng nhập thất bại: Tài khoản tạm thời bị khóa`, {
                     requestInfo: {
                         ipAddress: req.ip,
                         userAgent: req.get('User-Agent'),
                         method: 'POST',
                         endpoint: '/auth/login',
                         responseStatus: 401
-                    },
-                    metadata: { lockUntil: user.lockUntil }
+                    }
                 });
 
             return res.status(401).json({
                 success: false,
-                message: 'Tài khoản tạm thời bị khóa do đăng nhập sai quá nhiều lần'
+                message: 'Tài khoản tạm thời bị khóa do đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 5 phút.'
             });
         }
 
-        // Password verification with extensive logging
-        console.log('\n🔑 ==================== PASSWORD VERIFICATION ====================');
-        console.log('🔑 Input password details:');
-        console.log('   Length:', password.length);
-        console.log('   Type:', typeof password);
-        console.log('   Starts with:', password.substring(0, 5) + '...');
-        console.log('   Ends with:', '...' + password.substring(password.length - 3));
-        console.log('   Contains spaces:', /\s/.test(password));
-
-        console.log('🔑 Stored password hash details:');
-        console.log('   Hash exists:', !!user.password);
-        console.log('   Hash length:', user.password?.length);
-        console.log('   Hash format:', user.password?.substring(0, 10) + '...');
-        console.log('   Is bcrypt format:', user.password?.startsWith('$2a$') || user.password?.startsWith('$2b$'));
-
-        // Check if comparePassword method exists
-        console.log('🔧 Checking comparePassword method:');
-        console.log('   Method exists:', typeof user.comparePassword === 'function');
-        console.log('   User object type:', user.constructor.name);
-        console.log('   User prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(user)));
-
-        let isPasswordValid = false;
-
-        // Try using user's comparePassword method first
-        if (typeof user.comparePassword === 'function') {
-            console.log('✅ Using user.comparePassword method...');
-            try {
-                isPasswordValid = await user.comparePassword(password);
-                console.log('🔑 comparePassword result:', isPasswordValid);
-            } catch (compareError) {
-                console.error('❌ Error with comparePassword method:', compareError);
-                console.log('🔄 Falling back to manual bcrypt...');
-
-                // Fallback to manual bcrypt
-                try {
-                    isPasswordValid = await bcrypt.compare(password, user.password);
-                    console.log('🔑 Manual bcrypt result:', isPasswordValid);
-                } catch (bcryptError) {
-                    console.error('❌ Manual bcrypt also failed:', bcryptError);
-                    return res.status(500).json({
-                        success: false,
-                        message: 'Lỗi xác thực mật khẩu'
-                    });
-                }
-            }
-        } else {
-            console.log('⚠️ comparePassword method not found, using manual bcrypt...');
-            try {
-                isPasswordValid = await bcrypt.compare(password, user.password);
-                console.log('🔑 Manual bcrypt result:', isPasswordValid);
-            } catch (bcryptError) {
-                console.error('❌ Manual bcrypt failed:', bcryptError);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Lỗi xác thực mật khẩu'
-                });
-            }
-        }
-
-        // Additional debug: Test common passwords if login fails
-        if (!isPasswordValid) {
-            console.log('\n🧪 Testing common passwords for debugging:');
-            const testPasswords = ['admin123', 'manager123', 'password', '123456', user.email + '123'];
-
-            for (const testPwd of testPasswords) {
-                try {
-                    const testResult = await bcrypt.compare(testPwd, user.password);
-                    console.log(`   ${testResult ? '✅' : '❌'} "${testPwd}": ${testResult}`);
-                    if (testResult) {
-                        console.log(`🎯 CORRECT PASSWORD FOUND: "${testPwd}"`);
-                        break;
-                    }
-                } catch (err) {
-                    console.log(`   ⚠️ Error testing "${testPwd}":`, err.message);
-                }
-            }
-        }
+        // Password verification
+        const isPasswordValid = await user.comparePassword(password);
 
         if (!isPasswordValid) {
-            console.log('❌ Password verification failed');
-            console.log('   Input password:', password);
-            console.log('   Hash in DB:', user.password?.substring(0, 30) + '...');
-
             await user.incFailedLoginAttempts();
 
             await ActivityLog.logUserAction(user._id, 'user_login_failed',
@@ -214,10 +126,6 @@ const login = async (req, res) => {
                         method: 'POST',
                         endpoint: '/auth/login',
                         responseStatus: 401
-                    },
-                    metadata: {
-                        failedAttempts: user.failedLoginAttempts + 1,
-                        username
                     }
                 });
 
@@ -228,7 +136,6 @@ const login = async (req, res) => {
         }
 
         console.log('\n✅ ==================== LOGIN SUCCESSFUL ====================');
-        console.log('🎉 User authenticated successfully:', user.fullName);
 
         await user.recordLogin();
 
@@ -242,7 +149,7 @@ const login = async (req, res) => {
                     responseStatus: 200
                 },
                 metadata: {
-                    role: user.role,
+                    roles: user.roles || [user.role],
                     department: user.department
                 }
             });
@@ -253,23 +160,16 @@ const login = async (req, res) => {
             _id: user._id,
             email: user.email,
             fullName: user.fullName,
+            roles: user.roles || [user.role],
             role: user.role,
             status: user.status,
             department: user.department,
             position: user.position,
             phoneNumber: user.phoneNumber,
-            academicYearAccess: user.academicYearAccess,
-            programAccess: user.programAccess,
-            organizationAccess: user.organizationAccess,
-            standardAccess: user.standardAccess,
-            criteriaAccess: user.criteriaAccess,
-            notificationSettings: user.notificationSettings,
             lastLogin: new Date(),
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
-
-        console.log('📤 Sending successful login response');
 
         res.json({
             success: true,
@@ -282,10 +182,7 @@ const login = async (req, res) => {
 
     } catch (error) {
         console.error('\n💥 ==================== LOGIN ERROR ====================');
-        console.error('💥 Error type:', error.constructor.name);
-        console.error('💥 Error message:', error.message);
-        console.error('💥 Error stack:', error.stack);
-        console.error('💥 Request body:', req.body);
+        console.error('💥 Error:', error.message);
 
         await ActivityLog.logError(null, 'user_login', error, {
             requestInfo: {
@@ -293,8 +190,7 @@ const login = async (req, res) => {
                 userAgent: req.get('User-Agent'),
                 method: 'POST',
                 endpoint: '/auth/login'
-            },
-            metadata: { email: req.body?.email }
+            }
         });
 
         res.status(500).json({
