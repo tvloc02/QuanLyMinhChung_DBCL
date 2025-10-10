@@ -39,10 +39,10 @@ export default function UsersListPage() {
     const [showNewPassword, setShowNewPassword] = useState(false)
 
     const roleLabels = {
-        admin: { label: 'Quản trị viên', icon: '👑', color: 'from-red-500 to-pink-500' },
-        manager: { label: 'Cán bộ quản lý', icon: '📊', color: 'from-blue-500 to-indigo-500' },
-        expert: { label: 'Chuyên gia', icon: '🎓', color: 'from-green-500 to-emerald-500' },
-        advisor: { label: 'Tư vấn', icon: '💡', color: 'from-purple-500 to-violet-500' }
+        admin: { label: 'Quản trị viên', icon: '', color: 'from-red-500 to-pink-500' },
+        manager: { label: 'Cán bộ quản lý', icon: '', color: 'from-blue-500 to-indigo-500' },
+        expert: { label: 'Chuyên gia', icon: '', color: 'from-green-500 to-emerald-500' },
+        advisor: { label: 'Tư vấn', icon: '', color: 'from-purple-500 to-violet-500' }
     }
 
     const statusLabels = {
@@ -319,10 +319,10 @@ export default function UsersListPage() {
                             className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         >
                             <option value="">Tất cả vai trò</option>
-                            <option value="admin">👑 Quản trị viên</option>
-                            <option value="manager">📊 Cán bộ quản lý</option>
-                            <option value="expert">🎓 Chuyên gia</option>
-                            <option value="advisor">💡 Tư vấn</option>
+                            <option value="admin">Quản trị viên</option>
+                            <option value="manager">Cán bộ quản lý</option>
+                            <option value="expert">Chuyên gia</option>
+                            <option value="advisor">Tư vấn</option>
                         </select>
 
                         <select
@@ -334,10 +334,8 @@ export default function UsersListPage() {
                             className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                         >
                             <option value="">Tất cả trạng thái</option>
-                            <option value="active">✅ Hoạt động</option>
-                            <option value="inactive">⏸️ Không hoạt động</option>
-                            <option value="suspended">🚫 Bị khóa</option>
-                            <option value="pending">⏳ Chờ xác nhận</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="suspended">Bị khóa</option>
                         </select>
                     </div>
                 </div>
