@@ -3,20 +3,8 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import {
-    Plus,
-    Search,
-    Edit3,
-    Trash2,
-    Copy,
-    Calendar,
-    CheckCircle,
-    Clock,
-    Archive,
-    FileText,
-    Eye,
-    ArrowUpDown,
-    ChevronLeft,
-    ChevronRight
+    Plus, Search, Edit3, Trash2, Copy, Calendar, CheckCircle, Clock, Archive,
+    FileText, Eye, ArrowUpDown, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, X
 } from 'lucide-react'
 
 const AcademicYearsPage = () => {
@@ -24,7 +12,7 @@ const AcademicYearsPage = () => {
     const router = useRouter()
     const [academicYears, setAcademicYears] = useState([])
     const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [message, setMessage] = useState({ type: '', text: '' })
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
     const [sortBy, setSortBy] = useState('createdAt')
@@ -33,7 +21,6 @@ const AcademicYearsPage = () => {
     const [pagination, setPagination] = useState({})
     const [selectedYear, setSelectedYear] = useState(null)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
-    const [hoveredAction, setHoveredAction] = useState(null)
 
     const breadcrumbItems = [
         { name: 'Quản lý năm học', icon: Calendar }
@@ -46,10 +33,10 @@ const AcademicYearsPage = () => {
     }, [user, isLoading, router])
 
     const statusConfig = {
-        draft: { label: 'Nháp', color: 'bg-yellow-100 text-yellow-800', icon: FileText },
-        active: { label: 'Đang hoạt động', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-        completed: { label: 'Đã hoàn thành', color: 'bg-blue-100 text-blue-800', icon: Clock },
-        archived: { label: 'Đã lưu trữ', color: 'bg-gray-100 text-gray-800', icon: Archive }
+        draft: { label: 'Nháp', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: FileText },
+        active: { label: 'Đang hoạt động', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
+        completed: { label: 'Đã hoàn thành', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Clock },
+        archived: { label: 'Đã lưu trữ', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Archive }
     }
 
     useEffect(() => {
@@ -86,7 +73,7 @@ const AcademicYearsPage = () => {
                 throw new Error(result.message || 'Có lỗi xảy ra')
             }
         } catch (err) {
-            setError(err.message)
+            setMessage({ type: 'error', text: err.message })
         } finally {
             setLoading(false)
         }
@@ -123,13 +110,13 @@ const AcademicYearsPage = () => {
 
             if (response.ok) {
                 await fetchAcademicYears()
-                alert('Đã đặt làm năm học hiện tại thành công')
+                setMessage({ type: 'success', text: 'Đã đặt làm năm học hiện tại thành công' })
             } else {
                 const error = await response.json()
-                alert(error.message || 'Có lỗi xảy ra')
+                setMessage({ type: 'error', text: error.message || 'Có lỗi xảy ra' })
             }
         } catch (err) {
-            alert('Có lỗi xảy ra khi đặt năm học hiện tại')
+            setMessage({ type: 'error', text: 'Có lỗi xảy ra khi đặt năm học hiện tại' })
         }
     }
 
@@ -148,13 +135,13 @@ const AcademicYearsPage = () => {
                 await fetchAcademicYears()
                 setShowDeleteModal(false)
                 setSelectedYear(null)
-                alert('Xóa năm học thành công')
+                setMessage({ type: 'success', text: 'Xóa năm học thành công' })
             } else {
                 const error = await response.json()
-                alert(error.message || 'Có lỗi xảy ra')
+                setMessage({ type: 'error', text: error.message || 'Có lỗi xảy ra' })
             }
         } catch (err) {
-            alert('Có lỗi xảy ra khi xóa năm học')
+            setMessage({ type: 'error', text: 'Có lỗi xảy ra khi xóa năm học' })
         }
     }
 
@@ -166,8 +153,8 @@ const AcademicYearsPage = () => {
         const config = statusConfig[status] || statusConfig.draft
         const Icon = config.icon
         return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-                <Icon className="w-3 h-3 mr-1" />
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${config.color}`}>
+                <Icon className="w-3 h-3 mr-1.5" />
                 {config.label}
             </span>
         )
@@ -175,87 +162,41 @@ const AcademicYearsPage = () => {
 
     const ActionButton = ({ icon: Icon, tooltip, onClick, color = 'blue' }) => {
         const colorStyles = {
-            blue: {
-                bg: 'bg-blue-50',
-                hover: 'hover:bg-blue-100',
-                text: 'text-blue-600',
-                border: 'border-blue-200'
-            },
-            green: {
-                bg: 'bg-green-50',
-                hover: 'hover:bg-green-100',
-                text: 'text-green-600',
-                border: 'border-green-200'
-            },
-            red: {
-                bg: 'bg-red-50',
-                hover: 'hover:bg-red-100',
-                text: 'text-red-600',
-                border: 'border-red-200'
-            },
-            yellow: {
-                bg: 'bg-yellow-50',
-                hover: 'hover:bg-yellow-100',
-                text: 'text-yellow-600',
-                border: 'border-yellow-200'
-            },
-            purple: {
-                bg: 'bg-purple-50',
-                hover: 'hover:bg-purple-100',
-                text: 'text-purple-600',
-                border: 'border-purple-200'
-            }
+            blue: 'text-blue-600 hover:bg-blue-100',
+            green: 'text-green-600 hover:bg-green-100',
+            red: 'text-red-600 hover:bg-red-100',
+            yellow: 'text-yellow-600 hover:bg-yellow-100',
+            purple: 'text-purple-600 hover:bg-purple-100'
         }
 
-        const style = colorStyles[color] || colorStyles.blue
+        const colorClass = colorStyles[color] || colorStyles.blue
 
         return (
-            <div className="relative group">
-                <button
-                    onClick={onClick}
-                    onMouseEnter={() => setHoveredAction(tooltip)}
-                    onMouseLeave={() => setHoveredAction(null)}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all border ${style.bg} ${style.hover} ${style.text} ${style.border}`}
-                >
-                    <Icon className="w-4 h-4" />
-                </button>
-                {hoveredAction === tooltip && (
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 shadow-lg">
-                        {tooltip}
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                    </div>
-                )}
-            </div>
+            <button
+                onClick={onClick}
+                className={`p-2 ${colorClass} rounded-lg transition-all`}
+                title={tooltip}
+            >
+                <Icon className="w-[18px] h-[18px]" />
+            </button>
         )
     }
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-                <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
+                <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+            </Layout>
         )
     }
 
     if (!user) {
         return null
-    }
-
-    if (loading && academicYears.length === 0) {
-        return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
-                <div className="animate-pulse">
-                    <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-                    <div className="bg-white rounded-xl shadow-sm">
-                        <div className="p-6 space-y-4">
-                            {[...Array(5)].map((_, i) => (
-                                <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </Layout>
-        )
     }
 
     const hasNextPage = pagination.hasNext || false
@@ -265,15 +206,58 @@ const AcademicYearsPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                {/* Message Alert */}
+                {message.text && (
+                    <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                        message.type === 'success'
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                            : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                    }`}>
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                    message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                                }`}>
+                                    <AlertCircle className={`w-7 h-7 ${
+                                        message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                    }`} />
+                                </div>
+                            </div>
+                            <div className="ml-4 flex-1">
+                                <h3 className={`font-bold text-lg mb-1 ${
+                                    message.type === 'success' ? 'text-green-900' : 'text-red-900'
+                                }`}>
+                                    {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
+                                </h3>
+                                <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                    {message.text}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setMessage({ type: '', text: '' })}
+                                className="ml-4 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold mb-2">Quản lý năm học</h1>
-                            <p className="text-indigo-100">Quản lý và cấu hình các năm học trong hệ thống</p>
+                        <div className="flex items-center space-x-4">
+                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                                <Calendar className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold mb-1">Quản lý năm học</h1>
+                                <p className="text-indigo-100">Quản lý và cấu hình các năm học trong hệ thống</p>
+                            </div>
                         </div>
                         <button
                             onClick={() => router.push('/academic-years/create')}
-                            className="flex items-center space-x-2 bg-white text-indigo-600 px-6 py-3 rounded-xl hover:shadow-xl transition-all font-medium"
+                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
                         >
                             <Plus className="w-5 h-5" />
                             <span>Tạo năm học mới</span>
@@ -281,10 +265,11 @@ const AcademicYearsPage = () => {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                {/* Filters */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1">
+                            <div>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                     <input
@@ -292,7 +277,7 @@ const AcademicYearsPage = () => {
                                         placeholder="Tìm kiếm năm học..."
                                         value={searchTerm}
                                         onChange={handleSearch}
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                     />
                                 </div>
                             </div>
@@ -301,7 +286,7 @@ const AcademicYearsPage = () => {
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => handleStatusFilter(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="">Tất cả trạng thái</option>
                                     <option value="draft">Nháp</option>
@@ -319,7 +304,7 @@ const AcademicYearsPage = () => {
                                         setSortBy(field)
                                         setSortOrder(order)
                                     }}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 >
                                     <option value="createdAt-desc">Mới nhất</option>
                                     <option value="createdAt-asc">Cũ nhất</option>
@@ -333,64 +318,53 @@ const AcademicYearsPage = () => {
                     </div>
                 </div>
 
-                {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <p className="text-red-800">{error}</p>
-                    </div>
-                )}
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    {academicYears.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">Chưa có năm học nào</h3>
+                {/* Years List */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="text-center">
+                                <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                                <p className="text-gray-600">Đang tải dữ liệu...</p>
+                            </div>
+                        </div>
+                    ) : academicYears.length === 0 ? (
+                        <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Calendar className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Chưa có năm học nào</h3>
                             <p className="text-gray-500 mb-6">Bắt đầu bằng cách tạo năm học đầu tiên</p>
                             <button
                                 onClick={() => router.push('/academic-years/create')}
-                                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all font-medium"
+                                className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                             >
-                                Tạo năm học mới
+                                <Plus className="w-5 h-5" />
+                                <span>Tạo năm học mới</span>
                             </button>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <div className="grid grid-cols-12 gap-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[900px]">
-                                    <div className="col-span-1 text-center">STT</div>
-                                    <div className="col-span-4">
-                                        <button
-                                            onClick={() => handleSort('name')}
-                                            className="flex items-center space-x-1 hover:text-indigo-600 transition-colors"
-                                        >
-                                            <span>Năm học</span>
-                                            <ArrowUpDown className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <button
-                                            onClick={() => handleSort('startYear')}
-                                            className="flex items-center space-x-1 hover:text-indigo-600 transition-colors"
-                                        >
-                                            <span>Thời gian</span>
-                                            <ArrowUpDown className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                    <div className="col-span-2">Trạng thái</div>
-                                    <div className="col-span-3 text-center">Thao tác</div>
-                                </div>
-                            </div>
-
-                            <div>
-                                {academicYears.map((year, index) => (
-                                    <div key={year._id} className="px-6 py-4 border-b border-gray-100 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
-                                        <div className="grid grid-cols-12 gap-4 items-center min-w-[900px]">
-                                            <div className="col-span-1 text-center">
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">STT</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Năm học</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Thời gian</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Trạng thái</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Thao tác</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {academicYears.map((year, index) => (
+                                        <tr key={year._id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="text-sm font-medium text-gray-600">
                                                     {((currentPage - 1) * 10) + index + 1}
                                                 </span>
-                                            </div>
+                                            </td>
 
-                                            <div className="col-span-4">
+                                            <td className="px-6 py-4">
                                                 <div className="flex items-center space-x-3">
                                                     {year.isCurrent && (
                                                         <div className="relative flex-shrink-0">
@@ -399,39 +373,36 @@ const AcademicYearsPage = () => {
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <h3 className="text-sm font-semibold text-gray-900 mb-1">{year.name}</h3>
-                                                        <div className="flex items-center space-x-2">
-                                                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-md">
+                                                        <h3 className="text-sm font-bold text-gray-900 mb-1">{year.name}</h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-md">
                                                                 {year.code}
                                                             </span>
                                                             {year.isCurrent && (
-                                                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-md">
+                                                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-md">
                                                                     Hiện tại
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        {year.description && (
-                                                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">{year.description}</p>
-                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </td>
 
-                                            <div className="col-span-2">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900 mb-1">
                                                     {year.startYear} - {year.endYear}
                                                 </div>
                                                 <div className="text-xs text-gray-500">
                                                     {formatDate(year.startDate)} - {formatDate(year.endDate)}
                                                 </div>
-                                            </div>
+                                            </td>
 
-                                            <div className="col-span-2">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <StatusBadge status={year.status} />
-                                            </div>
+                                            </td>
 
-                                            <div className="col-span-3">
-                                                <div className="flex items-center justify-center space-x-2">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center justify-center gap-2">
                                                     <ActionButton
                                                         icon={Eye}
                                                         tooltip="Xem chi tiết"
@@ -472,33 +443,37 @@ const AcademicYearsPage = () => {
                                                         color="red"
                                                     />
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
                             </div>
 
+                            {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t-2 border-gray-200">
                                     <div className="flex items-center justify-between">
-                                        <div className="text-sm text-gray-600">
-                                            Hiển thị {((pagination.current - 1) * 10) + 1} - {Math.min(pagination.current * 10, pagination.total)} trong {pagination.total} kết quả
+                                        <div className="text-sm text-gray-700">
+                                            Hiển thị <span className="font-semibold text-indigo-600">{((pagination.current - 1) * 10) + 1}</span> đến{' '}
+                                            <span className="font-semibold text-indigo-600">{Math.min(pagination.current * 10, pagination.total)}</span>{' '}
+                                            trong tổng số <span className="font-semibold text-indigo-600">{pagination.total}</span> kết quả
                                         </div>
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center gap-3">
                                             <button
                                                 onClick={() => setCurrentPage(currentPage - 1)}
                                                 disabled={!hasPrevPage}
-                                                className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 hover:border-indigo-300 transition-all"
+                                                className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                             >
                                                 <ChevronLeft className="w-5 h-5" />
                                             </button>
-                                            <span className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg">
-                                                {pagination.current} / {totalPages}
+                                            <span className="text-sm font-semibold text-gray-700 px-4 py-2 bg-white rounded-lg border-2 border-gray-200">
+                                                Trang {pagination.current} / {totalPages}
                                             </span>
                                             <button
                                                 onClick={() => setCurrentPage(currentPage + 1)}
                                                 disabled={!hasNextPage}
-                                                className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 hover:border-indigo-300 transition-all"
+                                                className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                             >
                                                 <ChevronRight className="w-5 h-5" />
                                             </button>
@@ -506,34 +481,39 @@ const AcademicYearsPage = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
 
+                {/* Delete Modal */}
                 {showDeleteModal && selectedYear && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-                        <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-                            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-4">
-                                <Trash2 className="w-6 h-6 text-red-600" />
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                            <div className="flex items-start space-x-4 mb-6">
+                                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                                    <Trash2 className="w-7 h-7 text-red-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận xóa năm học</h3>
+                                    <p className="text-gray-600">
+                                        Bạn có chắc chắn muốn xóa năm học <strong className="text-gray-900">{selectedYear.name}</strong>?
+                                        Hành động này không thể hoàn tác.
+                                    </p>
+                                </div>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Xác nhận xóa năm học</h3>
-                            <p className="text-gray-600 mb-6">
-                                Bạn có chắc chắn muốn xóa năm học <strong className="text-gray-900">{selectedYear.name}</strong>?
-                                Hành động này không thể hoàn tác.
-                            </p>
-                            <div className="flex space-x-3">
+                            <div className="flex gap-3 justify-end">
                                 <button
                                     onClick={() => {
                                         setShowDeleteModal(false)
                                         setSelectedYear(null)
                                     }}
-                                    className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all font-medium"
+                                    className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     onClick={handleDelete}
-                                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-medium"
+                                    className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                                 >
                                     Xóa năm học
                                 </button>
