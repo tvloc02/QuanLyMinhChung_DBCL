@@ -155,7 +155,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             active: router.pathname.includes('/system/system'),
             submenu: [
                 { name: 'Cài đặt chung', icon: Settings, path: '/system/system' },
-                { name: 'Sao lưu & Phục hồi', icon: Archive, path: '/system/backup' },
+                { name: 'Sao lưu dữ liệu', icon: Archive, path: '/system/backup' },
+                { name: 'Khôi phục dữ liêu', icon: Archive, path: '/system/general' },
                 { name: 'Nhật ký hệ thống', icon: Activity, path: '/system/logs' },
                 { name: 'Cấu hình mail', icon: Mail, path: '/system/mail' }
             ]
