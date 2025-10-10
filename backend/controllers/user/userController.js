@@ -125,24 +125,31 @@ const createUser = async (req, res) => {
             email,
             fullName,
             phoneNumber,
-            role,
+            roles,
             department,
-            position,
-            expertise,
-            userGroups,
-            academicYearAccess,
-            programAccess,
-            organizationAccess,
-            standardAccess,
-            criteriaAccess,
-            notificationSettings
+            position
         } = req.body;
 
+        // Validate roles
+        let userRoles = roles || ['expert'];
+        if (!Array.isArray(userRoles)) {
+            userRoles = [userRoles];
+        }
+
         const validRoles = ['admin', 'manager', 'expert', 'advisor'];
-        if (role && !validRoles.includes(role)) {
+        const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
+
+        if (invalidRoles.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validRoles.join(', ')}`
+                message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}`
+            });
+        }
+
+        if (userRoles.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phải có ít nhất một vai trò'
             });
         }
 
@@ -166,46 +173,17 @@ const createUser = async (req, res) => {
             fullName: fullName.trim(),
             password: defaultPassword,
             phoneNumber: phoneNumber?.trim(),
-            role: role || 'expert',
+            roles: userRoles,
+            role: userRoles[0],
+            status: 'active',
             department: department?.trim(),
             position: position?.trim(),
-            expertise: expertise || [],
-            userGroups: userGroups || [],
-            academicYearAccess: academicYearAccess || [],
-            programAccess: programAccess || [],
-            organizationAccess: organizationAccess || [],
-            standardAccess: standardAccess || [],
-            criteriaAccess: criteriaAccess || [],
-            notificationSettings: notificationSettings || {
-                email: true,
-                inApp: true,
-                assignment: true,
-                evaluation: true,
-                deadline: true
-            },
-            status: 'active',
             mustChangePassword: true,
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
 
         await user.save();
-
-        if (userGroups && userGroups.length > 0) {
-            await UserGroup.updateMany(
-                { _id: { $in: userGroups } },
-                { $addToSet: { members: user._id } }
-            );
-        }
-
-        await user.populate([
-            { path: 'userGroups', select: 'code name' },
-            { path: 'academicYearAccess', select: 'name code' },
-            { path: 'programAccess', select: 'name code' },
-            { path: 'organizationAccess', select: 'name code' },
-            { path: 'standardAccess', select: 'name code' },
-            { path: 'criteriaAccess', select: 'name code' }
-        ]);
 
         const userResponse = user.toObject();
         delete userResponse.password;
@@ -216,10 +194,8 @@ const createUser = async (req, res) => {
                 targetId: user._id,
                 targetName: user.fullName,
                 metadata: {
-                    role: user.role,
-                    department: user.department,
-                    groupsCount: user.userGroups?.length || 0,
-                    hasDefaultPassword: true
+                    roles: user.roles,
+                    department: user.department
                 }
             });
 
@@ -234,9 +210,7 @@ const createUser = async (req, res) => {
 
     } catch (error) {
         console.error('Create user error:', error);
-        await ActivityLog.logError(req.user?.id, 'user_create', error, {
-            metadata: { email: req.body?.email, fullName: req.body?.fullName }
-        });
+        await ActivityLog.logError(req.user?.id, 'user_create', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi tạo người dùng'
@@ -257,29 +231,43 @@ const updateUser = async (req, res) => {
             });
         }
 
-        if (updateData.role) {
+        // Validate roles nếu có
+        if (updateData.roles) {
+            let userRoles = updateData.roles;
+            if (!Array.isArray(userRoles)) {
+                userRoles = [userRoles];
+            }
+
             const validRoles = ['admin', 'manager', 'expert', 'advisor'];
-            if (!validRoles.includes(updateData.role)) {
+            const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
+
+            if (invalidRoles.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `Vai trò không hợp lệ. Chỉ chấp nhận: ${validRoles.join(', ')}`
+                    message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}`
                 });
             }
+
+            if (userRoles.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Phải có ít nhất một vai trò'
+                });
+            }
+
+            updateData.roles = userRoles;
+            updateData.role = userRoles[0];
         }
 
         const oldData = {
             fullName: user.fullName,
-            role: user.role,
+            roles: user.roles,
             department: user.department,
             position: user.position,
             phoneNumber: user.phoneNumber
         };
 
-        const allowedFields = [
-            'fullName', 'phoneNumber', 'role', 'department', 'position', 'expertise',
-            'userGroups', 'academicYearAccess', 'programAccess', 'organizationAccess',
-            'standardAccess', 'criteriaAccess', 'notificationSettings'
-        ];
+        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'department', 'position'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -290,33 +278,8 @@ const updateUser = async (req, res) => {
         user.updatedBy = req.user.id;
         await user.save();
 
-        if (updateData.userGroups) {
-            await UserGroup.updateMany(
-                { members: user._id },
-                { $pull: { members: user._id } }
-            );
-
-            if (updateData.userGroups.length > 0) {
-                await UserGroup.updateMany(
-                    { _id: { $in: updateData.userGroups } },
-                    { $addToSet: { members: user._id } }
-                );
-            }
-        }
-
-        await user.populate([
-            { path: 'userGroups', select: 'code name' },
-            { path: 'academicYearAccess', select: 'name code' },
-            { path: 'programAccess', select: 'name code' },
-            { path: 'organizationAccess', select: 'name code' },
-            { path: 'standardAccess', select: 'name code' },
-            { path: 'criteriaAccess', select: 'name code' }
-        ]);
-
         const userResponse = user.toObject();
         delete userResponse.password;
-        delete userResponse.resetPasswordToken;
-        delete userResponse.resetPasswordExpires;
 
         await ActivityLog.logUserAction(req.user.id, 'user_update',
             `Cập nhật người dùng: ${user.fullName}`, {
@@ -326,7 +289,7 @@ const updateUser = async (req, res) => {
                 oldData,
                 newData: {
                     fullName: user.fullName,
-                    role: user.role,
+                    roles: user.roles,
                     department: user.department,
                     position: user.position,
                     phoneNumber: user.phoneNumber
@@ -341,12 +304,136 @@ const updateUser = async (req, res) => {
 
     } catch (error) {
         console.error('Update user error:', error);
-        await ActivityLog.logError(req.user?.id, 'user_update', error, {
-            targetId: req.params.id
-        });
+        await ActivityLog.logError(req.user?.id, 'user_update', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật người dùng'
+        });
+    }
+};
+
+const lockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        if (id === req.user.id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể khóa tài khoản của chính mình'
+            });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
+        if (user.isLockedByAdmin) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tài khoản đã bị khóa rồi'
+            });
+        }
+
+        user.isLockedByAdmin = true;
+        user.lockedByAdmin = {
+            adminId: req.user.id,
+            lockedAt: new Date(),
+            reason: reason || 'Không có lý do cụ thể'
+        };
+        user.status = 'suspended';
+        user.updatedBy = req.user.id;
+
+        await user.save();
+
+        await ActivityLog.logCriticalAction(req.user.id, 'user_lock',
+            `Khóa tài khoản người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                metadata: {
+                    reason: reason || 'Không có lý do cụ thể'
+                },
+                severity: 'high'
+            });
+
+        res.json({
+            success: true,
+            message: 'Khóa tài khoản thành công',
+            data: {
+                userId: user._id,
+                fullName: user.fullName,
+                isLocked: true
+            }
+        });
+
+    } catch (error) {
+        console.error('Lock user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_lock', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi khóa tài khoản'
+        });
+    }
+};
+
+// THÊM MỚI: Unlock User
+const unlockUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
+        if (!user.isLockedByAdmin) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tài khoản không bị khóa'
+            });
+        }
+
+        user.isLockedByAdmin = false;
+        user.lockedByAdmin = undefined;
+        user.status = 'active';
+        user.failedLoginAttempts = 0;
+        user.lockUntil = undefined;
+        user.updatedBy = req.user.id;
+
+        await user.save();
+
+        await ActivityLog.logCriticalAction(req.user.id, 'user_unlock',
+            `Mở khóa tài khoản người dùng: ${user.fullName}`, {
+                targetType: 'User',
+                targetId: id,
+                targetName: user.fullName,
+                severity: 'medium'
+            });
+
+        res.json({
+            success: true,
+            message: 'Mở khóa tài khoản thành công',
+            data: {
+                userId: user._id,
+                fullName: user.fullName,
+                isLocked: false
+            }
+        });
+
+    } catch (error) {
+        console.error('Unlock user error:', error);
+        await ActivityLog.logError(req.user?.id, 'user_unlock', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi mở khóa tài khoản'
         });
     }
 };
@@ -1017,5 +1104,7 @@ module.exports = {
     removeUserFromGroups,
     grantUserPermission,
     denyUserPermission,
-    removeUserPermission
+    removeUserPermission,
+    unlockUser,
+    lockUser,
 };
