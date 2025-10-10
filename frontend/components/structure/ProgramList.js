@@ -49,51 +49,79 @@ export default function ProgramList() {
         try {
             const wb = XLSX.utils.book_new()
 
-            const introData = [
+            // Dữ liệu và hướng dẫn cho sheet 'Dữ liệu nhập'
+            const introAndTemplateData = [
                 [''],
                 ['HỆ THỐNG QUẢN LÝ ĐÁNH GIÁ CHẤT LƯỢNG'],
                 ['FILE MẪU IMPORT CHƯƠNG TRÌNH ĐÁNH GIÁ'],
                 [''],
                 ['Hướng dẫn sử dụng:'],
-                ['1. Điền thông tin vào sheet "Dữ liệu nhập"'],
-                ['2. Các cột có dấu (*) là BẮT BUỘC'],
-                ['3. Xem sheet "Hướng dẫn chi tiết" để biết thêm thông tin'],
-                ['4. Sau khi điền xong, lưu file và import vào hệ thống'],
+                ['1. Điền thông tin vào các cột bên dưới, bắt đầu từ dòng 15.'],
+                ['2. Các cột có dấu (*) là BẮT BUỘC. Chỉ nhập dữ liệu vào hàng DỮ LIỆU.'],
                 [''],
-                ['Lưu ý:'],
-                ['- Mã chương trình phải VIẾT HOA, chỉ chứa chữ cái, số, gạch ngang (-)'],
-                ['- Năm áp dụng phải trong khoảng 2000-2100'],
-                ['- Không được để trống các trường bắt buộc'],
+                ['Lưu ý về định dạng:'],
+                ['- Mã chương trình (*): VIẾT HOA, chỉ chứa chữ cái, số, gạch ngang (-) hoặc gạch dưới (_). Tối đa 20 ký tự.'],
+                ['- Năm áp dụng: Số nguyên từ 2000 đến 2100.'],
+                ['- Ngày hiệu lực/hết hạn: Nhập theo định dạng YYYY-MM-DD (Ví dụ: 2025-01-01). Ngày hết hạn phải SAU Ngày hiệu lực.'],
                 [''],
-                ['Ngày tạo:', new Date().toLocaleDateString('vi-VN')],
             ]
 
-            const wsIntro = XLSX.utils.aoa_to_sheet(introData)
-            wsIntro['!cols'] = [{ wch: 80 }]
-
-            if (wsIntro['A2']) wsIntro['A2'].s = { font: { bold: true, sz: 16, color: { rgb: "1F4E78" } }, alignment: { horizontal: "center" } }
-            if (wsIntro['A3']) wsIntro['A3'].s = { font: { bold: true, sz: 14, color: { rgb: "E26B0A" } }, alignment: { horizontal: "center" } }
-
-            XLSX.utils.book_append_sheet(wb, wsIntro, 'Giới thiệu')
-
-            const templateData = [
-                {
-                    'Mã chương trình (*)': 'DGCL-DH',
-                    'Tên chương trình (*)': 'Đánh giá chất lượng chương trình đào tạo đại học',
-                    'Năm áp dụng': '2024',
-                    'Mục tiêu': 'Đảm bảo chất lượng đào tạo đáp ứng chuẩn đầu ra',
-                }
+            // Hàng tiêu đề (header) của dữ liệu nhập
+            const dataHeader = [
+                'Mã chương trình (*)',
+                'Tên chương trình (*)',
+                'Năm áp dụng',
+                'Ngày hiệu lực (YYYY-MM-DD)',
+                'Ngày hết hạn (YYYY-MM-DD)',
+                'Mục tiêu',
+                'Hướng dẫn' // Thêm trường Hướng dẫn
             ]
 
-            const wsData = XLSX.utils.json_to_sheet(templateData)
-            wsData['!cols'] = [
-                { wch: 20 },
-                { wch: 55 },
-                { wch: 12 },
-                { wch: 45 },
+            // Dữ liệu mẫu (chỉ 1 dòng)
+            const sampleData = [
+                'DGCL-DH-2025',
+                'Đánh giá chất lượng chương trình đào tạo đại học năm 2025',
+                '2025',
+                '2025-01-01',
+                '2026-01-01',
+                'Đảm bảo chất lượng đào tạo đáp ứng chuẩn đầu ra.',
+                'Tham khảo các quy định hiện hành về kiểm định chất lượng.'
             ]
 
-            XLSX.utils.book_append_sheet(wb, wsData, 'Dữ liệu nhập')
+            // Ghép phần giới thiệu và dữ liệu
+            const fullData = [
+                ...introAndTemplateData,
+                dataHeader,
+                sampleData
+            ]
+
+            const ws = XLSX.utils.aoa_to_sheet(fullData)
+
+            // Cấu hình độ rộng cột
+            ws['!cols'] = [
+                { wch: 25 }, // Mã chương trình
+                { wch: 60 }, // Tên chương trình
+                { wch: 15 }, // Năm áp dụng
+                { wch: 25 }, // Ngày hiệu lực
+                { wch: 25 }, // Ngày hết hạn
+                { wch: 50 }, // Mục tiêu
+                { wch: 50 }  // Hướng dẫn
+            ]
+
+            // Định dạng tiêu đề chính (row 2, A2) và tiêu đề phụ (row 3, A3)
+            if (ws['A2']) ws['A2'].s = { font: { bold: true, sz: 16, color: { rgb: "1F4E78" } }, alignment: { horizontal: "center" } }
+            if (ws['A3']) ws['A3'].s = { font: { bold: true, sz: 14, color: { rgb: "E26B0A" } }, alignment: { horizontal: "center" } }
+
+            // Định dạng hàng header dữ liệu (row 14)
+            const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "007FFF" } } }
+            const headerRowIndex = 14; // AOA index starts at 0, so row 15 is index 14
+            dataHeader.forEach((_, colIndex) => {
+                const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: colIndex });
+                if (ws[cellRef]) ws[cellRef].s = headerStyle;
+            });
+
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Du_lieu_chuong_trinh')
 
             XLSX.writeFile(wb, 'Mau_import_chuong_trinh.xlsx')
             toast.success('Đã tải file mẫu thành công')
