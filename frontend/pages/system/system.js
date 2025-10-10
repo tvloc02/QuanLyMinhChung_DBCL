@@ -211,7 +211,7 @@ const SystemPage = () => {
                                     <p className="text-3xl font-bold text-blue-600">
                                         {systemInfo?.storageUsed || '2.4 GB'}
                                     </p>
-                                    <p className="text-sm text-gray-500 mt-1">Còn trống 47.6 GB</p>
+                                    <p className="text-sm text-gray-500 mt-1">Còn trống</p>
                                 </div>
                                 <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
                                     <HardDrive className="w-8 h-8 text-blue-600" />
@@ -243,7 +243,7 @@ const SystemPage = () => {
                         <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-3 border-t-2 border-purple-100">
                             <div className="flex items-center text-sm text-purple-700">
                                 <TrendingUp className="w-4 h-4 mr-2" />
-                                <span className="font-medium">Tăng trưởng tốt</span>
+                                <span className="font-medium">Ổn định</span>
                             </div>
                         </div>
                     </div>
