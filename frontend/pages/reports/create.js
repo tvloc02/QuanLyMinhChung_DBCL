@@ -174,14 +174,19 @@ export default function CreateReportPage() {
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault()
+        e.preventDefault();
+
+        console.log('=== SUBMIT FORM START ===');
+        console.log('Form data:', formData);
+        console.log('Selected file:', selectedFile);
+
         if (!validateForm()) {
-            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' })
-            return
+            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' });
+            return;
         }
 
         try {
-            setSubmitting(true)
+            setSubmitting(true);
             const submitData = {
                 title: formData.title,
                 type: formData.type,
@@ -190,48 +195,65 @@ export default function CreateReportPage() {
                 contentMethod: formData.contentMethod,
                 summary: formData.summary,
                 keywords: formData.keywords
-            }
+            };
 
             if (formData.type !== 'comprehensive_report') {
-                submitData.standardId = formData.standardId
+                submitData.standardId = formData.standardId;
             }
             if (formData.type === 'criteria_analysis') {
-                submitData.criteriaId = formData.criteriaId
+                submitData.criteriaId = formData.criteriaId;
             }
             if (formData.contentMethod === 'online_editor') {
-                submitData.content = formData.content
+                submitData.content = formData.content;
             } else {
-                // Gửi placeholder khi upload file để tránh lỗi validation
-                submitData.content = '[Nội dung từ file đính kèm - Sẽ được cập nhật sau khi upload]'
+                // Đặt content rỗng cho file upload
+                submitData.content = '';
             }
 
-            const response = await reportService.createReport(submitData)
+            console.log('Submitting data:', submitData);
+
+            const response = await reportService.createReport(submitData);
+            console.log('Create response:', response);
 
             if (response.success) {
-                const reportId = response.data._id
+                const reportId = response.data._id;
 
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
-                        await reportService.uploadFile(reportId, selectedFile)
-                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' })
+                        console.log('Uploading file...');
+                        await reportService.uploadFile(reportId, selectedFile);
+                        console.log('File uploaded successfully');
+                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' });
                     } catch (uploadError) {
-                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' })
+                        console.error('Upload error:', uploadError);
+                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' });
                     }
                 } else {
-                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
+                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' });
                 }
 
                 setTimeout(() => {
-                    router.push(`/reports/reports`)
-                }, 1500)
+                    router.push(`/reports/reports`);
+                }, 1500);
             }
         } catch (error) {
-            console.error('Create report error:', error)
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Lỗi tạo báo cáo' })
+            console.error('=== SUBMIT ERROR ===');
+            console.error('Error:', error);
+            console.error('Error response:', error.response);
+
+            let errorMessage = 'Lỗi tạo báo cáo';
+
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            setMessage({ type: 'error', text: errorMessage });
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
 
     const handleAddKeyword = () => {
         if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
