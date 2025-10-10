@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Report = require('../../models/report/Report');
-const { Standard, Criteria } = require('../../models/Evidence/Program');
 
 const getReports = async (req, res) => {
     try {
@@ -161,11 +160,6 @@ const getReportById = async (req, res) => {
 
 const createReport = async (req, res) => {
     try {
-        console.log('=== CREATE REPORT START ===');
-        console.log('Request body:', JSON.stringify(req.body, null, 2));
-        console.log('User:', req.user);
-        console.log('Academic Year ID:', req.academicYearId);
-
         const {
             title,
             type,
@@ -181,68 +175,35 @@ const createReport = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        if (!academicYearId) {
-            console.error('Academic year ID is missing');
-            return res.status(400).json({
-                success: false,
-                message: 'Không tìm thấy năm học hiện tại'
-            });
+        let standardCode = '';
+        let criteriaCode = '';
+
+        if (standardId) {
+            try {
+                const StandardModel = mongoose.model('Standard');
+                const standard = await StandardModel.findById(standardId).select('code');
+                standardCode = standard?.code || '';
+            } catch (error) {
+                console.error('Error fetching standard code:', error);
+            }
         }
 
-        if (!req.user || !req.user.id) {
-            console.error('User information is missing');
-            return res.status(401).json({
-                success: false,
-                message: 'Thông tin người dùng không hợp lệ'
-            });
+        if (criteriaId) {
+            try {
+                const CriteriaModel = mongoose.model('Criteria');
+                const criteria = await CriteriaModel.findById(criteriaId).select('code');
+                criteriaCode = criteria?.code || '';
+            } catch (error) {
+                console.error('Error fetching criteria code:', error);
+            }
         }
 
-        console.log('Fetching standard and criteria...');
-        const [standard, criteria] = await Promise.all([
-            standardId ? Standard.findOne({ _id: standardId, academicYearId }).catch(err => {
-                console.error('Error fetching standard:', err);
-                return null;
-            }) : null,
-            criteriaId ? Criteria.findOne({ _id: criteriaId, academicYearId }).catch(err => {
-                console.error('Error fetching criteria:', err);
-                return null;
-            }) : null
-        ]);
-
-        console.log('Standard found:', standard ? standard.code : 'N/A');
-        console.log('Criteria found:', criteria ? criteria.code : 'N/A');
-
-        if (standardId && !standard) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chuẩn không tồn tại trong năm học này'
-            });
-        }
-
-        if (criteriaId && !criteria) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chí không tồn tại trong năm học này'
-            });
-        }
-
-        console.log('Generating report code...');
-        let code;
-        try {
-            code = await Report.generateCode(
-                type,
-                academicYearId,
-                standard?.code,
-                criteria?.code
-            );
-            console.log('Generated code:', code);
-        } catch (error) {
-            console.error('Error generating code:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Lỗi khi tạo mã báo cáo: ' + error.message
-            });
-        }
+        const code = await Report.generateCode(
+            type,
+            academicYearId,
+            standardCode,
+            criteriaCode
+        );
 
         const reportData = {
             academicYearId,
@@ -278,63 +239,27 @@ const createReport = async (req, res) => {
             reportData.content = '';
         }
 
-        console.log('Creating report with data:', JSON.stringify(reportData, null, 2));
-
-        let report;
-        try {
-            report = new Report(reportData);
-            console.log('Report instance created');
-
-            await report.save();
-            console.log('Report saved to database');
-        } catch (error) {
-            console.error('Error saving report:', error);
-
-            if (error.code === 11000) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Mã báo cáo đã tồn tại. Vui lòng thử lại.'
-                });
-            }
-
-            if (error.name === 'ValidationError') {
-                const messages = Object.values(error.errors).map(err => err.message);
-                return res.status(400).json({
-                    success: false,
-                    message: messages.join(', ')
-                });
-            }
-
-            throw error;
-        }
+        const report = new Report(reportData);
+        await report.save();
 
         if (reportData.content && reportData.content.length > 0) {
             try {
-                console.log('Linking evidences...');
                 await report.linkEvidences();
                 await report.save();
-                console.log('Evidences linked successfully');
             } catch (error) {
                 console.error('Error linking evidences:', error);
             }
         }
 
-        try {
-            console.log('Populating report data...');
-            await report.populate([
-                { path: 'academicYearId', select: 'name code' },
-                { path: 'programId', select: 'name code' },
-                { path: 'organizationId', select: 'name code' },
-                { path: 'standardId', select: 'name code' },
-                { path: 'criteriaId', select: 'name code' },
-                { path: 'createdBy', select: 'fullName email' }
-            ]);
-            console.log('Report populated successfully');
-        } catch (error) {
-            console.error('Error populating report:', error);
-        }
+        await report.populate([
+            { path: 'academicYearId', select: 'name code' },
+            { path: 'programId', select: 'name code' },
+            { path: 'organizationId', select: 'name code' },
+            { path: 'standardId', select: 'name code' },
+            { path: 'criteriaId', select: 'name code' },
+            { path: 'createdBy', select: 'fullName email' }
+        ]);
 
-        console.log('=== CREATE REPORT SUCCESS ===');
         res.status(201).json({
             success: true,
             message: 'Tạo báo cáo thành công',
@@ -342,14 +267,27 @@ const createReport = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('=== CREATE REPORT ERROR ===');
-        console.error('Error details:', error);
-        console.error('Stack trace:', error.stack);
+        console.error('Create report error:', error);
+        console.error('Error stack:', error.stack);
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã báo cáo đã tồn tại'
+            });
+        }
+
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
 
         res.status(500).json({
             success: false,
-            message: error.message || 'Lỗi hệ thống khi tạo báo cáo',
-            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            message: error.message || 'Lỗi hệ thống khi tạo báo cáo'
         });
     }
 };
@@ -501,7 +439,6 @@ const publishReport = async (req, res) => {
             });
         }
 
-        // FIX: Validate dựa trên contentMethod
         if (report.contentMethod === 'online_editor') {
             if (!report.content || report.content.trim().length === 0) {
                 return res.status(400).json({
@@ -859,7 +796,6 @@ const uploadReportFile = async (req, res) => {
             });
         }
 
-        // Check file type
         const allowedMimeTypes = [
             'application/pdf',
             'application/msword',
@@ -875,7 +811,6 @@ const uploadReportFile = async (req, res) => {
 
         const File = require('../../models/evidence/file');
 
-        // Create file record
         const fileRecord = new File({
             originalName: req.file.originalname,
             filename: req.file.filename,
@@ -888,7 +823,6 @@ const uploadReportFile = async (req, res) => {
 
         await fileRecord.save();
 
-        // Update report
         report.attachedFile = fileRecord._id;
         report.contentMethod = 'file_upload';
         report.updatedBy = req.user.id;
@@ -1009,9 +943,7 @@ const convertFileToContent = async (req, res) => {
         let htmlContent = '';
 
         if (report.attachedFile.mimetype === 'application/pdf') {
-            // Extract text from PDF
             const data = await pdfParse(fileBuffer);
-            // Convert plain text to HTML with paragraphs
             htmlContent = data.text
                 .split('\n\n')
                 .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
@@ -1020,7 +952,6 @@ const convertFileToContent = async (req, res) => {
             report.attachedFile.mimetype === 'application/msword' ||
             report.attachedFile.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ) {
-            // Convert Word to HTML
             const result = await mammoth.convertToHtml({ buffer: fileBuffer });
             htmlContent = result.value;
         } else {
@@ -1030,7 +961,6 @@ const convertFileToContent = async (req, res) => {
             });
         }
 
-        // Update report
         report.content = htmlContent;
         report.contentMethod = 'online_editor';
         report.updatedBy = req.user.id;
@@ -1074,5 +1004,4 @@ module.exports = {
     uploadReportFile,
     downloadReportFile,
     convertFileToContent
-
 };
