@@ -161,6 +161,11 @@ const getReportById = async (req, res) => {
 
 const createReport = async (req, res) => {
     try {
+        console.log('=== CREATE REPORT START ===');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+        console.log('User:', req.user);
+        console.log('Academic Year ID:', req.academicYearId);
+
         const {
             title,
             type,
@@ -176,10 +181,36 @@ const createReport = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
+        if (!academicYearId) {
+            console.error('Academic year ID is missing');
+            return res.status(400).json({
+                success: false,
+                message: 'Không tìm thấy năm học hiện tại'
+            });
+        }
+
+        if (!req.user || !req.user.id) {
+            console.error('User information is missing');
+            return res.status(401).json({
+                success: false,
+                message: 'Thông tin người dùng không hợp lệ'
+            });
+        }
+
+        console.log('Fetching standard and criteria...');
         const [standard, criteria] = await Promise.all([
-            standardId ? Standard.findOne({ _id: standardId, academicYearId }) : null,
-            criteriaId ? Criteria.findOne({ _id: criteriaId, academicYearId }) : null
+            standardId ? Standard.findOne({ _id: standardId, academicYearId }).catch(err => {
+                console.error('Error fetching standard:', err);
+                return null;
+            }) : null,
+            criteriaId ? Criteria.findOne({ _id: criteriaId, academicYearId }).catch(err => {
+                console.error('Error fetching criteria:', err);
+                return null;
+            }) : null
         ]);
+
+        console.log('Standard found:', standard ? standard.code : 'N/A');
+        console.log('Criteria found:', criteria ? criteria.code : 'N/A');
 
         if (standardId && !standard) {
             return res.status(400).json({
@@ -195,14 +226,24 @@ const createReport = async (req, res) => {
             });
         }
 
-        const code = await Report.generateCode(
-            type,
-            academicYearId,
-            standard?.code,
-            criteria?.code
-        );
+        console.log('Generating report code...');
+        let code;
+        try {
+            code = await Report.generateCode(
+                type,
+                academicYearId,
+                standard?.code,
+                criteria?.code
+            );
+            console.log('Generated code:', code);
+        } catch (error) {
+            console.error('Error generating code:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Lỗi khi tạo mã báo cáo: ' + error.message
+            });
+        }
 
-        // FIX: Xử lý content dựa trên contentMethod
         const reportData = {
             academicYearId,
             title: title.trim(),
@@ -210,16 +251,21 @@ const createReport = async (req, res) => {
             type,
             programId,
             organizationId,
-            standardId,
-            criteriaId,
             contentMethod: contentMethod || 'online_editor',
-            summary: summary?.trim(),
+            summary: summary?.trim() || '',
             keywords: keywords || [],
             createdBy: req.user.id,
             updatedBy: req.user.id
         };
 
-        // Chỉ thêm content khi dùng online editor
+        if (standardId) {
+            reportData.standardId = standardId;
+        }
+
+        if (criteriaId) {
+            reportData.criteriaId = criteriaId;
+        }
+
         if (contentMethod === 'online_editor') {
             if (!content || content.trim().length === 0) {
                 return res.status(400).json({
@@ -232,23 +278,63 @@ const createReport = async (req, res) => {
             reportData.content = '';
         }
 
-        const report = new Report(reportData);
-        await report.save();
+        console.log('Creating report with data:', JSON.stringify(reportData, null, 2));
 
-        if (reportData.content && reportData.content.length > 0) {
-            await report.linkEvidences();
+        let report;
+        try {
+            report = new Report(reportData);
+            console.log('Report instance created');
+
             await report.save();
+            console.log('Report saved to database');
+        } catch (error) {
+            console.error('Error saving report:', error);
+
+            if (error.code === 11000) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã báo cáo đã tồn tại. Vui lòng thử lại.'
+                });
+            }
+
+            if (error.name === 'ValidationError') {
+                const messages = Object.values(error.errors).map(err => err.message);
+                return res.status(400).json({
+                    success: false,
+                    message: messages.join(', ')
+                });
+            }
+
+            throw error;
         }
 
-        await report.populate([
-            { path: 'academicYearId', select: 'name code' },
-            { path: 'programId', select: 'name code' },
-            { path: 'organizationId', select: 'name code' },
-            { path: 'standardId', select: 'name code' },
-            { path: 'criteriaId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' }
-        ]);
+        if (reportData.content && reportData.content.length > 0) {
+            try {
+                console.log('Linking evidences...');
+                await report.linkEvidences();
+                await report.save();
+                console.log('Evidences linked successfully');
+            } catch (error) {
+                console.error('Error linking evidences:', error);
+            }
+        }
 
+        try {
+            console.log('Populating report data...');
+            await report.populate([
+                { path: 'academicYearId', select: 'name code' },
+                { path: 'programId', select: 'name code' },
+                { path: 'organizationId', select: 'name code' },
+                { path: 'standardId', select: 'name code' },
+                { path: 'criteriaId', select: 'name code' },
+                { path: 'createdBy', select: 'fullName email' }
+            ]);
+            console.log('Report populated successfully');
+        } catch (error) {
+            console.error('Error populating report:', error);
+        }
+
+        console.log('=== CREATE REPORT SUCCESS ===');
         res.status(201).json({
             success: true,
             message: 'Tạo báo cáo thành công',
@@ -256,10 +342,14 @@ const createReport = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Create report error:', error);
+        console.error('=== CREATE REPORT ERROR ===');
+        console.error('Error details:', error);
+        console.error('Stack trace:', error.stack);
+
         res.status(500).json({
             success: false,
-            message: error.message || 'Lỗi hệ thống khi tạo báo cáo'
+            message: error.message || 'Lỗi hệ thống khi tạo báo cáo',
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
