@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
+import { UserPlus } from 'lucide-react'
 import {
     Plus,
     Search,
@@ -79,6 +80,36 @@ export default function ReportsManagement() {
         actions: 200
     })
     const [resizing, setResizing] = useState(null)
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedItems.length} báo cáo đã chọn?`)) return
+
+        try {
+            await Promise.all(selectedItems.map(id => apiMethods.reports.delete(id)))
+            toast.success(`Đã xóa ${selectedItems.length} báo cáo`)
+            setSelectedItems([])
+            fetchReports()
+        } catch (error) {
+            console.error('Bulk delete error:', error)
+            toast.error('Lỗi khi xóa báo cáo')
+        }
+    }
+
+    const handleBulkAssign = () => {
+        if (selectedItems.length === 0) {
+            toast.error('Vui lòng chọn ít nhất một báo cáo')
+            return
+        }
+        // Chuyển sang trang phân công với query params
+        router.push(`/reports/assignments/create?reportIds=${selectedItems.join(',')}`)
+    }
+
+    const handleAssignSingle = (reportId) => {
+        router.push(`/reports/assignments/create?reportId=${reportId}`)
+    }
+
+// Trong phần Bulk Actions, thêm nút phân công
+
 
     useEffect(() => {
         if (user) {
