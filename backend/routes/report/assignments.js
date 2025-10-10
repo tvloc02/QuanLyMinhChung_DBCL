@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
-const { setAcademicYearContext } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
     getAssignments,
@@ -12,8 +11,10 @@ const {
     deleteAssignment,
     acceptAssignment,
     rejectAssignment,
+    cancelAssignment,
     getExpertWorkload,
-    getAssignmentStats
+    getAssignmentStats,
+    getUpcomingDeadlines
 } = require('../../controllers/report/assignmentController');
 
 const createAssignmentValidation = [
@@ -42,13 +43,15 @@ const createAssignmentValidation = [
         .withMessage('Mức độ ưu tiên không hợp lệ')
 ];
 
-router.get('/statistics', requireManager, getAssignmentStats);
+router.get('/stats', auth, getAssignmentStats);
 
-router.get('/expert-workload/:expertId', [
+router.get('/upcoming-deadlines', auth, getUpcomingDeadlines);
+
+router.get('/expert-workload/:expertId', auth, [
     param('expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ')
 ], validation, getExpertWorkload);
 
-router.get('/', [
+router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('expertId').optional().isMongoId(),
@@ -57,7 +60,7 @@ router.get('/', [
     query('priority').optional().isIn(['low', 'normal', 'high', 'urgent'])
 ], validation, getAssignments);
 
-router.get('/:id', [
+router.get('/:id', auth, [
     param('id').isMongoId().withMessage('ID phân công không hợp lệ')
 ], validation, getAssignmentById);
 
@@ -74,14 +77,20 @@ router.delete('/:id', requireManager, [
     param('id').isMongoId().withMessage('ID phân công không hợp lệ')
 ], validation, deleteAssignment);
 
-router.post('/:id/accept', [
+router.post('/:id/accept', auth, [
     param('id').isMongoId().withMessage('ID phân công không hợp lệ'),
     body('responseNote').optional().isLength({ max: 500 })
 ], validation, acceptAssignment);
 
-router.post('/:id/reject', [
+router.post('/:id/reject', auth, [
     param('id').isMongoId().withMessage('ID phân công không hợp lệ'),
-    body('responseNote').optional().isLength({ max: 500 })
+    body('responseNote').notEmpty().withMessage('Lý do từ chối là bắt buộc'),
+    body('responseNote').isLength({ max: 500 })
 ], validation, rejectAssignment);
+
+router.post('/:id/cancel', requireManager, [
+    param('id').isMongoId().withMessage('ID phân công không hợp lệ'),
+    body('reason').optional().isLength({ max: 500 })
+], validation, cancelAssignment);
 
 module.exports = router;
