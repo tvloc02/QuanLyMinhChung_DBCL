@@ -618,6 +618,56 @@ reportSchema.post('findOneAndDelete', async function(doc, next) {
     next();
 });
 
+reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
+    if (userRole === 'admin') return true;
+    if (this.createdBy.toString() === userId.toString()) return true;
+    if (this.status === 'published' || this.accessControl.isPublic) return true;
+    const hasExpertAccess = this.accessControl.assignedExperts.some(
+        e => e.expertId.toString() === userId.toString()
+    );
+    if (hasExpertAccess) return true;
+    const hasAdvisorAccess = this.accessControl.advisors.some(
+        a => a.advisorId.toString() === userId.toString()
+    );
+    if (hasAdvisorAccess) return true;
+    if (this.standardId && userStandardAccess.includes(this.standardId.toString())) {
+        return true;
+    }
+    if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) {
+        return true;
+    }
+    return false;
+};
+
+reportSchema.methods.canEdit = function(userId, userRole) {
+    if (userRole === 'admin') return true;
+    return this.createdBy.toString() === userId.toString();
+};
+
+reportSchema.methods.canComment = function(userId, userRole) {
+    if (userRole === 'admin') return true;
+    if (this.createdBy.toString() === userId.toString()) return true;
+    const expert = this.accessControl.assignedExperts.find(
+        e => e.expertId.toString() === userId.toString()
+    );
+    if (expert && expert.canComment) return true;
+    const advisor = this.accessControl.advisors.find(
+        a => a.advisorId.toString() === userId.toString()
+    );
+    if (advisor && advisor.canComment) return true;
+
+    return false;
+};
+
+reportSchema.methods.canEvaluate = function(userId, userRole) {
+    if (userRole === 'admin') return true;
+    const expert = this.accessControl.assignedExperts.find(
+        e => e.expertId.toString() === userId.toString()
+    );
+
+    return expert && expert.canEvaluate;
+};
+
 reportSchema.set('toJSON', { virtuals: true });
 reportSchema.set('toObject', { virtuals: true });
 
