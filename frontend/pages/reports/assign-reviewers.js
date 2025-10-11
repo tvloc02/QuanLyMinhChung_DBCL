@@ -18,6 +18,7 @@ export default function AssignReviewers() {
     const [reviewerType, setReviewerType] = useState('expert')
 
     const breadcrumbItems = [
+        { name: 'Trang chủ', href: '/' },
         { name: 'Quản lý báo cáo', href: '/reports' },
         { name: 'Phân quyền đánh giá' }
     ]
@@ -149,16 +150,69 @@ export default function AssignReviewers() {
             setLoading(true)
             const ids = Array.isArray(reportIds) ? reportIds : reportIds.split(',')
 
-            await apiMethods.reports.bulkAddReviewers({
-                reportIds: ids,
-                reviewers: selectedReviewers
-            })
+            console.log('📤 Submitting data:')
+            console.log('Report IDs:', ids)
+            console.log('Selected Reviewers:', selectedReviewers)
 
-            toast.success('Phân quyền đánh giá thành công')
-            router.push('/reports')
+            // Validate data
+            if (ids.length === 0) {
+                throw new Error('Không có báo cáo nào được chọn')
+            }
+
+            // Check if backend has bulkAddReviewers endpoint
+            // If not, use single add approach
+            let successCount = 0
+            let failCount = 0
+
+            // Try bulk first
+            try {
+                const bulkPayload = {
+                    reportIds: ids,
+                    reviewers: selectedReviewers
+                }
+                console.log('Trying bulk API with payload:', bulkPayload)
+
+                await apiMethods.reports.bulkAddReviewers(bulkPayload)
+                toast.success('Phân quyền đánh giá thành công')
+                router.push('/reports')
+                return
+            } catch (bulkError) {
+                console.log('Bulk API failed, trying individual approach...')
+                console.error('Bulk error:', bulkError.response?.data)
+
+                // Fallback: Add reviewers one by one
+                for (const reportId of ids) {
+                    for (const reviewer of selectedReviewers) {
+                        try {
+                            await apiMethods.reports.addReviewer(
+                                reportId,
+                                reviewer.reviewerId,
+                                reviewer.reviewerType
+                            )
+                            successCount++
+                        } catch (err) {
+                            console.error(`Failed to add reviewer to report ${reportId}:`, err)
+                            failCount++
+                        }
+                    }
+                }
+
+                if (successCount > 0) {
+                    toast.success(`Đã phân quyền thành công ${successCount} lượt`)
+                }
+                if (failCount > 0) {
+                    toast.warning(`${failCount} lượt thất bại`)
+                }
+
+                router.push('/reports')
+            }
         } catch (error) {
-            console.error('Assign reviewers error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi phân quyền')
+            console.error('❌ Assign reviewers error:', error)
+            console.error('Error response:', error.response?.data)
+            console.error('Error status:', error.response?.status)
+
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi phân quyền'
+            toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
@@ -173,7 +227,7 @@ export default function AssignReviewers() {
     const filteredUsers = allUsers.filter(u => u.role === reviewerType)
 
     return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
+        <Layout title="Phân quyền đánh giá" breadcrumbItems={breadcrumbItems}>
             <div className="max-w-8xl mx-auto">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white mb-6">
                     <div className="flex items-center space-x-4">
