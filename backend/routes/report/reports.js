@@ -5,6 +5,12 @@ const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
 const { setAcademicYearContext } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
+    checkReportViewPermission,
+    checkReportEditPermission,
+    checkReportCommentPermission
+} = require('../../middleware/reportPermission');
+
+const {
     getReports,
     getReportById,
     createReport,
@@ -16,7 +22,12 @@ const {
     addComment,
     resolveComment,
     bulkAddReviewers,
-    bulkRemoveReviewers
+    bulkRemoveReviewers,
+    getReportVersions,
+    getReportEvidences,
+    uploadReportFile,
+    downloadReportFile,
+    convertFileToContent
 } = require('../../controllers/report/reportController');
 
 const createReportValidation = [
@@ -58,17 +69,7 @@ const createReportValidation = [
         .withMessage('Phương thức nhập không hợp lệ')
 ];
 
-
-
-/*
-router.post('/generate-code', [
-    body('type').notEmpty().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
-    body('standardCode').optional(),
-    body('criteriaCode').optional()
-], validation, generateReportCode);
-*/
-
-router.get('/', [
+router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('search').optional().trim().escape(),
@@ -80,46 +81,82 @@ router.get('/', [
     query('criteriaId').optional().isMongoId()
 ], validation, getReports);
 
-router.get('/:id', [
+router.get('/:id', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, getReportById);
+], validation, checkReportViewPermission, getReportById);
 
-router.post('/', requireManager, createReportValidation, validation, createReport);
+router.get('/:id/versions', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
+], validation, checkReportViewPermission, getReportVersions);
 
-router.put('/:id', requireManager, [
+router.get('/:id/evidences', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
+], validation, checkReportViewPermission, getReportEvidences);
+
+router.post('/', auth, requireManager, createReportValidation, validation, createReport);
+
+router.put('/:id', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
     body('title').optional().isLength({ max: 500 }),
     body('content').optional(),
     body('summary').optional().isLength({ max: 1000 }),
     body('keywords').optional().isArray()
-], validation, updateReport);
+], validation, checkReportEditPermission, updateReport);
 
-router.delete('/:id', requireAdmin, [
+router.delete('/:id', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, deleteReport);
+], validation, checkReportEditPermission, deleteReport);
 
-router.post('/:id/publish', requireManager, [
+router.post('/:id/publish', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, publishReport);
+], validation, checkReportEditPermission, publishReport);
 
-router.post('/:id/reviewers', auth, addReviewer);
-router.delete('/:id/reviewers', auth, removeReviewer);
+router.post('/:id/reviewers', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+    body('reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
+    body('reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
+], validation, checkReportEditPermission, addReviewer);
 
-router.post('/:id/comments', auth, addComment);
-router.put('/:id/comments/:commentId/resolve', auth, resolveComment);
+router.delete('/:id/reviewers', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+    body('reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
+    body('reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
+], validation, checkReportEditPermission, removeReviewer);
 
-router.post('/bulk/reviewers', requireManager, [
+router.post('/bulk/reviewers', auth, requireManager, [
     body('reportIds').isArray().notEmpty().withMessage('Danh sách báo cáo là bắt buộc'),
     body('reviewers').isArray().notEmpty().withMessage('Danh sách người đánh giá là bắt buộc'),
     body('reviewers.*.reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
     body('reviewers.*.reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
 ], validation, bulkAddReviewers);
 
-router.delete('/bulk/reviewers', requireManager, [
+router.delete('/bulk/reviewers', auth, requireManager, [
     body('reportIds').isArray().notEmpty(),
     body('reviewerId').isMongoId(),
     body('reviewerType').isIn(['expert', 'advisor'])
 ], validation, bulkRemoveReviewers);
 
+router.post('/:id/comments', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+    body('comment').notEmpty().withMessage('Nội dung bình luận là bắt buộc'),
+    body('section').optional()
+], validation, checkReportCommentPermission, addComment);
+
+router.put('/:id/comments/:commentId/resolve', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+    param('commentId').isMongoId().withMessage('ID bình luận không hợp lệ')
+], validation, checkReportEditPermission, resolveComment);
+
+router.post('/:id/upload', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
+], validation, checkReportEditPermission, uploadReportFile);
+
+router.get('/:id/download-file', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
+], validation, checkReportViewPermission, downloadReportFile);
+
+router.post('/:id/convert', auth, [
+    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
+], validation, checkReportEditPermission, convertFileToContent);
 
 module.exports = router;
