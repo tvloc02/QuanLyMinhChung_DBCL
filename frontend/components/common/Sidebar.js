@@ -110,7 +110,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Danh sách báo cáo', icon: FileText, path: '/reports/reports' },
                 { name: 'Tạo báo cáo mới', icon: UserPlus, path: '/reports/create' },
                 { name: 'Phân công đánh giá', icon: ClipboardCheck, path: '/reports/assessments' },
-                { name: 'Kết quả đánh giá', icon: Award, path: '/reports/evaluations' },
+                { name: 'Đánh giá báo cáo', icon: Award, path: '/reports/evaluations' },
                 { name: 'Xuất báo cáo', icon: Download, path: '/reports/export' }
             ]
         },
