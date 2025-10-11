@@ -66,7 +66,7 @@ export default function AssignReviewers() {
                 } catch (err2) {
                     console.log('Method 2 failed, trying method 3...')
 
-                    // Cách 3: Fetch riêng experts và advisors
+                    // Cách 3: Fetch riêng experts và advisorsthàn
                     try {
                         const [expertsRes, advisorsRes] = await Promise.all([
                             fetch('/api/users?role=expert', {
@@ -174,7 +174,7 @@ export default function AssignReviewers() {
 
                 await apiMethods.reports.bulkAddReviewers(bulkPayload)
                 toast.success('Phân quyền đánh giá thành công')
-                router.push('/reports')
+                router.push('/reports/reports')
                 return
             } catch (bulkError) {
                 console.log('Bulk API failed, trying individual approach...')
@@ -204,7 +204,7 @@ export default function AssignReviewers() {
                     toast.warning(`${failCount} lượt thất bại`)
                 }
 
-                router.push('/reports')
+                router.push('/reports/reports')
             }
         } catch (error) {
             console.error('❌ Assign reviewers error:', error)
