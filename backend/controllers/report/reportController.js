@@ -985,6 +985,137 @@ const convertFileToContent = async (req, res) => {
     }
 };
 
+const bulkAddReviewers = async (req, res) => {
+    try {
+        const { reportIds, reviewers } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!reportIds || !Array.isArray(reportIds) || reportIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách báo cáo không hợp lệ'
+            });
+        }
+
+        if (!reviewers || !Array.isArray(reviewers) || reviewers.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách người đánh giá không hợp lệ'
+            });
+        }
+
+        const reports = await Report.find({
+            _id: { $in: reportIds },
+            academicYearId
+        });
+
+        if (reports.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo trong năm học này'
+            });
+        }
+
+        // Kiểm tra quyền
+        const unauthorizedReports = reports.filter(report =>
+            !report.canEdit(req.user.id, req.user.role)
+        );
+
+        if (unauthorizedReports.length > 0) {
+            return res.status(403).json({
+                success: false,
+                message: `Không có quyền phân quyền cho ${unauthorizedReports.length} báo cáo`
+            });
+        }
+
+        const results = {
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+
+        // Thêm reviewer cho từng báo cáo
+        for (const report of reports) {
+            try {
+                for (const reviewer of reviewers) {
+                    await report.addReviewer(
+                        reviewer.reviewerId,
+                        reviewer.reviewerType,
+                        req.user.id
+                    );
+                }
+                results.success++;
+            } catch (error) {
+                results.failed++;
+                results.errors.push({
+                    reportId: report._id,
+                    reportCode: report.code,
+                    error: error.message
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Đã phân quyền thành công cho ${results.success}/${reports.length} báo cáo`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Bulk add reviewers error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi phân quyền hàng loạt'
+        });
+    }
+};
+
+const bulkRemoveReviewers = async (req, res) => {
+    try {
+        const { reportIds, reviewerId, reviewerType } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!reportIds || !Array.isArray(reportIds) || reportIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách báo cáo không hợp lệ'
+            });
+        }
+
+        const reports = await Report.find({
+            _id: { $in: reportIds },
+            academicYearId
+        });
+
+        const results = {
+            success: 0,
+            failed: 0
+        };
+
+        for (const report of reports) {
+            try {
+                await report.removeReviewer(reviewerId, reviewerType);
+                results.success++;
+            } catch (error) {
+                results.failed++;
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Đã xóa quyền thành công cho ${results.success}/${reports.length} báo cáo`,
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Bulk remove reviewers error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa quyền hàng loạt'
+        });
+    }
+};
+
 module.exports = {
     getReports,
     getReportById,
@@ -1003,5 +1134,7 @@ module.exports = {
     validateEvidenceLinks,
     uploadReportFile,
     downloadReportFile,
-    convertFileToContent
+    convertFileToContent,
+    bulkAddReviewers,
+    bulkRemoveReviewers
 };
