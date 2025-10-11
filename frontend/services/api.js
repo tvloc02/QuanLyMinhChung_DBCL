@@ -341,7 +341,12 @@ export const apiMethods = {
         getByEvaluator: (evaluatorId, params) => api.get(`/evaluations/evaluator/${evaluatorId}`, { params }),
         getStats: (evaluatorId, academicYearId) =>
             api.get(`/evaluations/stats/${evaluatorId}/${academicYearId}`),
-        getSystemStats: (academicYearId) => api.get(`/evaluations/system-stats/${academicYearId}`)
+        getEvaluatorStats: (evaluatorId) =>
+            api.get(`/api/reports/evaluations/evaluator-stats/${evaluatorId}`),
+        getSystemStats: () =>
+            api.get('/api/reports/evaluations/system-stats'),
+        getAverageScoreByReport: (reportId) =>
+            api.get(`/api/reports/evaluations/average-score/${reportId}`)
     },
 
     // Notifications
