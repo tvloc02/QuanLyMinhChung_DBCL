@@ -593,47 +593,49 @@ export default function EvidenceManagement() {
                                         </td>
                                         <td className="px-3 py-3 border-r border-gray-200">
                                             {evidence.standardId && (
-                                                <div className="flex items-center justify-center">
+                                                <div>
                                                     <button
                                                         onClick={() => toggleExpandRow(evidence._id, 'standard')}
-                                                        className="flex items-center space-x-1 text-xs hover:text-indigo-600 transition-colors"
-                                                        title={`${evidence.standardId?.code} - ${evidence.standardId?.name}`}
+                                                        className="flex items-start space-x-1 text-xs hover:text-indigo-600 transition-colors w-full text-left"
                                                     >
                                                         {expandedRows[`${evidence._id}-standard`] ? (
-                                                            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                                            <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                         ) : (
-                                                            <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                                            <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                         )}
-                                                        <span className="font-semibold">{evidence.standardId?.code}</span>
-                                                    </button>
-                                                    {expandedRows[`${evidence._id}-standard`] && (
-                                                        <div className="absolute mt-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-w-xs">
-                                                            <p className="text-xs text-gray-700">{evidence.standardId?.name}</p>
+                                                        <div className="flex-1">
+                                                            <span className="font-semibold text-indigo-700">{evidence.standardId?.code}</span>
+                                                            {expandedRows[`${evidence._id}-standard`] && evidence.standardId?.name && (
+                                                                <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                    {evidence.standardId?.name}
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                    )}
+                                                    </button>
                                                 </div>
                                             )}
                                         </td>
                                         <td className="px-3 py-3 border-r border-gray-200">
                                             {evidence.criteriaId && (
-                                                <div className="flex items-center justify-center">
+                                                <div>
                                                     <button
                                                         onClick={() => toggleExpandRow(evidence._id, 'criteria')}
-                                                        className="flex items-center space-x-1 text-xs hover:text-indigo-600 transition-colors"
-                                                        title={`${evidence.criteriaId?.code} - ${evidence.criteriaId?.name}`}
+                                                        className="flex items-start space-x-1 text-xs hover:text-indigo-600 transition-colors w-full text-left"
                                                     >
                                                         {expandedRows[`${evidence._id}-criteria`] ? (
-                                                            <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                                            <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                         ) : (
-                                                            <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                                            <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                         )}
-                                                        <span className="font-semibold">{evidence.criteriaId?.code}</span>
-                                                    </button>
-                                                    {expandedRows[`${evidence._id}-criteria`] && (
-                                                        <div className="absolute mt-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-w-xs">
-                                                            <p className="text-xs text-gray-700">{evidence.criteriaId?.name}</p>
+                                                        <div className="flex-1">
+                                                            <span className="font-semibold text-indigo-700">{evidence.criteriaId?.code}</span>
+                                                            {expandedRows[`${evidence._id}-criteria`] && evidence.criteriaId?.name && (
+                                                                <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                    {evidence.criteriaId?.name}
+                                                                </p>
+                                                            )}
                                                         </div>
-                                                    )}
+                                                    </button>
                                                 </div>
                                             )}
                                         </td>
