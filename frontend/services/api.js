@@ -247,6 +247,7 @@ export const apiMethods = {
         update: (id, data) => api.put(`/api/reports/${id}`, data),
         delete: (id) => api.delete(`/api/reports/${id}`),
         publish: (id) => api.post(`/api/reports/${id}/publish`),
+
         addVersion: (id, content, changeNote) =>
             api.post(`/api/reports/${id}/versions`, { content, changeNote }),
         getVersions: (id) => api.get(`/api/reports/${id}/versions`),
@@ -283,13 +284,27 @@ export const apiMethods = {
             api.post(`/api/reports/${id}/reviewers`, { reviewerId, reviewerType }),
         removeReviewer: (id, reviewerId, reviewerType) =>
             api.delete(`/api/reports/${id}/reviewers`, { data: { reviewerId, reviewerType } }),
+
         addComment: (id, comment, section) =>
             api.post(`/api/reports/${id}/comments`, { comment, section }),
         resolveComment: (id, commentId) =>
             api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
+
         getStats: (params) => api.get('/api/reports/stats', { params }),
         generateCode: (type, standardCode, criteriaCode) =>
-            api.post('/api/reports/generate-code', { type, standardCode, criteriaCode })
+            api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
+
+        bulkAddReviewers: (data) =>
+            api.post('/api/reports/bulk/reviewers', data),
+        bulkRemoveReviewers: (data) =>
+            api.delete('/api/reports/bulk/reviewers', { data }),
+
+        bulkDelete: (reportIds) =>
+            api.post('/api/reports/bulk/delete', { reportIds }),
+        bulkPublish: (reportIds) =>
+            api.post('/api/reports/bulk/publish', { reportIds }),
+        bulkArchive: (reportIds) =>
+            api.post('/api/reports/bulk/archive', { reportIds }),
     },
 
     // Assignments
