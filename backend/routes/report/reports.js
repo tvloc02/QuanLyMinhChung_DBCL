@@ -10,7 +10,13 @@ const {
     createReport,
     updateReport,
     deleteReport,
-    publishReport, addReviewer, removeReviewer, addComment, resolveComment
+    publishReport,
+    addReviewer,
+    removeReviewer,
+    addComment,
+    resolveComment,
+    bulkAddReviewers,
+    bulkRemoveReviewers
 } = require('../../controllers/report/reportController');
 
 const createReportValidation = [
@@ -101,5 +107,19 @@ router.delete('/:id/reviewers', auth, removeReviewer);
 
 router.post('/:id/comments', auth, addComment);
 router.put('/:id/comments/:commentId/resolve', auth, resolveComment);
+
+router.post('/bulk/reviewers', requireManager, [
+    body('reportIds').isArray().notEmpty().withMessage('Danh sách báo cáo là bắt buộc'),
+    body('reviewers').isArray().notEmpty().withMessage('Danh sách người đánh giá là bắt buộc'),
+    body('reviewers.*.reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
+    body('reviewers.*.reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
+], validation, bulkAddReviewers);
+
+router.delete('/bulk/reviewers', requireManager, [
+    body('reportIds').isArray().notEmpty(),
+    body('reviewerId').isMongoId(),
+    body('reviewerType').isIn(['expert', 'advisor'])
+], validation, bulkRemoveReviewers);
+
 
 module.exports = router;
