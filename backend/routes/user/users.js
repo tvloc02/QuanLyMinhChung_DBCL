@@ -49,9 +49,12 @@ router.post('/',
             .withMessage('Email là bắt buộc')
             .trim()
             .custom((value) => {
-                const cleanEmail = value.replace('@cmcu.edu.vn', '').replace('@cmc.edu.vn', '');
-                if (!/^[a-zA-Z0-9]+$/.test(cleanEmail)) {
-                    throw new Error('Email không hợp lệ');
+                // Chấp nhận email đầy đủ hoặc username đơn giản
+                const fullEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                const usernameRegex = /^[a-zA-Z0-9]+$/;
+
+                if (!fullEmailRegex.test(value) && !usernameRegex.test(value)) {
+                    throw new Error('Email không hợp lệ. Nhập email đầy đủ hoặc username');
                 }
                 return true;
             }),
@@ -72,6 +75,10 @@ router.post('/',
             .optional()
             .isIn(['admin', 'manager', 'expert', 'advisor'])
             .withMessage('Vai trò không hợp lệ'),
+        body('roles')
+            .optional()
+            .isArray()
+            .withMessage('Roles phải là mảng'),
         body('status')
             .optional()
             .isIn(['active', 'inactive', 'suspended', 'pending'])
@@ -142,6 +149,10 @@ router.put('/:id',
             .optional()
             .isIn(['admin', 'manager', 'expert', 'advisor'])
             .withMessage('Vai trò không hợp lệ'),
+        body('roles')
+            .optional()
+            .isArray()
+            .withMessage('Roles phải là mảng'),
         body('department')
             .optional()
             .isLength({ max: 100 })
