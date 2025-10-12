@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
+import { ActionButton } from '../../components/ActionButtons'
 import toast from 'react-hot-toast'
 import {
     Plus,
@@ -246,10 +247,11 @@ export default function EvidenceManagement() {
         }
     }
 
-    const toggleExpandRow = (id, field) => {
+    // Cả standard và criteria đều expand/collapse cùng lúc
+    const toggleExpandRow = (id) => {
         setExpandedRows(prev => ({
             ...prev,
-            [`${id}-${field}`]: !prev[`${id}-${field}`]
+            [id]: !prev[id]
         }))
     }
 
@@ -274,7 +276,7 @@ export default function EvidenceManagement() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -282,14 +284,14 @@ export default function EvidenceManagement() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Quản lý minh chứng</h1>
-                            <p className="text-indigo-100">
+                            <p className="text-blue-100">
                                 Quản lý và tổ chức các minh chứng trong hệ thống
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={() => router.push('/evidence/create')}
-                        className="inline-flex items-center px-6 py-3 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-medium shadow-lg"
+                        className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
                     >
                         <Plus className="h-5 w-5 mr-2" />
                         Tạo minh chứng mới
@@ -298,7 +300,7 @@ export default function EvidenceManagement() {
             </div>
 
             {/* Search & Filters */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex flex-col lg:flex-row gap-4">
                     <div className="flex-1">
                         <form onSubmit={handleSearch} className="relative">
@@ -308,23 +310,23 @@ export default function EvidenceManagement() {
                                 placeholder="Tìm kiếm theo tên, mã, số hiệu văn bản..."
                                 value={filters.search}
                                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                             />
                         </form>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-medium ${
+                            className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
                                 showFilters || hasActiveFilters
-                                    ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300'
+                                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
                                     : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
                             }`}
                         >
                             <Filter className="h-5 w-5 mr-2" />
                             Bộ lọc
                             {hasActiveFilters && (
-                                <span className="ml-2 px-2 py-0.5 bg-indigo-600 text-white text-xs rounded-full font-bold">
+                                <span className="ml-2 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-bold">
                                     {[filters.status, filters.programId, filters.organizationId,
                                         filters.standardId, filters.criteriaId].filter(Boolean).length}
                                 </span>
@@ -333,7 +335,7 @@ export default function EvidenceManagement() {
                         <button
                             onClick={fetchEvidences}
                             disabled={loading}
-                            className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
+                            className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-semibold"
                         >
                             <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Làm mới
@@ -344,11 +346,11 @@ export default function EvidenceManagement() {
                 {showFilters && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-sm font-semibold text-gray-900">Lọc nâng cao</h3>
+                            <h3 className="text-sm font-bold text-gray-900">Lọc nâng cao</h3>
                             {hasActiveFilters && (
                                 <button
                                     onClick={clearFilters}
-                                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                    className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
                                 >
                                     Xóa tất cả bộ lọc
                                 </button>
@@ -356,13 +358,13 @@ export default function EvidenceManagement() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Chương trình
                                 </label>
                                 <select
                                     value={filters.programId}
                                     onChange={(e) => handleFilterChange('programId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả chương trình</option>
                                     {programs.map(p => (
@@ -372,13 +374,13 @@ export default function EvidenceManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Tổ chức
                                 </label>
                                 <select
                                     value={filters.organizationId}
                                     onChange={(e) => handleFilterChange('organizationId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả tổ chức</option>
                                     {organizations.map(o => (
@@ -388,14 +390,14 @@ export default function EvidenceManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Tiêu chuẩn
                                 </label>
                                 <select
                                     value={filters.standardId}
                                     onChange={(e) => handleFilterChange('standardId', e.target.value)}
                                     disabled={!filters.programId || !filters.organizationId}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                 >
                                     <option value="">Tất cả tiêu chuẩn</option>
                                     {standards.map(s => (
@@ -405,14 +407,14 @@ export default function EvidenceManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Tiêu chí
                                 </label>
                                 <select
                                     value={filters.criteriaId}
                                     onChange={(e) => handleFilterChange('criteriaId', e.target.value)}
                                     disabled={!filters.standardId}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                 >
                                     <option value="">Tất cả tiêu chí</option>
                                     {criteria.map(c => (
@@ -422,13 +424,13 @@ export default function EvidenceManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Trạng thái
                                 </label>
                                 <select
                                     value={filters.status}
                                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả trạng thái</option>
                                     <option value="active">Hoạt động</option>
@@ -444,24 +446,24 @@ export default function EvidenceManagement() {
 
             {/* Bulk Actions */}
             {selectedItems.length > 0 && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4">
+                <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                     <div className="flex items-center justify-between">
-                        <span className="text-sm text-indigo-900 font-medium">
-                            Đã chọn <strong className="text-lg">{selectedItems.length}</strong> minh chứng
+                        <span className="text-sm text-blue-900 font-semibold">
+                            Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> minh chứng
                         </span>
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-3">
                             <button
                                 onClick={() => setSelectedItems([])}
-                                className="inline-flex items-center px-4 py-2 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-200 font-medium transition-all"
+                                className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
                             >
-                                <X className="h-4 w-4 mr-1" />
+                                <X className="h-4 w-4 mr-2" />
                                 Hủy chọn
                             </button>
                             <button
                                 onClick={handleBulkDelete}
-                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm rounded-xl hover:shadow-lg font-medium transition-all"
+                                className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
                             >
-                                <Trash className="h-4 w-4 mr-1" />
+                                <Trash className="h-4 w-4 mr-2" />
                                 Xóa tất cả
                             </button>
                         </div>
@@ -470,12 +472,12 @@ export default function EvidenceManagement() {
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-900">
+                        <h2 className="text-lg font-bold text-gray-900">
                             Danh sách minh chứng
-                            <span className="ml-2 text-sm font-normal text-gray-500">
+                            <span className="ml-2 text-sm font-semibold text-blue-600">
                                 ({pagination.total} kết quả)
                             </span>
                         </h2>
@@ -484,15 +486,15 @@ export default function EvidenceManagement() {
 
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
-                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
                         <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
                     </div>
                 ) : evidences.length === 0 ? (
                     <div className="p-16 text-center">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FileText className="h-10 w-10 text-gray-400" />
+                        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FileText className="h-10 w-10 text-blue-600" />
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">
                             {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có minh chứng nào'}
                         </h3>
                         <p className="text-gray-500 mb-6">
@@ -504,14 +506,14 @@ export default function EvidenceManagement() {
                         {hasActiveFilters ? (
                             <button
                                 onClick={clearFilters}
-                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
                             >
                                 Xóa bộ lọc
                             </button>
                         ) : (
                             <button
                                 onClick={() => router.push('/evidence/create')}
-                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
                             >
                                 <Plus className="h-5 w-5 mr-2" />
                                 Tạo minh chứng mới
@@ -522,38 +524,38 @@ export default function EvidenceManagement() {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                 <tr>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === evidences.length}
                                             onChange={toggleSelectAll}
-                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                         />
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                         STT
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-28">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Mã MC
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300">
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
                                         Tên minh chứng
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
                                         Tiêu chuẩn
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
                                         Tiêu chí
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-20">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">
                                         Files
                                     </th>
-                                    <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-28">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Ngày tạo
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-300 w-44">
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-64">
                                         Thao tác
                                     </th>
                                 </tr>
@@ -561,27 +563,27 @@ export default function EvidenceManagement() {
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => (
                                     <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                        <td className="px-4 py-3 text-center border-r border-gray-200">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.includes(evidence._id)}
                                                 onChange={() => toggleSelectItem(evidence._id)}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                             />
                                         </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                        <td className="px-4 py-3 text-center border-r border-gray-200">
                                             <span className="text-sm font-semibold text-gray-700">
                                                 {((pagination.current - 1) * filters.limit) + index + 1}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-indigo-200">
+                                        <td className="px-4 py-3 text-center border-r border-gray-200">
+                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
                                                 {evidence.code}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 border-r border-gray-200">
+                                        <td className="px-6 py-3 border-r border-gray-200">
                                             <div className="max-w-md">
-                                                <p className="text-sm font-medium text-gray-900 line-clamp-2" title={evidence.name}>
+                                                <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
                                                     {evidence.name}
                                                 </p>
                                                 {evidence.documentNumber && (
@@ -591,21 +593,21 @@ export default function EvidenceManagement() {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3 border-r border-gray-200">
+                                        <td className="px-4 py-3 border-r border-gray-200">
                                             {evidence.standardId && (
                                                 <div>
                                                     <button
-                                                        onClick={() => toggleExpandRow(evidence._id, 'standard')}
-                                                        className="flex items-start space-x-1 text-xs hover:text-indigo-600 transition-colors w-full text-left"
+                                                        onClick={() => toggleExpandRow(evidence._id)}
+                                                        className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                     >
-                                                        {expandedRows[`${evidence._id}-standard`] ? (
-                                                            <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                        {expandedRows[evidence._id] ? (
+                                                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
                                                         ) : (
-                                                            <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
                                                         )}
                                                         <div className="flex-1">
-                                                            <span className="font-semibold text-indigo-700">{evidence.standardId?.code}</span>
-                                                            {expandedRows[`${evidence._id}-standard`] && evidence.standardId?.name && (
+                                                            <span className="font-bold text-blue-700">{evidence.standardId?.code}</span>
+                                                            {expandedRows[evidence._id] && evidence.standardId?.name && (
                                                                 <p className="mt-1 text-gray-600 leading-relaxed">
                                                                     {evidence.standardId?.name}
                                                                 </p>
@@ -615,21 +617,21 @@ export default function EvidenceManagement() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 border-r border-gray-200">
+                                        <td className="px-4 py-3 border-r border-gray-200">
                                             {evidence.criteriaId && (
                                                 <div>
                                                     <button
-                                                        onClick={() => toggleExpandRow(evidence._id, 'criteria')}
-                                                        className="flex items-start space-x-1 text-xs hover:text-indigo-600 transition-colors w-full text-left"
+                                                        onClick={() => toggleExpandRow(evidence._id)}
+                                                        className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                     >
-                                                        {expandedRows[`${evidence._id}-criteria`] ? (
-                                                            <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                        {expandedRows[evidence._id] ? (
+                                                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
                                                         ) : (
-                                                            <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
                                                         )}
                                                         <div className="flex-1">
-                                                            <span className="font-semibold text-indigo-700">{evidence.criteriaId?.code}</span>
-                                                            {expandedRows[`${evidence._id}-criteria`] && evidence.criteriaId?.name && (
+                                                            <span className="font-bold text-blue-700">{evidence.criteriaId?.code}</span>
+                                                            {expandedRows[evidence._id] && evidence.criteriaId?.name && (
                                                                 <p className="mt-1 text-gray-600 leading-relaxed">
                                                                     {evidence.criteriaId?.name}
                                                                 </p>
@@ -639,44 +641,43 @@ export default function EvidenceManagement() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                        <td className="px-4 py-3 text-center border-r border-gray-200">
+                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                                 {evidence.files?.length || 0}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-500">
+                                        <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
                                             {formatDate(evidence.createdAt)}
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <div className="flex items-center justify-center space-x-1">
-                                                <button
+                                        <td className="px-6 py-3">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <ActionButton
+                                                    icon={Eye}
+                                                    variant="view"
+                                                    size="sm"
                                                     onClick={() => handleViewDetail(evidence._id)}
-                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </button>
-                                                <button
+                                                />
+
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    variant="edit"
+                                                    size="sm"
                                                     onClick={() => handleEdit(evidence)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button
+                                                />
+
+                                                <ActionButton
+                                                    icon={ArrowRightLeft}
+                                                    variant="primary"
+                                                    size="sm"
                                                     onClick={() => handleMove(evidence)}
-                                                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                    title="Di chuyển"
-                                                >
-                                                    <ArrowRightLeft className="h-4 w-4" />
-                                                </button>
-                                                <button
+                                                />
+
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    variant="delete"
+                                                    size="sm"
                                                     onClick={() => handleDelete(evidence._id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                />
                                             </div>
                                         </td>
                                     </tr>
@@ -686,18 +687,18 @@ export default function EvidenceManagement() {
                         </div>
 
                         {pagination.pages > 1 && (
-                            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                            <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
                                 <div className="flex items-center justify-between">
                                     <p className="text-sm text-gray-700">
-                                        Hiển thị <strong>{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                        <strong>{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                        <strong>{pagination.total}</strong> kết quả
+                                        Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
+                                        <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
+                                        <strong className="text-blue-600">{pagination.total}</strong> kết quả
                                     </p>
-                                    <div className="flex space-x-2">
+                                    <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => handlePageChange(pagination.current - 1)}
                                             disabled={!pagination.hasPrev}
-                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                            className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
                                         >
                                             Trước
                                         </button>
@@ -717,10 +718,10 @@ export default function EvidenceManagement() {
                                                 <button
                                                     key={pageNum}
                                                     onClick={() => handlePageChange(pageNum)}
-                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${
+                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
                                                         pagination.current === pageNum
-                                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                                                            : 'border-2 border-gray-200 hover:bg-white'
+                                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                                                            : 'border-2 border-blue-200 hover:bg-white text-gray-700'
                                                     }`}
                                                 >
                                                     {pageNum}
@@ -730,7 +731,7 @@ export default function EvidenceManagement() {
                                         <button
                                             onClick={() => handlePageChange(pagination.current + 1)}
                                             disabled={!pagination.hasNext}
-                                            className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                            className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
                                         >
                                             Sau
                                         </button>
