@@ -152,7 +152,7 @@ export default function CreateUserForm() {
             console.log('Sending data:', formData)
 
             // Gọi API với đúng endpoint
-            const response = await api.post('/users', formData)
+            const response = await api.post('/api/users', formData)
 
             console.log('Response:', response.data)
 
@@ -197,7 +197,7 @@ export default function CreateUserForm() {
     }
 
     const handleBackToList = () => {
-        router.push('/users')
+        router.push('/users/users')
     }
 
     const handleCreateAnother = () => {
