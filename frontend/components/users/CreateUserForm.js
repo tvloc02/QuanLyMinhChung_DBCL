@@ -1,4 +1,3 @@
-// frontend/components/users/CreateUserForm.js
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
@@ -86,13 +85,14 @@ export default function CreateUserForm() {
     const validateForm = () => {
         const newErrors = {}
 
-        // Email validation
+        // Email validation - Phải là email đầy đủ
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc'
         } else {
-            const cleanEmail = formData.email.replace('@cmcu.edu.vn', '').replace('@cmc.edu.vn', '')
-            if (!/^[a-zA-Z0-9]+$/.test(cleanEmail)) {
-                newErrors.email = 'Email không hợp lệ (chỉ chứa chữ và số)'
+            // Regex đầy đủ cho email chuẩn
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+            if (!emailRegex.test(formData.email.trim())) {
+                newErrors.email = 'Email không hợp lệ. Vui lòng nhập địa chỉ email đầy đủ (ví dụ: user@domain.com)'
             }
         }
 
@@ -137,6 +137,7 @@ export default function CreateUserForm() {
                 type: 'error',
                 text: 'Vui lòng kiểm tra lại thông tin nhập vào'
             })
+            window.scrollTo({ top: 0, behavior: 'smooth' })
             return
         }
 
@@ -317,11 +318,11 @@ export default function CreateUserForm() {
                                 <span>Email <span className="text-red-500">*</span></span>
                             </label>
                             <input
-                                type="text"
+                                type="email"
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
-                                placeholder="Ví dụ: nguyenvana hoặc nguyenvana@cmc.edu.vn"
+                                placeholder="nguyenvana@example.com"
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
@@ -333,7 +334,7 @@ export default function CreateUserForm() {
                                 </p>
                             )}
                             <p className="mt-2 text-xs text-gray-500">
-                                Nhập tên đăng nhập hoặc email đầy đủ. Hệ thống sẽ tự động xử lý.
+                                📧 Nhập địa chỉ email đầy đủ (ví dụ: user@domain.com, admin@company.vn)
                             </p>
                         </div>
 
@@ -372,7 +373,7 @@ export default function CreateUserForm() {
                                 name="phoneNumber"
                                 value={formData.phoneNumber}
                                 onChange={handleInputChange}
-                                placeholder="Nhập số điện thoại (10-11 số)"
+                                placeholder="0912345678"
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
