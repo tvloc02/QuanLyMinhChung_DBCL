@@ -2,6 +2,7 @@ const User = require('../../models/User/User');
 const UserGroup = require('../../models/User/UserGroup');
 const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
+const emailService = require('../../services/emailService'); // ✅ THÊM IMPORT
 
 const getUsers = async (req, res) => {
     try {
@@ -153,7 +154,7 @@ const createUser = async (req, res) => {
             });
         }
 
-        // SỬA: Lưu email đầy đủ, không còn replace @cmc.edu.vn nữa
+        // Lưu email đầy đủ
         const cleanEmail = email.toLowerCase().trim();
 
         const existingUser = await User.findOne({
@@ -167,7 +168,7 @@ const createUser = async (req, res) => {
             });
         }
 
-        // SỬA: Tạo password từ email đầy đủ
+        // Tạo password từ email đầy đủ
         const defaultPassword = User.generateDefaultPassword(cleanEmail);
 
         const user = new User({
@@ -200,6 +201,44 @@ const createUser = async (req, res) => {
                     department: user.department
                 }
             });
+
+        // ✅ THÊM MỚI: Gửi email chào mừng
+        try {
+            // Tạo email đầy đủ để gửi
+            let emailToSend = cleanEmail;
+
+            // Nếu là username đơn giản (không có @), thêm @cmc.edu.vn
+            if (!emailToSend.includes('@')) {
+                emailToSend = `${emailToSend}@cmc.edu.vn`;
+            }
+
+            const loginUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+
+            console.log(`📧 Sending welcome email to: ${emailToSend}`);
+
+            await emailService.sendWelcomeEmail(
+                emailToSend,
+                user.fullName,
+                defaultPassword,
+                loginUrl
+            );
+
+            console.log(`✅ Welcome email sent successfully to: ${emailToSend}`);
+        } catch (emailError) {
+            // Không làm fail request nếu email lỗi, chỉ log
+            console.error('⚠️ Failed to send welcome email:', emailError.message);
+            console.error('Stack:', emailError.stack);
+
+            // Log vào activity log
+            await ActivityLog.logError(req.user.id, 'email_send', emailError, {
+                targetType: 'User',
+                targetId: user._id,
+                metadata: {
+                    emailType: 'welcome',
+                    recipientEmail: cleanEmail
+                }
+            });
+        }
 
         res.status(201).json({
             success: true,
@@ -383,7 +422,6 @@ const lockUser = async (req, res) => {
     }
 };
 
-// THÊM MỚI: Unlock User
 const unlockUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -518,6 +556,25 @@ const resetUserPassword = async (req, res) => {
                 targetId: id,
                 targetName: user.fullName
             });
+
+        // ✅ THÊM MỚI: Gửi email thông báo reset password (tùy chọn)
+        try {
+            let emailToSend = user.email;
+            if (!emailToSend.includes('@')) {
+                emailToSend = `${emailToSend}@cmc.edu.vn`;
+            }
+
+            console.log(`📧 Sending password reset notification to: ${emailToSend}`);
+
+            await emailService.sendPasswordChangeNotification(
+                emailToSend,
+                user.fullName
+            );
+
+            console.log(`✅ Password reset notification sent successfully`);
+        } catch (emailError) {
+            console.error('⚠️ Failed to send password reset notification:', emailError.message);
+        }
 
         res.json({
             success: true,
