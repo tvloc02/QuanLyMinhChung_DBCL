@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+// frontend/components/users/CreateUserForm.js
+import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
-    AlertCircle, Save, X, Eye, EyeOff, Plus, Trash, Users, Shield,
-    Sparkles, Zap, Loader2, User, Mail, Phone, MapPin, Briefcase,
-    GraduationCap, Award, Calendar, Globe, FileText
+    ArrowLeft, Save, User, Mail, Phone, Briefcase, Building,
+    Shield, AlertCircle, Check, Eye, EyeOff, X, UserPlus
 } from 'lucide-react'
 import api from '../../services/api'
 
@@ -13,318 +13,116 @@ export default function CreateUserForm() {
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
-    const [expertiseInput, setExpertiseInput] = useState('')
-    const [useCustomPassword, setUseCustomPassword] = useState(false)
-    const [activeTab, setActiveTab] = useState('basic') // basic, roles, access, additional
 
     const [formData, setFormData] = useState({
-        // Thông tin cơ bản
         email: '',
         fullName: '',
-        password: '',
         phoneNumber: '',
-        dateOfBirth: '',
-        gender: '',
-        bio: '',
-
-        // Vai trò - Mảng roles
-        roles: [],
-
-        status: 'active',
+        roles: ['expert'],
         department: '',
         position: '',
-        expertise: [],
-
-        // Địa chỉ
-        address: {
-            street: '',
-            city: '',
-            state: '',
-            country: 'Vietnam',
-            zipCode: ''
-        },
-
-        // Social links
-        socialLinks: {
-            linkedin: '',
-            facebook: '',
-            twitter: ''
-        },
-
-        // Languages
-        languages: [],
-
-        // Education
-        education: [],
-
-        // Work Experience
-        workExperience: [],
-
-        // Certifications
-        certifications: [],
-
-        // Nhóm và quyền
-        userGroups: [],
-        mustChangePassword: true,
         academicYearAccess: [],
         programAccess: [],
         organizationAccess: [],
         standardAccess: [],
-        criteriaAccess: [],
-
-        notificationSettings: {
-            email: true,
-            inApp: true,
-            assignment: true,
-            evaluation: true,
-            deadline: true
-        }
+        criteriaAccess: []
     })
 
     const [errors, setErrors] = useState({})
-    const [accessOptions, setAccessOptions] = useState({
-        academicYears: [],
-        programs: [],
-        organizations: [],
-        standards: [],
-        criteria: [],
-        userGroups: []
-    })
 
     const roleOptions = [
-        { value: 'admin', label: 'Quản trị viên', color: 'from-red-500 to-pink-500', icon: '👑' },
-        { value: 'manager', label: 'Cán bộ quản lý', color: 'from-blue-500 to-indigo-500', icon: '📊' },
-        { value: 'expert', label: 'Chuyên gia đánh giá', color: 'from-green-500 to-emerald-500', icon: '🎓' },
-        { value: 'advisor', label: 'Tư vấn/Giám sát', color: 'from-purple-500 to-violet-500', icon: '💡' }
+        {
+            value: 'admin',
+            label: 'Quản trị viên',
+            color: 'from-red-500 to-pink-500',
+            description: 'Toàn quyền quản trị hệ thống'
+        },
+        {
+            value: 'manager',
+            label: 'Cán bộ quản lý',
+            color: 'from-blue-500 to-indigo-500',
+            description: 'Quản lý và phê duyệt báo cáo'
+        },
+        {
+            value: 'expert',
+            label: 'Chuyên gia',
+            color: 'from-green-500 to-emerald-500',
+            description: 'Thực hiện đánh giá các tiêu chí'
+        },
+        {
+            value: 'advisor',
+            label: 'Tư vấn',
+            color: 'from-purple-500 to-violet-500',
+            description: 'Tư vấn và giám sát quá trình'
+        }
     ]
 
-    const genderOptions = [
-        { value: 'male', label: 'Nam' },
-        { value: 'female', label: 'Nữ' },
-        { value: 'other', label: 'Khác' }
-    ]
-
-    useEffect(() => {
-        fetchAccessOptions()
-    }, [])
-
-    const fetchAccessOptions = async () => {
-        try {
-            const [academicYears, programs, organizations, standards, criteria, userGroups] = await Promise.all([
-                api.get('/academic-years').catch(() => ({ data: { data: [] } })),
-                api.get('/programs').catch(() => ({ data: { data: [] } })),
-                api.get('/organizations').catch(() => ({ data: { data: [] } })),
-                api.get('/standards').catch(() => ({ data: { data: [] } })),
-                api.get('/criteria').catch(() => ({ data: { data: [] } })),
-                api.get('/user-groups').catch(() => ({ data: { data: { groups: [] } } }))
-            ])
-
-            setAccessOptions({
-                academicYears: academicYears.data.data || [],
-                programs: programs.data.data || [],
-                organizations: organizations.data.data || [],
-                standards: standards.data.data || [],
-                criteria: criteria.data.data || [],
-                userGroups: userGroups.data.data.groups || []
-            })
-        } catch (error) {
-            console.error('Error fetching access options:', error)
-        }
-    }
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target
-
-        if (type === 'checkbox') {
-            if (name.includes('.')) {
-                const [parent, child] = name.split('.')
-                setFormData(prev => ({
-                    ...prev,
-                    [parent]: {
-                        ...prev[parent],
-                        [child]: checked
-                    }
-                }))
-            } else {
-                setFormData(prev => ({ ...prev, [name]: checked }))
-            }
-        } else if (name.includes('.')) {
-            const [parent, child] = name.split('.')
-            setFormData(prev => ({
-                ...prev,
-                [parent]: {
-                    ...prev[parent],
-                    [child]: value
-                }
-            }))
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }))
-        }
-
+    const handleInputChange = (e) => {
+        const { name, value } = e.target
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }))
+        // Clear error when user types
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
         }
     }
 
-    const toggleRole = (role) => {
+    const handleRoleToggle = (roleValue) => {
         setFormData(prev => {
-            const roles = prev.roles.includes(role)
-                ? prev.roles.filter(r => r !== role)
-                : [...prev.roles, role]
-            return { ...prev, roles }
-        })
-    }
+            const currentRoles = prev.roles || []
+            const newRoles = currentRoles.includes(roleValue)
+                ? currentRoles.filter(r => r !== roleValue)
+                : [...currentRoles, roleValue]
 
-    const handleMultiSelect = (name, value) => {
-        setFormData(prev => {
-            const currentValues = prev[name] || []
-            if (currentValues.includes(value)) {
-                return {
-                    ...prev,
-                    [name]: currentValues.filter(v => v !== value)
-                }
-            } else {
-                return {
-                    ...prev,
-                    [name]: [...currentValues, value]
-                }
+            return {
+                ...prev,
+                roles: newRoles.length > 0 ? newRoles : ['expert']
             }
         })
-    }
-
-    const addExpertise = () => {
-        if (expertiseInput.trim()) {
-            setFormData(prev => ({
-                ...prev,
-                expertise: [...prev.expertise, expertiseInput.trim()]
-            }))
-            setExpertiseInput('')
-        }
-    }
-
-    const removeExpertise = (index) => {
-        setFormData(prev => ({
-            ...prev,
-            expertise: prev.expertise.filter((_, i) => i !== index)
-        }))
-    }
-
-    const addEducation = () => {
-        setFormData(prev => ({
-            ...prev,
-            education: [...prev.education, {
-                institution: '',
-                degree: '',
-                fieldOfStudy: '',
-                startDate: '',
-                endDate: '',
-                description: ''
-            }]
-        }))
-    }
-
-    const removeEducation = (index) => {
-        setFormData(prev => ({
-            ...prev,
-            education: prev.education.filter((_, i) => i !== index)
-        }))
-    }
-
-    const updateEducation = (index, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            education: prev.education.map((edu, i) =>
-                i === index ? { ...edu, [field]: value } : edu
-            )
-        }))
-    }
-
-    const addWorkExperience = () => {
-        setFormData(prev => ({
-            ...prev,
-            workExperience: [...prev.workExperience, {
-                company: '',
-                position: '',
-                startDate: '',
-                endDate: '',
-                current: false,
-                description: ''
-            }]
-        }))
-    }
-
-    const removeWorkExperience = (index) => {
-        setFormData(prev => ({
-            ...prev,
-            workExperience: prev.workExperience.filter((_, i) => i !== index)
-        }))
-    }
-
-    const updateWorkExperience = (index, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            workExperience: prev.workExperience.map((exp, i) =>
-                i === index ? { ...exp, [field]: value } : exp
-            )
-        }))
-    }
-
-    const addCertification = () => {
-        setFormData(prev => ({
-            ...prev,
-            certifications: [...prev.certifications, {
-                name: '',
-                issuer: '',
-                issueDate: '',
-                expiryDate: '',
-                credentialId: ''
-            }]
-        }))
-    }
-
-    const removeCertification = (index) => {
-        setFormData(prev => ({
-            ...prev,
-            certifications: prev.certifications.filter((_, i) => i !== index)
-        }))
-    }
-
-    const updateCertification = (index, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            certifications: prev.certifications.map((cert, i) =>
-                i === index ? { ...cert, [field]: value } : cert
-            )
-        }))
     }
 
     const validateForm = () => {
         const newErrors = {}
 
+        // Email validation
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc'
-        }
-
-        if (!formData.fullName.trim()) {
-            newErrors.fullName = 'Họ tên là bắt buộc'
-        } else if (formData.fullName.trim().length < 2) {
-            newErrors.fullName = 'Họ tên phải có ít nhất 2 ký tự'
-        }
-
-        if (formData.roles.length === 0) {
-            newErrors.roles = 'Phải chọn ít nhất một vai trò'
-        }
-
-        if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
-            newErrors.phoneNumber = 'Số điện thoại không hợp lệ'
-        }
-
-        if (useCustomPassword) {
-            if (!formData.password) {
-                newErrors.password = 'Mật khẩu là bắt buộc'
-            } else if (formData.password.length < 6) {
-                newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+        } else {
+            const cleanEmail = formData.email.replace('@cmcu.edu.vn', '').replace('@cmc.edu.vn', '')
+            if (!/^[a-zA-Z0-9]+$/.test(cleanEmail)) {
+                newErrors.email = 'Email không hợp lệ (chỉ chứa chữ và số)'
             }
+        }
+
+        // Full name validation
+        if (!formData.fullName.trim()) {
+            newErrors.fullName = 'Họ và tên là bắt buộc'
+        } else if (formData.fullName.trim().length < 2) {
+            newErrors.fullName = 'Họ và tên phải có ít nhất 2 ký tự'
+        } else if (formData.fullName.trim().length > 100) {
+            newErrors.fullName = 'Họ và tên không được quá 100 ký tự'
+        }
+
+        // Phone validation
+        if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
+            newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)'
+        }
+
+        // Department validation
+        if (formData.department && formData.department.length > 100) {
+            newErrors.department = 'Phòng ban không được quá 100 ký tự'
+        }
+
+        // Position validation
+        if (formData.position && formData.position.length > 100) {
+            newErrors.position = 'Chức vụ không được quá 100 ký tự'
+        }
+
+        // Roles validation
+        if (!formData.roles || formData.roles.length === 0) {
+            newErrors.roles = 'Phải chọn ít nhất một vai trò'
         }
 
         setErrors(newErrors)
@@ -337,7 +135,7 @@ export default function CreateUserForm() {
         if (!validateForm()) {
             setMessage({
                 type: 'error',
-                text: 'Vui lòng kiểm tra lại thông tin'
+                text: 'Vui lòng kiểm tra lại thông tin nhập vào'
             })
             return
         }
@@ -346,46 +144,57 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            const dataToSend = { ...formData }
-
-            if (!useCustomPassword) {
-                delete dataToSend.password
-            }
-
-            const response = await api.post('/api/users', dataToSend)
+            const response = await api.post('/users', formData)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
                 setMessage({
                     type: 'success',
-                    text: `Tạo người dùng thành công!`
+                    text: 'Tạo người dùng thành công!'
                 })
 
-                setTimeout(() => {
-                    router.push('/users/users')
-                }, 3000)
+                // Scroll to top to see the password
+                window.scrollTo({ top: 0, behavior: 'smooth' })
             }
         } catch (error) {
-            console.error('Error creating user:', error)
+            console.error('Create user error:', error)
             setMessage({
                 type: 'error',
                 text: error.response?.data?.message || 'Lỗi khi tạo người dùng'
             })
+            window.scrollTo({ top: 0, behavior: 'smooth' })
         } finally {
             setLoading(false)
         }
     }
 
-    const tabs = [
-        { id: 'basic', label: 'Thông tin cơ bản', icon: User },
-        { id: 'roles', label: 'Vai trò & Nhóm', icon: Shield },
-        { id: 'access', label: 'Phân quyền', icon: Award },
-        { id: 'additional', label: 'Thông tin bổ sung', icon: FileText }
-    ]
+    const handleBackToList = () => {
+        router.push('/users')
+    }
+
+    const handleCreateAnother = () => {
+        setFormData({
+            email: '',
+            fullName: '',
+            phoneNumber: '',
+            roles: ['expert'],
+            department: '',
+            position: '',
+            academicYearAccess: [],
+            programAccess: [],
+            organizationAccess: [],
+            standardAccess: [],
+            criteriaAccess: []
+        })
+        setGeneratedPassword('')
+        setErrors({})
+        setMessage({ type: '', text: '' })
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
 
     return (
         <div className="space-y-6">
-            {/* Success/Error Message */}
+            {/* Message Alert */}
             {message.text && (
                 <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                     message.type === 'success'
@@ -397,13 +206,15 @@ export default function CreateUserForm() {
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                                 message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
                             }`}>
-                                <AlertCircle className={`w-7 h-7 ${
-                                    message.type === 'success' ? 'text-green-600' : 'text-red-600'
-                                }`} />
+                                {message.type === 'success' ? (
+                                    <Check className="w-7 h-7 text-green-600" />
+                                ) : (
+                                    <AlertCircle className="w-7 h-7 text-red-600" />
+                                )}
                             </div>
                         </div>
                         <div className="ml-4 flex-1">
-                            <h3 className={`font-bold text-lg mb-2 ${
+                            <h3 className={`font-bold text-lg mb-1 ${
                                 message.type === 'success' ? 'text-green-900' : 'text-red-900'
                             }`}>
                                 {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
@@ -411,896 +222,298 @@ export default function CreateUserForm() {
                             <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
                                 {message.text}
                             </p>
-                            {generatedPassword && (
-                                <div className="mt-4 p-4 bg-white rounded-xl border border-green-200 shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-green-900 font-semibold mb-1">Mật khẩu mặc định:</p>
-                                            <p className="font-mono font-bold text-green-900 text-lg">
-                                                {showPassword ? generatedPassword : '••••••••'}
-                                            </p>
-                                        </div>
+
+                            {/* Show generated password */}
+                            {message.type === 'success' && generatedPassword && (
+                                <div className="mt-4 p-4 bg-white border-2 border-green-300 rounded-xl">
+                                    <p className="text-sm font-semibold text-green-900 mb-2">
+                                        Mật khẩu mặc định:
+                                    </p>
+                                    <div className="flex items-center justify-between bg-green-50 px-4 py-3 rounded-lg">
+                                        <code className="text-lg font-mono font-bold text-green-900">
+                                            {showPassword ? generatedPassword : '••••••••'}
+                                        </code>
                                         <button
-                                            type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="px-4 py-2 text-sm text-green-700 hover:text-green-900 bg-green-50 hover:bg-green-100 rounded-lg transition-all font-medium"
+                                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all"
                                         >
-                                            {showPassword ? 'Ẩn' : 'Hiện'}
+                                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
                                     </div>
+                                    <p className="text-xs text-green-700 mt-2">
+                                        ⚠️ Vui lòng lưu lại mật khẩu này. Người dùng sẽ cần thay đổi mật khẩu khi đăng nhập lần đầu.
+                                    </p>
                                 </div>
                             )}
                         </div>
+                        <button
+                            onClick={() => setMessage({ type: '', text: '' })}
+                            className="ml-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
+
+                    {/* Action buttons after success */}
+                    {message.type === 'success' && (
+                        <div className="mt-4 flex gap-3 justify-end">
+                            <button
+                                onClick={handleBackToList}
+                                className="px-6 py-2.5 bg-white text-green-700 border-2 border-green-200 rounded-xl hover:bg-green-50 transition-all font-medium"
+                            >
+                                Về danh sách
+                            </button>
+                            <button
+                                onClick={handleCreateAnother}
+                                className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                            >
+                                Tạo người dùng khác
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <UserPlus className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Tạo người dùng mới</h1>
+                            <p className="text-indigo-100">Thêm người dùng mới vào hệ thống</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleBackToList}
+                        className="flex items-center space-x-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all font-medium"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Tabs Navigation */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
-                    <div className="flex gap-2 overflow-x-auto">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
-                                    activeTab === tab.id
-                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                                        : 'text-gray-600 hover:bg-gray-50'
+                {/* Basic Information */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-indigo-100 rounded-lg">
+                                <User className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>
+                        </div>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* Email */}
+                        <div>
+                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                <Mail className="w-4 h-4 text-indigo-600" />
+                                <span>Email <span className="text-red-500">*</span></span>
+                            </label>
+                            <input
+                                type="text"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                placeholder="Ví dụ: nguyenvana hoặc nguyenvana@cmc.edu.vn"
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
-                            >
-                                <tab.icon className="w-5 h-5" />
-                                <span>{tab.label}</span>
-                            </button>
-                        ))}
+                            />
+                            {errors.email && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <AlertCircle className="w-4 h-4 mr-1" />
+                                    {errors.email}
+                                </p>
+                            )}
+                            <p className="mt-2 text-xs text-gray-500">
+                                Nhập tên đăng nhập hoặc email đầy đủ. Hệ thống sẽ tự động xử lý.
+                            </p>
+                        </div>
+
+                        {/* Full Name */}
+                        <div>
+                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                <User className="w-4 h-4 text-indigo-600" />
+                                <span>Họ và tên <span className="text-red-500">*</span></span>
+                            </label>
+                            <input
+                                type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleInputChange}
+                                placeholder="Nhập họ và tên đầy đủ"
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                }`}
+                            />
+                            {errors.fullName && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <AlertCircle className="w-4 h-4 mr-1" />
+                                    {errors.fullName}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Phone Number */}
+                        <div>
+                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                <Phone className="w-4 h-4 text-indigo-600" />
+                                <span>Số điện thoại</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="phoneNumber"
+                                value={formData.phoneNumber}
+                                onChange={handleInputChange}
+                                placeholder="Nhập số điện thoại (10-11 số)"
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                }`}
+                            />
+                            {errors.phoneNumber && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <AlertCircle className="w-4 h-4 mr-1" />
+                                    {errors.phoneNumber}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Department */}
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Building className="w-4 h-4 text-indigo-600" />
+                                    <span>Phòng ban</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="department"
+                                    value={formData.department}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập tên phòng ban"
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                />
+                                {errors.department && (
+                                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.department}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Position */}
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Briefcase className="w-4 h-4 text-indigo-600" />
+                                    <span>Chức vụ</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="position"
+                                    value={formData.position}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập chức vụ"
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.position ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                />
+                                {errors.position && (
+                                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.position}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Tab Content */}
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* Basic Info Tab */}
-                    {activeTab === 'basic' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Thông tin cá nhân */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                                        <User className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-900">Thông tin cá nhân</h3>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Email <span className="text-red-500">*</span>
-                                        </label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                name="email"
-                                                value={formData.email}
-                                                onChange={handleChange}
-                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                                    errors.email ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                                }`}
-                                                placeholder="vd: nguyenvana"
-                                            />
-                                        </div>
-                                        {errors.email && (
-                                            <p className="mt-2 text-sm text-red-600 flex items-center">
-                                                <AlertCircle className="w-4 h-4 mr-1" />
-                                                {errors.email}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Họ và tên <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="fullName"
-                                            value={formData.fullName}
-                                            onChange={handleChange}
-                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                                errors.fullName ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                            }`}
-                                            placeholder="Nguyễn Văn A"
-                                        />
-                                        {errors.fullName && (
-                                            <p className="mt-2 text-sm text-red-600 flex items-center">
-                                                <AlertCircle className="w-4 h-4 mr-1" />
-                                                {errors.fullName}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Số điện thoại
-                                            </label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                                <input
-                                                    type="text"
-                                                    name="phoneNumber"
-                                                    value={formData.phoneNumber}
-                                                    onChange={handleChange}
-                                                    className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                                        errors.phoneNumber ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                                    }`}
-                                                    placeholder="0123456789"
-                                                />
-                                            </div>
-                                            {errors.phoneNumber && (
-                                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                                    <AlertCircle className="w-4 h-4 mr-1" />
-                                                    {errors.phoneNumber}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Ngày sinh
-                                            </label>
-                                            <div className="relative">
-                                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                                <input
-                                                    type="date"
-                                                    name="dateOfBirth"
-                                                    value={formData.dateOfBirth}
-                                                    onChange={handleChange}
-                                                    className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Giới tính
-                                        </label>
-                                        <select
-                                            name="gender"
-                                            value={formData.gender}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                        >
-                                            <option value="">Chọn giới tính</option>
-                                            {genderOptions.map(option => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Phòng ban
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="department"
-                                                value={formData.department}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="Phòng Đảm bảo chất lượng"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Chức vụ
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="position"
-                                                value={formData.position}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="Chuyên viên"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Giới thiệu bản thân
-                                        </label>
-                                        <textarea
-                                            name="bio"
-                                            value={formData.bio}
-                                            onChange={handleChange}
-                                            rows={3}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
-                                            placeholder="Giới thiệu ngắn về bản thân..."
-                                        />
-                                    </div>
-                                </div>
+                {/* Roles */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-purple-100 rounded-lg">
+                                <Shield className="w-5 h-5 text-purple-600" />
                             </div>
-
-                            {/* Địa chỉ */}
-                            <div className="space-y-6">
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                    <div className="flex items-center space-x-3 mb-6">
-                                        <div className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
-                                            <MapPin className="w-6 h-6 text-green-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Địa chỉ</h3>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Địa chỉ
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="address.street"
-                                                value={formData.address.street}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="Số nhà, tên đường"
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                    Thành phố
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    name="address.city"
-                                                    value={formData.address.city}
-                                                    onChange={handleChange}
-                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                    placeholder="Hà Nội"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                    Quốc gia
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    name="address.country"
-                                                    value={formData.address.country}
-                                                    onChange={handleChange}
-                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                    placeholder="Vietnam"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Social Links */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                    <div className="flex items-center space-x-3 mb-6">
-                                        <div className="p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl">
-                                            <Globe className="w-6 h-6 text-blue-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Mạng xã hội</h3>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                LinkedIn
-                                            </label>
-                                            <input
-                                                type="url"
-                                                name="socialLinks.linkedin"
-                                                value={formData.socialLinks.linkedin}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="https://linkedin.com/in/..."
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Facebook
-                                            </label>
-                                            <input
-                                                type="url"
-                                                name="socialLinks.facebook"
-                                                value={formData.socialLinks.facebook}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="https://facebook.com/..."
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Twitter
-                                            </label>
-                                            <input
-                                                type="url"
-                                                name="socialLinks.twitter"
-                                                value={formData.socialLinks.twitter}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="https://twitter.com/..."
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Mật khẩu */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                    <div className="flex items-center space-x-3 mb-6">
-                                        <div className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                                            <Shield className="w-6 h-6 text-purple-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Mật khẩu</h3>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl">
-                                            <label className="flex items-center gap-3 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    checked={!useCustomPassword}
-                                                    onChange={() => setUseCustomPassword(false)}
-                                                    className="w-5 h-5 text-indigo-600"
-                                                />
-                                                <div className="flex items-center space-x-2">
-                                                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                                                    <span className="text-sm font-semibold text-indigo-900">
-                                                        Sử dụng mật khẩu mặc định (TênĐăngNhập@123)
-                                                    </span>
-                                                </div>
-                                            </label>
-                                        </div>
-
-                                        <div className="p-4 border-2 border-gray-200 rounded-xl hover:border-gray-300 transition-all">
-                                            <label className="flex items-start gap-3 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    name="mustChangePassword"
-                                                    checked={formData.mustChangePassword}
-                                                    onChange={handleChange}
-                                                    className="w-5 h-5 mt-1 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <div>
-                                                    <span className="text-sm font-semibold text-gray-900">
-                                                        Bắt buộc đổi mật khẩu ở lần đăng nhập đầu
-                                                    </span>
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Người dùng sẽ phải đổi mật khẩu ngay sau khi đăng nhập lần đầu
-                                                    </p>
-                                                </div>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Vai trò <span className="text-red-500">*</span>
+                                </h2>
+                                <p className="text-sm text-gray-600">Chọn một hoặc nhiều vai trò cho người dùng</p>
                             </div>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Roles Tab */}
-                    {activeTab === 'roles' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Vai trò */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                                        <Shield className="w-6 h-6 text-purple-600" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-900">Vai trò</h3>
-                                        <p className="text-sm text-gray-500">Chọn một hoặc nhiều vai trò</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    {roleOptions.map((role) => (
-                                        <div
-                                            key={role.value}
-                                            onClick={() => toggleRole(role.value)}
-                                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                                formData.roles.includes(role.value)
-                                                    ? `border-transparent bg-gradient-to-r ${role.color} shadow-lg`
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`text-3xl ${formData.roles.includes(role.value) ? 'grayscale-0' : 'grayscale'}`}>
-                                                    {role.icon}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className={`font-bold ${
-                                                        formData.roles.includes(role.value) ? 'text-white' : 'text-gray-900'
-                                                    }`}>
+                    <div className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {roleOptions.map((role) => {
+                                const isSelected = formData.roles.includes(role.value)
+                                return (
+                                    <div
+                                        key={role.value}
+                                        onClick={() => handleRoleToggle(role.value)}
+                                        className={`relative p-5 border-2 rounded-xl cursor-pointer transition-all ${
+                                            isSelected
+                                                ? 'border-indigo-500 bg-indigo-50 shadow-md'
+                                                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                        }`}
+                                    >
+                                        <div className="flex items-start space-x-3">
+                                            <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                                                isSelected
+                                                    ? 'border-indigo-600 bg-indigo-600'
+                                                    : 'border-gray-300'
+                                            }`}>
+                                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-2 mb-1">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${role.color} text-white`}>
                                                         {role.label}
-                                                    </div>
-                                                    <div className={`text-sm ${
-                                                        formData.roles.includes(role.value) ? 'text-white/90' : 'text-gray-500'
-                                                    }`}>
-                                                        {role.value}
-                                                    </div>
-                                                </div>
-                                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                                                    formData.roles.includes(role.value)
-                                                        ? 'bg-white border-white'
-                                                        : 'border-gray-300'
-                                                }`}>
-                                                    {formData.roles.includes(role.value) && (
-                                                        <div className="w-3 h-3 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600" />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {errors.roles && (
-                                    <p className="mt-4 text-sm text-red-600 flex items-center bg-red-50 p-3 rounded-lg">
-                                        <AlertCircle className="w-4 h-4 mr-2" />
-                                        {errors.roles}
-                                    </p>
-                                )}
-
-                                {formData.roles.length > 0 && (
-                                    <div className="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                                        <p className="text-sm font-semibold text-indigo-900 mb-2">
-                                            Đã chọn {formData.roles.length} vai trò:
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {formData.roles.map(r => {
-                                                const roleOption = roleOptions.find(ro => ro.value === r)
-                                                return (
-                                                    <span key={r} className="px-3 py-1 bg-white text-indigo-700 rounded-lg text-sm font-medium border border-indigo-200">
-                                                        {roleOption?.icon} {roleOption?.label}
                                                     </span>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Nhóm người dùng */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
-                                        <Users className="w-6 h-6 text-green-600" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-900">Nhóm người dùng</h3>
-                                </div>
-
-                                {accessOptions.userGroups.length === 0 ? (
-                                    <div className="text-center py-12 bg-gray-50 rounded-xl">
-                                        <p className="text-sm text-gray-500">Chưa có nhóm người dùng nào</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                                        {accessOptions.userGroups.map((group) => (
-                                            <label
-                                                key={group._id}
-                                                className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                                    formData.userGroups?.includes(group._id)
-                                                        ? 'border-indigo-500 bg-gradient-to-r from-indigo-50 to-purple-50 shadow-sm'
-                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.userGroups?.includes(group._id)}
-                                                    onChange={() => handleMultiSelect('userGroups', group._id)}
-                                                    className="w-5 h-5 mt-1 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-semibold text-gray-900">{group.name}</div>
-                                                    <div className="text-xs text-gray-500 mt-1 font-mono">{group.code}</div>
-                                                    {group.description && (
-                                                        <div className="text-xs text-gray-600 mt-2">{group.description}</div>
-                                                    )}
-                                                    <div className="flex items-center gap-2 mt-3 flex-wrap">
-                                                        <span className={`text-xs px-3 py-1 rounded-full font-medium border ${
-                                                            group.type === 'system' ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                                                'bg-green-100 text-green-700 border-green-200'
-                                                        }`}>
-                                                            {group.type === 'system' ? 'Hệ thống' : 'Tùy chỉnh'}
-                                                        </span>
-                                                        {group.permissions && (
-                                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                                                                {group.permissions.length} quyền
-                                                            </span>
-                                                        )}
-                                                    </div>
                                                 </div>
-                                            </label>
-                                        ))}
+                                                <p className="text-sm text-gray-600">{role.description}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                )
+                            })}
                         </div>
-                    )}
-
-                    {/* Access Tab */}
-                    {activeTab === 'access' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <div className="p-3 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl">
-                                    <Award className="w-6 h-6 text-orange-600" />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">Phân quyền truy cập</h3>
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {[
-                                    { key: 'academicYearAccess', label: 'Năm học', options: accessOptions.academicYears, color: 'blue' },
-                                    { key: 'programAccess', label: 'Chương trình', options: accessOptions.programs, color: 'green' },
-                                    { key: 'organizationAccess', label: 'Tổ chức', options: accessOptions.organizations, color: 'purple' },
-                                    { key: 'standardAccess', label: 'Tiêu chuẩn', options: accessOptions.standards, color: 'orange' },
-                                    { key: 'criteriaAccess', label: 'Tiêu chí', options: accessOptions.criteria, color: 'pink' }
-                                ].map((section) => (
-                                    section.options.length > 0 && (
-                                        <div key={section.key} className="bg-gray-50 rounded-xl p-4">
-                                            <label className="block text-sm font-semibold text-gray-900 mb-3">
-                                                {section.label}
-                                                <span className={`ml-2 text-xs text-${section.color}-600 bg-${section.color}-50 px-3 py-1 rounded-lg font-semibold`}>
-                                                    {formData[section.key].length} đã chọn
-                                                </span>
-                                            </label>
-                                            <div className="max-h-48 overflow-y-auto border-2 border-gray-200 rounded-xl p-3 space-y-2 bg-white">
-                                                {section.options.map((item) => (
-                                                    <label
-                                                        key={item._id}
-                                                        className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-lg cursor-pointer transition-all"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={formData[section.key].includes(item._id)}
-                                                            onChange={() => handleMultiSelect(section.key, item._id)}
-                                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                                                        />
-                                                        <span className="text-sm text-gray-700 font-medium">{item.code} - {item.name}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )
-                                ))}
-                            </div>
-
-                            {/* Notification Settings */}
-                            <div className="mt-6 bg-gray-50 rounded-xl p-4">
-                                <h4 className="text-sm font-bold text-gray-900 mb-4">Cài đặt thông báo</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {[
-                                        { name: 'email', label: 'Email' },
-                                        { name: 'inApp', label: 'Trong ứng dụng' },
-                                        { name: 'assignment', label: 'Phân công' },
-                                        { name: 'evaluation', label: 'Đánh giá' },
-                                        { name: 'deadline', label: 'Deadline' }
-                                    ].map((item) => (
-                                        <label key={item.name} className="flex items-center gap-3 p-3 hover:bg-white rounded-xl cursor-pointer transition-all border border-transparent hover:border-gray-200">
-                                            <input
-                                                type="checkbox"
-                                                name={`notificationSettings.${item.name}`}
-                                                checked={formData.notificationSettings[item.name]}
-                                                onChange={handleChange}
-                                                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-                                            />
-                                            <span className="text-sm text-gray-700 font-medium">{item.label}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Additional Info Tab */}
-                    {activeTab === 'additional' && (
-                        <div className="space-y-6">
-                            {/* Lĩnh vực chuyên môn */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center space-x-3 mb-6">
-                                    <div className="p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl">
-                                        <Briefcase className="w-6 h-6 text-blue-600" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-900">Lĩnh vực chuyên môn</h3>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={expertiseInput}
-                                            onChange={(e) => setExpertiseInput(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addExpertise())}
-                                            placeholder="Nhập lĩnh vực chuyên môn"
-                                            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={addExpertise}
-                                            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg flex items-center gap-2 transition-all font-medium"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                            Thêm
-                                        </button>
-                                    </div>
-
-                                    {formData.expertise.length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {formData.expertise.map((item, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border-2 border-indigo-200"
-                                                >
-                                                    <span className="text-sm font-medium">{item}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeExpertise(index)}
-                                                        className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 rounded-full p-1 transition-all"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Education */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
-                                            <GraduationCap className="w-6 h-6 text-green-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Học vấn</h3>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={addEducation}
-                                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg flex items-center gap-2 transition-all font-medium text-sm"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Thêm
-                                    </button>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {formData.education.map((edu, index) => (
-                                        <div key={index} className="p-4 border-2 border-gray-200 rounded-xl space-y-3">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="font-semibold text-gray-900">Học vấn #{index + 1}</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeEducation(index)}
-                                                    className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
-                                                >
-                                                    <Trash className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Trường/Tổ chức"
-                                                    value={edu.institution}
-                                                    onChange={(e) => updateEducation(index, 'institution', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Bằng cấp"
-                                                    value={edu.degree}
-                                                    onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Chuyên ngành"
-                                                    value={edu.fieldOfStudy}
-                                                    onChange={(e) => updateEducation(index, 'fieldOfStudy', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="date"
-                                                    placeholder="Ngày bắt đầu"
-                                                    value={edu.startDate}
-                                                    onChange={(e) => updateEducation(index, 'startDate', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Work Experience - Similar structure */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-3 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl">
-                                            <Briefcase className="w-6 h-6 text-orange-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Kinh nghiệm làm việc</h3>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={addWorkExperience}
-                                        className="px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:shadow-lg flex items-center gap-2 transition-all font-medium text-sm"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Thêm
-                                    </button>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {formData.workExperience.map((exp, index) => (
-                                        <div key={index} className="p-4 border-2 border-gray-200 rounded-xl space-y-3">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="font-semibold text-gray-900">Kinh nghiệm #{index + 1}</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeWorkExperience(index)}
-                                                    className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
-                                                >
-                                                    <Trash className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Công ty"
-                                                    value={exp.company}
-                                                    onChange={(e) => updateWorkExperience(index, 'company', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Vị trí"
-                                                    value={exp.position}
-                                                    onChange={(e) => updateWorkExperience(index, 'position', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="date"
-                                                    placeholder="Ngày bắt đầu"
-                                                    value={exp.startDate}
-                                                    onChange={(e) => updateWorkExperience(index, 'startDate', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="date"
-                                                    placeholder="Ngày kết thúc"
-                                                    value={exp.endDate}
-                                                    onChange={(e) => updateWorkExperience(index, 'endDate', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                    disabled={exp.current}
-                                                />
-                                            </div>
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={exp.current}
-                                                    onChange={(e) => updateWorkExperience(index, 'current', e.target.checked)}
-                                                    className="w-4 h-4 text-indigo-600 rounded"
-                                                />
-                                                <span className="text-sm text-gray-700">Đang làm việc</span>
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Certifications */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                                            <Award className="w-6 h-6 text-purple-600" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-gray-900">Chứng chỉ</h3>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={addCertification}
-                                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg flex items-center gap-2 transition-all font-medium text-sm"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Thêm
-                                    </button>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {formData.certifications.map((cert, index) => (
-                                        <div key={index} className="p-4 border-2 border-gray-200 rounded-xl space-y-3">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="font-semibold text-gray-900">Chứng chỉ #{index + 1}</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeCertification(index)}
-                                                    className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
-                                                >
-                                                    <Trash className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Tên chứng chỉ"
-                                                    value={cert.name}
-                                                    onChange={(e) => updateCertification(index, 'name', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Tổ chức cấp"
-                                                    value={cert.issuer}
-                                                    onChange={(e) => updateCertification(index, 'issuer', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="date"
-                                                    placeholder="Ngày cấp"
-                                                    value={cert.issueDate}
-                                                    onChange={(e) => updateCertification(index, 'issueDate', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Mã chứng chỉ"
-                                                    value={cert.credentialId}
-                                                    onChange={(e) => updateCertification(index, 'credentialId', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                        {errors.roles && (
+                            <p className="mt-4 text-sm text-red-600 flex items-center">
+                                <AlertCircle className="w-4 h-4 mr-1" />
+                                {errors.roles}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex justify-end space-x-4 sticky bottom-0 bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                {/* Submit Buttons */}
+                <div className="flex items-center justify-end gap-4 pt-4">
                     <button
                         type="button"
-                        onClick={() => router.back()}
-                        className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
+                        onClick={handleBackToList}
                         disabled={loading}
+                        className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium disabled:opacity-50"
                     >
-                        <div className="flex items-center space-x-2">
-                            <X className="w-5 h-5" />
-                            <span>Hủy</span>
-                        </div>
+                        Hủy
                     </button>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang tạo...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="w-5 h-5" />
-                                <span>Tạo người dùng</span>
-                            </>
-                        )}
+                        <Save className="w-5 h-5" />
+                        <span>{loading ? 'Đang tạo...' : 'Tạo người dùng'}</span>
                     </button>
                 </div>
             </form>
