@@ -1,4 +1,3 @@
-// frontend/components/users/CreateUserForm.js
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
@@ -86,14 +85,17 @@ export default function CreateUserForm() {
     const validateForm = () => {
         const newErrors = {}
 
-        // Email validation - Phải là email đầy đủ
+        // Email validation - Chấp nhận cả email đầy đủ và username
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc'
         } else {
-            // Regex đầy đủ cho email chuẩn
-            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-            if (!emailRegex.test(formData.email.trim())) {
-                newErrors.email = 'Email không hợp lệ. Vui lòng nhập địa chỉ email đầy đủ (ví dụ: user@domain.com)'
+            const emailInput = formData.email.trim()
+            // Regex cho email đầy đủ hoặc username đơn giản
+            const fullEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+            const usernameRegex = /^[a-zA-Z0-9]+$/
+
+            if (!fullEmailRegex.test(emailInput) && !usernameRegex.test(emailInput)) {
+                newErrors.email = 'Email không hợp lệ. Nhập email đầy đủ (user@domain.com) hoặc username (vd: nguyenvana)'
             }
         }
 
@@ -149,7 +151,7 @@ export default function CreateUserForm() {
             // Log data trước khi gửi để debug
             console.log('Sending data:', formData)
 
-            // SỬA: Bỏ /api prefix vì baseURL đã có rồi
+            // Gọi API với đúng endpoint
             const response = await api.post('/users', formData)
 
             console.log('Response:', response.data)
@@ -340,14 +342,14 @@ export default function CreateUserForm() {
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Mail className="w-4 h-4 text-indigo-600" />
-                                <span>Email <span className="text-red-500">*</span></span>
+                                <span>Email / Username <span className="text-red-500">*</span></span>
                             </label>
                             <input
-                                type="email"
+                                type="text"
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
-                                placeholder="nguyenvana@example.com"
+                                placeholder="nguyenvana hoặc nguyenvana@example.com"
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
@@ -359,7 +361,7 @@ export default function CreateUserForm() {
                                 </p>
                             )}
                             <p className="mt-2 text-xs text-gray-500">
-                                📧 Nhập địa chỉ email đầy đủ (ví dụ: user@domain.com, admin@company.vn)
+                                📧 Nhập username (ví dụ: nguyenvana) hoặc email đầy đủ (ví dụ: user@domain.com)
                             </p>
                         </div>
 
