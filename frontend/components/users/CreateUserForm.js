@@ -1,3 +1,4 @@
+// frontend/components/users/CreateUserForm.js
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
@@ -145,7 +146,13 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
+            // Log data trước khi gửi để debug
+            console.log('Sending data:', formData)
+
+            // SỬA: Bỏ /api prefix vì baseURL đã có rồi
             const response = await api.post('/users', formData)
+
+            console.log('Response:', response.data)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
@@ -159,10 +166,28 @@ export default function CreateUserForm() {
             }
         } catch (error) {
             console.error('Create user error:', error)
+            console.error('Error response:', error.response?.data)
+
+            // Hiển thị lỗi chi tiết hơn
+            const errorMessage = error.response?.data?.message || 'Lỗi khi tạo người dùng'
+            const validationErrors = error.response?.data?.errors
+
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Lỗi khi tạo người dùng'
+                text: errorMessage
             })
+
+            // Nếu có validation errors từ backend, hiển thị lên form
+            if (validationErrors && Array.isArray(validationErrors)) {
+                const backendErrors = {}
+                validationErrors.forEach(err => {
+                    if (err.path) {
+                        backendErrors[err.path] = err.msg
+                    }
+                })
+                setErrors(backendErrors)
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' })
         } finally {
             setLoading(false)
