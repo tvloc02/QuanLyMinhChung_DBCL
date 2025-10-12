@@ -246,10 +246,10 @@ export default function EvidenceManagement() {
         }
     }
 
-    const toggleExpandRow = (id) => {
+    const toggleExpandRow = (id, field) => {
         setExpandedRows(prev => ({
             ...prev,
-            [id]: !prev[id]
+            [`${id}-${field}`]: !prev[`${id}-${field}`]
         }))
     }
 
