@@ -95,7 +95,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Cây minh chứng', icon: FolderTree, path: '/evidence/evidence-tree' },
                 { name: 'Danh sách minh chứng', icon: Book, path: '/evidence/evidence-management' },
                 { name: 'Thêm minh chứng mới', icon: Plus, path: '/evidence/create' },
-                { name: 'Import minh chứng', icon: Upload, path: '/evidence/import-evidence' }
             ]
         },
         {
