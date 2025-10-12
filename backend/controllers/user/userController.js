@@ -153,10 +153,11 @@ const createUser = async (req, res) => {
             });
         }
 
-        const cleanEmail = email.replace('@cmcu.edu.vn', '').replace('@cmc.edu.vn', '').toLowerCase();
+        // SỬA: Lưu email đầy đủ, không còn replace @cmc.edu.vn nữa
+        const cleanEmail = email.toLowerCase().trim();
 
         const existingUser = await User.findOne({
-            email: new RegExp(`^${cleanEmail}`, 'i')
+            email: cleanEmail
         });
 
         if (existingUser) {
@@ -166,6 +167,7 @@ const createUser = async (req, res) => {
             });
         }
 
+        // SỬA: Tạo password từ email đầy đủ
         const defaultPassword = User.generateDefaultPassword(cleanEmail);
 
         const user = new User({
