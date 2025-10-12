@@ -264,10 +264,10 @@ export default function ReportsManagement() {
         }
     }
 
-    const toggleExpandRow = (id, field) => {
+    const toggleExpandRow = (id) => {
         setExpandedRows(prev => ({
             ...prev,
-            [`${id}-${field}`]: !prev[`${id}-${field}`]
+            [id]: !prev[id]
         }))
     }
 
@@ -381,7 +381,7 @@ export default function ReportsManagement() {
                     </div>
                 </div>
 
-                {/* Search & Filters - giữ nguyên code cũ */}
+                {/* Search & Filters */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
@@ -522,7 +522,7 @@ export default function ReportsManagement() {
                                 <table className="w-full border-collapse">
                                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <tr>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-16">
+                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.length === reports.length}
@@ -533,13 +533,13 @@ export default function ReportsManagement() {
                                         <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
                                             STT
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-40">
+                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
                                             Mã BC
                                         </th>
                                         <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300">
                                             Tiêu đề báo cáo
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-40">
+                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-36">
                                             Loại
                                         </th>
                                         <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
@@ -599,47 +599,49 @@ export default function ReportsManagement() {
                                             </td>
                                             <td className="px-3 py-3 border-r border-gray-200">
                                                 {report.standardId && (
-                                                    <div className="flex items-center justify-center">
+                                                    <div>
                                                         <button
-                                                            onClick={() => toggleExpandRow(report._id, 'standard')}
-                                                            className="flex items-center space-x-1 text-xs hover:text-blue-600 transition-colors"
-                                                            title={`${report.standardId?.code} - ${report.standardId?.name}`}
+                                                            onClick={() => toggleExpandRow(report._id)}
+                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                         >
-                                                            {expandedRows[`${report._id}-standard`] ? (
-                                                                <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                                            {expandedRows[report._id] ? (
+                                                                <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                             ) : (
-                                                                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                                                <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                             )}
-                                                            <span className="font-semibold">{report.standardId?.code}</span>
-                                                        </button>
-                                                        {expandedRows[`${report._id}-standard`] && (
-                                                            <div className="absolute mt-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-w-xs">
-                                                                <p className="text-xs text-gray-700">{report.standardId?.name}</p>
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-blue-700">{report.standardId?.code}</span>
+                                                                {expandedRows[report._id] && report.standardId?.name && (
+                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                        {report.standardId?.name}
+                                                                    </p>
+                                                                )}
                                                             </div>
-                                                        )}
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
                                             <td className="px-3 py-3 border-r border-gray-200">
                                                 {report.criteriaId && (
-                                                    <div className="flex items-center justify-center">
+                                                    <div>
                                                         <button
-                                                            onClick={() => toggleExpandRow(report._id, 'criteria')}
-                                                            className="flex items-center space-x-1 text-xs hover:text-blue-600 transition-colors"
-                                                            title={`${report.criteriaId?.code} - ${report.criteriaId?.name}`}
+                                                            onClick={() => toggleExpandRow(report._id)}
+                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                         >
-                                                            {expandedRows[`${report._id}-criteria`] ? (
-                                                                <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                                            {expandedRows[report._id] ? (
+                                                                <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                             ) : (
-                                                                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                                                <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                             )}
-                                                            <span className="font-semibold">{report.criteriaId?.code}</span>
-                                                        </button>
-                                                        {expandedRows[`${report._id}-criteria`] && (
-                                                            <div className="absolute mt-2 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-w-xs">
-                                                                <p className="text-xs text-gray-700">{report.criteriaId?.name}</p>
+                                                            <div className="flex-1">
+                                                                <span className="font-semibold text-blue-700">{report.criteriaId?.code}</span>
+                                                                {expandedRows[report._id] && report.criteriaId?.name && (
+                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                        {report.criteriaId?.name}
+                                                                    </p>
+                                                                )}
                                                             </div>
-                                                        )}
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
