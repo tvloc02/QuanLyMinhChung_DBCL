@@ -125,11 +125,21 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     const fetchUnreadCount = async () => {
         try {
             const response = await apiMethods.notifications.getUnreadCount()
-            if (response.data.success) {
+
+            // Kiểm tra response trước khi truy cập data
+            if (response && response.data && response.data.success) {
                 setUnreadCount(response.data.data.unreadCount)
+            } else {
+                // Xử lý trường hợp API trả về thành công (status 200) nhưng data.success là false
+                // hoặc response không có cấu trúc mong đợi.
+                console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
+                setUnreadCount(0); // Đặt về 0 để tránh hiển thị số lỗi.
             }
         } catch (error) {
-            console.error('Error fetching unread count:', error)
+            // BẮT LỖI AXIOS 500 TẠI ĐÂY
+            console.error('Error fetching unread count (Server 500 likely):', error)
+            setUnreadCount(0) // Đặt về 0 khi có lỗi để tránh crash ứng dụng
+            // Có thể thêm toast thông báo lỗi nếu cần, nhưng log console là đủ cho header.
         }
     }
 
@@ -632,15 +642,15 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                             }`}>
                                                                 {notification.title}
                                                             </p>
+                                                            <p className="text-xs mb-2 line-clamp-2 text-gray-600">
+                                                                {notification.message}
+                                                            </p>
                                                             {notification.isUnread && (
                                                                 <div className="flex-shrink-0 ml-2">
                                                                     <div className="h-2 w-2 rounded-full bg-indigo-600"></div>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <p className="text-xs mb-2 line-clamp-2 text-gray-600">
-                                                            {notification.message}
-                                                        </p>
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center text-xs text-gray-500">
                                                                 <Clock className="h-3 w-3 mr-1" />
