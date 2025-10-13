@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, UserPlus, Users, Search, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import assessmentService from '../../services/assessmentService'
 
 export default function AssignReviewerModal({ report, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false)
@@ -16,13 +17,15 @@ export default function AssignReviewerModal({ report, onClose, onSuccess }) {
 
     const fetchUsers = async () => {
         try {
-            await new Promise(resolve => setTimeout(resolve, 300))
-            const mockExperts = []
-            const mockAdvisors = []
-
-            setExperts(mockExperts)
-            setAdvisors(mockAdvisors)
+            if (selectedType === 'expert') {
+                const response = await assessmentService.getAvailableExperts()
+                setExperts(response.data.data || [])
+            } else {
+                const response = await assessmentService.getAvailableAdvisors()
+                setAdvisors(response.data.data || [])
+            }
         } catch (error) {
+            console.error('Error fetching users:', error)
             toast.error('Lỗi tải danh sách người dùng')
         }
     }
@@ -36,21 +39,17 @@ export default function AssignReviewerModal({ report, onClose, onSuccess }) {
         try {
             setLoading(true)
 
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await assessmentService.addReviewer(
+                report._id,
+                selectedUserId,
+                selectedType
+            )
 
-            // const response = await fetch(`/api/reports/${report._id}/reviewers`, {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({
-            //         reviewerId: selectedUserId,
-            //         reviewerType: selectedType
-            //     })
-            // })
-
+            toast.success('Phân quyền đánh giá thành công')
             onSuccess()
         } catch (error) {
-            toast.error('Lỗi phân quyền đánh giá')
+            console.error('Error assigning reviewer:', error)
+            toast.error(error.response?.data?.message || 'Lỗi phân quyền đánh giá')
         } finally {
             setLoading(false)
         }
@@ -60,22 +59,17 @@ export default function AssignReviewerModal({ report, onClose, onSuccess }) {
         if (!confirm('Bạn có chắc muốn xóa quyền đánh giá này?')) return
 
         try {
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 500))
-
-            // const response = await fetch(`/api/reports/${report._id}/reviewers`, {
-            //     method: 'DELETE',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({
-            //         reviewerId,
-            //         reviewerType
-            //     })
-            // })
+            await assessmentService.removeReviewer(
+                report._id,
+                reviewerId,
+                reviewerType
+            )
 
             toast.success('Xóa quyền đánh giá thành công')
             onSuccess()
         } catch (error) {
-            toast.error('Lỗi xóa quyền đánh giá')
+            console.error('Error removing reviewer:', error)
+            toast.error(error.response?.data?.message || 'Lỗi xóa quyền đánh giá')
         }
     }
 
@@ -303,5 +297,3 @@ export default function AssignReviewerModal({ report, onClose, onSuccess }) {
         </div>
     )
 }
-
-
