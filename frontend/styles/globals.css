@@ -4,7 +4,7 @@
 
 :root {
     /* BankDash Color Scheme */
-    --primary: #5B52E1;
+    --primary: #392dec;
     --primary-dark: #4A42C8;
     --primary-light: #7B74E8;
     --secondary: #3B82F6;
@@ -29,7 +29,7 @@
 }
 
 [data-theme='dark'] {
-    --primary: #7B74E8;
+    --primary: #5042f1;
     --bg-primary: #0F172A;
     --bg-secondary: #1E293B;
     --bg-card: #1E293B;

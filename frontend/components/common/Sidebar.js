@@ -205,7 +205,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     className="fixed inset-0 z-30 lg:hidden transition-all duration-300"
                     onClick={onClose}
                     style={{
-                        background: 'linear-gradient(135deg, rgb(0 5 255) 0%, rgba(139, 92, 246, 0.3) 100%)',
+                        // Đã đổi từ tím/indigo sang xanh lam
+                        background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
                         backdropFilter: 'blur(8px)',
                         top: '80px'
                     }}
@@ -230,7 +231,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 {!collapsed && (
                     <div className="p-4 border-b-2 bg-white flex-shrink-0" style={{ borderColor: '#E5E7EB' }}>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-indigo-400" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-400" />
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm menu..."
@@ -239,8 +240,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                                 className="w-full pl-10 pr-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none transition-all text-gray-700 font-medium bg-gray-50"
                                 style={{ borderColor: '#E5E7EB' }}
                                 onFocus={(e) => {
-                                    e.target.style.borderColor = '#4769ec'
-                                    e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)'
+                                    // Đã đổi từ tím/indigo sang xanh lam
+                                    e.target.style.borderColor = '#1D4ED8' // Blue 800
+                                    e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.15)' // Blue 500 opacity
                                     e.target.style.background = '#FFFFFF'
                                 }}
                                 onBlur={(e) => {
@@ -255,8 +257,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
                 {collapsed && (
                     <div className="p-4 border-b-2 bg-white flex-shrink-0 flex justify-center" style={{ borderColor: '#E5E7EB' }}>
-                        <div className="p-2 rounded-xl bg-indigo-50">
-                            <Search className="h-5 w-5 text-indigo-600" />
+                        {/* Đã đổi từ indigo-50 sang blue-50, indigo-600 sang blue-600 */}
+                        <div className="p-2 rounded-xl bg-blue-50">
+                            <Search className="h-5 w-5 text-blue-600" />
                         </div>
                     </div>
                 )}
@@ -265,7 +268,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                      style={{
                          maxHeight: 'calc(100vh - 240px)',
                          scrollbarWidth: 'thin',
-                         scrollbarColor: '#C7D2FE #F1F5F9'
+                         scrollbarColor: '#d5d8db #F1F5F9'
                      }}>
                     {filteredItems.map((item, index) => {
                         return (
@@ -281,26 +284,28 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                                     className={`w-full flex items-center px-4 py-3.5 text-sm font-bold rounded-xl transition-all duration-200 group ${
                                         item.active
                                             ? 'text-white shadow-xl'
-                                            : 'hover:bg-indigo-50'
+                                            : 'hover:bg-blue-50' // Đã đổi từ indigo-50 sang blue-50
                                     }`}
                                     style={item.active ? {
-                                        background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
-                                        boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)'
+                                        // Đã đổi từ Indigo 500/Purple 500 sang Blue 500/Blue 600
+                                        background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                                        // Đã đổi từ rgba(99, 102, 241, 0.4) sang Blue 500 opacity
+                                        boxShadow: '0 4px 16px rgba(59, 130, 246, 0.4)'
                                     } : {
                                         color: '#4B5563'
                                     }}
                                     title={collapsed ? item.name : ''}
                                 >
                                     <item.icon className={`h-5 w-5 ${collapsed ? '' : 'mr-3'} flex-shrink-0 ${
-                                        item.active ? 'text-white' : 'text-indigo-600'
+                                        item.active ? 'text-white' : 'text-blue-600' // Đã đổi từ indigo-600 sang blue-600
                                     }`} />
                                     {!collapsed && (
                                         <>
                                             <span className="flex-1 text-left truncate">{item.name}</span>
                                             {item.hasSubmenu && (
                                                 <ChevronDown className={`h-4 w-4 ml-2 transform transition-transform ${
-                                                    expandedMenus[index] ? 'rotate-180' : ''
-                                                }`} />
+                                                    item.active ? 'text-white' : 'text-gray-500' // Giữ màu cho icon Chevron
+                                                } ${expandedMenus[index] ? 'rotate-180' : ''}`} />
                                             )}
                                         </>
                                     )}
@@ -308,20 +313,21 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
                                 {item.hasSubmenu && !collapsed && expandedMenus[index] && (
                                     <div className="ml-4 mt-2 space-y-1 border-l-2 pl-4"
-                                         style={{ borderColor: '#C7D2FE' }}>
+                                        // Đã đổi từ C7D2FE (Indigo 200) sang 93C5FD (Blue 300)
+                                         style={{ borderColor: '#93C5FD' }}>
                                         {item.submenu.map((subItem, subIndex) => (
                                             <button
                                                 key={subIndex}
                                                 onClick={() => handleNavigation(subItem.path)}
                                                 className={`w-full flex items-center px-3 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
                                                     router.pathname === subItem.path
-                                                        ? 'text-indigo-700 bg-indigo-100'
-                                                        : 'text-gray-600 hover:bg-indigo-50'
+                                                        ? 'text-blue-700 bg-blue-100' // Đã đổi từ indigo-700/indigo-100 sang blue-700/blue-100
+                                                        : 'text-gray-600 hover:bg-blue-50' // Đã đổi từ indigo-50 sang blue-50
                                                 }`}
                                                 title={subItem.name}
                                             >
                                                 <subItem.icon className={`h-4 w-4 mr-3 flex-shrink-0 ${
-                                                    router.pathname === subItem.path ? 'text-indigo-600' : 'text-gray-500'
+                                                    router.pathname === subItem.path ? 'text-blue-600' : 'text-gray-500' // Đã đổi từ indigo-600 sang blue-600
                                                 }`} />
                                                 <span className="truncate">{subItem.name}</span>
                                             </button>
@@ -337,9 +343,10 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     <button
                         onClick={onToggleCollapse}
                         className={`w-full flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${
-                            collapsed ? 'bg-indigo-50' : 'bg-gradient-to-r from-indigo-50 to-purple-50'
+                            collapsed ? 'bg-blue-50' : 'bg-gradient-to-r from-blue-50 to-sky-50' // Đã đổi từ indigo-50/purple-50 sang blue-50/sky-50
                         } hover:shadow-md`}
-                        style={{ color: '#496ced' }}
+                        // Đã đổi từ #496ced sang Blue 600
+                        style={{ color: '#2563EB' }}
                         title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
                     >
                         {collapsed ? (
