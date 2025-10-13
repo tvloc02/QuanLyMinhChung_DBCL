@@ -379,7 +379,7 @@ const AcademicYearsPage = () => {
                                             </td>
 
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex items-center justify-center gap-4">
                                                     <ActionButton
                                                         icon={Eye}
                                                         variant="view"
