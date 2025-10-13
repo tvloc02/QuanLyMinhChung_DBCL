@@ -422,23 +422,6 @@ export default function EvidenceManagement() {
                                     ))}
                                 </select>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Trạng thái
-                                </label>
-                                <select
-                                    value={filters.status}
-                                    onChange={(e) => handleFilterChange('status', e.target.value)}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                    <option value="">Tất cả trạng thái</option>
-                                    <option value="active">Hoạt động</option>
-                                    <option value="inactive">Không hoạt động</option>
-                                    <option value="pending">Chờ xử lý</option>
-                                    <option value="archived">Lưu trữ</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                 )}
