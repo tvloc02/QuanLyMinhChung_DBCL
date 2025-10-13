@@ -508,7 +508,7 @@ export default function CriteriaList() {
                         }}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                     >
-                        <option value="">📚 Tất cả chương trình</option>
+                        <option value="">Tất cả chương trình</option>
                         {programs.map(p => (
                             <option key={p._id} value={p._id}>{p.name}</option>
                         ))}
@@ -520,7 +520,7 @@ export default function CriteriaList() {
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         disabled={!programId}
                     >
-                        <option value="">🎯 Tất cả tiêu chuẩn</option>
+                        <option value="">Tất cả tiêu chuẩn</option>
                         {standards.map(s => (
                             <option key={s._id} value={s._id}>
                                 {s.code} - {s.name}
@@ -534,10 +534,10 @@ export default function CriteriaList() {
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                     >
                         <option value="">⚡ Tất cả trạng thái</option>
-                        <option value="draft">📝 Nháp</option>
-                        <option value="active">✅ Hoạt động</option>
-                        <option value="inactive">⏸️ Không hoạt động</option>
-                        <option value="archived">📦 Lưu trữ</option>
+                        <option value="draft">Nháp</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                        <option value="archived">Lưu trữ</option>
                     </select>
 
                     <button
