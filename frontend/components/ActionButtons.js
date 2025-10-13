@@ -33,73 +33,73 @@ const ActionButton = ({
                       }) => {
     const variants = {
         view: {
-            bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100',
-            icon: 'text-emerald-600',
-            shadow: 'shadow-emerald-200',
-            hover: 'hover:from-emerald-100 hover:to-emerald-200',
-            ring: 'focus:ring-emerald-300'
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         },
         add: {
-            bg: 'bg-gradient-to-br from-blue-50 to-blue-100',
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
             icon: 'text-blue-600',
-            shadow: 'shadow-blue-200',
-            hover: 'hover:from-blue-100 hover:to-blue-200',
-            ring: 'focus:ring-blue-300'
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         },
         edit: {
-            bg: 'bg-gradient-to-br from-amber-50 to-amber-100',
-            icon: 'text-amber-600',
-            shadow: 'shadow-amber-200',
-            hover: 'hover:from-amber-100 hover:to-amber-200',
-            ring: 'focus:ring-amber-300'
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         },
         delete: {
-            bg: 'bg-gradient-to-br from-red-50 to-red-100',
-            icon: 'text-red-600',
-            shadow: 'shadow-red-200',
-            hover: 'hover:from-red-100 hover:to-red-200',
-            ring: 'focus:ring-red-300'
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         },
         primary: {
-            bg: 'bg-gradient-to-br from-indigo-50 to-indigo-100',
-            icon: 'text-indigo-600',
-            shadow: 'shadow-indigo-200',
-            hover: 'hover:from-indigo-100 hover:to-indigo-200',
-            ring: 'focus:ring-indigo-300'
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         },
         secondary: {
             bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-slate-600',
+            icon: 'text-blue-600',
             shadow: 'shadow-slate-200',
             hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-slate-300'
         },
         success: {
-            bg: 'bg-gradient-to-br from-green-50 to-green-100',
-            icon: 'text-green-600',
-            shadow: 'shadow-green-200',
-            hover: 'hover:from-green-100 hover:to-green-200',
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-green-300'
         },
         warning: {
-            bg: 'bg-gradient-to-br from-orange-50 to-orange-100',
-            icon: 'text-orange-600',
-            shadow: 'shadow-orange-200',
-            hover: 'hover:from-orange-100 hover:to-orange-200',
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-orange-300'
         },
         purple: {
-            bg: 'bg-gradient-to-br from-purple-50 to-purple-100',
-            icon: 'text-purple-600',
-            shadow: 'shadow-purple-200',
-            hover: 'hover:from-purple-100 hover:to-purple-200',
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-purple-300'
         },
         pink: {
-            bg: 'bg-gradient-to-br from-pink-50 to-pink-100',
-            icon: 'text-pink-600',
-            shadow: 'shadow-pink-200',
-            hover: 'hover:from-pink-100 hover:to-pink-200',
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-pink-300'
         }
     };
