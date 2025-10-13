@@ -9,7 +9,15 @@ import {
     AlertCircle,
     CheckCircle,
     Info,
-    Sparkles
+    Sparkles,
+    Copy,
+    FileText,
+    BookOpen,
+    Building2,
+    Target,
+    CheckSquare,
+    Folder,
+    Loader2
 } from 'lucide-react'
 
 const CreateAcademicYearPage = () => {
@@ -18,6 +26,9 @@ const CreateAcademicYearPage = () => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(false)
+    const [creationMode, setCreationMode] = useState('new')
+    const [availableYears, setAvailableYears] = useState([])
+    const [loadingYears, setLoadingYears] = useState(false)
 
     const breadcrumbItems = [
         { name: 'Quản lý năm học', href: '/academic-years', icon: Calendar },
@@ -30,6 +41,12 @@ const CreateAcademicYearPage = () => {
         }
     }, [user, isLoading, router])
 
+    useEffect(() => {
+        if (creationMode === 'copy') {
+            fetchAvailableYears()
+        }
+    }, [creationMode])
+
     const [formData, setFormData] = useState({
         name: '',
         startYear: new Date().getFullYear(),
@@ -37,7 +54,9 @@ const CreateAcademicYearPage = () => {
         startDate: '',
         endDate: '',
         description: '',
+        status: 'active',
         isCurrent: false,
+        sourceYearId: '',
         copySettings: {
             programs: true,
             organizations: true,
@@ -48,6 +67,76 @@ const CreateAcademicYearPage = () => {
     })
 
     const [errors, setErrors] = useState({})
+
+    const copyOptions = [
+        {
+            key: 'programs',
+            label: 'Chương trình đánh giá',
+            description: 'Sao chép các chương trình đánh giá và cấu hình',
+            icon: BookOpen,
+            color: 'text-blue-600',
+            bgColor: 'bg-blue-50',
+            borderColor: 'border-blue-200'
+        },
+        {
+            key: 'organizations',
+            label: 'Tổ chức đánh giá',
+            description: 'Sao chép danh sách tổ chức và thông tin liên hệ',
+            icon: Building2,
+            color: 'text-green-600',
+            bgColor: 'bg-green-50',
+            borderColor: 'border-green-200'
+        },
+        {
+            key: 'standards',
+            label: 'Tiêu chuẩn',
+            description: 'Sao chép các tiêu chuẩn đánh giá và hướng dẫn',
+            icon: Target,
+            color: 'text-orange-600',
+            bgColor: 'bg-orange-50',
+            borderColor: 'border-orange-200'
+        },
+        {
+            key: 'criteria',
+            label: 'Tiêu chí',
+            description: 'Sao chép các tiêu chí đánh giá chi tiết',
+            icon: CheckSquare,
+            color: 'text-purple-600',
+            bgColor: 'bg-purple-50',
+            borderColor: 'border-purple-200'
+        },
+        {
+            key: 'evidenceTemplates',
+            label: 'Mẫu minh chứng',
+            description: 'Sao chép cấu trúc minh chứng (không bao gồm files)',
+            icon: Folder,
+            color: 'text-red-600',
+            bgColor: 'bg-red-50',
+            borderColor: 'border-red-200'
+        }
+    ]
+
+    const fetchAvailableYears = async () => {
+        try {
+            setLoadingYears(true)
+            const response = await fetch('/api/academic-years/all', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if (response.ok) {
+                const result = await response.json()
+                if (result.success) {
+                    setAvailableYears(result.data)
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching years:', err)
+        } finally {
+            setLoadingYears(false)
+        }
+    }
 
     const validateForm = () => {
         const newErrors = {}
@@ -72,6 +161,10 @@ const CreateAcademicYearPage = () => {
             newErrors.endDate = 'Ngày kết thúc là bắt buộc'
         } else if (formData.startDate && new Date(formData.endDate) <= new Date(formData.startDate)) {
             newErrors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
+        }
+
+        if (creationMode === 'copy' && !formData.sourceYearId) {
+            newErrors.sourceYearId = 'Vui lòng chọn năm học nguồn'
         }
 
         setErrors(newErrors)
@@ -118,6 +211,16 @@ const CreateAcademicYearPage = () => {
         }
     }
 
+    const handleCopySettingChange = (key) => {
+        setFormData(prev => ({
+            ...prev,
+            copySettings: {
+                ...prev.copySettings,
+                [key]: !prev.copySettings[key]
+            }
+        }))
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
 
@@ -141,6 +244,30 @@ const CreateAcademicYearPage = () => {
             const result = await response.json()
 
             if (response.ok && result.success) {
+                const newYearId = result.data._id
+
+                if (creationMode === 'copy' && formData.sourceYearId) {
+                    const copyResponse = await fetch(`/api/academic-years/${newYearId}/copy-data`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify({
+                            sourceYearId: formData.sourceYearId,
+                            copySettings: formData.copySettings
+                        })
+                    })
+
+                    const copyResult = await copyResponse.json()
+
+                    if (!copyResponse.ok || !copyResult.success) {
+                        setError('Tạo năm học thành công nhưng có lỗi khi sao chép dữ liệu: ' + (copyResult.message || 'Lỗi không xác định'))
+                        setLoading(false)
+                        return
+                    }
+                }
+
                 setSuccess(true)
                 setTimeout(() => {
                     router.push('/academic-years/academic-years')
@@ -170,7 +297,6 @@ const CreateAcademicYearPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header với gradient và icon */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -193,7 +319,6 @@ const CreateAcademicYearPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Success Message */}
                     {success && (
                         <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
                             <div className="flex items-center">
@@ -210,7 +335,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     )}
 
-                    {/* Error Message */}
                     {error && (
                         <div className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
                             <div className="flex items-center">
@@ -227,7 +351,106 @@ const CreateAcademicYearPage = () => {
                         </div>
                     )}
 
-                    {/* Thông tin cơ bản */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Chọn phương thức tạo</h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setCreationMode('new')}
+                                className={`p-6 border-2 rounded-xl transition-all text-left ${
+                                    creationMode === 'new'
+                                        ? 'border-indigo-500 bg-indigo-50 shadow-md'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-start space-x-4">
+                                    <div className={`p-3 rounded-xl ${
+                                        creationMode === 'new' ? 'bg-indigo-100' : 'bg-gray-100'
+                                    }`}>
+                                        <FileText className={`w-6 h-6 ${
+                                            creationMode === 'new' ? 'text-indigo-600' : 'text-gray-600'
+                                        }`} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-gray-900 mb-1">Tạo mới hoàn toàn</h3>
+                                        <p className="text-sm text-gray-600">Tạo năm học mới không có dữ liệu từ năm trước</p>
+                                    </div>
+                                    {creationMode === 'new' && (
+                                        <CheckCircle className="w-6 h-6 text-indigo-600 flex-shrink-0" />
+                                    )}
+                                </div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setCreationMode('copy')}
+                                className={`p-6 border-2 rounded-xl transition-all text-left ${
+                                    creationMode === 'copy'
+                                        ? 'border-purple-500 bg-purple-50 shadow-md'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-start space-x-4">
+                                    <div className={`p-3 rounded-xl ${
+                                        creationMode === 'copy' ? 'bg-purple-100' : 'bg-gray-100'
+                                    }`}>
+                                        <Copy className={`w-6 h-6 ${
+                                            creationMode === 'copy' ? 'text-purple-600' : 'text-gray-600'
+                                        }`} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-gray-900 mb-1">Sao chép từ năm trước</h3>
+                                        <p className="text-sm text-gray-600">Tạo năm học mới và sao chép dữ liệu từ năm học khác</p>
+                                    </div>
+                                    {creationMode === 'copy' && (
+                                        <CheckCircle className="w-6 h-6 text-purple-600 flex-shrink-0" />
+                                    )}
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {creationMode === 'copy' && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-6">Chọn năm học nguồn</h2>
+
+                            {loadingYears ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                                    <span className="ml-2 text-gray-600">Đang tải danh sách năm học...</span>
+                                </div>
+                            ) : (
+                                <div>
+                                    <select
+                                        name="sourceYearId"
+                                        value={formData.sourceYearId}
+                                        onChange={handleChange}
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                            errors.sourceYearId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                        }`}
+                                    >
+                                        <option value="">Chọn năm học nguồn</option>
+                                        {availableYears.map(year => (
+                                            <option key={year._id} value={year._id}>
+                                                {year.name} ({year.code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.sourceYearId && (
+                                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                                            <AlertCircle className="w-4 h-4 mr-1" />
+                                            {errors.sourceYearId}
+                                        </p>
+                                    )}
+                                    <p className="text-gray-500 text-sm mt-2">
+                                        Chọn năm học có dữ liệu để sao chép sang năm học mới
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-6">Thông tin cơ bản</h2>
 
@@ -301,7 +524,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Thời gian */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-6">Thời gian</h2>
 
@@ -350,13 +572,113 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Trạng thái</h2>
 
-                    {/* Cài đặt */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Trạng thái năm học <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                <option value="draft">Nháp</option>
+                                <option value="active">Hoạt động</option>
+                                <option value="completed">Hoàn thành</option>
+                                <option value="archived">Lưu trữ</option>
+                            </select>
+                            <p className="text-gray-500 text-sm mt-2 flex items-center">
+                                <Info className="w-4 h-4 mr-1" />
+                                Trạng thái mặc định là "Hoạt động"
+                            </p>
+                        </div>
+                    </div>
+
+                    {creationMode === 'copy' && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-6">Cài đặt sao chép</h2>
+
+                            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4 mb-6">
+                                <div className="flex items-start">
+                                    <Info className="w-5 h-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <h3 className="text-yellow-900 font-semibold mb-2">Lưu ý quan trọng</h3>
+                                        <ul className="text-yellow-800 text-sm space-y-1">
+                                            <li>• Dữ liệu được sao chép sẽ có trạng thái "Nháp"</li>
+                                            <li>• Mẫu minh chứng được sao chép không bao gồm files đính kèm</li>
+                                            <li>• Quá trình sao chép có thể mất vài phút tùy thuộc vào lượng dữ liệu</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {copyOptions.map(option => {
+                                    const Icon = option.icon
+                                    return (
+                                        <div key={option.key} className={`border rounded-xl p-4 transition-all cursor-pointer ${
+                                            formData.copySettings[option.key]
+                                                ? `${option.bgColor} ${option.borderColor} shadow-sm`
+                                                : 'border-gray-200 hover:border-gray-300'
+                                        }`}>
+                                            <label className="flex items-start cursor-pointer">
+                                                <div className="flex items-center h-5 mt-0.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.copySettings[option.key]}
+                                                        onChange={() => handleCopySettingChange(option.key)}
+                                                        className="w-5 h-5 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                                <div className="ml-3 flex-1">
+                                                    <div className="flex items-center space-x-2 mb-1">
+                                                        <Icon className={`w-5 h-5 ${option.color}`} />
+                                                        <span className="text-sm font-semibold text-gray-900">
+                                                            {option.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-600">
+                                                        {option.description}
+                                                    </p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                <div className="text-sm text-gray-700">
+                                    Đã chọn <span className="font-semibold text-indigo-600">{Object.values(formData.copySettings).filter(Boolean).length}</span> / {copyOptions.length} mục
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const allSelected = Object.values(formData.copySettings).every(Boolean)
+                                        const newSettings = {}
+                                        copyOptions.forEach(option => {
+                                            newSettings[option.key] = !allSelected
+                                        })
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            copySettings: newSettings
+                                        }))
+                                    }}
+                                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                >
+                                    {Object.values(formData.copySettings).every(Boolean) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-6">Cài đặt</h2>
 
                         <div className="space-y-6">
-                            {/* Set as Current */}
                             <div className="flex items-start p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
                                 <div className="flex items-center h-5">
                                     <input
@@ -379,7 +701,6 @@ const CreateAcademicYearPage = () => {
                         </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex justify-end space-x-4">
                         <button
                             type="button"
@@ -397,12 +718,12 @@ const CreateAcademicYearPage = () => {
                             {loading ? (
                                 <>
                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    <span>Đang tạo...</span>
+                                    <span>Đang {creationMode === 'copy' ? 'tạo và sao chép' : 'tạo'}...</span>
                                 </>
                             ) : (
                                 <>
                                     <Save className="w-5 h-5" />
-                                    <span>Tạo năm học</span>
+                                    <span>{creationMode === 'copy' ? 'Tạo và sao chép' : 'Tạo năm học'}</span>
                                 </>
                             )}
                         </button>
