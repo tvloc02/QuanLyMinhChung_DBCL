@@ -1,4 +1,3 @@
-// frontend/pages/reports/reports.js - UPDATED VERSION
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -425,10 +424,121 @@ export default function ReportsManagement() {
                         </div>
                     </div>
 
-                    {/* Filter panel - giữ nguyên */}
+                    {/* Filter panel - Sửa đổi để thêm logic lọc nâng cao */}
                     {showFilters && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
-                            {/* ... code filters giữ nguyên như cũ ... */}
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-bold text-gray-900">Lọc nâng cao</h3>
+                                {hasActiveFilters && (
+                                    <button
+                                        onClick={clearFilters}
+                                        className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+                                    >
+                                        Xóa tất cả bộ lọc
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Chương trình
+                                    </label>
+                                    <select
+                                        value={filters.programId}
+                                        onChange={(e) => handleFilterChange('programId', e.target.value)}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">Tất cả chương trình</option>
+                                        {programs.map(p => (
+                                            <option key={p._id} value={p._id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tổ chức
+                                    </label>
+                                    <select
+                                        value={filters.organizationId}
+                                        onChange={(e) => handleFilterChange('organizationId', e.target.value)}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">Tất cả tổ chức</option>
+                                        {organizations.map(o => (
+                                            <option key={o._id} value={o._id}>{o.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tiêu chuẩn
+                                    </label>
+                                    <select
+                                        value={filters.standardId}
+                                        onChange={(e) => handleFilterChange('standardId', e.target.value)}
+                                        disabled={!filters.programId || !filters.organizationId}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    >
+                                        <option value="">Tất cả tiêu chuẩn</option>
+                                        {standards.map(s => (
+                                            <option key={s._id} value={s._id}>{s.code} - {s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tiêu chí
+                                    </label>
+                                    <select
+                                        value={filters.criteriaId}
+                                        onChange={(e) => handleFilterChange('criteriaId', e.target.value)}
+                                        disabled={!filters.standardId}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    >
+                                        <option value="">Tất cả tiêu chí</option>
+                                        {criteria.map(c => (
+                                            <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Thêm lọc theo Loại và Trạng thái */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Loại báo cáo
+                                    </label>
+                                    <select
+                                        value={filters.type}
+                                        onChange={(e) => handleFilterChange('type', e.target.value)}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">Tất cả loại</option>
+                                        <option value="criteria_analysis">Phân tích tiêu chí</option>
+                                        <option value="standard_analysis">Phân tích tiêu chuẩn</option>
+                                        <option value="comprehensive_report">Báo cáo tổng hợp</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Trạng thái
+                                    </label>
+                                    <select
+                                        value={filters.status}
+                                        onChange={(e) => handleFilterChange('status', e.target.value)}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="draft">Bản nháp</option>
+                                        <option value="under_review">Đang xem xét</option>
+                                        <option value="published">Đã xuất bản</option>
+                                        <option value="archived">Lưu trữ</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -533,10 +643,12 @@ export default function ReportsManagement() {
                                         <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
                                             STT
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                        {/* Tăng độ rộng cột Mã BC từ w-32 lên w-48 */}
+                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-48">
                                             Mã BC
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300">
+                                        {/* Giảm độ rộng cột Tiêu đề báo cáo */}
+                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 min-w-[200px]">
                                             Tiêu đề báo cáo
                                         </th>
                                         <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-36">
@@ -560,140 +672,148 @@ export default function ReportsManagement() {
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white">
-                                    {reports.map((report, index) => (
-                                        <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedItems.includes(report._id)}
-                                                    onChange={() => toggleSelectItem(report._id)}
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                                                />
-                                            </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                    {reports.map((report, index) => {
+                                        const isDraft = report.status === 'draft'
+                                        const isPublished = report.status === 'published'
+
+                                        return (
+                                            <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                                <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedItems.includes(report._id)}
+                                                        onChange={() => toggleSelectItem(report._id)}
+                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-3 text-center border-r border-gray-200">
                                                 <span className="text-sm font-semibold text-gray-700">
                                                     {(pagination.current - 1) * filters.limit + index + 1}
                                                 </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center border-r border-gray-200">
+                                                </td>
+                                                {/* Mã BC - Sử dụng w-full trong td để tận dụng w-48 */}
+                                                <td className="px-4 py-3 text-center border-r border-gray-200">
                                                 <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
                                                     {report.code}
                                                 </span>
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200">
-                                                <div className="max-w-md">
-                                                    <p className="text-sm font-medium text-gray-900 line-clamp-2" title={report.title}>
-                                                        {report.title}
-                                                    </p>
-                                                    <div className="mt-1.5">
+                                                </td>
+                                                {/* Tiêu đề báo cáo - Giảm max-w */}
+                                                <td className="px-4 py-3 border-r border-gray-200">
+                                                    <div className="max-w-xs"> {/* Giảm max-w từ md sang xs */}
+                                                        <p className="text-sm font-medium text-gray-900 line-clamp-2" title={report.title}>
+                                                            {report.title}
+                                                        </p>
+                                                        <div className="mt-1.5">
                                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
                                                             {getStatusLabel(report.status)}
                                                         </span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                </td>
+                                                <td className="px-3 py-3 text-center border-r border-gray-200">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(report.type)}`}>
                                                     {getTypeLabel(report.type)}
                                                 </span>
-                                            </td>
-                                            <td className="px-3 py-3 border-r border-gray-200">
-                                                {report.standardId && (
-                                                    <div>
-                                                        <button
-                                                            onClick={() => toggleExpandRow(report._id)}
-                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
-                                                        >
-                                                            {expandedRows[report._id] ? (
-                                                                <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                                                            ) : (
-                                                                <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                                                            )}
-                                                            <div className="flex-1">
-                                                                <span className="font-semibold text-blue-700">{report.standardId?.code}</span>
-                                                                {expandedRows[report._id] && report.standardId?.name && (
-                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
-                                                                        {report.standardId?.name}
-                                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-3 border-r border-gray-200">
+                                                    {report.standardId && (
+                                                        <div>
+                                                            <button
+                                                                onClick={() => toggleExpandRow(report._id)}
+                                                                className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
+                                                            >
+                                                                {expandedRows[report._id] ? (
+                                                                    <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                                 )}
-                                                            </div>
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-3 border-r border-gray-200">
-                                                {report.criteriaId && (
-                                                    <div>
-                                                        <button
-                                                            onClick={() => toggleExpandRow(report._id)}
-                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
-                                                        >
-                                                            {expandedRows[report._id] ? (
-                                                                <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                                                            ) : (
-                                                                <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                                                            )}
-                                                            <div className="flex-1">
-                                                                <span className="font-semibold text-blue-700">{report.criteriaId?.code}</span>
-                                                                {expandedRows[report._id] && report.criteriaId?.name && (
-                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
-                                                                        {report.criteriaId?.name}
-                                                                    </p>
+                                                                <div className="flex-1">
+                                                                    <span className="font-semibold text-blue-700">{report.standardId?.code}</span>
+                                                                    {expandedRows[report._id] && report.standardId?.name && (
+                                                                        <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                            {report.standardId?.name}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-3 border-r border-gray-200">
+                                                    {report.criteriaId && (
+                                                        <div>
+                                                            <button
+                                                                onClick={() => toggleExpandRow(report._id)}
+                                                                className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
+                                                            >
+                                                                {expandedRows[report._id] ? (
+                                                                    <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                                                 )}
-                                                            </div>
+                                                                <div className="flex-1">
+                                                                    <span className="font-semibold text-blue-700">{report.criteriaId?.code}</span>
+                                                                    {expandedRows[report._id] && report.criteriaId?.name && (
+                                                                        <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                            {report.criteriaId?.name}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-700">
+                                                    {report.createdBy?.fullName || 'N/A'}
+                                                </td>
+                                                <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-500">
+                                                    {formatDate(report.createdAt)}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="flex items-center justify-center space-x-1">
+                                                        <button
+                                                            onClick={() => handleViewDetail(report._id)}
+                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                            title="Xem chi tiết"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
                                                         </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-700">
-                                                {report.createdBy?.fullName || 'N/A'}
-                                            </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-500">
-                                                {formatDate(report.createdAt)}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <div className="flex items-center justify-center space-x-1">
-                                                    <button
-                                                        onClick={() => handleViewDetail(report._id)}
-                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleEdit(report._id)}
-                                                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
-                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                        title="Phân quyền"
-                                                    >
-                                                        <UserPlus className="h-4 w-4" />
-                                                    </button>
-                                                    {report.status === 'draft' && (
+                                                        <button
+                                                            onClick={() => handleEdit(report._id)}
+                                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                                                            title="Chỉnh sửa"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </button>
+                                                        {/* Nút Phân quyền: chỉ bấm được khi đã xuất bản */}
+                                                        <button
+                                                            onClick={() => router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                            disabled={!isPublished}
+                                                            className={`p-2 text-purple-600 rounded-lg transition-all ${isPublished ? 'hover:bg-purple-50' : 'opacity-40 cursor-not-allowed'}`}
+                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
+                                                        >
+                                                            <UserPlus className="h-4 w-4" />
+                                                        </button>
+                                                        {/* Nút Xuất bản: chỉ bấm được khi là bản nháp */}
                                                         <button
                                                             onClick={() => handlePublish(report._id)}
-                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                            title="Xuất bản"
+                                                            disabled={!isDraft}
+                                                            className={`p-2 text-indigo-600 rounded-lg transition-all ${isDraft ? 'hover:bg-indigo-50' : 'opacity-40 cursor-not-allowed'}`}
+                                                            title={isDraft ? "Xuất bản" : "Đã xuất bản hoặc đang xem xét"}
                                                         >
                                                             <CheckCircle className="h-4 w-4" />
                                                         </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleDelete(report._id)}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                        <button
+                                                            onClick={() => handleDelete(report._id)}
+                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )})}
                                     </tbody>
                                 </table>
                             </div>
