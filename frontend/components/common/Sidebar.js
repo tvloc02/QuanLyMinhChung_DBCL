@@ -205,7 +205,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     className="fixed inset-0 z-30 lg:hidden transition-all duration-300"
                     onClick={onClose}
                     style={{
-                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%)',
+                        background: 'linear-gradient(135deg, rgb(62 109 235) 0%, rgb(109 147 255) 100%)',
                         backdropFilter: 'blur(8px)',
                         top: '80px'
                     }}
@@ -239,7 +239,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                                 className="w-full pl-10 pr-3 py-2.5 text-sm border-2 rounded-xl focus:outline-none transition-all text-gray-700 font-medium bg-gray-50"
                                 style={{ borderColor: '#E5E7EB' }}
                                 onFocus={(e) => {
-                                    e.target.style.borderColor = '#6366F1'
+                                    e.target.style.borderColor = '#4769ec'
                                     e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)'
                                     e.target.style.background = '#FFFFFF'
                                 }}
@@ -339,7 +339,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                         className={`w-full flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm ${
                             collapsed ? 'bg-indigo-50' : 'bg-gradient-to-r from-indigo-50 to-purple-50'
                         } hover:shadow-md`}
-                        style={{ color: '#6366F1' }}
+                        style={{ color: '#496ced' }}
                         title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
                     >
                         {collapsed ? (
