@@ -143,7 +143,7 @@ const CreateAcademicYearPage = () => {
             if (response.ok && result.success) {
                 setSuccess(true)
                 setTimeout(() => {
-                    router.push('/academic-years')
+                    router.push('/academic-years/academic-years')
                 }, 2000)
             } else {
                 setError(result.message || 'Có lỗi xảy ra khi tạo năm học')
@@ -383,7 +383,7 @@ const CreateAcademicYearPage = () => {
                     <div className="flex justify-end space-x-4">
                         <button
                             type="button"
-                            onClick={() => router.push('/academic-years')}
+                            onClick={() => router.push('/academic-years/academic-years')}
                             className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all font-medium"
                             disabled={loading}
                         >

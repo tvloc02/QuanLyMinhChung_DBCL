@@ -126,7 +126,7 @@ const AcademicYearDetailPage = () => {
             })
 
             if (response.ok) {
-                router.push('/academic-years')
+                router.push('/academic-years/academic-years')
             } else {
                 const error = await response.json()
                 alert(error.message || 'Có lỗi xảy ra')
@@ -187,7 +187,7 @@ const AcademicYearDetailPage = () => {
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy năm học</h2>
                     <p className="text-gray-600 mb-6">Năm học không tồn tại hoặc đã bị xóa</p>
                     <button
-                        onClick={() => router.push('/academic-years')}
+                        onClick={() => router.push('/academic-years/academic-years')}
                         className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all font-medium"
                     >
                         Quay về danh sách
@@ -239,7 +239,7 @@ const AcademicYearDetailPage = () => {
                                 <span>Chỉnh sửa</span>
                             </button>
                             <button
-                                onClick={() => router.push('/academic-years')}
+                                onClick={() => router.push('/academic-years/academic-years')}
                                 className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
                             >
                                 <ArrowLeft className="w-4 h-4" />

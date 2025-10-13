@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
-import Layout from '../../components/common/Layout'
+import { useAuth } from '../../../contexts/AuthContext'
+import Layout from '../../../components/common/Layout'
 import {
     ArrowLeft,
     Save,
@@ -255,8 +255,8 @@ const EditAcademicYearPage = () => {
     }
 
     return (
-        <Layout title="Chỉnh sửa năm học" breadcrumbItems={breadcrumbItems}>
-            <div className="max-w-4xl mx-auto space-y-6">
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
+            <div className="max-w-8xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-6 text-white">
                     <div className="flex items-center justify-between">
