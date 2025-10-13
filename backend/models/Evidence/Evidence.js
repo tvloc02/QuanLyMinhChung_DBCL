@@ -74,12 +74,6 @@ const evidenceSchema = new mongoose.Schema({
         trim: true
     },
 
-    status: {
-        type: String,
-        enum: ['active', 'inactive', 'pending', 'archived'],
-        default: 'active'
-    },
-
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -150,7 +144,6 @@ evidenceSchema.index({ academicYearId: 1, standardId: 1 });
 evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
 evidenceSchema.index({ academicYearId: 1, name: 'text', description: 'text', documentNumber: 'text' });
 evidenceSchema.index({ academicYearId: 1, createdAt: -1 });
-evidenceSchema.index({ academicYearId: 1, status: 1 });
 
 evidenceSchema.index({
     academicYearId: 1,
@@ -295,7 +288,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
         organizationId,
         standardId,
         criteriaId,
-        status,
         dateFrom,
         dateTo,
     } = searchParams;
@@ -320,7 +312,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     if (standardId) query.standardId = standardId;
     if (criteriaId) query.criteriaId = criteriaId;
 
-    if (status) query.status = status;
 
     if (dateFrom || dateTo) {
         query.createdAt = {};
@@ -419,7 +410,6 @@ evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, pr
         academicYearId,
         programId,
         organizationId,
-        status: 'active'
     })
         .populate('standardId', 'name code')
         .populate('criteriaId', 'name code')
