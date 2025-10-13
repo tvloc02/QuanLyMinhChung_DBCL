@@ -82,28 +82,35 @@ const ActionButton = ({
             icon: 'text-blue-600',
             shadow: 'shadow-slate-200',
             hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-green-300'
+            ring: 'focus:ring-slate-300'
         },
         warning: {
             bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
             icon: 'text-blue-600',
             shadow: 'shadow-slate-200',
             hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-orange-300'
+            ring: 'focus:ring-slate-300'
         },
         purple: {
             bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
             icon: 'text-blue-600',
             shadow: 'shadow-slate-200',
             hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-purple-300'
+            ring: 'focus:ring-slate-300'
         },
         pink: {
             bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
             icon: 'text-blue-600',
             shadow: 'shadow-slate-200',
             hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-pink-300'
+            ring: 'focus:ring-slate-300'
+        },
+        lock: {
+            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            icon: 'text-blue-600',
+            shadow: 'shadow-slate-200',
+            hover: 'hover:from-slate-100 hover:to-slate-200',
+            ring: 'focus:ring-slate-300'
         }
     };
 
