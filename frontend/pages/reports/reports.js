@@ -772,6 +772,7 @@ export default function ReportsManagement() {
                                                             variant="view"
                                                             size="sm"
                                                             onClick={() => handleViewDetail(report._id)}
+                                                            title="Xem chi tiết báo cáo" // <-- ĐÃ THÊM TITLE
                                                         />
 
                                                         <ActionButton
@@ -779,6 +780,7 @@ export default function ReportsManagement() {
                                                             variant="edit"
                                                             size="sm"
                                                             onClick={() => handleEdit(report._id)}
+                                                            title="Chỉnh sửa báo cáo" // <-- ĐÃ THÊM TITLE
                                                         />
 
                                                         <ActionButton
@@ -787,6 +789,7 @@ export default function ReportsManagement() {
                                                             size="sm"
                                                             disabled={!isPublished}
                                                             onClick={() => isPublished && router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"} // <-- ĐÃ THÊM TITLE
                                                         />
 
                                                         <ActionButton
@@ -795,6 +798,7 @@ export default function ReportsManagement() {
                                                             size="sm"
                                                             disabled={!isDraft}
                                                             onClick={() => isDraft && handlePublish(report._id)}
+                                                            title={isDraft ? "Xuất bản báo cáo" : "Đã xuất bản hoặc đang xem xét"} // <-- ĐÃ THÊM TITLE
                                                         />
 
                                                         <ActionButton
@@ -802,6 +806,7 @@ export default function ReportsManagement() {
                                                             variant="delete"
                                                             size="sm"
                                                             onClick={() => handleDelete(report._id)}
+                                                            title="Xóa báo cáo" // <-- ĐÃ THÊM TITLE
                                                         />
                                                     </div>
                                                 </td>
