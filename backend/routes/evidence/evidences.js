@@ -54,8 +54,6 @@ router.post('/advanced-search', [
     body('organizationId').optional().isMongoId(),
     body('standardId').optional().isMongoId(),
     body('criteriaId').optional().isMongoId(),
-    body('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
-    body('documentType').optional().isIn(['Quyết định', 'Thông tư', 'Nghị định', 'Luật', 'Báo cáo', 'Kế hoạch', 'Khác']),
     body('dateFrom').optional().isISO8601(),
     body('dateTo').optional().isISO8601(),
     body('page').optional().isInt({ min: 1 }),
@@ -84,7 +82,6 @@ router.get('/export', [
     query('organizationId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
     query('criteriaId').optional().isMongoId(),
-    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
     query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
 ], validation, exportEvidences);
 
@@ -103,7 +100,6 @@ router.get('/', [
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
     query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
     query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
-    query('status').optional().isIn(['active', 'inactive', 'pending', 'archived']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getEvidences);
