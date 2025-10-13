@@ -370,7 +370,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
 
                     <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-                             style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
+                             style={{ background: 'linear-gradient(135deg, #496cef 0%, #486aee 100%)' }}>
                             <span className="text-white font-bold text-lg">TĐG</span>
                         </div>
                         <div className="hidden sm:block">

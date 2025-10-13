@@ -11,8 +11,8 @@ export default function Footer({ collapsed, isDesktop }) {
                 <div className="flex flex-col md:flex-row justify-between items-center">
                     <div className="flex items-center space-x-4">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md"
-                             style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)' }}>
-                            <span className="text-white font-bold text-sm">V</span>
+                             style={{ background: 'linear-gradient(135deg, #496cef 0%, #486aee 100%)' }}>
+                            <span className="text-white font-bold text-sm">TĐG</span>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-900">CMC University</p>
