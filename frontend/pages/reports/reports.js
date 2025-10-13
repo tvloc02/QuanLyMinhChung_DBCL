@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
+import { ActionButton } from '../../components/ActionButtons'
 import toast from 'react-hot-toast'
 import { UserPlus, ChevronDown, ChevronRight } from 'lucide-react'
 import {
@@ -18,7 +19,8 @@ import {
     CheckCircle,
     X,
     Loader2,
-    BarChart3
+    BarChart3,
+    Send
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -289,7 +291,7 @@ export default function ReportsManagement() {
     const getStatusColor = (status) => {
         const colors = {
             draft: 'bg-gray-100 text-gray-800 border-gray-200',
-            under_review: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            under_review: 'bg-amber-100 text-amber-800 border-amber-200',
             published: 'bg-green-100 text-green-800 border-green-200',
             archived: 'bg-blue-100 text-blue-800 border-blue-200'
         }
@@ -317,9 +319,9 @@ export default function ReportsManagement() {
 
     const getTypeColor = (type) => {
         const colors = {
-            criteria_analysis: 'bg-purple-100 text-purple-800 border-purple-200',
-            standard_analysis: 'bg-blue-100 text-blue-800 border-blue-200',
-            comprehensive_report: 'bg-green-100 text-green-800 border-green-200'
+            criteria_analysis: 'bg-blue-100 text-blue-800 border-blue-200',
+            standard_analysis: 'bg-sky-100 text-sky-800 border-sky-200',
+            comprehensive_report: 'bg-cyan-100 text-cyan-800 border-cyan-200'
         }
         return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200'
     }
@@ -348,7 +350,7 @@ export default function ReportsManagement() {
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -361,17 +363,17 @@ export default function ReportsManagement() {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                             <button
                                 onClick={() => router.push('/reports/assignments')}
-                                className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-medium"
+                                className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
                             >
                                 <BarChart3 className="h-5 w-5 mr-2" />
                                 Phân công
                             </button>
                             <button
                                 onClick={() => router.push('/reports/create')}
-                                className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:bg-blue-50 transition-all font-medium shadow-lg"
+                                className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
                             >
                                 <Plus className="h-5 w-5 mr-2" />
                                 Tạo báo cáo mới
@@ -381,7 +383,7 @@ export default function ReportsManagement() {
                 </div>
 
                 {/* Search & Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
                             <form onSubmit={handleSearch} className="relative">
@@ -391,14 +393,14 @@ export default function ReportsManagement() {
                                     placeholder="Tìm kiếm theo tiêu đề, mã báo cáo..."
                                     value={filters.search}
                                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                 />
                             </form>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-medium ${
+                                className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
                                     showFilters || hasActiveFilters
                                         ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
                                         : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -416,7 +418,7 @@ export default function ReportsManagement() {
                             <button
                                 onClick={fetchReports}
                                 disabled={loading}
-                                className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
+                                className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-semibold"
                             >
                                 <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                                 Làm mới
@@ -424,7 +426,6 @@ export default function ReportsManagement() {
                         </div>
                     </div>
 
-                    {/* Filter panel - Sửa đổi để thêm logic lọc nâng cao */}
                     {showFilters && (
                         <div className="mt-6 pt-6 border-t border-gray-200">
                             <div className="flex justify-between items-center mb-4">
@@ -505,7 +506,6 @@ export default function ReportsManagement() {
                                     </select>
                                 </div>
 
-                                {/* Thêm lọc theo Loại và Trạng thái */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Loại báo cáo
@@ -545,31 +545,31 @@ export default function ReportsManagement() {
 
                 {/* Bulk Actions */}
                 {selectedItems.length > 0 && (
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
+                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-blue-900 font-medium">
-                                Đã chọn <strong className="text-lg">{selectedItems.length}</strong> báo cáo
+                            <span className="text-sm text-blue-900 font-semibold">
+                                Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> báo cáo
                             </span>
-                            <div className="flex space-x-2">
+                            <div className="flex space-x-3">
                                 <button
                                     onClick={handleBulkAssign}
-                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 font-medium transition-all"
+                                    className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 font-semibold transition-all shadow-md"
                                 >
-                                    <UserPlus className="h-4 w-4 mr-1" />
+                                    <UserPlus className="h-4 w-4 mr-2" />
                                     Phân quyền đánh giá
                                 </button>
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-medium transition-all"
+                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md"
                                 >
-                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    <Trash2 className="h-4 w-4 mr-2" />
                                     Xóa
                                 </button>
                                 <button
                                     onClick={() => setSelectedItems([])}
-                                    className="inline-flex items-center px-4 py-2 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-200 font-medium transition-all"
+                                    className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
                                 >
-                                    <X className="h-4 w-4 mr-1" />
+                                    <X className="h-4 w-4 mr-2" />
                                     Hủy chọn
                                 </button>
                             </div>
@@ -578,12 +578,12 @@ export default function ReportsManagement() {
                 )}
 
                 {/* Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-gray-900">
+                            <h2 className="text-lg font-bold text-gray-900">
                                 Danh sách báo cáo
-                                <span className="ml-2 text-sm font-normal text-gray-500">
+                                <span className="ml-2 text-sm font-semibold text-blue-600">
                                     ({pagination.total} kết quả)
                                 </span>
                             </h2>
@@ -597,10 +597,10 @@ export default function ReportsManagement() {
                         </div>
                     ) : reports.length === 0 ? (
                         <div className="p-16 text-center">
-                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FileText className="h-10 w-10 text-gray-400" />
+                            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FileText className="h-10 w-10 text-blue-600" />
                             </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">
                                 {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có báo cáo nào'}
                             </h3>
                             <p className="text-gray-500 mb-6">
@@ -612,14 +612,14 @@ export default function ReportsManagement() {
                             {hasActiveFilters ? (
                                 <button
                                     onClick={clearFilters}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
                                 >
                                     Xóa bộ lọc
                                 </button>
                             ) : (
                                 <button
                                     onClick={() => router.push('/reports/create')}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
                                 >
                                     <Plus className="h-5 w-5 mr-2" />
                                     Tạo báo cáo mới
@@ -630,9 +630,9 @@ export default function ReportsManagement() {
                         <>
                             <div className="overflow-x-auto">
                                 <table className="w-full border-collapse">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                    <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                     <tr>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.length === reports.length}
@@ -640,33 +640,31 @@ export default function ReportsManagement() {
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                             />
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-12">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                             STT
                                         </th>
-                                        {/* Tăng độ rộng cột Mã BC từ w-32 lên w-48 */}
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-48">
+                                        <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-44">
                                             Mã BC
                                         </th>
-                                        {/* Giảm độ rộng cột Tiêu đề báo cáo */}
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 min-w-[200px]">
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[220px]">
                                             Tiêu đề báo cáo
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-36">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
                                             Loại
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
                                             Tiêu chuẩn
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
                                             Tiêu chí
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-36">
                                             Người tạo
                                         </th>
-                                        <th className="px-3 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 w-28">
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                             Ngày tạo
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-300 w-48">
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-72">
                                             Thao tác
                                         </th>
                                     </tr>
@@ -678,7 +676,7 @@ export default function ReportsManagement() {
 
                                         return (
                                             <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                                <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                <td className="px-4 py-3 text-center border-r border-gray-200">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedItems.includes(report._id)}
@@ -686,36 +684,34 @@ export default function ReportsManagement() {
                                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                                     />
                                                 </td>
-                                                <td className="px-3 py-3 text-center border-r border-gray-200">
-                                                <span className="text-sm font-semibold text-gray-700">
-                                                    {(pagination.current - 1) * filters.limit + index + 1}
-                                                </span>
-                                                </td>
-                                                {/* Mã BC - Sử dụng w-full trong td để tận dụng w-48 */}
                                                 <td className="px-4 py-3 text-center border-r border-gray-200">
-                                                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
-                                                    {report.code}
-                                                </span>
+                                                    <span className="text-sm font-semibold text-gray-700">
+                                                        {(pagination.current - 1) * filters.limit + index + 1}
+                                                    </span>
                                                 </td>
-                                                {/* Tiêu đề báo cáo - Giảm max-w */}
-                                                <td className="px-4 py-3 border-r border-gray-200">
-                                                    <div className="max-w-xs"> {/* Giảm max-w từ md sang xs */}
-                                                        <p className="text-sm font-medium text-gray-900 line-clamp-2" title={report.title}>
+                                                <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 whitespace-nowrap">
+                                                        {report.code}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3 border-r border-gray-200">
+                                                    <div className="max-w-xs">
+                                                        <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={report.title}>
                                                             {report.title}
                                                         </p>
                                                         <div className="mt-1.5">
-                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
-                                                            {getStatusLabel(report.status)}
-                                                        </span>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(report.status)}`}>
+                                                                {getStatusLabel(report.status)}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-3 py-3 text-center border-r border-gray-200">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getTypeColor(report.type)}`}>
-                                                    {getTypeLabel(report.type)}
-                                                </span>
+                                                <td className="px-4 py-3 text-center border-r border-gray-200">
+                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getTypeColor(report.type)}`}>
+                                                        {getTypeLabel(report.type)}
+                                                    </span>
                                                 </td>
-                                                <td className="px-3 py-3 border-r border-gray-200">
+                                                <td className="px-4 py-3 border-r border-gray-200">
                                                     {report.standardId && (
                                                         <div>
                                                             <button
@@ -723,12 +719,12 @@ export default function ReportsManagement() {
                                                                 className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                             >
                                                                 {expandedRows[report._id] ? (
-                                                                    <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
                                                                 ) : (
-                                                                    <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
                                                                 )}
                                                                 <div className="flex-1">
-                                                                    <span className="font-semibold text-blue-700">{report.standardId?.code}</span>
+                                                                    <span className="font-bold text-blue-700">{report.standardId?.code}</span>
                                                                     {expandedRows[report._id] && report.standardId?.name && (
                                                                         <p className="mt-1 text-gray-600 leading-relaxed">
                                                                             {report.standardId?.name}
@@ -739,7 +735,7 @@ export default function ReportsManagement() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-3 border-r border-gray-200">
+                                                <td className="px-4 py-3 border-r border-gray-200">
                                                     {report.criteriaId && (
                                                         <div>
                                                             <button
@@ -747,12 +743,12 @@ export default function ReportsManagement() {
                                                                 className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
                                                             >
                                                                 {expandedRows[report._id] ? (
-                                                                    <ChevronDown className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
                                                                 ) : (
-                                                                    <ChevronRight className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                                                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
                                                                 )}
                                                                 <div className="flex-1">
-                                                                    <span className="font-semibold text-blue-700">{report.criteriaId?.code}</span>
+                                                                    <span className="font-bold text-blue-700">{report.criteriaId?.code}</span>
                                                                     {expandedRows[report._id] && report.criteriaId?.name && (
                                                                         <p className="mt-1 text-gray-600 leading-relaxed">
                                                                             {report.criteriaId?.name}
@@ -763,53 +759,50 @@ export default function ReportsManagement() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-700">
+                                                <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
                                                     {report.createdBy?.fullName || 'N/A'}
                                                 </td>
-                                                <td className="px-3 py-3 text-center border-r border-gray-200 text-xs text-gray-500">
+                                                <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
                                                     {formatDate(report.createdAt)}
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className="flex items-center justify-center space-x-1">
-                                                        <button
+                                                <td className="px-6 py-3">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <ActionButton
+                                                            icon={Eye}
+                                                            variant="view"
+                                                            size="sm"
                                                             onClick={() => handleViewDetail(report._id)}
-                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                            title="Xem chi tiết"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </button>
-                                                        <button
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={Edit}
+                                                            variant="edit"
+                                                            size="sm"
                                                             onClick={() => handleEdit(report._id)}
-                                                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                            title="Chỉnh sửa"
-                                                        >
-                                                            <Edit className="h-4 w-4" />
-                                                        </button>
-                                                        {/* Nút Phân quyền: chỉ bấm được khi đã xuất bản */}
-                                                        <button
-                                                            onClick={() => router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={UserPlus}
+                                                            variant="primary"
+                                                            size="sm"
                                                             disabled={!isPublished}
-                                                            className={`p-2 text-purple-600 rounded-lg transition-all ${isPublished ? 'hover:bg-purple-50' : 'opacity-40 cursor-not-allowed'}`}
-                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
-                                                        >
-                                                            <UserPlus className="h-4 w-4" />
-                                                        </button>
-                                                        {/* Nút Xuất bản: chỉ bấm được khi là bản nháp */}
-                                                        <button
-                                                            onClick={() => handlePublish(report._id)}
+                                                            onClick={() => isPublished && router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={Send}
+                                                            variant="success"
+                                                            size="sm"
                                                             disabled={!isDraft}
-                                                            className={`p-2 text-indigo-600 rounded-lg transition-all ${isDraft ? 'hover:bg-indigo-50' : 'opacity-40 cursor-not-allowed'}`}
-                                                            title={isDraft ? "Xuất bản" : "Đã xuất bản hoặc đang xem xét"}
-                                                        >
-                                                            <CheckCircle className="h-4 w-4" />
-                                                        </button>
-                                                        <button
+                                                            onClick={() => isDraft && handlePublish(report._id)}
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={Trash2}
+                                                            variant="delete"
+                                                            size="sm"
                                                             onClick={() => handleDelete(report._id)}
-                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                            title="Xóa"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
+                                                        />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -818,20 +811,19 @@ export default function ReportsManagement() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
                             {pagination.pages > 1 && (
-                                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                                <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-gray-700">
-                                            Hiển thị <strong>{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                            <strong>{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                            <strong>{pagination.total}</strong> kết quả
+                                            Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
+                                            <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
+                                            <strong className="text-blue-600">{pagination.total}</strong> kết quả
                                         </p>
-                                        <div className="flex space-x-2">
+                                        <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => handlePageChange(pagination.current - 1)}
                                                 disabled={!pagination.hasPrev}
-                                                className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
                                             >
                                                 Trước
                                             </button>
@@ -851,10 +843,10 @@ export default function ReportsManagement() {
                                                     <button
                                                         key={pageNum}
                                                         onClick={() => handlePageChange(pageNum)}
-                                                        className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${
+                                                        className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
                                                             pagination.current === pageNum
-                                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                                                                : 'border-2 border-gray-200 hover:bg-white'
+                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                                                                : 'border-2 border-blue-200 hover:bg-white text-gray-700'
                                                         }`}
                                                     >
                                                         {pageNum}
@@ -864,7 +856,7 @@ export default function ReportsManagement() {
                                             <button
                                                 onClick={() => handlePageChange(pagination.current + 1)}
                                                 disabled={!pagination.hasNext}
-                                                className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
                                             >
                                                 Sau
                                             </button>
