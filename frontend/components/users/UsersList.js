@@ -4,10 +4,15 @@ import { useRouter } from 'next/router'
 import {
     Search, Plus, Edit, Trash2, Lock, Unlock, Shield,
     ChevronLeft, ChevronRight, AlertCircle, RefreshCw, Users,
-    Key, Eye, EyeOff, X
+    Key, Eye, EyeOff, X, Send // Đã thêm Send vào import
 } from 'lucide-react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+
+// GIẢ ĐỊNH: Import component ActionButton từ đường dẫn tương đối
+// Đảm bảo file ActionButtons.js nằm trong thư mục components
+import { ActionButton } from '../../components/ActionButtons'
+
 
 export default function UsersListPage() {
     const router = useRouter()
@@ -406,56 +411,56 @@ export default function UsersListPage() {
                                     {canManageUsers && (
                                         <td className="px-6 py-4 whitespace-nowrap text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    variant="edit"
+                                                    size="sm"
                                                     onClick={() => router.push(`/users/${user._id}/edit`)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </button>
-                                                <button
+                                                    title="Chỉnh sửa thông tin"
+                                                />
+                                                <ActionButton
+                                                    icon={Key}
+                                                    variant="warning"
+                                                    size="sm"
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowResetPasswordModal(true)
                                                     }}
-                                                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-all"
                                                     title="Đổi mật khẩu"
-                                                >
-                                                    <Key className="w-4 h-4" />
-                                                </button>
+                                                />
                                                 {user.isLockedByAdmin ? (
-                                                    <button
+                                                    <ActionButton
+                                                        icon={Unlock}
+                                                        variant="success"
+                                                        size="sm"
                                                         onClick={() => {
                                                             setSelectedUser(user)
                                                             setShowUnlockModal(true)
                                                         }}
-                                                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                        title="Mở khóa"
-                                                    >
-                                                        <Unlock className="w-4 h-4" />
-                                                    </button>
+                                                        title="Mở khóa tài khoản"
+                                                    />
                                                 ) : (
-                                                    <button
+                                                    <ActionButton
+                                                        icon={Lock}
+                                                        variant="purple"
+                                                        size="sm"
                                                         onClick={() => {
                                                             setSelectedUser(user)
                                                             setShowLockModal(true)
                                                         }}
-                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
                                                         title="Khóa tài khoản"
-                                                    >
-                                                        <Lock className="w-4 h-4" />
-                                                    </button>
+                                                    />
                                                 )}
-                                                <button
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    variant="delete"
+                                                    size="sm"
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowDeleteModal(true)
                                                     }}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                    title="Xóa người dùng"
+                                                />
                                             </div>
                                         </td>
                                     )}
@@ -475,23 +480,23 @@ export default function UsersListPage() {
                                 <span className="font-semibold text-indigo-600">{Math.min(pagination.current * 10, pagination.total)}</span>{' '}
                                 trong tổng số <span className="font-semibold text-indigo-600">{pagination.total}</span> người dùng
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}
                                     disabled={!pagination.hasPrev}
-                                    className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className="p-3 border-2 border-indigo-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-5 h-5 text-indigo-600" />
                                 </button>
-                                <span className="text-sm font-semibold text-gray-700 px-4 py-2 bg-white rounded-lg border-2 border-gray-200">
+                                <span className="text-sm font-semibold text-gray-700 px-4 py-2 bg-white rounded-xl border-2 border-indigo-200 shadow-md">
                                         Trang {pagination.current} / {pagination.pages}
                                     </span>
                                 <button
                                     onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}
                                     disabled={!pagination.hasNext}
-                                    className="p-2 border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className="p-3 border-2 border-indigo-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-5 h-5 text-indigo-600" />
                                 </button>
                             </div>
                         </div>
