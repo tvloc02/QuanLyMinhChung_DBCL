@@ -98,6 +98,7 @@ const getEvidences = async (req, res) => {
         if (organizationId) query.organizationId = organizationId;
         if (standardId) query.standardId = standardId;
         if (criteriaId) query.criteriaId = criteriaId;
+        if (status) query.status = status;
         if (documentType) query.documentType = documentType;
 
         const sortOptions = {};
@@ -394,7 +395,7 @@ const updateEvidence = async (req, res) => {
 
         const allowedFields = [
             'name', 'description', 'documentNumber', 'documentType',
-            'issueDate', 'effectiveDate', 'issuingAgency', 'notes', 'tags'
+            'issueDate', 'effectiveDate', 'issuingAgency', 'notes', 'tags', 'status'
         ];
 
         allowedFields.forEach(field => {

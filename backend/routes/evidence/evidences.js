@@ -192,4 +192,22 @@ router.post('/:id/copy-to-year', [
         .withMessage('Mã minh chứng mới không đúng format')
 ], validation, copyEvidenceToAnotherYear);
 
+
+router.post('/evidences/export', async (req, res) => {
+    const { programId, organizationId, format } = req.body;
+    try {
+        if (!programId || !organizationId || format !== 'xlsx') {
+            return res.status(400).json({ message: 'Thiếu dữ liệu hoặc định dạng không hợp lệ' });
+        }
+        const evidenceData = await getEvidenceData(programId, organizationId);
+        const fileBuffer = await generateExcelFile(evidenceData);
+        res.setHeader('Content-Disposition', 'attachment; filename="evidence.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(fileBuffer);
+    } catch (error) {
+        console.error('Export error:', error);
+        res.status(500).json({ message: 'Lỗi khi xuất dữ liệu' });
+    }
+});
+
 module.exports = router;
