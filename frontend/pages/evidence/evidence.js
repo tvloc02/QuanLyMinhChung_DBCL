@@ -352,13 +352,6 @@ export default function EvidencePage() {
                                                     }`}>
                                                         {getStatusLabel(evidence.status)}
                                                     </span>
-                                                    <button
-                                                        onClick={() => router.push(`/evidence/files=${evidence._id}`)}
-                                                        className="opacity-0 group-hover:opacity-100 text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg transition-all"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="h-5 w-5" />
-                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
