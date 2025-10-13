@@ -4,14 +4,11 @@ import { useRouter } from 'next/router'
 import {
     Search, Plus, Edit, Trash2, Lock, Unlock, Shield,
     ChevronLeft, ChevronRight, AlertCircle, RefreshCw, Users,
-    Key, Eye, EyeOff, X, Send // Đã thêm Send vào import
+    Key, Eye, EyeOff, X, Send
 } from 'lucide-react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
-
-// GIẢ ĐỊNH: Import component ActionButton từ đường dẫn tương đối
-// Đảm bảo file ActionButtons.js nằm trong thư mục components
-import { ActionButton } from '../../components/ActionButtons'
+import { ActionButton } from '../ActionButtons'
 
 
 export default function UsersListPage() {
@@ -365,7 +362,7 @@ export default function UsersListPage() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                            <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                             <tr>
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Người dùng</th>
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Liên hệ</th>
@@ -410,7 +407,7 @@ export default function UsersListPage() {
                                     </td>
                                     {canManageUsers && (
                                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-4">
                                                 <ActionButton
                                                     icon={Edit}
                                                     variant="edit"
