@@ -2,35 +2,40 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import { apiMethods } from '../../services/api'
-import toast from 'react-hot-toast'
 import {
-    Plus,
+    FileText,
     Search,
     Filter,
+    UserCheck,
     Eye,
     Edit,
-    Trash2,
-    RefreshCw,
+    Users,
+    Calendar,
+    ChevronRight,
     CheckCircle,
-    XCircle,
-    Clock,
-    AlertTriangle,
-    User,
-    FileText,
-    Loader2
+    AlertCircle,
+    BookOpen,
+    BarChart3
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
+import toast from 'react-hot-toast'
+import AssignReviewerModal from '../../components/reports/AssignReviewerModal'
 
-export default function AssignmentsManagement() {
-    const router = useRouter()
+export default function AssessmentsPage() {
     const { user, isLoading } = useAuth()
-
-    const breadcrumbItems = [
-        { name: 'Trang chủ', href: '/' },
-        { name: 'Quản lý báo cáo', href: '/reports', icon: FileText },
-        { name: 'Phân công đánh giá' }
-    ]
+    const router = useRouter()
+    const [loading, setLoading] = useState(true)
+    const [reports, setReports] = useState([])
+    const [pagination, setPagination] = useState(null)
+    const [filters, setFilters] = useState({
+        page: 1,
+        limit: 10,
+        search: '',
+        type: ''
+    })
+    const [statistics, setStatistics] = useState(null)
+    const [selectedReport, setSelectedReport] = useState(null)
+    const [showAssignModal, setShowAssignModal] = useState(false)
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -38,252 +43,102 @@ export default function AssignmentsManagement() {
         }
     }, [user, isLoading, router])
 
-    const [assignments, setAssignments] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [pagination, setPagination] = useState({
-        current: 1,
-        pages: 1,
-        total: 0
-    })
-
-    const [filters, setFilters] = useState({
-        search: '',
-        status: '',
-        priority: '',
-        expertId: '',
-        page: 1,
-        limit: 20
-    })
-
-    const [experts, setExperts] = useState([])
-    const [showFilters, setShowFilters] = useState(false)
-    const [stats, setStats] = useState({})
-
-    const [columnWidths, setColumnWidths] = useState({
-        checkbox: 60,
-        report: 250,
-        expert: 180,
-        deadline: 120,
-        priority: 120,
-        status: 150,
-        date: 120,
-        actions: 180
-    })
-    const [resizing, setResizing] = useState(null)
-    const [expandedRows, setExpandedRows] = useState({})
-
     useEffect(() => {
         if (user) {
-            fetchAssignments()
-            fetchStats()
-            fetchExperts()
+            fetchReports()
+            fetchStatistics()
         }
-    }, [filters.page, filters.status, filters.priority, filters.expertId, user])
+    }, [user, filters])
 
-    useEffect(() => {
-        if (!resizing) return
+    const breadcrumbItems = [
+        { name: 'Đánh giá báo cáo', icon: FileText }
+    ]
 
-        const handleMouseMove = (e) => {
-            const diff = e.clientX - resizing.startX
-            const newWidth = Math.max(60, resizing.startWidth + diff)
-            setColumnWidths(prev => ({
-                ...prev,
-                [resizing.column]: newWidth
-            }))
-        }
-
-        const handleMouseUp = () => {
-            setResizing(null)
-        }
-
-        document.addEventListener('mousemove', handleMouseMove)
-        document.addEventListener('mouseup', handleMouseUp)
-
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove)
-            document.removeEventListener('mouseup', handleMouseUp)
-        }
-    }, [resizing])
-
-    const fetchAssignments = async () => {
+    const fetchReports = async () => {
         try {
             setLoading(true)
+            const queryParams = new URLSearchParams()
+            Object.keys(filters).forEach(key => {
+                if (filters[key]) queryParams.append(key, filters[key])
+            })
 
-            const params = {
-                page: filters.page,
-                limit: filters.limit
+            // Mock API call
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            const mockData = {
+                reports: [],
+                pagination: {
+                    current: 0,
+                    pages: 0,
+                    total: 0,
+                    hasNext: false,
+                    hasPrev: false
+                }
             }
 
-            if (filters.search) params.search = filters.search
-            if (filters.status) params.status = filters.status
-            if (filters.priority) params.priority = filters.priority
-            if (filters.expertId) params.expertId = filters.expertId
-
-            const response = await apiMethods.assignments.getAll(params)
-            const data = response.data?.data || response.data
-
-            setAssignments(data?.assignments || [])
-            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
+            setReports(mockData.reports)
+            setPagination(mockData.pagination)
         } catch (error) {
-            console.error('Fetch assignments error:', error)
-            toast.error('Lỗi khi tải danh sách phân công')
-            setAssignments([])
+            toast.error('Lỗi tải danh sách báo cáo')
         } finally {
             setLoading(false)
         }
     }
 
-    const fetchStats = async () => {
+    const fetchStatistics = async () => {
         try {
-            const response = await apiMethods.assignments.getStats()
-            setStats(response.data?.data || {})
-        } catch (error) {
-            console.error('Fetch stats error:', error)
-        }
-    }
+            // Mock API call
+            await new Promise(resolve => setTimeout(resolve, 300))
 
-    const fetchExperts = async () => {
-        try {
-            const response = await apiMethods.users.getAll({ role: 'expert' })
-            setExperts(response.data?.data?.users || [])
+            setStatistics({
+                total: 0,
+                criteriaAnalysis: 0,
+                standardAnalysis: 0,
+                comprehensiveReport: 0
+            })
         } catch (error) {
-            console.error('Fetch experts error:', error)
+            console.error('Error fetching statistics:', error)
         }
-    }
-
-    const handleFilterChange = (name, value) => {
-        setFilters(prev => ({
-            ...prev,
-            [name]: value,
-            page: 1
-        }))
     }
 
     const handleSearch = (e) => {
         e.preventDefault()
-        fetchAssignments()
+        setFilters({ ...filters, page: 1 })
     }
 
-    const handleAccept = async (id) => {
-        try {
-            await apiMethods.assignments.accept(id, { responseNote: 'Chấp nhận phân công' })
-            toast.success('Đã chấp nhận phân công')
-            fetchAssignments()
-            fetchStats()
-        } catch (error) {
-            console.error('Accept error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi chấp nhận')
+    const handleViewReport = (reportId) => {
+        router.push(`/reports/${reportId}`)
+    }
+
+    const handleAssignReviewer = (report) => {
+        setSelectedReport(report)
+        setShowAssignModal(true)
+    }
+
+    const handleAssignSuccess = () => {
+        setShowAssignModal(false)
+        fetchReports()
+        toast.success('Phân quyền đánh giá thành công')
+    }
+
+    const getTypeColor = (type) => {
+        switch (type) {
+            case 'criteria_analysis':
+                return 'bg-blue-100 text-blue-800'
+            case 'standard_analysis':
+                return 'bg-purple-100 text-purple-800'
+            case 'comprehensive_report':
+                return 'bg-green-100 text-green-800'
+            default:
+                return 'bg-gray-100 text-gray-800'
         }
     }
-
-    const handleReject = async (id) => {
-        const reason = prompt('Lý do từ chối:')
-        if (!reason) return
-
-        try {
-            await apiMethods.assignments.reject(id, { responseNote: reason })
-            toast.success('Đã từ chối phân công')
-            fetchAssignments()
-            fetchStats()
-        } catch (error) {
-            console.error('Reject error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi từ chối')
-        }
-    }
-
-    const handleDelete = async (id) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) return
-
-        try {
-            await apiMethods.assignments.delete(id)
-            toast.success('Xóa phân công thành công')
-            fetchAssignments()
-            fetchStats()
-        } catch (error) {
-            console.error('Delete error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi xóa')
-        }
-    }
-
-    const handleMouseDown = (e, column) => {
-        e.preventDefault()
-        setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] })
-    }
-
-    const toggleExpandRow = (id, field) => {
-        setExpandedRows(prev => ({
-            ...prev,
-            [`${id}-${field}`]: !prev[`${id}-${field}`]
-        }))
-    }
-
-    const getStatusColor = (status) => {
-        const colors = {
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            accepted: 'bg-blue-100 text-blue-800 border-blue-200',
-            in_progress: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-            completed: 'bg-green-100 text-green-800 border-green-200',
-            overdue: 'bg-red-100 text-red-800 border-red-200',
-            cancelled: 'bg-gray-100 text-gray-800 border-gray-200'
-        }
-        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-
-    const getStatusLabel = (status) => {
-        const labels = {
-            pending: 'Chờ phản hồi',
-            accepted: 'Đã chấp nhận',
-            in_progress: 'Đang đánh giá',
-            completed: 'Đã hoàn thành',
-            overdue: 'Quá hạn',
-            cancelled: 'Đã hủy'
-        }
-        return labels[status] || status
-    }
-
-    const getPriorityColor = (priority) => {
-        const colors = {
-            low: 'bg-gray-100 text-gray-800',
-            normal: 'bg-blue-100 text-blue-800',
-            high: 'bg-orange-100 text-orange-800',
-            urgent: 'bg-red-100 text-red-800'
-        }
-        return colors[priority] || 'bg-gray-100 text-gray-800'
-    }
-
-    const getPriorityLabel = (priority) => {
-        const labels = {
-            low: 'Thấp',
-            normal: 'Bình thường',
-            high: 'Cao',
-            urgent: 'Khẩn cấp'
-        }
-        return labels[priority] || priority
-    }
-
-    const clearFilters = () => {
-        setFilters({
-            search: '',
-            status: '',
-            priority: '',
-            expertId: '',
-            page: 1,
-            limit: 20
-        })
-    }
-
-    const hasActiveFilters = filters.search || filters.status || filters.priority || filters.expertId
 
     if (isLoading) {
         return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
-                <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
-                        <p className="text-gray-600">Đang tải dữ liệu...</p>
-                    </div>
-                </div>
-            </Layout>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
         )
     }
 
@@ -292,402 +147,255 @@ export default function AssignmentsManagement() {
     }
 
     return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
+        <Layout
+            title="Đánh giá báo cáo"
+            breadcrumbItems={breadcrumbItems}
+        >
             <div className="space-y-6">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <User className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold mb-1">Phân công đánh giá</h1>
-                                <p className="text-purple-100">
-                                    Quản lý phân công đánh giá báo cáo cho chuyên gia
-                                </p>
+                {/* Statistics */}
+                {statistics && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-600">Tổng báo cáo</p>
+                                    <p className="text-2xl font-bold text-gray-900">{statistics.total}</p>
+                                </div>
+                                <FileText className="h-8 w-8 text-blue-500" />
                             </div>
                         </div>
-                        <button
-                            onClick={() => router.push('/reports/assignments/create')}
-                            className="inline-flex items-center px-6 py-3 bg-white text-purple-600 rounded-xl hover:bg-purple-50 transition-all font-medium shadow-lg"
-                        >
-                            <Plus className="h-5 w-5 mr-2" />
-                            Tạo phân công mới
-                        </button>
-                    </div>
 
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                            <p className="text-purple-100 text-sm mb-1">Tổng số</p>
-                            <p className="text-3xl font-bold">{stats.total || 0}</p>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-600">Phân tích tiêu chí</p>
+                                    <p className="text-2xl font-bold text-gray-900">{statistics.criteriaAnalysis}</p>
+                                </div>
+                                <BookOpen className="h-8 w-8 text-purple-500" />
+                            </div>
                         </div>
-                        <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                            <p className="text-purple-100 text-sm mb-1">Chờ phản hồi</p>
-                            <p className="text-3xl font-bold">{stats.pending || 0}</p>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-600">Phân tích tiêu chuẩn</p>
+                                    <p className="text-2xl font-bold text-gray-900">{statistics.standardAnalysis}</p>
+                                </div>
+                                <BarChart3 className="h-8 w-8 text-green-500" />
+                            </div>
                         </div>
-                        <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                            <p className="text-purple-100 text-sm mb-1">Đang thực hiện</p>
-                            <p className="text-3xl font-bold">{stats.inProgress || 0}</p>
-                        </div>
-                        <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                            <p className="text-purple-100 text-sm mb-1">Hoàn thành</p>
-                            <p className="text-3xl font-bold">{stats.completed || 0}</p>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-600">Báo cáo tổng hợp</p>
+                                    <p className="text-2xl font-bold text-gray-900">{statistics.comprehensiveReport}</p>
+                                </div>
+                                <FileText className="h-8 w-8 text-orange-500" />
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
-                {/* Search & Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex flex-col lg:flex-row gap-4">
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
-                            <form onSubmit={handleSearch} className="relative">
-                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Tìm kiếm theo báo cáo..."
+                                    placeholder="Tìm kiếm theo tên hoặc mã báo cáo..."
                                     value={filters.search}
-                                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                            </form>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-medium ${
-                                    showFilters || hasActiveFilters
-                                        ? 'bg-purple-100 text-purple-700 border-2 border-purple-300'
-                                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                                <Filter className="h-5 w-5 mr-2" />
-                                Bộ lọc
-                                {hasActiveFilters && (
-                                    <span className="ml-2 px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full font-bold">
-                                        {[filters.status, filters.priority, filters.expertId].filter(Boolean).length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={fetchAssignments}
-                                disabled={loading}
-                                className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
-                            >
-                                <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                                Làm mới
-                            </button>
-                        </div>
-                    </div>
-
-                    {showFilters && (
-                        <div className="mt-6 pt-6 border-t border-gray-200">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-sm font-semibold text-gray-900">Lọc nâng cao</h3>
-                                {hasActiveFilters && (
-                                    <button
-                                        onClick={clearFilters}
-                                        className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-                                    >
-                                        Xóa tất cả bộ lọc
-                                    </button>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Trạng thái
-                                    </label>
-                                    <select
-                                        value={filters.status}
-                                        onChange={(e) => handleFilterChange('status', e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    >
-                                        <option value="">Tất cả trạng thái</option>
-                                        <option value="pending">Chờ phản hồi</option>
-                                        <option value="accepted">Đã chấp nhận</option>
-                                        <option value="in_progress">Đang đánh giá</option>
-                                        <option value="completed">Đã hoàn thành</option>
-                                        <option value="overdue">Quá hạn</option>
-                                        <option value="cancelled">Đã hủy</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Mức độ ưu tiên
-                                    </label>
-                                    <select
-                                        value={filters.priority}
-                                        onChange={(e) => handleFilterChange('priority', e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    >
-                                        <option value="">Tất cả mức độ</option>
-                                        <option value="low">Thấp</option>
-                                        <option value="normal">Bình thường</option>
-                                        <option value="high">Cao</option>
-                                        <option value="urgent">Khẩn cấp</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Chuyên gia
-                                    </label>
-                                    <select
-                                        value={filters.expertId}
-                                        onChange={(e) => handleFilterChange('expertId', e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    >
-                                        <option value="">Tất cả chuyên gia</option>
-                                        {experts.map(expert => (
-                                            <option key={expert._id} value={expert._id}>
-                                                {expert.fullName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
                             </div>
                         </div>
-                    )}
+
+                        <select
+                            value={filters.type}
+                            onChange={(e) => setFilters({ ...filters, type: e.target.value, page: 1 })}
+                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Tất cả loại</option>
+                            <option value="criteria_analysis">Phân tích tiêu chí</option>
+                            <option value="standard_analysis">Phân tích tiêu chuẩn</option>
+                            <option value="comprehensive_report">Báo cáo tổng hợp</option>
+                        </select>
+
+                        <button
+                            type="submit"
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            Tìm kiếm
+                        </button>
+                    </form>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900">
-                            Danh sách phân công
-                            <span className="ml-2 text-sm font-normal text-gray-500">
-                                ({pagination.total} kết quả)
-                            </span>
-                        </h2>
-                    </div>
-
+                {/* Reports List */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     {loading ? (
-                        <div className="flex flex-col justify-center items-center py-16">
-                            <Loader2 className="w-12 h-12 text-purple-600 animate-spin mb-4" />
-                            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+                        <div className="flex justify-center items-center py-12">
+                            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         </div>
-                    ) : assignments.length === 0 ? (
-                        <div className="p-16 text-center">
-                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <User className="h-10 w-10 text-gray-400" />
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có phân công nào'}
-                            </h3>
-                            <p className="text-gray-500 mb-6">
-                                {hasActiveFilters
-                                    ? 'Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác'
-                                    : 'Bắt đầu bằng cách tạo phân công đầu tiên'
-                                }
-                            </p>
-                            {hasActiveFilters ? (
-                                <button
-                                    onClick={clearFilters}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    Xóa bộ lọc
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => router.push('/reports/assignments/create')}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    <Plus className="h-5 w-5 mr-2" />
-                                    Tạo phân công mới
-                                </button>
-                            )}
+                    ) : reports.length === 0 ? (
+                        <div className="text-center py-12">
+                            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-500">Không có báo cáo nào</p>
                         </div>
                     ) : (
-                        <>
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                                    <tr>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.report }}
-                                        >
-                                            Báo cáo
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'report')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.expert }}
-                                        >
-                                            Chuyên gia
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'expert')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.deadline }}
-                                        >
-                                            Hạn chót
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'deadline')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.priority }}
-                                        >
-                                            Ưu tiên
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'priority')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.status }}
-                                        >
-                                            Trạng thái
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'status')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-b-2 border-gray-300 relative group"
-                                            style={{ width: columnWidths.date }}
-                                        >
-                                            Ngày tạo
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 group-hover:bg-purple-300"
-                                                onMouseDown={(e) => handleMouseDown(e, 'date')}
-                                            />
-                                        </th>
-                                        <th
-                                            className="px-4 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-300"
-                                            style={{ width: columnWidths.actions }}
-                                        >
-                                            Thao tác
-                                        </th>
-                                    </tr>
-                                    </thead>
-                                    <tbody className="bg-white">
-                                    {assignments.map((assignment) => (
-                                        <tr key={assignment._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                            <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.report }}>
-                                                <div
-                                                    className={`cursor-pointer hover:text-purple-600 ${
-                                                        expandedRows[`${assignment._id}-report`] ? '' : 'truncate'
-                                                    }`}
-                                                    onClick={() => toggleExpandRow(assignment._id, 'report')}
-                                                    title={assignment.reportId?.title}
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Báo cáo
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Loại
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Chuyên gia đánh giá
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Giám sát
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Ngày tạo
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Thao tác
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                {reports.map((report) => (
+                                    <tr key={report._id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                    <span className="font-medium text-gray-900">
+                                                        {report.title}
+                                                    </span>
+                                                <span className="text-sm text-gray-500">
+                                                        {report.code}
+                                                    </span>
+                                                {report.standardInfo && (
+                                                    <span className="text-xs text-gray-500 mt-1">
+                                                            {report.standardInfo.code} - {report.standardInfo.name}
+                                                        {report.criteriaInfo && (
+                                                            <span> / {report.criteriaInfo.code}</span>
+                                                        )}
+                                                        </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(report.type)}`}>
+                                                    {report.typeText}
+                                                </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {report.experts.length > 0 ? (
+                                                <div className="flex flex-col space-y-1">
+                                                    {report.experts.map((expert, idx) => (
+                                                        <div key={idx} className="flex items-center text-sm">
+                                                            <UserCheck className="h-4 w-4 text-green-500 mr-1" />
+                                                            <span className="text-gray-900">{expert.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-gray-400">Chưa phân công</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {report.advisors.length > 0 ? (
+                                                <div className="flex flex-col space-y-1">
+                                                    {report.advisors.map((advisor, idx) => (
+                                                        <div key={idx} className="flex items-center text-sm">
+                                                            <Users className="h-4 w-4 text-blue-500 mr-1" />
+                                                            <span className="text-gray-900">{advisor.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-gray-400">Chưa có</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center text-sm text-gray-500">
+                                                <Calendar className="h-4 w-4 mr-1" />
+                                                {formatDate(report.createdAt, 'DD/MM/YYYY')}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end space-x-2">
+                                                <button
+                                                    onClick={() => handleViewReport(report._id)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Xem chi tiết"
                                                 >
-                                                    <p className="text-sm font-medium text-gray-900">
-                                                        {assignment.reportId?.title}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        {assignment.reportId?.code}
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200 text-sm" style={{ width: columnWidths.expert }}>
-                                                {assignment.expertId?.fullName}
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200 text-sm" style={{ width: columnWidths.deadline }}>
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="h-4 w-4 text-gray-400" />
-                                                    {formatDate(assignment.deadline)}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.priority }}>
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityColor(assignment.priority)}`}>
-                                                    {getPriorityLabel(assignment.priority)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200" style={{ width: columnWidths.status }}>
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(assignment.status)}`}>
-                                                    {getStatusLabel(assignment.status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 border-r border-gray-200 text-sm text-gray-500" style={{ width: columnWidths.date }}>
-                                                {formatDate(assignment.createdAt)}
-                                            </td>
-                                            <td className="px-4 py-3 text-right" style={{ width: columnWidths.actions }}>
-                                                <div className="flex items-center justify-end space-x-2">
+                                                    <Eye className="h-4 w-4" />
+                                                </button>
+                                                {(user.role === 'admin' || user.role === 'manager') && (
                                                     <button
-                                                        onClick={() => router.push(`/reports/assignments/${assignment._id}`)}
-                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                        title="Xem chi tiết"
+                                                        onClick={() => handleAssignReviewer(report)}
+                                                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                        title="Phân quyền đánh giá"
                                                     >
-                                                        <Eye className="h-4 w-4" />
+                                                        <UserCheck className="h-4 w-4" />
                                                     </button>
-                                                    {assignment.status === 'pending' && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleAccept(assignment._id)}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                                title="Chấp nhận"
-                                                            >
-                                                                <CheckCircle className="h-4 w-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleReject(assignment._id)}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                                title="Từ chối"
-                                                            >
-                                                                <XCircle className="h-4 w-4" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleDelete(assignment._id)}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                        title="Xóa"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
-                            {pagination.pages > 1 && (
-                                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm text-gray-700">
-                                            Hiển thị <strong>{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                            <strong>{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                            <strong>{pagination.total}</strong> kết quả
-                                        </p>
-                                        <div className="flex space-x-2">
-                                            <button
-                                                onClick={() => setFilters(prev => ({ ...prev, page: pagination.current - 1 }))}
-                                                disabled={!pagination.hasPrev}
-                                                className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-                                            >
-                                                Trước
-                                            </button>
-                                            <button
-                                                onClick={() => setFilters(prev => ({ ...prev, page: pagination.current + 1 }))}
-                                                disabled={!pagination.hasNext}
-                                                className="px-4 py-2 text-sm border-2 border-gray-200 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-                                            >
-                                                Sau
-                                            </button>
-                                        </div>
-                                    </div>
+                    {/* Pagination */}
+                    {pagination && pagination.pages > 1 && (
+                        <div className="px-6 py-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-700">
+                                    Hiển thị {((pagination.current - 1) * filters.limit) + 1} - {Math.min(pagination.current * filters.limit, pagination.total)} trong tổng số {pagination.total} báo cáo
                                 </div>
-                            )}
-                        </>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
+                                        disabled={!pagination.hasPrev}
+                                        className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    >
+                                        Trước
+                                    </button>
+                                    <span className="text-sm text-gray-700">
+                                        Trang {pagination.current} / {pagination.pages}
+                                    </span>
+                                    <button
+                                        onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+                                        disabled={!pagination.hasNext}
+                                        className="px-3 py-1 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
+
+            {/* Assign Reviewer Modal */}
+            {showAssignModal && selectedReport && (
+                <AssignReviewerModal
+                    report={selectedReport}
+                    onClose={() => setShowAssignModal(false)}
+                    onSuccess={handleAssignSuccess}
+                />
+            )}
         </Layout>
     )
 }
