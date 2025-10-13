@@ -336,7 +336,7 @@ export default function StandardList() {
                         onChange={(e) => setProgramId(e.target.value)}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     >
-                        <option value="">📚 Tất cả chương trình</option>
+                        <option value="">Tất cả chương trình</option>
                         {programs.map(p => (
                             <option key={p._id} value={p._id}>{p.name}</option>
                         ))}
@@ -347,7 +347,7 @@ export default function StandardList() {
                         onChange={(e) => setOrganizationId(e.target.value)}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     >
-                        <option value="">🏢 Tất cả tổ chức</option>
+                        <option value="">Tất cả tổ chức</option>
                         {organizations.map(o => (
                             <option key={o._id} value={o._id}>{o.name}</option>
                         ))}
@@ -359,10 +359,10 @@ export default function StandardList() {
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     >
                         <option value="">⚡ Tất cả trạng thái</option>
-                        <option value="draft">📝 Nháp</option>
-                        <option value="active">✅ Hoạt động</option>
-                        <option value="inactive">⏸️ Không hoạt động</option>
-                        <option value="archived">📦 Lưu trữ</option>
+                        <option value="draft">Nháp</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                        <option value="archived">Lưu trữ</option>
                     </select>
 
                     <button
