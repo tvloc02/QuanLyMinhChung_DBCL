@@ -264,13 +264,24 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
+            if (!selectedProgram || !selectedOrganization) {
+                toast.error('Vui lòng chọn Chương trình và Tổ chức')
+                return
+            }
+
+            toast.loading('Đang xuất dữ liệu...')
+
             const response = await apiMethods.evidences.exportData({
                 programId: selectedProgram,
                 organizationId: selectedOrganization,
                 format: 'xlsx'
             })
 
-            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const blob = new Blob([response.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            })
+
+            const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
             link.setAttribute('download', `cay-minh-chung-${Date.now()}.xlsx`)
@@ -279,10 +290,12 @@ export default function EvidenceTree() {
             link.remove()
             window.URL.revokeObjectURL(url)
 
-            toast.success('Export thành công')
+            toast.dismiss()
+            toast.success('Export thành công!')
         } catch (error) {
             console.error('Export error:', error)
-            toast.error('Lỗi khi export dữ liệu')
+            toast.dismiss()
+            toast.error('Lỗi khi export dữ liệu: ' + (error.response?.data?.message || error.message))
         }
     }
 
