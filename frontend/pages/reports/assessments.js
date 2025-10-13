@@ -20,6 +20,7 @@ import {
 import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 import AssignReviewerModal from '../../components/reports/AssignReviewerModal'
+import assessmentService from '../../services/assessmentService'
 
 export default function AssessmentsPage() {
     const { user, isLoading } = useAuth()
@@ -57,29 +58,14 @@ export default function AssessmentsPage() {
     const fetchReports = async () => {
         try {
             setLoading(true)
-            const queryParams = new URLSearchParams()
-            Object.keys(filters).forEach(key => {
-                if (filters[key]) queryParams.append(key, filters[key])
-            })
 
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 500))
+            const response = await assessmentService.getAll(filters)
 
-            const mockData = {
-                reports: [],
-                pagination: {
-                    current: 0,
-                    pages: 0,
-                    total: 0,
-                    hasNext: false,
-                    hasPrev: false
-                }
-            }
-
-            setReports(mockData.reports)
-            setPagination(mockData.pagination)
+            setReports(response.data.data.reports)
+            setPagination(response.data.data.pagination)
         } catch (error) {
-            toast.error('Lỗi tải danh sách báo cáo')
+            console.error('Error fetching reports:', error)
+            toast.error(error.response?.data?.message || 'Lỗi tải danh sách báo cáo')
         } finally {
             setLoading(false)
         }
@@ -87,15 +73,8 @@ export default function AssessmentsPage() {
 
     const fetchStatistics = async () => {
         try {
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 300))
-
-            setStatistics({
-                total: 0,
-                criteriaAnalysis: 0,
-                standardAnalysis: 0,
-                comprehensiveReport: 0
-            })
+            const response = await assessmentService.getStatistics()
+            setStatistics(response.data.data)
         } catch (error) {
             console.error('Error fetching statistics:', error)
         }
