@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
-import { UserPlus, X, CheckCircle, Loader2, FileText } from 'lucide-react'
+import {UserPlus, X, CheckCircle, Loader2, FileText, ClipboardCheck} from 'lucide-react'
 
 export default function AssignReviewers() {
     const router = useRouter()
@@ -18,8 +18,8 @@ export default function AssignReviewers() {
     const [reviewerType, setReviewerType] = useState('expert')
 
     const breadcrumbItems = [
-        { name: 'Trang chủ', href: '/' },
-        { name: 'Quản lý báo cáo', href: '/reports' },
+        { name: 'Trang chủ', href: '/', icon: FileText },
+        { name: 'Quản lý báo cáo', href: '/reports', icon: ClipboardCheck },
         { name: 'Phân quyền đánh giá' }
     ]
 
@@ -45,9 +45,6 @@ export default function AssignReviewers() {
     const fetchUsers = async () => {
         try {
             console.log('🔄 Fetching all users...')
-
-            // Gọi API users như component ExpertsList đang dùng
-            // Thử nhiều cách khác nhau
             let usersData = []
 
             // Cách 1: Lấy tất cả users
@@ -58,7 +55,6 @@ export default function AssignReviewers() {
             } catch (err) {
                 console.log('Method 1 failed, trying method 2...')
 
-                // Cách 2: Lấy từ endpoint khác
                 try {
                     const response = await apiMethods.users.getAll({ limit: 1000 })
                     usersData = response.data?.data?.users || response.data?.users || []
@@ -66,7 +62,6 @@ export default function AssignReviewers() {
                 } catch (err2) {
                     console.log('Method 2 failed, trying method 3...')
 
-                    // Cách 3: Fetch riêng experts và advisorsthàn
                     try {
                         const [expertsRes, advisorsRes] = await Promise.all([
                             fetch('/api/users?role=expert', {
@@ -91,7 +86,6 @@ export default function AssignReviewers() {
                 }
             }
 
-            // Filter active users only
             usersData = usersData.filter(u => u.status === 'active')
 
             console.log('📊 Total active users:', usersData.length)
@@ -227,7 +221,7 @@ export default function AssignReviewers() {
     const filteredUsers = allUsers.filter(u => u.role === reviewerType)
 
     return (
-        <Layout title="Phân quyền đánh giá" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="max-w-8xl mx-auto">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white mb-6">
                     <div className="flex items-center space-x-4">
