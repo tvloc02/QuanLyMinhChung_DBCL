@@ -59,7 +59,7 @@ export default function EditUserPage() {
     const fetchUser = async () => {
         try {
             setLoading(true)
-            const response = await api.get(`/users/${id}`)
+            const response = await api.get(`/api/users/${id}`)
 
             if (response.data.success) {
                 const user = response.data.data
@@ -158,7 +158,7 @@ export default function EditUserPage() {
                 delete updateData.password
             }
 
-            const response = await api.put(`/users/${id}`, updateData)
+            const response = await api.put(`/api/users/${id}`, updateData)
 
             if (response.data.success) {
                 setMessage({
@@ -168,7 +168,7 @@ export default function EditUserPage() {
 
                 // Redirect sau 1.5s
                 setTimeout(() => {
-                    router.push('/users')
+                    router.push('/users/users')
                 }, 1500)
             }
         } catch (error) {
@@ -264,7 +264,7 @@ export default function EditUserPage() {
                             </div>
                         </div>
                         <button
-                            onClick={() => router.push('/users')}
+                            onClick={() => router.push('/users/users')}
                             className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
                         >
                             <ArrowLeft className="w-5 h-5" />
@@ -497,7 +497,7 @@ export default function EditUserPage() {
                             <div className="flex items-center justify-end gap-4 pt-6 border-t-2 border-gray-100">
                                 <button
                                     type="button"
-                                    onClick={() => router.push('/users')}
+                                    onClick={() => router.push('/users/users')}
                                     className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                                 >
                                     Hủy

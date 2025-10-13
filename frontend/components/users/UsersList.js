@@ -106,7 +106,7 @@ export default function UsersListPage() {
 
         try {
             setActionLoading(true)
-            await api.delete(`/users/${selectedUser._id}`)
+            await api.delete(`/api/users/${selectedUser._id}`)
 
             setMessage({
                 type: 'success',
@@ -130,7 +130,7 @@ export default function UsersListPage() {
 
         try {
             setActionLoading(true)
-            await api.post(`/users/${selectedUser._id}/lock`, {
+            await api.post(`/api/users/${selectedUser._id}/lock`, {
                 reason: lockReason || 'Không có lý do cụ thể'
             })
 
@@ -157,7 +157,7 @@ export default function UsersListPage() {
 
         try {
             setActionLoading(true)
-            await api.post(`/users/${selectedUser._id}/unlock`)
+            await api.post(`/api/users/${selectedUser._id}/unlock`)
 
             setMessage({
                 type: 'success',
@@ -181,7 +181,7 @@ export default function UsersListPage() {
 
         try {
             setActionLoading(true)
-            const response = await api.post(`/users/${selectedUser._id}/reset-password`)
+            const response = await api.post(`/api/users/${selectedUser._id}/reset-password`)
 
             if (response.data.success) {
                 setNewPassword(response.data.data.newPassword)

@@ -85,17 +85,15 @@ export default function CreateUserForm() {
     const validateForm = () => {
         const newErrors = {}
 
-        // Email validation - Chấp nhận cả email đầy đủ và username
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc'
         } else {
             const emailInput = formData.email.trim()
-            // Regex cho email đầy đủ hoặc username đơn giản
             const fullEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
             const usernameRegex = /^[a-zA-Z0-9]+$/
 
             if (!fullEmailRegex.test(emailInput) && !usernameRegex.test(emailInput)) {
-                newErrors.email = 'Email không hợp lệ. Nhập email đầy đủ (user@domain.com) hoặc username (vd: nguyenvana)'
+                newErrors.email = 'Email không hợp lệ. Nhập email đầy đủ (user@domain.com) hoặc username (vd: locvt)'
             }
         }
 
@@ -361,7 +359,6 @@ export default function CreateUserForm() {
                                 </p>
                             )}
                             <p className="mt-2 text-xs text-gray-500">
-                                📧 Nhập username (ví dụ: nguyenvana) hoặc email đầy đủ (ví dụ: user@domain.com)
                             </p>
                         </div>
 
