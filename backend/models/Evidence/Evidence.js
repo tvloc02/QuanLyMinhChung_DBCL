@@ -98,6 +98,17 @@ const evidenceSchema = new mongoose.Schema({
 
     tags: [String],
 
+    status: {
+        type: String,
+        enum: ['new', 'in_progress', 'completed', 'approved', 'rejected'],
+        default: 'new'
+    },
+
+    rejectionReason: {
+        type: String,
+        trim: true
+    },
+
     bulkImportBatch: {
         batchId: String,
         importedAt: Date,
@@ -144,6 +155,7 @@ evidenceSchema.index({ academicYearId: 1, standardId: 1 });
 evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
 evidenceSchema.index({ academicYearId: 1, name: 'text', description: 'text', documentNumber: 'text' });
 evidenceSchema.index({ academicYearId: 1, createdAt: -1 });
+evidenceSchema.index({ status: 1 });
 
 evidenceSchema.index({
     academicYearId: 1,
@@ -170,6 +182,29 @@ evidenceSchema.pre('save', function(next) {
     }
     next();
 });
+
+evidenceSchema.methods.updateStatus = async function() {
+    const File = require('./File');
+    const files = await File.find({ evidenceId: this._id });
+
+    if (files.length === 0) {
+        this.status = this.status === 'new' ? 'new' : 'in_progress';
+    } else {
+        const rejectedFiles = files.filter(f => f.approvalStatus === 'rejected');
+        const approvedFiles = files.filter(f => f.approvalStatus === 'approved');
+
+        if (rejectedFiles.length > 0) {
+            this.status = 'rejected';
+        } else if (approvedFiles.length === files.length) {
+            this.status = 'approved';
+        } else {
+            this.status = 'completed';
+        }
+    }
+
+    await this.save();
+    return this.status;
+};
 
 evidenceSchema.virtual('parsedCode').get(function() {
     const parts = this.code.split('.');
@@ -290,6 +325,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
         criteriaId,
         dateFrom,
         dateTo,
+        status
     } = searchParams;
 
     let query = {};
@@ -311,7 +347,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     if (organizationId) query.organizationId = organizationId;
     if (standardId) query.standardId = standardId;
     if (criteriaId) query.criteriaId = criteriaId;
-
+    if (status) query.status = status;
 
     if (dateFrom || dateTo) {
         query.createdAt = {};
@@ -338,6 +374,7 @@ evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStand
     evidenceData.criteriaId = targetCriteriaId;
     evidenceData.createdBy = userId;
     evidenceData.updatedBy = userId;
+    evidenceData.status = 'new';
 
     evidenceData.changeHistory = [{
         action: 'copied',
@@ -438,7 +475,8 @@ evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, pr
             _id: evidence._id,
             code: evidence.code,
             name: evidence.name,
-            fileCount: evidence.files.length
+            fileCount: evidence.files.length,
+            status: evidence.status
         });
     });
 
