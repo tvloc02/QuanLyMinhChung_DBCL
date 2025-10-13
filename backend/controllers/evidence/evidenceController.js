@@ -667,33 +667,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
     }
 };
 
-const exportEvidences = async (req, res) => {
-    try {
-        const filters = { ...req.query, academicYearId: req.academicYearId };
-        const format = filters.format || 'xlsx';
-
-        const data = await exportService.exportEvidences(filters, format);
-
-        const filename = `evidences_${req.currentAcademicYear.code}_${Date.now()}.${format}`;
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-        if (format === 'xlsx') {
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        } else {
-            res.setHeader('Content-Type', 'text/csv');
-        }
-
-        res.send(data);
-
-    } catch (error) {
-        console.error('Export evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi export minh chứng'
-        });
-    }
-};
-
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
@@ -1001,6 +974,92 @@ const getFullEvidenceTree = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy cây minh chứng đầy đủ: ' + error.message
+        });
+    }
+};
+
+const exportEvidences = async (req, res) => {
+    try {
+        const { programId, organizationId, format = 'xlsx' } = req.query;
+        const academicYearId = req.academicYearId;
+
+        console.log('Export request:', { programId, organizationId, academicYearId, format });
+
+        if (!programId || !organizationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin programId hoặc organizationId'
+            });
+        }
+
+        const evidences = await Evidence.find({
+            academicYearId,
+            programId,
+            organizationId
+        })
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code')
+            .populate('programId', 'name code')
+            .populate('organizationId', 'name code')
+            .populate('files')
+            .sort({ code: 1 })
+            .lean();
+
+        console.log(`Found ${evidences.length} evidences to export`);
+
+        const XLSX = require('xlsx');
+        const workbook = XLSX.utils.book_new();
+
+        const data = [
+            ['STT', 'Mã minh chứng', 'Tên minh chứng', 'Tiêu chuẩn', 'Tiêu chí', 'Số file', 'Trạng thái']
+        ];
+
+        evidences.forEach((evidence, index) => {
+            data.push([
+                index + 1,
+                evidence.code || '',
+                evidence.name || '',
+                evidence.standardId ? `${evidence.standardId.code} - ${evidence.standardId.name}` : '',
+                evidence.criteriaId ? `${evidence.criteriaId.code} - ${evidence.criteriaId.name}` : '',
+                evidence.files?.length || 0,
+                evidence.status || 'active'
+            ]);
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+        worksheet['!cols'] = [
+            { wch: 5 },
+            { wch: 15 },
+            { wch: 50 },
+            { wch: 40 },
+            { wch: 40 },
+            { wch: 10 },
+            { wch: 12 }
+        ];
+
+        // Thêm worksheet vào workbook
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách minh chứng');
+
+        // Tạo buffer từ workbook
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        // Đặt headers cho response
+        const filename = `minh-chung_${req.currentAcademicYear?.code || 'export'}_${Date.now()}.xlsx`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Length', buffer.length);
+
+        // Gửi buffer
+        res.send(buffer);
+
+        console.log('Export completed successfully');
+
+    } catch (error) {
+        console.error('Export evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi export minh chứng: ' + error.message
         });
     }
 };
