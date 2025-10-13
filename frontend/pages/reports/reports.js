@@ -20,7 +20,7 @@ import {
     X,
     Loader2,
     BarChart3,
-    Send
+    Send // <-- Đã thêm Send
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -689,6 +689,7 @@ export default function ReportsManagement() {
                                                         {(pagination.current - 1) * filters.limit + index + 1}
                                                     </span>
                                                 </td>
+                                                {/* SỬA: Giảm padding ngang (px-2.5 -> px-2) và đồng bộ styling Mã BC */}
                                                 <td className="px-3 py-3 text-center border-r border-gray-200">
                                                     <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 whitespace-nowrap">
                                                         {report.code}
@@ -781,20 +782,24 @@ export default function ReportsManagement() {
                                                             onClick={() => handleEdit(report._id)}
                                                         />
 
+                                                        {/* Phân quyền: chỉ active khi đã Published */}
                                                         <ActionButton
                                                             icon={UserPlus}
                                                             variant="primary"
                                                             size="sm"
                                                             disabled={!isPublished}
                                                             onClick={() => isPublished && router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
                                                         />
 
+                                                        {/* Xuất bản: dùng icon Send, chỉ active khi là Draft */}
                                                         <ActionButton
-                                                            icon={Send}
+                                                            icon={Send} // <-- Đã thay thế CheckCircle bằng Send
                                                             variant="success"
                                                             size="sm"
                                                             disabled={!isDraft}
                                                             onClick={() => isDraft && handlePublish(report._id)}
+                                                            title={isDraft ? "Xuất bản báo cáo" : "Đã xuất bản hoặc đang xem xét"}
                                                         />
 
                                                         <ActionButton
@@ -811,6 +816,7 @@ export default function ReportsManagement() {
                                 </table>
                             </div>
 
+                            {/* SỬA: Đồng bộ giao diện Phân trang (Pagination) */}
                             {pagination.pages > 1 && (
                                 <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
                                     <div className="flex items-center justify-between">
