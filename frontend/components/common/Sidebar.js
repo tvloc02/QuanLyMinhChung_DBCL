@@ -205,7 +205,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                     className="fixed inset-0 z-30 lg:hidden transition-all duration-300"
                     onClick={onClose}
                     style={{
-                        background: 'linear-gradient(135deg, rgb(62 109 235) 0%, rgb(109 147 255) 100%)',
+                        background: 'linear-gradient(135deg, rgb(0 5 255) 0%, rgba(139, 92, 246, 0.3) 100%)',
                         backdropFilter: 'blur(8px)',
                         top: '80px'
                     }}
