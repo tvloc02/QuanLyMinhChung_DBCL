@@ -281,9 +281,9 @@ export default function OrganizationsList() {
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                     >
                         <option value="">⚡ Tất cả trạng thái</option>
-                        <option value="active">✅ Hoạt động</option>
-                        <option value="inactive">⏸️ Không hoạt động</option>
-                        <option value="suspended">🔒 Tạm ngưng</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                        <option value="suspended">Tạm ngưng</option>
                     </select>
 
                     <button
