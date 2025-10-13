@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
-import { ActionButton } from '../../components/ActionButtons'
+import { ActionButton } from '../ActionButtons'
 import toast from 'react-hot-toast'
 import {
     Plus,
