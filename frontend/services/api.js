@@ -229,11 +229,16 @@ export const apiMethods = {
             })
         },
         getById: (id) => api.get(`/api/files/${id}`),
+
         download: (id) => api.get(`/api/files/download/${id}`, {
             responseType: 'blob'
         }),
         delete: (id) => api.delete(`/api/files/${id}`),
-        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`)
+        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`),
+        approve: (fileId, data) => {
+            // data = { status: 'approved' | 'rejected', rejectionReason?: string }
+            return api.post(`/api/evidences/files/${fileId}/approve`, data)
+        }
     },
 
     // Reports
