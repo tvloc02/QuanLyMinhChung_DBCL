@@ -112,7 +112,7 @@ const getEvidences = async (req, res) => {
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
-                .populate('files', 'originalName size mimeType uploadedAt')
+                .populate('files', 'originalName size mimeType uploadedAt approvalStatus rejectionReason uploadedBy') // Thêm approvalStatus, rejectionReason, uploadedBy
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -158,7 +158,7 @@ const getEvidenceById = async (req, res) => {
             .populate('updatedBy', 'fullName email')
             .populate({
                 path: 'files',
-                select: 'originalName storedName size mimeType uploadedAt downloadCount',
+                select: 'originalName storedName size mimeType uploadedAt downloadCount approvalStatus rejectionReason uploadedBy',
                 populate: {
                     path: 'uploadedBy',
                     select: 'fullName email'
@@ -172,6 +172,10 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
+        // ==========================================================
+        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN TRUY CẬP ===
+        // MỌI NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP ĐỀU CÓ QUYỀN TRUY CẬP CHI TIẾT
+        /*
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(evidence.standardId._id) &&
             !req.user.hasCriteriaAccess(evidence.criteriaId._id)) {
@@ -180,6 +184,8 @@ const getEvidenceById = async (req, res) => {
                 message: 'Không có quyền truy cập minh chứng này'
             });
         }
+        */
+        // ==========================================================
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
