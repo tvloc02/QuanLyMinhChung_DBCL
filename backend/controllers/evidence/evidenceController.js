@@ -576,22 +576,8 @@ const getStatistics = async (req, res) => {
                 $group: {
                     _id: null,
                     totalEvidences: { $sum: 1 },
-                    activeEvidences: {
-                        $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
-                    },
-                    inactiveEvidences: {
-                        $sum: { $cond: [{ $eq: ['$status', 'inactive'] }, 1, 0] }
-                    },
-                    totalFiles: { $sum: { $size: '$files' }
-                    },
-                    totalFilesSize: { $sum: { $sum: { $size: '$files' } }
-                    },
-                    totalFilesSizeByExtension: {
-                        $group: {
-                            _id: '$files.extension',
-                            totalSize: { $sum: '$files.size' }
-                        }
-                    },
+                    // Loại bỏ các trường gây lỗi (activeEvidences, inactiveEvidences, totalFilesSize, totalFilesSizeByExtension)
+
                     newEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] }
                     },
@@ -607,14 +593,15 @@ const getStatistics = async (req, res) => {
                     rejectedEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
                     },
+                    // Chỉ giữ lại totalFiles (tính theo độ dài mảng, an toàn)
+                    totalFiles: { $sum: { $size: '$files' }
+                    },
                 }
             }
         ]);
 
         const result = stats[0] || {
             totalEvidences: 0,
-            activeEvidences: 0,
-            inactiveEvidences: 0,
             newEvidences: 0,
             inProgressEvidences: 0,
             completedEvidences: 0,
@@ -623,19 +610,36 @@ const getStatistics = async (req, res) => {
             totalFiles: 0
         };
 
+        // Bổ sung tính TotalFilesSize một cách an toàn bằng truy vấn phụ
+        let totalFilesSize = 0;
+        try {
+            const evidenceIds = await Evidence.find(matchStage).distinct('_id');
+
+            const fileStats = await File.aggregate([
+                { $match: { evidenceId: { $in: evidenceIds }, type: 'file' } },
+                { $group: { _id: null, totalSize: { $sum: '$size' } } }
+            ]);
+            totalFilesSize = fileStats[0]?.totalSize || 0;
+        } catch (err) {
+            console.warn("Could not calculate totalFilesSize, returning 0:", err.message);
+        }
+
+
         res.json({
             success: true,
             data: {
                 ...result,
+                totalFilesSize: totalFilesSize, // Thêm trường totalFilesSize đã tính toán an toàn
                 academicYear: req.currentAcademicYear
             }
         });
 
     } catch (error) {
         console.error('Get statistics error:', error);
+        // Trả về thông báo lỗi chi tiết để hỗ trợ debug
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê'
+            message: 'Lỗi hệ thống khi lấy thống kê: ' + error.message
         });
     }
 };
