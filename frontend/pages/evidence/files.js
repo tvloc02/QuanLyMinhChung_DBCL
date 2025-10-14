@@ -173,6 +173,10 @@ export default function FilesPage() {
     }
 
     const handleApproveClick = (file, action) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền duyệt file.');
+            return;
+        }
         setSelectedFile(file)
         setApprovalAction(action)
         setRejectionReason('')
@@ -192,6 +196,7 @@ export default function FilesPage() {
             return;
         }
 
+        // Tạm thời, chỉ mở modal cho file đầu tiên (Vì API hiện tại chỉ duyệt 1 file)
         handleApproveClick(filesToApprove[0], action);
     }
 
@@ -201,46 +206,26 @@ export default function FilesPage() {
             return
         }
 
-        // --- LOGIC XỬ LÝ KHI DUYỆT HÀNG LOẠT (TẠM THỜI CHỈ XỬ LÝ FILE ĐẦU TIÊN) ---
+        // --- LOGIC XỬ LÝ DUYỆT ĐƠN VÀ DUYỆT HÀNG LOẠT (TẠM THỜI) ---
+        // Nếu selectedFile có, ta chỉ duyệt file đó (từ nút Duyệt đơn hoặc Duyệt hàng loạt đang mô phỏng)
+        if (!selectedFile) {
+            toast.error("Không tìm thấy file để xử lý.");
+            return;
+        }
 
         try {
             setSubmitting(true)
 
-            const filesToProcess = files
-                .filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending');
+            await apiMethods.files.approve(selectedFile._id, {
+                status: approvalAction === 'approve' ? 'approved' : 'rejected',
+                rejectionReason: approvalAction === 'reject' ? rejectionReason : undefined
+            })
 
-            if (filesToProcess.length === 0) {
-                throw new Error("Không có file chờ duyệt nào được chọn");
-            }
-
-            let successCount = 0;
-            let firstError = null;
-
-            const listToProcess = selectedFile ? [selectedFile] : filesToProcess;
-
-            for (const file of listToProcess) {
-                try {
-                    await apiMethods.files.approve(file._id, {
-                        status: approvalAction === 'approve' ? 'approved' : 'rejected',
-                        rejectionReason: approvalAction === 'reject' ? rejectionReason : undefined
-                    });
-                    successCount++;
-                } catch (error) {
-                    if (!firstError) firstError = error;
-                }
-            }
-
-
-            if (successCount > 0) {
-                toast.success(
-                    approvalAction === 'approve'
-                        ? `Đã duyệt thành công ${successCount} file.`
-                        : `Đã từ chối thành công ${successCount} file.`
-                );
-            } else if (firstError) {
-                throw firstError;
-            }
-
+            toast.success(
+                approvalAction === 'approve'
+                    ? 'Duyệt file thành công'
+                    : 'Từ chối file thành công'
+            )
             setShowApprovalModal(false)
             setSelectedFile(null)
             fetchData()
@@ -252,6 +237,7 @@ export default function FilesPage() {
         }
     }
 
+    // --- LOGIC CHỌN HÀNG LOẠT ---
     const toggleSelectItem = (fileId) => {
         setSelectedItems(prev =>
             prev.includes(fileId) ? prev.filter(item => item !== fileId) : [...prev, fileId]
@@ -265,6 +251,8 @@ export default function FilesPage() {
             setSelectedItems(files.map(f => f._id))
         }
     }
+    // --- KẾT THÚC LOGIC CHỌN HÀNG LOẠT ---
+
 
     const getFileIcon = (mimeType) => {
         if (mimeType?.startsWith('image/')) {
@@ -310,6 +298,7 @@ export default function FilesPage() {
     const approvedFilesCount = files.filter(f => f.approvalStatus === 'approved').length
     const rejectedFilesCount = files.filter(f => f.approvalStatus === 'rejected').length
     const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length; // Số file pending đang được chọn
+
 
     if (isLoading) {
         return (
@@ -361,7 +350,6 @@ export default function FilesPage() {
                                 <ArrowLeft className="h-5 w-5 mr-2" />
                                 Quay lại
                             </button>
-
                             <button
                                 onClick={fetchData}
                                 disabled={loading}
@@ -410,7 +398,14 @@ export default function FilesPage() {
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Duyệt File Đã Chọn ({pendingSelectedCount})
                                 </button>
-                                {/* Có thể thêm nút từ chối hàng loạt nếu cần */}
+                                <button
+                                    onClick={() => handleBulkApproveClick('reject')}
+                                    disabled={pendingSelectedCount === 0}
+                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+                                >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Từ Chối File Đã Chọn ({pendingSelectedCount})
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -560,6 +555,7 @@ export default function FilesPage() {
                                             </td>
                                             <td className="px-4 py-4 whitespace-nowrap text-center">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    {/* Nút duyệt/từ chối chỉ hiển thị cho Admin và khi file đang pending */}
                                                     {isAdmin && file.approvalStatus === 'pending' && (
                                                         <>
                                                             <button
@@ -659,7 +655,7 @@ export default function FilesPage() {
                                 <button
                                     onClick={() => {
                                         setShowApprovalModal(false);
-                                        setSelectedFile(null); // Reset file đang duyệt
+                                        setSelectedFile(null);
                                     }}
                                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
                                 >
