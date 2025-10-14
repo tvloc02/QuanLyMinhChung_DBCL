@@ -98,7 +98,7 @@ const getEvidences = async (req, res) => {
         if (organizationId) query.organizationId = organizationId;
         if (standardId) query.standardId = standardId;
         if (criteriaId) query.criteriaId = criteriaId;
-        if (status) query.status = status;
+        if (status) { query.status = status; }
         if (documentType) query.documentType = documentType;
 
         const sortOptions = {};
@@ -179,6 +179,11 @@ const getEvidenceById = async (req, res) => {
                 success: false,
                 message: 'Không có quyền truy cập minh chứng này'
             });
+        }
+
+        if (evidence.status === 'new') {
+            evidence.status = 'in_progress';
+            await evidence.save();
         }
 
         res.json({
@@ -296,6 +301,7 @@ const createEvidence = async (req, res) => {
         const evidence = new Evidence({
             academicYearId,
             name: name.trim(),
+            status: 'new',
             description: description?.trim(),
             code: evidenceCode,
             programId,
@@ -570,7 +576,31 @@ const getStatistics = async (req, res) => {
                     inactiveEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'inactive'] }, 1, 0] }
                     },
-                    totalFiles: { $sum: { $size: '$files' } }
+                    totalFiles: { $sum: { $size: '$files' }
+                    },
+                    totalFilesSize: { $sum: { $sum: { $size: '$files' } }
+                    },
+                    totalFilesSizeByExtension: {
+                        $group: {
+                            _id: '$files.extension',
+                            totalSize: { $sum: '$files.size' }
+                        }
+                    },
+                    newEvidences: {
+                        $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] }
+                    },
+                    inProgressEvidences: {
+                        $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] }
+                    },
+                    completedEvidences: {
+                        $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+                    },
+                    approvedEvidences: {
+                        $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] }
+                    },
+                    rejectedEvidences: {
+                        $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
+                    },
                 }
             }
         ]);
@@ -579,6 +609,11 @@ const getStatistics = async (req, res) => {
             totalEvidences: 0,
             activeEvidences: 0,
             inactiveEvidences: 0,
+            newEvidences: 0,
+            inProgressEvidences: 0,
+            completedEvidences: 0,
+            approvedEvidences: 0,
+            rejectedEvidences: 0,
             totalFiles: 0
         };
 
@@ -844,8 +879,6 @@ const moveEvidence = async (req, res) => {
 };
 
 
-
-// Endpoint để lấy cây đầy đủ (bao gồm cả tiêu chuẩn/tiêu chí không có minh chứng)
 const getFullEvidenceTree = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
@@ -864,7 +897,6 @@ const getFullEvidenceTree = async (req, res) => {
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
 
-        // Lấy tất cả standards, criteria và evidences
         const [standards, allCriteria, evidences] = await Promise.all([
             StandardModel.find({ academicYearId, programId }).sort({ code: 1 }).lean(),
             CriteriaModel.find({ academicYearId, programId }).sort({ standardCode: 1, code: 1 }).lean(),
@@ -875,7 +907,10 @@ const getFullEvidenceTree = async (req, res) => {
             })
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
-                .populate('files')
+                .populate({
+                    path: 'files',
+                    select: 'originalName size mimeType uploadedAt approvalStatus rejectionReason uploadedBy'
+                })
                 .sort({ code: 1 })
                 .lean()
         ]);
@@ -886,12 +921,9 @@ const getFullEvidenceTree = async (req, res) => {
             evidences: evidences.length
         });
 
-        // Build tree structure
         const tree = [];
 
         standards.forEach(standard => {
-            // Tìm criteria thuộc standard này
-            // QUAN TRỌNG: So sánh standardCode của Criteria với code của Standard
             const standardCriteria = allCriteria.filter(c =>
                 c.standardCode === standard.code ||
                 c.standardId?.toString() === standard._id.toString()
@@ -909,9 +941,7 @@ const getFullEvidenceTree = async (req, res) => {
             };
 
             standardCriteria.forEach(criterion => {
-                // Tìm evidences thuộc criterion này
                 const criterionEvidences = evidences.filter(e => {
-                    // So sánh bằng nhiều cách để đảm bảo tìm được
                     const matchByStandardCode = e.standardId?.code === standard.code;
                     const matchByCriteriaCode = e.criteriaId?.code === criterion.code;
                     const matchByCriteriaId = e.criteriaId?._id?.toString() === criterion._id.toString();
@@ -1014,6 +1044,16 @@ const exportEvidences = async (req, res) => {
             ['STT', 'Mã minh chứng', 'Tên minh chứng', 'Tiêu chuẩn', 'Tiêu chí', 'Số file', 'Trạng thái']
         ];
 
+        const statusMap = {
+            'active': 'Hoạt động',
+            'inactive': 'Không hoạt động',
+            'new': 'Mới',
+            'in_progress': 'Đang thực hiện',
+            'completed': 'Hoàn thành',
+            'approved': 'Đã duyệt',
+            'rejected': 'Từ chối'
+        };
+
         evidences.forEach((evidence, index) => {
             data.push([
                 index + 1,
@@ -1022,7 +1062,7 @@ const exportEvidences = async (req, res) => {
                 evidence.standardId ? `${evidence.standardId.code} - ${evidence.standardId.name}` : '',
                 evidence.criteriaId ? `${evidence.criteriaId.code} - ${evidence.criteriaId.name}` : '',
                 evidence.files?.length || 0,
-                evidence.status || 'active'
+                statusMap[evidence.status] || 'Mới'
             ]);
         });
 
@@ -1064,6 +1104,56 @@ const exportEvidences = async (req, res) => {
     }
 };
 
+const approveFile = async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const { status, rejectionReason } = req.body;
+
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ admin mới có quyền duyệt file'
+            });
+        }
+
+        const file = await File.findById(fileId);
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        file.approvalStatus = status;
+        file.approvedBy = req.user.id;
+        file.approvalDate = new Date();
+
+        if (status === 'rejected' && rejectionReason) {
+            file.rejectionReason = rejectionReason;
+        }
+
+        await file.save();
+
+        const evidence = await Evidence.findById(file.evidenceId);
+        if (evidence) {
+            await evidence.updateStatus();
+        }
+
+        res.json({
+            success: true,
+            message: status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công',
+            data: file
+        });
+
+    } catch (error) {
+        console.error('Approve file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi duyệt file'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -1080,5 +1170,6 @@ module.exports = {
     incrementEvidenceDownload,
     validateEvidenceFileName,
     moveEvidence,
-    getFullEvidenceTree
+    getFullEvidenceTree,
+    approveFile
 };
