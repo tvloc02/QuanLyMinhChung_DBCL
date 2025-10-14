@@ -18,10 +18,44 @@ const {
     copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences,
-    getFullEvidenceTree  // THÊM IMPORT
+    getFullEvidenceTree,
+    moveEvidence,
+    approveFile
 } = require('../../controllers/evidence/evidenceController');
 
 router.use(auth, setAcademicYearContext);
+
+router.post('/files/:fileId/approve', [
+    param('fileId').isMongoId().withMessage('ID file không hợp lệ'),
+    body('status')
+        .notEmpty()
+        .withMessage('Trạng thái là bắt buộc')
+        .isIn(['approved', 'rejected'])
+        .withMessage('Trạng thái phải là approved hoặc rejected'),
+    body('rejectionReason')
+        .optional()
+        .isString()
+        .withMessage('Lý do từ chối phải là chuỗi')
+], validation, approveFile);
+
+router.post('/:id/move', [
+    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
+    body('targetStandardId')
+        .notEmpty()
+        .withMessage('Tiêu chuẩn đích là bắt buộc')
+        .isMongoId()
+        .withMessage('ID tiêu chuẩn đích không hợp lệ'),
+    body('targetCriteriaId')
+        .notEmpty()
+        .withMessage('Tiêu chí đích là bắt buộc')
+        .isMongoId()
+        .withMessage('ID tiêu chí đích không hợp lệ'),
+    body('newCode')
+        .notEmpty()
+        .withMessage('Mã minh chứng mới là bắt buộc')
+        .matches(/^H\d+\.\d{2}\.\d{2}\.\d{2}$/)
+        .withMessage('Mã minh chứng mới không đúng format')
+], validation, moveEvidence);
 
 router.get('/statistics', [
     query('programId').optional().isMongoId(),
@@ -49,6 +83,7 @@ router.get('/tree', [
 ], validation, getEvidenceTree);
 
 router.post('/advanced-search', [
+    body('status').optional().isIn(['active', 'inactive', 'new', 'in_progress', 'completed', 'approved', 'rejected']),
     body('keyword').optional().trim().escape(),
     body('programId').optional().isMongoId(),
     body('organizationId').optional().isMongoId(),
@@ -93,6 +128,7 @@ router.post('/import', upload.single('file'), [
 
 
 router.get('/', [
+    query('status').optional().isIn(['active', 'inactive', 'new', 'in_progress', 'completed', 'approved', 'rejected']),
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
