@@ -357,7 +357,7 @@ export const apiMethods = {
         markAsRead: (id) => api.post(`/api/notifications/${id}/read`),
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
         delete: (id) => api.delete(`/api/notifications/${id}`),
-        getUnreadCount: () => api.get('/api/notifications/stats'),
+        getUnreadCount: () => api.get('/api/notifications/unread-count'),
         getStats: () => api.get('/api/notifications/stats')
     },
 
