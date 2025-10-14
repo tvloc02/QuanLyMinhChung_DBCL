@@ -23,13 +23,11 @@ export default function CreateReportPage() {
     const [submitting, setSubmitting] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
 
-    // Data lists
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
 
-    // Form state
     const [formData, setFormData] = useState({
         title: '',
         type: 'criteria_analysis',
@@ -206,7 +204,6 @@ export default function CreateReportPage() {
             if (formData.contentMethod === 'online_editor') {
                 submitData.content = formData.content;
             } else {
-                // Đặt content rỗng cho file upload
                 submitData.content = '';
             }
 
@@ -751,9 +748,12 @@ export default function CreateReportPage() {
                     <div className="w-96 flex-shrink-0">
                         <div className="sticky top-6">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                {/* TRUYỀN ID CHÍNH XÁC VÀO EVIDENCE PICKER */}
                                 <EvidencePicker
                                     standardId={formData.standardId}
                                     criteriaId={formData.criteriaId}
+                                    programId={formData.programId} // Thêm programId
+                                    organizationId={formData.organizationId} // Thêm organizationId
                                     onSelect={handleInsertEvidence}
                                     onViewEvidence={(code) => {
                                         setSelectedEvidenceCode(code)
