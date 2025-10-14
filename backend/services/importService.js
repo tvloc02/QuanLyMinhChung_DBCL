@@ -7,13 +7,15 @@ const identifyCodeType = (code) => {
 
     const trimmedCode = code.trim();
 
-    const evidencePattern = /^H(\d+)\.(\d{2})\.(\d{2})\.(\d{2})$/;
+    // SỬA ĐỔI: Regex cho Evidence (Mã minh chứng) để chấp nhận [A-Y] ở vị trí đầu tiên
+    const evidencePattern = /^([A-Y]\d+)\.(\d{2})\.(\d{2})\.(\d{2})$/;
     const evidenceMatch = trimmedCode.match(evidencePattern);
     if (evidenceMatch) {
         return {
             type: 'evidence',
             parsed: {
-                boxNumber: evidenceMatch[1],
+                // evidenceMatch[1] là prefix và boxNumber (VD: H1, A5, Y1,...)
+                prefixAndBox: evidenceMatch[1],
                 standardCode: evidenceMatch[2],
                 criteriaCode: evidenceMatch[3],
                 sequenceNumber: evidenceMatch[4]
@@ -21,6 +23,9 @@ const identifyCodeType = (code) => {
             original: trimmedCode
         };
     }
+
+    // Phần regex cho Criteria và Standard (không thay đổi) vẫn chỉ là số,
+    // vì chúng thường không có tiền tố chữ cái trong cấu trúc cây tiêu chuẩn/tiêu chí
 
     const criteriaPattern = /^(\d{1,2})\.(\d{1,2})$/;
     const criteriaMatch = trimmedCode.match(criteriaPattern);
@@ -66,7 +71,8 @@ const identifyCodeType = (code) => {
             type: 'criteria',
             parsed: {
                 standardCode: criteriaTextMatch[1].padStart(2, '0'),
-                criteriaCode: criteriaTextPattern[2].padStart(2, '0')
+                // SỬA LỖI: criteriaTextPattern là regex, không phải array. Phải dùng criteriaTextMatch[2]
+                criteriaCode: criteriaTextMatch[2].padStart(2, '0')
             },
             original: trimmedCode
         };
@@ -124,6 +130,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
         const CriteriaModel = mongoose.model('Criteria');
 
         // Load tất cả Standard và Criteria thuộc năm học hiện tại
+        // NOTE: Giả sử Standard và Criteria vẫn dùng code là số (01, 02)
         const [allStandards, allCriteria] = await Promise.all([
             StandardModel.find({ academicYearId, programId, organizationId }).lean(),
             CriteriaModel.find({ academicYearId, programId, organizationId }).lean()
@@ -195,6 +202,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
             try {
                 if (identified.type === 'standard') {
+                    // Logic xử lý Standard (Tiêu chuẩn)
                     currentStandardCode = identified.parsed.standardCode;
                     let standardName = nameStr || `Tiêu chuẩn ${currentStandardCode}`;
 
@@ -236,6 +244,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                     currentCriteriaId = null; // Reset Criteria context
 
                 } else if (identified.type === 'criteria') {
+                    // Logic xử lý Criteria (Tiêu chí)
                     currentStandardCode = identified.parsed.standardCode;
                     currentCriteriaCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
@@ -291,7 +300,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                     }
 
                 } else if (identified.type === 'evidence') {
-                    // Xử lý minh chứng
+                    // Logic xử lý Evidence (Minh chứng)
                     if (!nameStr) {
                         results.errors.push({
                             row: rowNum,
@@ -306,6 +315,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                     const stdCode = identified.parsed.standardCode;
                     const critCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${stdCode}.${critCode}`;
+                    const evidenceCode = identified.original; // Mã minh chứng đầy đủ (VD: A1.01.02.04)
 
                     // TRA CỨU ID TỪ MAP (ĐÃ CÓ CÁC ID VỪA TẠO)
                     const evidenceStandardId = standardMap[stdCode];
@@ -324,7 +334,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                     // Kiểm tra xem minh chứng đã tồn tại chưa
                     const existingEvidence = await Evidence.findOne({
-                        code: identified.original,
+                        code: evidenceCode,
                         academicYearId
                     });
 
@@ -342,7 +352,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                             results.updated.push({
                                 row: rowNum,
-                                code: identified.original,
+                                code: evidenceCode,
                                 name: nameStr
                             });
                             console.log(`  → Updated existing evidence`);
@@ -350,7 +360,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             // Tạo mới nếu chưa tồn tại
                             const newEvidence = new Evidence({
                                 academicYearId,
-                                code: identified.original,
+                                code: evidenceCode,
                                 name: nameStr,
                                 programId, // Lấy từ tham số
                                 organizationId, // Lấy từ tham số
@@ -364,7 +374,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                             results.created.push({
                                 row: rowNum,
-                                code: identified.original,
+                                code: evidenceCode,
                                 name: nameStr
                             });
                             console.log(`  → Created new evidence`);
@@ -374,7 +384,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         if (existingEvidence) {
                             results.errors.push({
                                 row: rowNum,
-                                code: identified.original,
+                                code: evidenceCode,
                                 message: 'Mã minh chứng đã tồn tại'
                             });
                             console.log(`  → Error: Evidence already exists`);
@@ -383,7 +393,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                         const newEvidence = new Evidence({
                             academicYearId,
-                            code: identified.original,
+                            code: evidenceCode,
                             name: nameStr,
                             programId, // Lấy từ tham số
                             organizationId, // Lấy từ tham số
@@ -397,7 +407,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                         results.created.push({
                             row: rowNum,
-                            code: identified.original,
+                            code: evidenceCode,
                             name: nameStr
                         });
                         console.log(`  → Created new evidence`);
@@ -405,7 +415,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                     results.success.push({
                         row: rowNum,
-                        code: identified.original,
+                        code: evidenceCode,
                         name: nameStr,
                         action: existingEvidence ? 'updated' : 'created'
                     });
