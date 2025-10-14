@@ -2,6 +2,7 @@ const File = require('../../models/Evidence/File');
 const Evidence = require('../../models/Evidence/Evidence');
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose'); // Cần import mongoose
 
 const uploadFiles = async (req, res) => {
     try {
@@ -24,7 +25,7 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        // Bỏ kiểm tra quyền - ai cũng có thể upload
+        // Bỏ kiểm tra quyền - ai cũng có thể upload (Giữ nguyên như logic bạn muốn)
         // if (req.user.role !== 'admin' &&
         //     !req.user.hasStandardAccess(evidence.standardId) &&
         //     !req.user.hasCriteriaAccess(evidence.criteriaId)) {
@@ -66,7 +67,13 @@ const uploadFiles = async (req, res) => {
                 fs.mkdirSync(permanentDir, { recursive: true });
             }
 
-            fs.renameSync(file.path, permanentPath);
+            // Đảm bảo file temp được di chuyển hoặc xóa sau khi xử lý
+            if (fs.existsSync(file.path)) {
+                fs.renameSync(file.path, permanentPath);
+            } else {
+                console.warn(`File temp không tồn tại: ${file.path}. Bỏ qua rename.`);
+                continue;
+            }
 
             // Admin upload thì tự động duyệt, người khác thì pending
             const fileDoc = new File({
@@ -96,6 +103,7 @@ const uploadFiles = async (req, res) => {
 
         evidence.files.push(...savedFiles.map(f => f._id));
         await evidence.save();
+        await evidence.updateStatus(); // Cập nhật trạng thái minh chứng sau khi upload
 
         res.json({
             success: true,
@@ -131,6 +139,9 @@ const downloadFile = async (req, res) => {
             });
         }
 
+        // ==========================================================
+        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN TẢI FILE ===
+        /*
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(file.evidenceId.standardId) &&
             !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
@@ -139,6 +150,8 @@ const downloadFile = async (req, res) => {
                 message: 'Không có quyền tải file này'
             });
         }
+        */
+        // ==========================================================
 
         if (!fs.existsSync(file.filePath)) {
             return res.status(404).json({
@@ -149,7 +162,7 @@ const downloadFile = async (req, res) => {
 
         await file.incrementDownloadCount();
 
-        res.download(file.filePath, file.storedName);
+        res.download(file.filePath, file.originalName); // Sử dụng originalName để tải xuống
 
     } catch (error) {
         console.error('Download file error:', error);
@@ -172,6 +185,9 @@ const deleteFile = async (req, res) => {
             });
         }
 
+        // ==========================================================
+        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN XÓA FILE ===
+        /*
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(file.evidenceId.standardId) &&
             !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
@@ -180,6 +196,9 @@ const deleteFile = async (req, res) => {
                 message: 'Không có quyền xóa file này'
             });
         }
+        */
+        // ==========================================================
+
 
         if (file.type === 'folder') {
             const childrenCount = await File.countDocuments({ parentFolder: id });
@@ -203,6 +222,10 @@ const deleteFile = async (req, res) => {
         );
 
         await File.findByIdAndDelete(id);
+
+        if (file.evidenceId) {
+            await Evidence.findById(file.evidenceId._id).then(e => e?.updateStatus());
+        }
 
         if (parentFolderId) {
             await updateFolderMetadata(parentFolderId);
