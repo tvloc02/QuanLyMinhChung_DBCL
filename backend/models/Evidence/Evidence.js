@@ -13,9 +13,9 @@ const evidenceSchema = new mongoose.Schema({
         uppercase: true,
         validate: {
             validator: function(code) {
-                return /^H\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
+                return /^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
             },
-            message: 'Mã minh chứng không đúng yêu cầu (VD: H1.01.02.04)'
+            message: 'Mã minh chứng không đúng yêu cầu (ký tự đầu tiên phải là A-Y, VD: A1.01.02.04)'
         }
     },
 
@@ -298,7 +298,7 @@ evidenceSchema.statics.generateCode = async function(academicYearId, standardCod
 };
 
 evidenceSchema.statics.isValidCodeFormat = function(code) {
-    return /^H\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
+    return /^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code);
 };
 
 evidenceSchema.statics.parseCode = function(code) {
