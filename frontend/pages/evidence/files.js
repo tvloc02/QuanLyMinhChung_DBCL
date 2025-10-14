@@ -58,7 +58,6 @@ export default function FilesPage() {
     }, [user, evidenceId])
 
     const breadcrumbItems = [
-        // Sửa href để quay lại trang quản lý chính
         { name: 'Quản lý minh chứng', href: '/evidence-management', icon: ArrowLeft },
         { name: 'Files đính kèm', icon: File }
     ]
@@ -72,7 +71,7 @@ export default function FilesPage() {
 
             setEvidence(data)
             setFiles(data?.files || [])
-            setSelectedItems([]) // Clear selection on new fetch
+            setSelectedItems([])
         } catch (error) {
             console.error('Fetch data error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi tải dữ liệu')
@@ -108,6 +107,8 @@ export default function FilesPage() {
 
         for (const file of filesToUpload) {
             try {
+                // Giả định sử dụng apiMethods.files.uploadMultiple
+                // Tuy nhiên, logic backend chỉ nhận 'files', ta dùng upload đơn trong loop
                 const response = await apiMethods.files.upload(file, evidenceId)
 
                 if (response.data?.success) {
@@ -141,6 +142,7 @@ export default function FilesPage() {
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
+            // Sử dụng fileName (đã được decode an toàn)
             link.setAttribute('download', fileName)
             document.body.appendChild(link)
             link.click()
@@ -196,7 +198,6 @@ export default function FilesPage() {
             return;
         }
 
-        // Tạm thời, chỉ mở modal cho file đầu tiên (Vì API hiện tại chỉ duyệt 1 file)
         handleApproveClick(filesToApprove[0], action);
     }
 
@@ -206,8 +207,6 @@ export default function FilesPage() {
             return
         }
 
-        // --- LOGIC XỬ LÝ DUYỆT ĐƠN VÀ DUYỆT HÀNG LOẠT (TẠM THỜI) ---
-        // Nếu selectedFile có, ta chỉ duyệt file đó (từ nút Duyệt đơn hoặc Duyệt hàng loạt đang mô phỏng)
         if (!selectedFile) {
             toast.error("Không tìm thấy file để xử lý.");
             return;
@@ -237,7 +236,6 @@ export default function FilesPage() {
         }
     }
 
-    // --- LOGIC CHỌN HÀNG LOẠT ---
     const toggleSelectItem = (fileId) => {
         setSelectedItems(prev =>
             prev.includes(fileId) ? prev.filter(item => item !== fileId) : [...prev, fileId]
@@ -251,7 +249,18 @@ export default function FilesPage() {
             setSelectedItems(files.map(f => f._id))
         }
     }
-    // --- KẾT THÚC LOGIC CHỌN HÀNG LOẠT ---
+
+    // HÀM SỬA LỖI FONT: Giải mã tên file để hiển thị đúng
+    const getSafeFileName = (fileName) => {
+        if (!fileName) return 'Tên file không xác định';
+        try {
+            // Thử decodeURI để khôi phục ký tự Unicode tiếng Việt bị hỏng
+            return decodeURIComponent(fileName);
+        } catch (e) {
+            // Nếu decode thất bại, trả về tên gốc (có thể bị lỗi font)
+            return fileName;
+        }
+    };
 
 
     const getFileIcon = (mimeType) => {
@@ -297,7 +306,7 @@ export default function FilesPage() {
     const pendingFilesCount = files.filter(f => f.approvalStatus === 'pending').length
     const approvedFilesCount = files.filter(f => f.approvalStatus === 'approved').length
     const rejectedFilesCount = files.filter(f => f.approvalStatus === 'rejected').length
-    const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length; // Số file pending đang được chọn
+    const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length;
 
 
     if (isLoading) {
@@ -528,7 +537,8 @@ export default function FilesPage() {
                                                         {getFileIcon(file.mimeType)}
                                                     </div>
                                                     <div className="text-sm font-semibold text-gray-900 truncate max-w-xs">
-                                                        {file.originalName || file.filename}
+                                                        {/* SỬ DỤNG HÀM AN TOÀN */}
+                                                        {getSafeFileName(file.originalName || file.filename)}
                                                         <div className="text-xs text-gray-500 font-normal mt-0.5">
                                                             Tải xuống: {file.downloadCount || 0}
                                                         </div>
@@ -575,7 +585,7 @@ export default function FilesPage() {
                                                         </>
                                                     )}
                                                     <button
-                                                        onClick={() => handleDownload(file._id, file.originalName || file.filename)}
+                                                        onClick={() => handleDownload(file._id, getSafeFileName(file.originalName || file.filename))}
                                                         className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                                                         title="Tải xuống"
                                                     >
@@ -668,7 +678,7 @@ export default function FilesPage() {
                             <div className="mb-4">
                                 <p className="text-sm text-gray-700 mb-2">File:</p>
                                 <p className="text-base font-semibold text-gray-900">
-                                    {selectedFile.originalName}
+                                    {getSafeFileName(selectedFile.originalName)}
                                 </p>
                             </div>
 
