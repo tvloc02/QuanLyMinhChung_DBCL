@@ -18,10 +18,14 @@ import {
     X,
     Loader2,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    CheckCircle,
+    XCircle,
+    Clock
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
+import ApproveFilesModal from './ApproveFilesModal.js'
 
 export default function EvidenceManagement() {
     const router = useRouter()
@@ -54,6 +58,7 @@ export default function EvidenceManagement() {
 
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [showMoveModal, setShowMoveModal] = useState(false)
+    const [showApproveModal, setShowApproveModal] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
     const [showFilters, setShowFilters] = useState(false)
     const [expandedRows, setExpandedRows] = useState({})
@@ -233,6 +238,20 @@ export default function EvidenceManagement() {
         fetchEvidences()
     }
 
+    const handleBulkApprove = () => {
+        if (selectedItems.length === 0) {
+            toast.error('Vui lòng chọn minh chứng để duyệt')
+            return
+        }
+        setShowApproveModal(true)
+    }
+
+    const handleApproveSuccess = () => {
+        setShowApproveModal(false)
+        setSelectedItems([])
+        fetchEvidences()
+    }
+
     const toggleSelectItem = (id) => {
         setSelectedItems(prev =>
             prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -247,7 +266,6 @@ export default function EvidenceManagement() {
         }
     }
 
-    // Cả standard và criteria đều expand/collapse cùng lúc
     const toggleExpandRow = (id) => {
         setExpandedRows(prev => ({
             ...prev,
@@ -272,6 +290,50 @@ export default function EvidenceManagement() {
 
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
+
+    const getApprovalStatus = (files) => {
+        if (!files || files.length === 0) {
+            return { status: 'no_files', text: 'Chưa có file', color: 'gray' }
+        }
+
+        const pendingCount = files.filter(f => f.approvalStatus === 'pending').length
+        const approvedCount = files.filter(f => f.approvalStatus === 'approved').length
+        const rejectedCount = files.filter(f => f.approvalStatus === 'rejected').length
+
+        if (pendingCount === files.length) {
+            return { status: 'pending', text: 'Chờ duyệt', color: 'yellow', icon: Clock }
+        }
+        if (approvedCount === files.length) {
+            return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle }
+        }
+        if (rejectedCount > 0) {
+            return { status: 'rejected', text: 'Từ chối', color: 'red', icon: XCircle }
+        }
+        if (pendingCount > 0) {
+            return { status: 'partial', text: `${approvedCount}/${files.length} file`, color: 'blue', icon: Clock }
+        }
+        return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle }
+    }
+
+    const ApprovalStatusBadge = ({ files }) => {
+        const status = getApprovalStatus(files)
+        const Icon = status.icon
+
+        const colorClasses = {
+            gray: 'bg-gray-100 text-gray-700 border-gray-200',
+            yellow: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+            green: 'bg-green-100 text-green-700 border-green-200',
+            red: 'bg-red-100 text-red-700 border-red-200',
+            blue: 'bg-blue-100 text-blue-700 border-blue-200'
+        }
+
+        return (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClasses[status.color]}`}>
+                {Icon && <Icon className="h-3.5 w-3.5 mr-1" />}
+                {status.text}
+            </span>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -443,6 +505,13 @@ export default function EvidenceManagement() {
                                 Hủy chọn
                             </button>
                             <button
+                                onClick={handleBulkApprove}
+                                className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                            >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Duyệt tất cả
+                            </button>
+                            <button
                                 onClick={handleBulkDelete}
                                 className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
                             >
@@ -509,7 +578,7 @@ export default function EvidenceManagement() {
                             <table className="w-full border-collapse">
                                 <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                 <tr>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === evidences.length}
@@ -517,28 +586,31 @@ export default function EvidenceManagement() {
                                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                         />
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
+                                    <th className="px-2 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
                                         STT
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-28">
                                         Mã MC
                                     </th>
-                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
                                         Tên minh chứng
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Tiêu chuẩn
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Tiêu chí
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">
+                                    <th className="px-2 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                         Files
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-28">
+                                        Trạng thái
+                                    </th>
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">
                                         Ngày tạo
                                     </th>
-                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-64">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-56">
                                         Thao tác
                                     </th>
                                 </tr>
@@ -546,7 +618,7 @@ export default function EvidenceManagement() {
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => (
                                     <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                        <td className="px-4 py-3 text-center border-r border-gray-200">
+                                        <td className="px-3 py-3 text-center border-r border-gray-200">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.includes(evidence._id)}
@@ -554,17 +626,17 @@ export default function EvidenceManagement() {
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                             />
                                         </td>
-                                        <td className="px-4 py-3 text-center border-r border-gray-200">
+                                        <td className="px-2 py-3 text-center border-r border-gray-200">
                                             <span className="text-sm font-semibold text-gray-700">
                                                 {((pagination.current - 1) * filters.limit) + index + 1}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-center border-r border-gray-200">
-                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
                                                 {evidence.code}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 border-r border-gray-200">
+                                        <td className="px-4 py-3 border-r border-gray-200">
                                             <div className="max-w-md">
                                                 <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
                                                     {evidence.name}
@@ -576,7 +648,7 @@ export default function EvidenceManagement() {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 border-r border-gray-200">
+                                        <td className="px-3 py-3 border-r border-gray-200">
                                             {evidence.standardId && (
                                                 <div>
                                                     <button
@@ -600,7 +672,7 @@ export default function EvidenceManagement() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 border-r border-gray-200">
+                                        <td className="px-3 py-3 border-r border-gray-200">
                                             {evidence.criteriaId && (
                                                 <div>
                                                     <button
@@ -624,16 +696,19 @@ export default function EvidenceManagement() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-center border-r border-gray-200">
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                        <td className="px-2 py-3 text-center border-r border-gray-200">
+                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                                 {evidence.files?.length || 0}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
+                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            <ApprovalStatusBadge files={evidence.files} />
+                                        </td>
+                                        <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
                                             {formatDate(evidence.createdAt)}
                                         </td>
-                                        <td className="px-6 py-3">
-                                            <div className="flex items-center justify-center gap-4">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center justify-center gap-2">
                                                 <ActionButton
                                                     icon={Eye}
                                                     variant="view"
@@ -734,6 +809,14 @@ export default function EvidenceManagement() {
                         setSelectedEvidence(null)
                     }}
                     onSuccess={handleMoveSuccess}
+                />
+            )}
+
+            {showApproveModal && (
+                <ApproveFilesModal
+                    evidenceIds={selectedItems}
+                    onClose={() => setShowApproveModal(false)}
+                    onSuccess={handleApproveSuccess}
                 />
             )}
         </div>
