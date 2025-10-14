@@ -23,7 +23,8 @@ import {
     Clock,
     AlertCircle,
     Square,
-    CheckSquare, X
+    CheckSquare,
+    X
 } from 'lucide-react'
 
 export default function FilesPage() {
@@ -40,9 +41,7 @@ export default function FilesPage() {
     const [approvalAction, setApprovalAction] = useState('approve')
     const [rejectionReason, setRejectionReason] = useState('')
     const [submitting, setSubmitting] = useState(false)
-    // *** THÊM STATE CHO CHỌN HÀNG LOẠT ***
     const [selectedItems, setSelectedItems] = useState([])
-    // *** KẾT THÚC THÊM STATE ***
 
     const isAdmin = user?.role === 'admin'
 
@@ -59,7 +58,8 @@ export default function FilesPage() {
     }, [user, evidenceId])
 
     const breadcrumbItems = [
-        { name: 'Quản lý minh chứng', href: '/evidence-management', icon: FileText },
+        // Sửa href để quay lại trang quản lý chính
+        { name: 'Quản lý minh chứng', href: '/evidence-management', icon: ArrowLeft },
         { name: 'Files đính kèm', icon: File }
     ]
 
@@ -72,8 +72,7 @@ export default function FilesPage() {
 
             setEvidence(data)
             setFiles(data?.files || [])
-            // Reset selected items sau khi fetch data mới
-            setSelectedItems([])
+            setSelectedItems([]) // Clear selection on new fetch
         } catch (error) {
             console.error('Fetch data error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi tải dữ liệu')
@@ -180,14 +179,12 @@ export default function FilesPage() {
         setShowApprovalModal(true)
     }
 
-    // *** THÊM HÀM MỞ MODAL DUYỆT CHO FILE ĐẦU TIÊN TRONG DANH SÁCH CHỌN ***
     const handleBulkApproveClick = (action) => {
-        if (selectedItems.length === 0) {
-            toast.error('Vui lòng chọn file để duyệt');
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền thực hiện hành động này.');
             return;
         }
 
-        // Lấy file đầu tiên trong danh sách file đang pending
         const filesToApprove = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending');
 
         if (filesToApprove.length === 0) {
@@ -195,11 +192,8 @@ export default function FilesPage() {
             return;
         }
 
-        // Hiện tại, chỉ mở modal cho file đầu tiên, để mô phỏng action duyệt
         handleApproveClick(filesToApprove[0], action);
     }
-    // *** KẾT THÚC THÊM HÀM MỞ MODAL DUYỆT ***
-
 
     const handleApprovalSubmit = async () => {
         if (approvalAction === 'reject' && !rejectionReason.trim()) {
@@ -207,22 +201,46 @@ export default function FilesPage() {
             return
         }
 
+        // --- LOGIC XỬ LÝ KHI DUYỆT HÀNG LOẠT (TẠM THỜI CHỈ XỬ LÝ FILE ĐẦU TIÊN) ---
+
         try {
             setSubmitting(true)
 
-            // Giả định chỉ duyệt file đang hiển thị trên modal
-            const fileId = selectedFile._id;
+            const filesToProcess = files
+                .filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending');
 
-            await apiMethods.files.approve(fileId, {
-                status: approvalAction === 'approve' ? 'approved' : 'rejected',
-                rejectionReason: approvalAction === 'reject' ? rejectionReason : undefined
-            })
+            if (filesToProcess.length === 0) {
+                throw new Error("Không có file chờ duyệt nào được chọn");
+            }
 
-            toast.success(
-                approvalAction === 'approve'
-                    ? 'Duyệt file thành công'
-                    : 'Từ chối file thành công'
-            )
+            let successCount = 0;
+            let firstError = null;
+
+            const listToProcess = selectedFile ? [selectedFile] : filesToProcess;
+
+            for (const file of listToProcess) {
+                try {
+                    await apiMethods.files.approve(file._id, {
+                        status: approvalAction === 'approve' ? 'approved' : 'rejected',
+                        rejectionReason: approvalAction === 'reject' ? rejectionReason : undefined
+                    });
+                    successCount++;
+                } catch (error) {
+                    if (!firstError) firstError = error;
+                }
+            }
+
+
+            if (successCount > 0) {
+                toast.success(
+                    approvalAction === 'approve'
+                        ? `Đã duyệt thành công ${successCount} file.`
+                        : `Đã từ chối thành công ${successCount} file.`
+                );
+            } else if (firstError) {
+                throw firstError;
+            }
+
             setShowApprovalModal(false)
             setSelectedFile(null)
             fetchData()
@@ -234,7 +252,6 @@ export default function FilesPage() {
         }
     }
 
-    // *** LOGIC CHỌN HÀNG LOẠT ***
     const toggleSelectItem = (fileId) => {
         setSelectedItems(prev =>
             prev.includes(fileId) ? prev.filter(item => item !== fileId) : [...prev, fileId]
@@ -248,8 +265,6 @@ export default function FilesPage() {
             setSelectedItems(files.map(f => f._id))
         }
     }
-    // *** KẾT THÚC LOGIC CHỌN HÀNG LOẠT ***
-
 
     const getFileIcon = (mimeType) => {
         if (mimeType?.startsWith('image/')) {
@@ -294,8 +309,7 @@ export default function FilesPage() {
     const pendingFilesCount = files.filter(f => f.approvalStatus === 'pending').length
     const approvedFilesCount = files.filter(f => f.approvalStatus === 'approved').length
     const rejectedFilesCount = files.filter(f => f.approvalStatus === 'rejected').length
-    const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length; // Đếm số lượng file pending trong danh sách chọn
-
+    const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length; // Số file pending đang được chọn
 
     if (isLoading) {
         return (
@@ -340,6 +354,14 @@ export default function FilesPage() {
                         </div>
 
                         <div className="flex items-center space-x-3">
+                            <button
+                                onClick={() => router.push('/evidence-management')}
+                                className="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all font-medium"
+                            >
+                                <ArrowLeft className="h-5 w-5 mr-2" />
+                                Quay lại
+                            </button>
+
                             <button
                                 onClick={fetchData}
                                 disabled={loading}
@@ -388,12 +410,12 @@ export default function FilesPage() {
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Duyệt File Đã Chọn ({pendingSelectedCount})
                                 </button>
+                                {/* Có thể thêm nút từ chối hàng loạt nếu cần */}
                             </div>
                         </div>
                     </div>
                 )}
                 {/* *** KẾT THÚC BULK ACTIONS *** */}
-
 
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
@@ -577,7 +599,6 @@ export default function FilesPage() {
                                 )}
                                 </tbody>
                             </table>
-
                         </div>
 
                         {/* Upload Guidelines */}
@@ -636,7 +657,10 @@ export default function FilesPage() {
                                     </h3>
                                 </div>
                                 <button
-                                    onClick={() => setShowApprovalModal(false)}
+                                    onClick={() => {
+                                        setShowApprovalModal(false);
+                                        setSelectedFile(null); // Reset file đang duyệt
+                                    }}
                                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
                                 >
                                     <X className="h-6 w-6" />
@@ -669,7 +693,10 @@ export default function FilesPage() {
 
                             <div className="flex items-center justify-end space-x-3 mt-6">
                                 <button
-                                    onClick={() => setShowApprovalModal(false)}
+                                    onClick={() => {
+                                        setShowApprovalModal(false);
+                                        setSelectedFile(null);
+                                    }}
                                     disabled={submitting}
                                     className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
                                 >
@@ -677,7 +704,7 @@ export default function FilesPage() {
                                 </button>
                                 <button
                                     onClick={handleApprovalSubmit}
-                                    disabled={submitting}
+                                    disabled={submitting || (approvalAction === 'reject' && !rejectionReason.trim())}
                                     className={`inline-flex items-center px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
                                         approvalAction === 'approve'
                                             ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-xl'
