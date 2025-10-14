@@ -24,14 +24,15 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền upload file cho minh chứng này'
-            });
-        }
+        // Bỏ kiểm tra quyền - ai cũng có thể upload
+        // if (req.user.role !== 'admin' &&
+        //     !req.user.hasStandardAccess(evidence.standardId) &&
+        //     !req.user.hasCriteriaAccess(evidence.criteriaId)) {
+        //     return res.status(403).json({
+        //         success: false,
+        //         message: 'Không có quyền upload file cho minh chứng này'
+        //     });
+        // }
 
         // Validate parent folder if provided
         if (parentFolderId) {
@@ -67,6 +68,7 @@ const uploadFiles = async (req, res) => {
 
             fs.renameSync(file.path, permanentPath);
 
+            // Admin upload thì tự động duyệt, người khác thì pending
             const fileDoc = new File({
                 originalName: file.originalname,
                 storedName,
@@ -78,7 +80,10 @@ const uploadFiles = async (req, res) => {
                 uploadedBy: req.user.id,
                 url: `/uploads/evidences/${storedName}`,
                 type: 'file',
-                parentFolder: parentFolderId || null
+                parentFolder: parentFolderId || null,
+                approvalStatus: req.user.role === 'admin' ? 'approved' : 'pending',
+                approvedBy: req.user.role === 'admin' ? req.user.id : null,
+                approvalDate: req.user.role === 'admin' ? new Date() : null
             });
 
             await fileDoc.save();
