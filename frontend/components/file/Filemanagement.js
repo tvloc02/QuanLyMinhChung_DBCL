@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
 import {
     Upload,
     X as XIcon,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react'
 
 export default function FileManagement({ evidence, onClose, onUpdate }) {
+    const { user } = useAuth()
     const [files, setFiles] = useState([])
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -47,13 +49,26 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
 
         setUploading(true)
         try {
-            await apiMethods.files.upload(evidence.id, selectedFiles)
-            toast.success('Upload files thành công')
-            fetchFiles()
-            if (onUpdate) onUpdate()
+            // Tạo FormData
+            const formData = new FormData()
+            selectedFiles.forEach(file => {
+                formData.append('files', file)
+            })
+
+            // Upload qua API
+            const response = await apiMethods.files.upload(evidence.id, formData)
+
+            if (response.data?.success) {
+                toast.success('Upload files thành công')
+                fetchFiles()
+                if (onUpdate) onUpdate()
+            } else {
+                toast.error(response.data?.message || 'Upload thất bại')
+            }
         } catch (error) {
             console.error('Upload error:', error)
-            toast.error('Lỗi khi upload files')
+            const errorMessage = error.response?.data?.message || 'Lỗi khi upload files'
+            toast.error(errorMessage)
         } finally {
             setUploading(false)
             e.target.value = ''
@@ -101,24 +116,32 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
 
     const getStatusLabel = (status) => {
         const labels = {
-            'new': 'Mới',
-            'in_progress': 'Đang thực hiện',
-            'completed': 'Hoàn thành',
+            'pending': 'Chờ duyệt',
             'approved': 'Đã duyệt',
             'rejected': 'Từ chối'
         }
-        return labels[status] || 'Mới'
+        return labels[status] || 'Chờ duyệt'
     }
 
     const getStatusColor = (status) => {
         const colors = {
-            'new': 'bg-gray-100 text-gray-700 border-gray-300',
-            'in_progress': 'bg-blue-100 text-blue-700 border-blue-300',
-            'completed': 'bg-green-100 text-green-700 border-green-300',
-            'approved': 'bg-emerald-100 text-emerald-700 border-emerald-300',
+            'pending': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+            'approved': 'bg-green-100 text-green-700 border-green-300',
             'rejected': 'bg-red-100 text-red-700 border-red-300'
         }
-        return colors[status] || colors['new']
+        return colors[status] || colors['pending']
+    }
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'approved':
+                return <Check className="h-4 w-4" />
+            case 'rejected':
+                return <XCircle className="h-4 w-4" />
+            case 'pending':
+            default:
+                return <Clock className="h-4 w-4" />
+        }
     }
 
     return (
@@ -196,27 +219,9 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                             {file.originalName}
                                         </p>
                                         <div className="flex items-center flex-wrap gap-2">
-                                            <span className={`text-xs px-2 py-0.5 rounded border inline-flex items-center ${
-                                                file.approvalStatus === 'approved' ? 'bg-green-100 text-green-700 border-green-300' :
-                                                    file.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                        'bg-yellow-100 text-yellow-700 border-yellow-300'
-                                            }`}>
-                                                {file.approvalStatus === 'approved' ? (
-                                                    <>
-                                                        <Check className="h-3 w-3 mr-1" />
-                                                        Đã duyệt
-                                                    </>
-                                                ) : file.approvalStatus === 'rejected' ? (
-                                                    <>
-                                                        <XCircle className="h-3 w-3 mr-1" />
-                                                        Từ chối
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Clock className="h-3 w-3 mr-1" />
-                                                        Chờ duyệt
-                                                    </>
-                                                )}
+                                            <span className={`text-xs px-2 py-0.5 rounded border inline-flex items-center ${getStatusColor(file.approvalStatus)}`}>
+                                                {getStatusIcon(file.approvalStatus)}
+                                                <span className="ml-1">{getStatusLabel(file.approvalStatus)}</span>
                                             </span>
                                             <span className="text-xs text-gray-500">
                                                 {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -228,12 +233,14 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                             </p>
                                         )}
                                         <div className="flex items-center space-x-2 mt-2">
-                                            {file.approvalStatus === 'pending' && (
+                                            {/* Chỉ admin mới thấy nút duyệt/từ chối */}
+                                            {user?.role === 'admin' && file.approvalStatus === 'pending' && (
                                                 <>
                                                     <button
                                                         onClick={() => handleApproveFile(file._id, 'approved')}
-                                                        className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium"
+                                                        className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium inline-flex items-center"
                                                     >
+                                                        <Check className="h-3 w-3 mr-1" />
                                                         Duyệt
                                                     </button>
                                                     <button
@@ -241,8 +248,9 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                                             const reason = prompt('Lý do từ chối:')
                                                             if (reason) handleApproveFile(file._id, 'rejected', reason)
                                                         }}
-                                                        className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium"
+                                                        className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
                                                     >
+                                                        <XCircle className="h-3 w-3 mr-1" />
                                                         Từ chối
                                                     </button>
                                                 </>
