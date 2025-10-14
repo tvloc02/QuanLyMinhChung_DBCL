@@ -125,9 +125,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     const fetchUnreadCount = async () => {
         try {
             const response = await apiMethods.notifications.getUnreadCount()
-
             if (response && response.data && response.data.success) {
-                setUnreadCount(response.data.data.unread)
+                setUnreadCount(response.data.data.unreadCount)
             } else {
                 console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
                 setUnreadCount(0);
