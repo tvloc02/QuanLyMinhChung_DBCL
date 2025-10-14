@@ -1,3 +1,4 @@
+// EvidenceTree.js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
@@ -166,10 +167,25 @@ export default function EvidenceTree() {
             return
         }
 
-        const currentCodeParts = draggedEvidence.evidence.code.split('.')
-        const newCode = `H1.${String(standard.code).padStart(2, '0')}.${String(criteria.code).padStart(2, '0')}.${currentCodeParts[3]}`
+        // --- Bắt đầu điều chỉnh logic mã minh chứng ---
+        const currentCode = draggedEvidence.evidence.code
+        const currentCodeParts = currentCode.split('.')
 
-        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới: ${newCode}`)) {
+        // 1. Lấy ký tự tiền tố và số hộp từ mã cũ (VD: "H1", "A2",...)
+        // Lấy phần đầu tiên (VD: H1)
+        const prefixAndBox = currentCodeParts[0]
+
+        // 2. Lấy mã tiêu chuẩn và tiêu chí mới
+        const newStandardCode = String(standard.code).padStart(2, '0')
+        const newCriteriaCode = String(criteria.code).padStart(2, '0')
+
+        // 3. Sử dụng prefix và số thứ tự cuối cùng từ mã cũ để tạo mã mới
+        const sequenceNumber = currentCodeParts[3]
+
+        const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${sequenceNumber}`
+        // --- Kết thúc điều chỉnh logic mã minh chứng ---
+
+        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới (giữ tiền tố và STT): ${newCode}`)) {
             setDraggedEvidence(null)
             return
         }
@@ -194,10 +210,10 @@ export default function EvidenceTree() {
     const downloadTemplate = () => {
         const templateData = [
             ['STT', 'Mã', 'Tên minh chứng'],
-            ['', '1', 'Tiêu chuẩn 1: Mục tiêu và chuẩn đầu ra'],
-            ['', '1.1', 'Tiêu chí 1.1: Mục tiêu CTĐT'],
-            ['1', 'H1.01.01.01', 'Quyết định công bố tầm nhìn'],
-            ['2', 'H1.01.01.02', 'Quyết định thành lập nhóm nghiên cứu']
+            ['', 'A', 'Tiêu chuẩn A: Mục tiêu và chuẩn đầu ra'],
+            ['', 'A.1', 'Tiêu chí A.1: Mục tiêu CTĐT'],
+            ['1', 'A1.01.01.01', 'Quyết định công bố tầm nhìn'],
+            ['2', 'A1.01.01.02', 'Quyết định thành lập nhóm nghiên cứu']
         ]
 
         const ws = XLSX.utils.aoa_to_sheet(templateData)
