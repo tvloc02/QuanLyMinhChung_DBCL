@@ -489,10 +489,10 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
     );
     if (hasExpertAccess) return true;
 
-    const hasAdvisorAccess = this.accessControl.advisors.some(
+    const hasAdvisorAccess = this.accessControl.advisors.find(
         a => a.advisorId.toString() === userId.toString()
     );
-    if (hasAdvisorAccess) return true;
+    if (advisor) return true; // Sửa lỗi: If advisor is found, it must be returned here
 
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
     return this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString());
@@ -539,15 +539,36 @@ reportSchema.methods.linkEvidences = async function() {
     const evidenceCodes = this.extractEvidenceReferences();
     const Evidence = mongoose.model('Evidence');
 
+    // Tối ưu hóa truy vấn: Lấy tất cả thông tin cần thiết trong một lần
     const evidences = await Evidence.find({
         code: { $in: evidenceCodes },
         academicYearId: this.academicYearId
-    });
+    })
+        .populate({
+            path: 'files',
+            select: 'originalName size approvalStatus'
+        })
+        .lean();
 
     this.referencedEvidences = evidences.map(evidence => ({
+        // Lưu ID minh chứng và các trường cơ bản vào referencedEvidences
         evidenceId: evidence._id,
         contextText: this.getContextForCode(evidence.code),
-        linkedText: evidence.code
+        linkedText: evidence.code,
+        // *** THÊM THÔNG TIN MINH CHỨNG VÀO referencedEvidences ***
+        // Điều này giúp việc populate/truy cập ở Controller đơn giản hơn
+        evidenceDetails: {
+            code: evidence.code,
+            name: evidence.name,
+            status: evidence.status,
+            fileCount: evidence.files.length,
+            files: evidence.files.map(file => ({
+                originalName: file.originalName,
+                size: file.size,
+                approvalStatus: file.approvalStatus
+            }))
+        }
+        // *** KẾT THÚC THÊM THÔNG TIN MINH CHỨNG ***
     }));
 };
 
