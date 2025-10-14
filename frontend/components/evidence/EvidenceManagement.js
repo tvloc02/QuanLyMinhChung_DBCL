@@ -22,18 +22,20 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    AlertCircle // Import AlertCircle
+    AlertCircle,
+    Square,
+    CheckSquare
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
 import ApproveFilesModal from './ApproveFilesModal.js'
-import { useAuth } from '../../contexts/AuthContext' // Import useAuth để kiểm tra quyền admin
+import { useAuth } from '../../contexts/AuthContext' // Đã sửa lỗi: Import useAuth
 
-const ITEMS_PER_PAGE = 20; // Định nghĩa lại ITEMS_PER_PAGE
+const ITEMS_PER_PAGE = 20;
 
 export default function EvidenceManagement() {
     const router = useRouter()
-    const { user } = useAuth() // Lấy thông tin user
+    const { user, isLoading: isAuthLoading } = useAuth() // GỌI useAuth để lấy thông tin user
     const isAdmin = user?.role === 'admin'
 
     const [evidences, setEvidences] = useState([])
@@ -42,7 +44,7 @@ export default function EvidenceManagement() {
         current: 1,
         pages: 1,
         total: 0,
-        hasNext: false, // Thêm hasNext và hasPrev để sử dụng trong pagination
+        hasNext: false,
         hasPrev: false
     })
 
@@ -54,7 +56,7 @@ export default function EvidenceManagement() {
         standardId: '',
         criteriaId: '',
         page: 1,
-        limit: ITEMS_PER_PAGE, // Sử dụng ITEMS_PER_PAGE
+        limit: ITEMS_PER_PAGE,
         sortBy: 'createdAt',
         sortOrder: 'desc'
     })
@@ -77,8 +79,12 @@ export default function EvidenceManagement() {
     }, [])
 
     useEffect(() => {
-        fetchEvidences()
-    }, [filters.page, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
+        // Chỉ fetch evidences nếu người dùng đã tải xong (không còn loading auth)
+        if (!isAuthLoading) {
+            fetchEvidences()
+        }
+    }, [isAuthLoading, filters.page, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
+
 
     useEffect(() => {
         if (filters.programId && filters.organizationId) {
@@ -186,9 +192,7 @@ export default function EvidenceManagement() {
 
     const handleSearch = (e) => {
         e.preventDefault()
-        // Cập nhật state search và trigger useEffect
         setFilters(prev => ({ ...prev, page: 1 }));
-        // Force fetchEvidences nếu chỉ thay đổi search mà không đổi page
         if(filters.page === 1) fetchEvidences();
     }
 
@@ -202,7 +206,7 @@ export default function EvidenceManagement() {
 
     const handleEdit = (evidence) => {
         // Thực hiện điều hướng đến trang chỉnh sửa thực tế
-        router.push(`/evidence/edit/${evidence._id}`);
+        router.push(`/evidence/edit/${evidence._id}`)
     }
 
     const handleDelete = async (id) => {
@@ -227,8 +231,6 @@ export default function EvidenceManagement() {
         if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedItems.length} minh chứng đã chọn? Hành động này sẽ xóa vĩnh viễn tất cả file đính kèm.`)) return
 
         try {
-            // Thay vì delete từng cái, nên dùng bulkDelete nếu API hỗ trợ
-            // Giả định API không hỗ trợ bulkDelete, ta vẫn dùng loop như ban đầu:
             for (const id of selectedItems) {
                 await apiMethods.evidences.delete(id)
             }
@@ -305,16 +307,13 @@ export default function EvidenceManagement() {
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
 
-    // *** PHẦN SỬA LỖI LOGIC TRẠNG THÁI ***
-
-    // Hàm ánh xạ trạng thái từ model evidence.status
+    // *** LOGIC TRẠNG THÁI ĐÃ SỬA DỰA TRÊN evidence.status ***
     const getEvidenceStatusDisplay = (status, files) => {
         const fileCount = files?.length || 0;
         const approvedCount = files?.filter(f => f.approvalStatus === 'approved').length || 0;
         const pendingCount = files?.filter(f => f.approvalStatus === 'pending').length || 0;
         const rejectedCount = files?.filter(f => f.approvalStatus === 'rejected').length || 0;
 
-        // Logic dựa trên model Evidence.js và evidenceController.js
         switch (status) {
             case 'new':
                 return { status: 'new', text: 'Mới tạo', color: 'gray', icon: FileText };
@@ -324,8 +323,8 @@ export default function EvidenceManagement() {
                 }
                 return { status: 'in_progress', text: 'Đang thực hiện', color: 'blue', icon: Clock };
             case 'completed':
-                if (approvedCount > 0 && approvedCount < fileCount) {
-                    return { status: 'partial', text: `${approvedCount}/${fileCount} file`, color: 'teal', icon: Clock }; // Dùng teal cho partially approved
+                if (approvedCount > 0 && approvedCount < fileCount && pendingCount === 0 && rejectedCount === 0) {
+                    return { status: 'partial', text: `${approvedCount}/${fileCount} file`, color: 'teal', icon: Clock };
                 }
                 return { status: 'completed', text: 'Hoàn thành (Cần duyệt)', color: 'blue', icon: CheckCircle };
             case 'approved':
@@ -341,7 +340,6 @@ export default function EvidenceManagement() {
     }
 
     const ApprovalStatusBadge = ({ evidence }) => {
-        // Lấy trạng thái từ thuộc tính status của evidence (đã được backend updateStatus tính toán)
         const statusDisplay = getEvidenceStatusDisplay(evidence.status, evidence.files);
         const Icon = statusDisplay.icon;
 
@@ -351,7 +349,7 @@ export default function EvidenceManagement() {
             green: 'bg-green-100 text-green-700 border-green-200',
             red: 'bg-red-100 text-red-700 border-red-200',
             blue: 'bg-blue-100 text-blue-700 border-blue-200',
-            teal: 'bg-teal-100 text-teal-700 border-teal-200', // Thêm teal
+            teal: 'bg-teal-100 text-teal-700 border-teal-200',
             new: 'bg-indigo-100 text-indigo-700 border-indigo-200',
             pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
             partial: 'bg-teal-100 text-teal-700 border-teal-200',
@@ -365,8 +363,16 @@ export default function EvidenceManagement() {
             </span>
         )
     }
-    // *** KẾT THÚC PHẦN SỬA LỖI LOGIC TRẠNG THÁI ***
+    // *** KẾT THÚC LOGIC TRẠNG THÁI ***
 
+    if (isAuthLoading) {
+        return (
+            <div className="flex flex-col justify-center items-center py-16 min-h-[500px]">
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                <p className="text-gray-600 font-medium">Đang tải dữ liệu người dùng...</p>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -544,7 +550,7 @@ export default function EvidenceManagement() {
                                     className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
-                                    Duyệt hàng loạt file
+                                    Duyệt File Hàng Loạt
                                 </button>
                             )}
                             <button
@@ -738,7 +744,6 @@ export default function EvidenceManagement() {
                                             </span>
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            {/* *** SỬ DỤNG evidence.status ĐÃ FIX *** */}
                                             <ApprovalStatusBadge evidence={evidence} />
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
@@ -753,26 +758,30 @@ export default function EvidenceManagement() {
                                                     onClick={() => handleViewDetail(evidence._id)}
                                                 />
 
-                                                <ActionButton
-                                                    icon={Edit}
-                                                    variant="edit"
-                                                    size="sm"
-                                                    onClick={() => handleEdit(evidence)}
-                                                />
+                                                {isAdmin && (
+                                                    <>
+                                                        <ActionButton
+                                                            icon={Edit}
+                                                            variant="edit"
+                                                            size="sm"
+                                                            onClick={() => handleEdit(evidence)}
+                                                        />
 
-                                                <ActionButton
-                                                    icon={ArrowRightLeft}
-                                                    variant="primary"
-                                                    size="sm"
-                                                    onClick={() => handleMove(evidence)}
-                                                />
+                                                        <ActionButton
+                                                            icon={ArrowRightLeft}
+                                                            variant="primary"
+                                                            size="sm"
+                                                            onClick={() => handleMove(evidence)}
+                                                        />
 
-                                                <ActionButton
-                                                    icon={Trash2}
-                                                    variant="delete"
-                                                    size="sm"
-                                                    onClick={() => handleDelete(evidence._id)}
-                                                />
+                                                        <ActionButton
+                                                            icon={Trash2}
+                                                            variant="delete"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(evidence._id)}
+                                                        />
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -851,11 +860,7 @@ export default function EvidenceManagement() {
 
             {showApproveModal && (
                 <ApproveFilesModal
-                    // Chỉ gửi những minh chứng được chọn đang ở trạng thái cần duyệt (hoặc tất cả nếu là admin)
-                    evidenceIds={selectedItems.filter(id => {
-                        const evidence = evidences.find(e => e._id === id);
-                        return evidence && (evidence.status === 'completed' || evidence.status === 'in_progress' || isAdmin);
-                    })}
+                    evidenceIds={selectedItems}
                     onClose={() => setShowApproveModal(false)}
                     onSuccess={handleApproveSuccess}
                 />

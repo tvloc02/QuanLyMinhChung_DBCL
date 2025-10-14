@@ -22,8 +22,8 @@ import {
     XCircle,
     Clock,
     AlertCircle,
-    Square, // Thêm Square
-    CheckSquare // Thêm CheckSquare
+    Square,
+    CheckSquare, X
 } from 'lucide-react'
 
 export default function FilesPage() {
