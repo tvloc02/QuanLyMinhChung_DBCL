@@ -2,7 +2,35 @@ const File = require('../../models/Evidence/File');
 const Evidence = require('../../models/Evidence/Evidence');
 const path = require('path');
 const fs = require('fs');
-const mongoose = require('mongoose'); // Cần import mongoose
+const mongoose = require('mongoose');
+
+// Hàm updateFolderMetadata (giữ nguyên)
+const updateFolderMetadata = async (folderId) => {
+    try {
+        const children = await File.find({ parentFolder: folderId });
+
+        let fileCount = 0;
+        let totalSize = 0;
+
+        for (const child of children) {
+            if (child.type === 'file') {
+                fileCount++;
+                totalSize += child.size;
+            } else if (child.type === 'folder') {
+                fileCount += child.folderMetadata.fileCount;
+                totalSize += child.folderMetadata.totalSize;
+            }
+        }
+
+        await File.findByIdAndUpdate(folderId, {
+            'folderMetadata.fileCount': fileCount,
+            'folderMetadata.totalSize': totalSize,
+            'folderMetadata.lastModified': new Date()
+        });
+    } catch (error) {
+        console.error('Update folder metadata error:', error);
+    }
+};
 
 const uploadFiles = async (req, res) => {
     try {
@@ -25,16 +53,6 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        // Bỏ kiểm tra quyền - ai cũng có thể upload (Giữ nguyên như logic bạn muốn)
-        // if (req.user.role !== 'admin' &&
-        //     !req.user.hasStandardAccess(evidence.standardId) &&
-        //     !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-        //     return res.status(403).json({
-        //         success: false,
-        //         message: 'Không có quyền upload file cho minh chứng này'
-        //     });
-        // }
-
         // Validate parent folder if provided
         if (parentFolderId) {
             const parentFolder = await File.findOne({
@@ -54,10 +72,13 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
+            // SỬA LỖI FONT: Mã hóa tên file gốc để sử dụng an toàn trong path
+            const encodedFileName = encodeURIComponent(file.originalname);
+
             const storedName = File.generateStoredName(
                 evidence.code,
                 evidence.name,
-                file.originalname
+                encodedFileName
             );
 
             const permanentPath = path.join('uploads', 'evidences', storedName);
@@ -67,7 +88,6 @@ const uploadFiles = async (req, res) => {
                 fs.mkdirSync(permanentDir, { recursive: true });
             }
 
-            // Đảm bảo file temp được di chuyển hoặc xóa sau khi xử lý
             if (fs.existsSync(file.path)) {
                 fs.renameSync(file.path, permanentPath);
             } else {
@@ -75,10 +95,9 @@ const uploadFiles = async (req, res) => {
                 continue;
             }
 
-            // Admin upload thì tự động duyệt, người khác thì pending
             const fileDoc = new File({
-                originalName: file.originalname,
-                storedName,
+                originalName: file.originalname, // Lưu tên gốc (có thể chứa ký tự tiếng Việt)
+                storedName, // Lưu tên đã được mã hóa URI (an toàn trong filesystem)
                 filePath: permanentPath,
                 size: file.size,
                 mimeType: file.mimetype,
@@ -103,7 +122,7 @@ const uploadFiles = async (req, res) => {
 
         evidence.files.push(...savedFiles.map(f => f._id));
         await evidence.save();
-        await evidence.updateStatus(); // Cập nhật trạng thái minh chứng sau khi upload
+        await evidence.updateStatus();
 
         res.json({
             success: true,
@@ -139,20 +158,6 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        // ==========================================================
-        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN TẢI FILE ===
-        /*
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(file.evidenceId.standardId) &&
-            !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tải file này'
-            });
-        }
-        */
-        // ==========================================================
-
         if (!fs.existsSync(file.filePath)) {
             return res.status(404).json({
                 success: false,
@@ -162,7 +167,10 @@ const downloadFile = async (req, res) => {
 
         await file.incrementDownloadCount();
 
-        res.download(file.filePath, file.originalName); // Sử dụng originalName để tải xuống
+        // SỬA LỖI FONT: Dùng tên gốc (đã được lưu đúng) khi download
+        const decodedFileName = file.originalName;
+
+        res.download(file.filePath, decodedFileName);
 
     } catch (error) {
         console.error('Download file error:', error);
@@ -184,21 +192,6 @@ const deleteFile = async (req, res) => {
                 message: 'Không tìm thấy file'
             });
         }
-
-        // ==========================================================
-        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN XÓA FILE ===
-        /*
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(file.evidenceId.standardId) &&
-            !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền xóa file này'
-            });
-        }
-        */
-        // ==========================================================
-
 
         if (file.type === 'folder') {
             const childrenCount = await File.countDocuments({ parentFolder: id });
@@ -697,33 +690,6 @@ const getFileStatistics = async (req, res) => {
     }
 };
 
-
-const updateFolderMetadata = async (folderId) => {
-    try {
-        const children = await File.find({ parentFolder: folderId });
-
-        let fileCount = 0;
-        let totalSize = 0;
-
-        for (const child of children) {
-            if (child.type === 'file') {
-                fileCount++;
-                totalSize += child.size;
-            } else if (child.type === 'folder') {
-                fileCount += child.folderMetadata.fileCount;
-                totalSize += child.folderMetadata.totalSize;
-            }
-        }
-
-        await File.findByIdAndUpdate(folderId, {
-            'folderMetadata.fileCount': fileCount,
-            'folderMetadata.totalSize': totalSize,
-            'folderMetadata.lastModified': new Date()
-        });
-    } catch (error) {
-        console.error('Update folder metadata error:', error);
-    }
-};
 
 const checkIfDescendant = async (ancestorId, descendantId) => {
     let currentId = ancestorId;
