@@ -1,3 +1,4 @@
+// AddEvidenceManual.js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
@@ -47,7 +48,11 @@ export default function AddEvidenceManual() {
     const [selectedFiles, setSelectedFiles] = useState([])
     const [tagInput, setTagInput] = useState('')
     const [autoGenerateCode, setAutoGenerateCode] = useState(true)
+    const [prefixLetter, setPrefixLetter] = useState('H') // State mới: Ký tự tiền tố (Mặc định là H)
     const [previewCode, setPreviewCode] = useState('')
+
+    // Danh sách ký tự tiền tố cho mã minh chứng (A-Y)
+    const prefixLetters = Array.from({ length: 25 }, (_, i) => String.fromCharCode(65 + i)) // A đến Y
 
     const documentTypes = [
         'Quyết định',
@@ -56,6 +61,7 @@ export default function AddEvidenceManual() {
         'Luật',
         'Báo cáo',
         'Kế hoạch',
+        'Tài liệu', // Thêm loại Tài liệu
         'Khác'
     ]
 
@@ -76,13 +82,14 @@ export default function AddEvidenceManual() {
         }
     }, [formData.standardId])
 
+    // Cập nhật dependency để generate preview code
     useEffect(() => {
-        if (autoGenerateCode && formData.standardId && formData.criteriaId) {
+        if (autoGenerateCode && formData.standardId && formData.criteriaId && prefixLetter) {
             generatePreviewCode()
         } else {
             setPreviewCode('')
         }
-    }, [formData.standardId, formData.criteriaId, autoGenerateCode])
+    }, [formData.standardId, formData.criteriaId, autoGenerateCode, prefixLetter]) // Thêm prefixLetter
 
     const fetchPrograms = async () => {
         try {
@@ -147,18 +154,20 @@ export default function AddEvidenceManual() {
         }
     }
 
+    // Cập nhật logic generate preview code để dùng prefixLetter
     const generatePreviewCode = () => {
         const standard = standards.find(s => s._id === formData.standardId)
         const criterion = criteria.find(c => c._id === formData.criteriaId)
 
-        if (!standard || !criterion) {
+        if (!standard || !criterion || !prefixLetter) {
             setPreviewCode('')
             return
         }
 
         const standardCode = String(standard.code).padStart(2, '0')
         const criteriaCode = String(criterion.code).padStart(2, '0')
-        const preview = `H1.${standardCode}.${criteriaCode}.XX`
+        // Sử dụng prefixLetter đã chọn
+        const preview = `${prefixLetter}1.${standardCode}.${criteriaCode}.XX`
 
         setPreviewCode(preview)
     }
@@ -220,10 +229,11 @@ export default function AddEvidenceManual() {
             return
         }
 
+        // Cập nhật Regex client-side để chấp nhận A-Y
+        const codePattern = /^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/
         if (!autoGenerateCode && formData.code) {
-            const codePattern = /^H\d+\.\d{2}\.\d{2}\.\d{2}$/
             if (!codePattern.test(formData.code)) {
-                toast.error('Mã minh chứng không đúng định dạng (VD: H1.01.01.04)')
+                toast.error('Mã minh chứng không đúng định dạng (ký tự đầu phải là A-Y, VD: A1.01.01.04)')
                 return
             }
         }
@@ -243,9 +253,18 @@ export default function AddEvidenceManual() {
                 evidenceData.description = formData.description.trim()
             }
 
+            // Nếu không tự động tạo mã, gửi mã đã nhập
             if (!autoGenerateCode && formData.code?.trim()) {
                 evidenceData.code = formData.code.trim()
             }
+
+            // Nếu tự động tạo mã, gửi prefixLetter lên backend để xử lý tạo mã
+            if (autoGenerateCode && prefixLetter) {
+                // Tùy chọn: Gửi yêu cầu generate-code lên trước, hoặc gửi prefixLetter để backend xử lý
+                // Giả sử backend sẽ dùng prefixLetter này để tạo mã
+                evidenceData.prefixLetter = prefixLetter
+            }
+
 
             if (formData.documentNumber?.trim()) {
                 evidenceData.documentNumber = formData.documentNumber.trim()
@@ -335,6 +354,7 @@ export default function AddEvidenceManual() {
         setSelectedFiles([])
         setStandards([])
         setCriteria([])
+        setPrefixLetter('H') // Đặt lại prefixLetter
         setPreviewCode('')
     }
 
@@ -488,14 +508,43 @@ export default function AddEvidenceManual() {
                                 </label>
                             </div>
 
+                            {/* Logic cho tự động tạo mã */}
                             {autoGenerateCode ? (
-                                <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl text-sm text-indigo-700">
-                                    <Sparkles className="h-4 w-4 inline mr-1" />
-                                    {previewCode ? (
-                                        <span>Mã sẽ được tạo tự động: <strong>{previewCode}</strong> (XX = số thứ tự tiếp theo)</span>
-                                    ) : (
-                                        <span>Chọn Tiêu chuẩn và Tiêu chí để xem preview mã</span>
-                                    )}
+                                <div className='space-y-3'>
+                                    {/* Chọn tiền tố */}
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className='md:col-span-1'>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Chọn Ký tự đầu
+                                            </label>
+                                            <select
+                                                name="prefixLetter"
+                                                value={prefixLetter}
+                                                onChange={(e) => setPrefixLetter(e.target.value)}
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                            >
+                                                {prefixLetters.map(letter => (
+                                                    <option key={letter} value={letter}>
+                                                        {letter}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className='md:col-span-3'>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mã sẽ được tạo
+                                            </label>
+                                            <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl text-sm text-indigo-700">
+                                                <Sparkles className="h-4 w-4 inline mr-1" />
+                                                {previewCode ? (
+                                                    <span>Mã sẽ được tạo tự động: <strong>{previewCode}</strong> (XX = số thứ tự tiếp theo)</span>
+                                                ) : (
+                                                    <span>Chọn Tiêu chuẩn, Tiêu chí và Ký tự đầu để xem preview mã</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <input
@@ -503,14 +552,15 @@ export default function AddEvidenceManual() {
                                     name="code"
                                     value={formData.code}
                                     onChange={handleInputChange}
-                                    placeholder="VD: H1.01.01.04"
-                                    pattern="^H\d+\.\d{2}\.\d{2}\.\d{2}$"
-                                    title="Format: H[số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]"
+                                    placeholder="VD: A1.01.01.04" // Cập nhật ví dụ
+                                    // Cập nhật pattern để chấp nhận A-Y
+                                    pattern="^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$"
+                                    title="Format: [A-Y][số hộp].[mã tiêu chuẩn].[mã tiêu chí].[số thứ tự]"
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 />
                             )}
                             <p className="text-xs text-gray-500 mt-2">
-                                Format: H[số hộp].[mã TC].[mã TC].[STT] - VD: H1.01.01.04
+                                Format: [A-Y][số hộp].[mã TC].[mã TC].[STT] - VD: A1.01.01.04
                             </p>
                         </div>
 
@@ -779,7 +829,9 @@ export default function AddEvidenceManual() {
                     </h4>
                     <ul className="text-sm text-indigo-800 space-y-2 list-disc list-inside">
                         <li>Các trường có dấu (*) là bắt buộc</li>
-                        <li>Mã minh chứng sẽ được tự động tạo theo format: H[số hộp].[mã TC].[mã TC].[STT]</li>
+                        {/* Cập nhật format note */}
+                        <li>Mã minh chứng sẽ được tự động tạo theo format: [A-Y][số hộp].[mã TC].[mã TC].[STT]</li>
+                        <li>Ký tự đầu tiên sẽ được chọn bởi người dùng (A-Y)</li>
                         <li>Số thứ tự sẽ tự động tăng dựa trên minh chứng đã có trong hệ thống</li>
                         <li>Chọn đúng Chương trình và Tổ chức trước khi chọn Tiêu chuẩn và Tiêu chí</li>
                     </ul>
