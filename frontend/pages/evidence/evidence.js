@@ -19,7 +19,8 @@ import {
     BookOpen,
     Loader2,
     Sparkles,
-    TrendingUp
+    TrendingUp,
+    Hourglass
 } from 'lucide-react'
 
 export default function EvidencePage() {
@@ -29,12 +30,39 @@ export default function EvidencePage() {
     const [loading, setLoading] = useState(true)
     const [statistics, setStatistics] = useState({
         totalEvidences: 0,
-        activeEvidences: 0,
-        inactiveEvidences: 0,
+        newEvidences: 0,
+        inProgressEvidences: 0,
+        completedEvidences: 0,
+        approvedEvidences: 0,
+        rejectedEvidences: 0,
         totalFiles: 0,
         academicYear: null
     })
     const [recentEvidences, setRecentEvidences] = useState([])
+
+    // Theo dõi trạng thái chuyển trang
+    const [isNavigating, setIsNavigating] = useState(false);
+
+    useEffect(() => {
+        const handleStart = (url) => {
+            // Chỉ hiển thị loading nếu chuyển đến trang khác
+            if (url !== router.asPath) {
+                setIsNavigating(true);
+            }
+        };
+        const handleComplete = () => setIsNavigating(false);
+
+        router.events.on('routeChangeStart', handleStart);
+        router.events.on('routeChangeComplete', handleComplete);
+        router.events.on('routeChangeError', handleComplete);
+
+        return () => {
+            router.events.off('routeChangeStart', handleStart);
+            router.events.off('routeChangeComplete', handleComplete);
+            router.events.off('routeChangeError', handleComplete);
+        };
+    }, [router]);
+
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -56,20 +84,27 @@ export default function EvidencePage() {
         try {
             setLoading(true)
 
+            // 1. Fetch Statistics
             try {
                 const statsResponse = await apiMethods.evidences.getStatistics()
                 const stats = statsResponse.data?.data || statsResponse.data || {}
                 setStatistics({
                     totalEvidences: stats.totalEvidences || 0,
-                    activeEvidences: stats.activeEvidences || 0,
-                    inactiveEvidences: stats.inactiveEvidences || 0,
+                    newEvidences: stats.newEvidences || 0,
+                    inProgressEvidences: stats.inProgressEvidences || 0,
+                    completedEvidences: stats.completedEvidences || 0,
+                    approvedEvidences: stats.approvedEvidences || 0,
+                    rejectedEvidences: stats.rejectedEvidences || 0,
                     totalFiles: stats.totalFiles || 0,
                     academicYear: stats.academicYear || null
                 })
             } catch (statError) {
-                console.error('Statistics error:', statError)
+                console.error('Statistics API Error (Possible 500):', statError)
+                toast.error('Lỗi khi tải thống kê minh chứng.')
+                // Giữ nguyên các giá trị 0 hoặc null nếu fetch thất bại
             }
 
+            // 2. Fetch Recent Evidences
             try {
                 const evidencesResponse = await apiMethods.evidences.getAll({
                     page: 1,
@@ -84,54 +119,60 @@ export default function EvidencePage() {
                     []
                 setRecentEvidences(Array.isArray(evidences) ? evidences : [])
             } catch (evidenceError) {
-                console.error('Evidences error:', evidenceError)
+                console.error('Recent Evidences API Error:', evidenceError)
                 setRecentEvidences([])
+                // Báo lỗi nhẹ hơn vì đây chỉ là phần phụ
+                // toast.error('Lỗi khi tải minh chứng gần đây.')
             }
 
         } catch (error) {
             console.error('Fetch data error:', error)
-            toast.error('Lỗi khi tải dữ liệu tổng quan')
         } finally {
             setLoading(false)
         }
     }
 
+    // Các hàm ánh xạ trạng thái (Đã sửa lại để phản ánh trạng thái duyệt)
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'active':
+            case 'new':
+                return <FileText className="h-4 w-4 text-gray-500" />
+            case 'in_progress':
+                return <Clock className="h-4 w-4 text-blue-500" />
+            case 'completed':
+                return <Hourglass className="h-4 w-4 text-teal-500" /> // Chờ duyệt
+            case 'approved':
                 return <CheckCircle className="h-4 w-4 text-green-500" />
-            case 'pending':
-                return <Clock className="h-4 w-4 text-yellow-500" />
-            case 'inactive':
+            case 'rejected':
                 return <XCircle className="h-4 w-4 text-red-500" />
-            case 'archived':
-                return <AlertCircle className="h-4 w-4 text-gray-500" />
             default:
-                return <Eye className="h-4 w-4 text-gray-500" />
+                return <AlertCircle className="h-4 w-4 text-gray-500" />
         }
     }
 
     const getStatusLabel = (status) => {
         const labels = {
-            active: 'Đang hoạt động',
-            pending: 'Chờ xử lý',
-            inactive: 'Ngừng hoạt động',
-            archived: 'Lưu trữ'
+            'new': 'Mới tạo',
+            'in_progress': 'Đang thực hiện',
+            'completed': 'Hoàn thành (Chờ duyệt)',
+            'approved': 'Đã duyệt',
+            'rejected': 'Từ chối'
         }
-        return labels[status] || status
+        return labels[status] || 'Không rõ'
     }
 
     const getStatusColor = (status) => {
         const colors = {
-            active: 'bg-green-100 text-green-800 border-green-200',
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            inactive: 'bg-red-100 text-red-800 border-red-200',
-            archived: 'bg-gray-100 text-gray-800 border-gray-200'
+            'new': 'bg-gray-100 text-gray-800 border-gray-200',
+            'in_progress': 'bg-blue-100 text-blue-800 border-blue-200',
+            'completed': 'bg-teal-100 text-teal-800 border-teal-200', // Chờ duyệt/Hoàn thành
+            'approved': 'bg-green-100 text-green-800 border-green-200',
+            'rejected': 'bg-red-100 text-red-800 border-red-200'
         }
         return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
     }
 
-    const StatCard = ({ title, value, icon: Icon, gradient, onClick }) => (
+    const StatCard = ({ title, value, icon: Icon, gradient, onClick, colorClass = 'text-gray-900' }) => (
         <div
             className={`bg-gradient-to-br ${gradient} rounded-xl shadow-sm border-2 border-opacity-50 p-6 ${
                 onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''
@@ -141,7 +182,7 @@ export default function EvidencePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-                    <p className="text-4xl font-bold text-gray-900">{formatNumber(value || 0)}</p>
+                    <p className={`text-4xl font-bold ${colorClass}`}>{formatNumber(value || 0)}</p>
                 </div>
                 <div className="w-16 h-16 bg-white bg-opacity-50 backdrop-blur-sm rounded-xl flex items-center justify-center">
                     <Icon className="h-8 w-8 text-gray-700" />
@@ -167,7 +208,7 @@ export default function EvidencePage() {
         </div>
     )
 
-    if (isLoading) {
+    if (isLoading || isNavigating) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
@@ -247,36 +288,70 @@ export default function EvidencePage() {
                             />
                         </div>
 
-                        {/* Statistics Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Statistics Cards (Theo trạng thái duyệt) */}
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                             <StatCard
-                                title="Tổng minh chứng"
+                                title="Tổng MC"
                                 value={statistics.totalEvidences}
                                 icon={FileText}
                                 gradient="from-indigo-50 to-purple-100"
                                 onClick={() => router.push('/evidence/evidence-management')}
+                                colorClass="text-indigo-900"
                             />
                             <StatCard
-                                title="Đang hoạt động"
-                                value={statistics.activeEvidences}
+                                title="Mới tạo"
+                                value={statistics.newEvidences}
+                                icon={FileText}
+                                gradient="from-gray-50 to-gray-100"
+                                onClick={() => router.push('/evidence/evidence-management?status=new')}
+                                colorClass="text-gray-900"
+                            />
+                            <StatCard
+                                title="Đang thực hiện"
+                                value={statistics.inProgressEvidences}
+                                icon={Clock}
+                                gradient="from-blue-50 to-cyan-100"
+                                onClick={() => router.push('/evidence/evidence-management?status=in_progress')}
+                                colorClass="text-blue-900"
+                            />
+                            <StatCard
+                                title="Chờ duyệt"
+                                value={statistics.completedEvidences}
+                                icon={Hourglass}
+                                gradient="from-teal-50 to-green-100"
+                                onClick={() => router.push('/evidence/evidence-management?status=completed')}
+                                colorClass="text-teal-900"
+                            />
+                            <StatCard
+                                title="Đã duyệt"
+                                value={statistics.approvedEvidences}
                                 icon={CheckCircle}
                                 gradient="from-green-50 to-emerald-100"
-                                onClick={() => router.push('/evidence/evidence-management?status=active')}
+                                onClick={() => router.push('/evidence/evidence-management?status=approved')}
+                                colorClass="text-green-900"
                             />
                             <StatCard
-                                title="Ngừng hoạt động"
-                                value={statistics.inactiveEvidences}
+                                title="Từ chối"
+                                value={statistics.rejectedEvidences}
                                 icon={XCircle}
                                 gradient="from-red-50 to-pink-100"
-                                onClick={() => router.push('/evidence/evidence-management?status=inactive')}
+                                onClick={() => router.push('/evidence/evidence-management?status=rejected')}
+                                colorClass="text-red-900"
                             />
+
+                        </div>
+
+                        {/* Tổng files */}
+                        <div className="grid grid-cols-1">
                             <StatCard
-                                title="Tổng files"
+                                title="Tổng files đính kèm"
                                 value={statistics.totalFiles}
                                 icon={TrendingUp}
-                                gradient="from-purple-50 to-indigo-100"
+                                gradient="from-yellow-50 to-amber-100"
+                                colorClass="text-yellow-800"
                             />
                         </div>
+
 
                         {/* Recent Evidences */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
