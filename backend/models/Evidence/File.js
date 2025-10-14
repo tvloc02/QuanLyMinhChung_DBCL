@@ -119,7 +119,28 @@ const fileSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
-    }
+    },
+
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    approvalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+    },
+
+    approvalDate: {
+        type: Date
+    },
+
+    rejectionReason: {
+        type: String,
+        trim: true
+    },
+
 });
 
 fileSchema.index({ evidenceId: 1 });
