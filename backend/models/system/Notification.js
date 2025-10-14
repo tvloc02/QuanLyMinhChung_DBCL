@@ -496,7 +496,14 @@ notificationSchema.statics.cleanupExpired = async function() {
 notificationSchema.statics.getNotificationStats = async function(userId = null) {
     let matchStage = {};
     if (userId) {
-        matchStage.recipientId = mongoose.Types.ObjectId(userId);
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+            matchStage.recipientId = mongoose.Types.ObjectId(userId);
+        } else {
+            console.error(`Invalid userId passed to getNotificationStats: ${userId}`);
+            if (userId === 'Invalid ID from req.user.id') {
+                return { total: 0, unread: 0, read: 0, clicked: 0, dismissed: 0 };
+            }
+        }
     }
 
     const stats = await this.aggregate([
