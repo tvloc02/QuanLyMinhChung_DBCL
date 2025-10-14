@@ -47,17 +47,48 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         const selectedFiles = Array.from(e.target.files)
         if (selectedFiles.length === 0) return
 
+        console.group('📤 Upload Files Debug')
+        console.log('Evidence ID:', evidence.id)
+        console.log('Selected files:', selectedFiles.map(f => ({
+            name: f.name,
+            size: f.size,
+            type: f.type
+        })))
+        console.log('API method exists?', typeof apiMethods.files.uploadMultiple === 'function')
+        console.groupEnd()
+
         setUploading(true)
         try {
-            // Sử dụng uploadMultiple với array files
-            await apiMethods.files.uploadMultiple(selectedFiles, evidence.id)
-            toast.success('Upload files thành công')
-            fetchFiles()
-            if (onUpdate) onUpdate()
+            // Gọi uploadMultiple với array files và evidenceId
+            console.log('Calling uploadMultiple...')
+            const response = await apiMethods.files.uploadMultiple(selectedFiles, evidence.id)
+
+            console.log('Upload response:', response)
+
+            if (response.data?.success) {
+                toast.success('Upload files thành công')
+                fetchFiles()
+                if (onUpdate) onUpdate()
+            } else {
+                toast.error(response.data?.message || 'Upload thất bại')
+            }
         } catch (error) {
-            console.error('Upload error:', error)
-            const errorMessage = error.response?.data?.message || 'Lỗi khi upload files'
+            console.group('❌ Upload Error Detail')
+            console.error('Error object:', error)
+            console.error('Response:', error.response)
+            console.error('Response data:', error.response?.data)
+            console.error('Status:', error.response?.status)
+            console.error('Config:', error.config)
+            console.groupEnd()
+
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi upload files'
             toast.error(errorMessage)
+
+            // Hiển thị chi tiết lỗi để debug
+            if (error.response?.status === 500) {
+                console.error('Server error 500 - Check backend logs')
+                toast.error('Lỗi server 500 - Kiểm tra console để biết chi tiết')
+            }
         } finally {
             setUploading(false)
             e.target.value = ''
@@ -80,13 +111,14 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
 
     const handleApproveFile = async (fileId, status, rejectionReason = '') => {
         try {
+            console.log('Approving file:', { fileId, status, rejectionReason })
             await apiMethods.files.approve(fileId, { status, rejectionReason })
             toast.success(status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công')
             fetchFiles()
             if (onUpdate) onUpdate()
         } catch (error) {
             console.error('Approve file error:', error)
-            toast.error('Lỗi khi duyệt file')
+            toast.error(error.response?.data?.message || 'Lỗi khi duyệt file')
         }
     }
 
@@ -133,11 +165,6 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         }
     }
 
-    // Debug: Log user info
-    console.log('FileManagement - User:', user)
-    console.log('FileManagement - User role:', user?.role)
-    console.log('FileManagement - Is admin?', user?.role === 'admin')
-
     return (
         <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-100">
             {/* Header */}
@@ -165,24 +192,26 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                     </span>
                 </div>
                 <p className="text-sm text-gray-900 font-medium">{evidence.name}</p>
-
-                {/* Debug info - Xóa sau khi test xong */}
-                {user?.role === 'admin' && (
-                    <div className="mt-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                        ✓ Bạn là Admin - Có quyền duyệt file
-                    </div>
-                )}
             </div>
 
             {/* Upload Area */}
             <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                <label className="cursor-pointer block">
+                <label className={`cursor-pointer block ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-indigo-400 transition-colors text-center">
-                        <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">
-                            <span className="text-indigo-600 font-medium">Chọn files</span> để upload
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">Tối đa 50MB mỗi file</p>
+                        {uploading ? (
+                            <>
+                                <Loader2 className="h-8 w-8 text-indigo-600 mx-auto mb-2 animate-spin" />
+                                <p className="text-sm text-indigo-600 font-medium">Đang upload...</p>
+                            </>
+                        ) : (
+                            <>
+                                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600">
+                                    <span className="text-indigo-600 font-medium">Chọn files</span> để upload
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Tối đa 50MB mỗi file</p>
+                            </>
+                        )}
                         <input
                             type="file"
                             multiple
@@ -209,74 +238,64 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {files.map((file) => {
-                            // Debug log cho mỗi file
-                            console.log(`File ${file._id}:`, {
-                                status: file.approvalStatus,
-                                userRole: user?.role,
-                                shouldShowButtons: user?.role === 'admin' && file.approvalStatus === 'pending'
-                            })
-
-                            return (
-                                <div key={file._id} className="border border-gray-200 rounded-xl p-3 hover:bg-gray-50 transition-colors">
-                                    <div className="flex items-start space-x-3">
-                                        <div className="flex-shrink-0 mt-1">
-                                            {getFileIcon(file.mimeType)}
+                        {files.map((file) => (
+                            <div key={file._id} className="border border-gray-200 rounded-xl p-3 hover:bg-gray-50 transition-colors">
+                                <div className="flex items-start space-x-3">
+                                    <div className="flex-shrink-0 mt-1">
+                                        {getFileIcon(file.mimeType)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate mb-1">
+                                            {file.originalName}
+                                        </p>
+                                        <div className="flex items-center flex-wrap gap-2">
+                                            <span className={`text-xs px-2 py-0.5 rounded border inline-flex items-center ${getStatusColor(file.approvalStatus)}`}>
+                                                {getStatusIcon(file.approvalStatus)}
+                                                <span className="ml-1">{getStatusLabel(file.approvalStatus)}</span>
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                                            </span>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 truncate mb-1">
-                                                {file.originalName}
+                                        {file.rejectionReason && (
+                                            <p className="text-xs text-red-600 mt-1 italic">
+                                                Lý do: {file.rejectionReason}
                                             </p>
-                                            <div className="flex items-center flex-wrap gap-2">
-                                                <span className={`text-xs px-2 py-0.5 rounded border inline-flex items-center ${getStatusColor(file.approvalStatus)}`}>
-                                                    {getStatusIcon(file.approvalStatus)}
-                                                    <span className="ml-1">{getStatusLabel(file.approvalStatus)}</span>
-                                                </span>
-                                                <span className="text-xs text-gray-500">
-                                                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                                                </span>
-                                            </div>
-                                            {file.rejectionReason && (
-                                                <p className="text-xs text-red-600 mt-1 italic">
-                                                    Lý do: {file.rejectionReason}
-                                                </p>
+                                        )}
+                                        <div className="flex items-center space-x-2 mt-2">
+                                            {user?.role === 'admin' && file.approvalStatus === 'pending' && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleApproveFile(file._id, 'approved')}
+                                                        className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium inline-flex items-center"
+                                                    >
+                                                        <Check className="h-3 w-3 mr-1" />
+                                                        Duyệt
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const reason = prompt('Lý do từ chối:')
+                                                            if (reason) handleApproveFile(file._id, 'rejected', reason)
+                                                        }}
+                                                        className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
+                                                    >
+                                                        <XCircle className="h-3 w-3 mr-1" />
+                                                        Từ chối
+                                                    </button>
+                                                </>
                                             )}
-                                            <div className="flex items-center space-x-2 mt-2">
-                                                {/* QUAN TRỌNG: Kiểm tra role và status */}
-                                                {user?.role === 'admin' && file.approvalStatus === 'pending' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleApproveFile(file._id, 'approved')}
-                                                            className="text-xs px-2.5 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium inline-flex items-center"
-                                                        >
-                                                            <Check className="h-3 w-3 mr-1" />
-                                                            Duyệt
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const reason = prompt('Lý do từ chối:')
-                                                                if (reason) handleApproveFile(file._id, 'rejected', reason)
-                                                            }}
-                                                            className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
-                                                        >
-                                                            <XCircle className="h-3 w-3 mr-1" />
-                                                            Từ chối
-                                                        </button>
-                                                    </>
-                                                )}
-                                                <button
-                                                    onClick={() => handleDeleteFile(file._id)}
-                                                    className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium inline-flex items-center"
-                                                >
-                                                    <Trash2 className="h-3 w-3 mr-1" />
-                                                    Xóa
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteFile(file._id)}
+                                                className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium inline-flex items-center"
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                Xóa
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                            )
-                        })}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
