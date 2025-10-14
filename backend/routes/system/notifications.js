@@ -3,6 +3,7 @@ const router = express.Router();
 const { query, param, body } = require('express-validator');
 const { auth } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
+const { getUnreadCount } = require('../../controllers/system/notificationController');
 const {
     getNotifications,
     markAsRead,
@@ -12,6 +13,8 @@ const {
 } = require('../../controllers/system/notificationController');
 
 router.use(auth);
+
+router.get('/unread-count', auth, getUnreadCount);
 
 router.get('/stats', getNotificationStats);
 
