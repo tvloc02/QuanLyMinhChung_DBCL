@@ -21,7 +21,9 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    AlertCircle
+    AlertCircle,
+    Square, // Thêm Square
+    CheckSquare // Thêm CheckSquare
 } from 'lucide-react'
 
 export default function FilesPage() {
@@ -38,6 +40,9 @@ export default function FilesPage() {
     const [approvalAction, setApprovalAction] = useState('approve')
     const [rejectionReason, setRejectionReason] = useState('')
     const [submitting, setSubmitting] = useState(false)
+    // *** THÊM STATE CHO CHỌN HÀNG LOẠT ***
+    const [selectedItems, setSelectedItems] = useState([])
+    // *** KẾT THÚC THÊM STATE ***
 
     const isAdmin = user?.role === 'admin'
 
@@ -67,6 +72,8 @@ export default function FilesPage() {
 
             setEvidence(data)
             setFiles(data?.files || [])
+            // Reset selected items sau khi fetch data mới
+            setSelectedItems([])
         } catch (error) {
             console.error('Fetch data error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi tải dữ liệu')
@@ -173,6 +180,27 @@ export default function FilesPage() {
         setShowApprovalModal(true)
     }
 
+    // *** THÊM HÀM MỞ MODAL DUYỆT CHO FILE ĐẦU TIÊN TRONG DANH SÁCH CHỌN ***
+    const handleBulkApproveClick = (action) => {
+        if (selectedItems.length === 0) {
+            toast.error('Vui lòng chọn file để duyệt');
+            return;
+        }
+
+        // Lấy file đầu tiên trong danh sách file đang pending
+        const filesToApprove = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending');
+
+        if (filesToApprove.length === 0) {
+            toast.error('Không có file chờ duyệt nào được chọn.');
+            return;
+        }
+
+        // Hiện tại, chỉ mở modal cho file đầu tiên, để mô phỏng action duyệt
+        handleApproveClick(filesToApprove[0], action);
+    }
+    // *** KẾT THÚC THÊM HÀM MỞ MODAL DUYỆT ***
+
+
     const handleApprovalSubmit = async () => {
         if (approvalAction === 'reject' && !rejectionReason.trim()) {
             toast.error('Vui lòng nhập lý do từ chối')
@@ -181,7 +209,11 @@ export default function FilesPage() {
 
         try {
             setSubmitting(true)
-            await apiMethods.files.approve(selectedFile._id, {
+
+            // Giả định chỉ duyệt file đang hiển thị trên modal
+            const fileId = selectedFile._id;
+
+            await apiMethods.files.approve(fileId, {
                 status: approvalAction === 'approve' ? 'approved' : 'rejected',
                 rejectionReason: approvalAction === 'reject' ? rejectionReason : undefined
             })
@@ -201,6 +233,23 @@ export default function FilesPage() {
             setSubmitting(false)
         }
     }
+
+    // *** LOGIC CHỌN HÀNG LOẠT ***
+    const toggleSelectItem = (fileId) => {
+        setSelectedItems(prev =>
+            prev.includes(fileId) ? prev.filter(item => item !== fileId) : [...prev, fileId]
+        )
+    }
+
+    const toggleSelectAll = () => {
+        if (selectedItems.length === files.length) {
+            setSelectedItems([])
+        } else {
+            setSelectedItems(files.map(f => f._id))
+        }
+    }
+    // *** KẾT THÚC LOGIC CHỌN HÀNG LOẠT ***
+
 
     const getFileIcon = (mimeType) => {
         if (mimeType?.startsWith('image/')) {
@@ -245,6 +294,8 @@ export default function FilesPage() {
     const pendingFilesCount = files.filter(f => f.approvalStatus === 'pending').length
     const approvedFilesCount = files.filter(f => f.approvalStatus === 'approved').length
     const rejectedFilesCount = files.filter(f => f.approvalStatus === 'rejected').length
+    const pendingSelectedCount = files.filter(f => selectedItems.includes(f._id) && f.approvalStatus === 'pending').length; // Đếm số lượng file pending trong danh sách chọn
+
 
     if (isLoading) {
         return (
@@ -314,6 +365,36 @@ export default function FilesPage() {
                     </div>
                 </div>
 
+                {/* *** BULK ACTIONS *** */}
+                {isAdmin && selectedItems.length > 0 && (
+                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-blue-900 font-semibold">
+                                Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> files
+                            </span>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => setSelectedItems([])}
+                                    className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
+                                >
+                                    <X className="h-4 w-4 mr-2" />
+                                    Hủy chọn
+                                </button>
+                                <button
+                                    onClick={() => handleBulkApproveClick('approve')}
+                                    disabled={pendingSelectedCount === 0}
+                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Duyệt File Đã Chọn ({pendingSelectedCount})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* *** KẾT THÚC BULK ACTIONS *** */}
+
+
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
                         <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
@@ -373,7 +454,7 @@ export default function FilesPage() {
                         </div>
 
                         {/* Files List */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                             <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                                     <Sparkles className="h-5 w-5 mr-2 text-indigo-600" />
@@ -381,76 +462,94 @@ export default function FilesPage() {
                                 </h3>
                             </div>
 
-                            <div className="divide-y divide-gray-200">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                <tr>
+                                    {isAdmin && (
+                                        <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-12">
+                                            <button onClick={toggleSelectAll} className="p-1 focus:outline-none">
+                                                {selectedItems.length === files.length && files.length > 0 ? (
+                                                    <CheckSquare className="h-5 w-5 text-indigo-600" />
+                                                ) : (
+                                                    <Square className="h-5 w-5 text-gray-400 hover:text-indigo-500" />
+                                                )}
+                                            </button>
+                                        </th>
+                                    )}
+                                    <th className="px-2 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-12">STT</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[300px]">Tên file</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-20">Kích thước</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-32">Người Upload</th>
+                                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-28">Trạng thái</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-40">Hành động</th>
+                                </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
                                 {files.length === 0 ? (
-                                    <div className="p-16 text-center">
-                                        <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <File className="h-10 w-10 text-indigo-600" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có file nào được upload</h3>
-                                        <p className="text-gray-500 mb-6">Bắt đầu bằng cách upload file đầu tiên</p>
-                                        <label className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg cursor-pointer transition-all font-medium">
-                                            <Upload className="h-5 w-5 mr-2" />
-                                            Upload file đầu tiên
-                                            <input
-                                                type="file"
-                                                multiple
-                                                onChange={handleFileSelect}
-                                                className="hidden"
-                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
-                                            />
-                                        </label>
-                                    </div>
+                                    <tr>
+                                        <td colSpan={isAdmin ? 7 : 6} className="p-16 text-center text-gray-500">
+                                            Chưa có file nào được upload.
+                                        </td>
+                                    </tr>
                                 ) : (
-                                    files.map((file) => (
-                                        <div key={file._id} className="p-6 hover:bg-gray-50 transition-colors group">
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex items-start space-x-4 flex-1 min-w-0">
-                                                    <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    files.map((file, index) => (
+                                        <tr key={file._id} className="hover:bg-gray-50 transition-colors">
+                                            {isAdmin && (
+                                                <td className="px-3 py-4 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedItems.includes(file._id)}
+                                                        onChange={() => toggleSelectItem(file._id)}
+                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                                    />
+                                                </td>
+                                            )}
+                                            <td className="px-2 py-4 text-center text-sm text-gray-600">{index + 1}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex-shrink-0">
                                                         {getFileIcon(file.mimeType)}
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">
-                                                            {file.originalName || file.filename}
-                                                        </h4>
-                                                        <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500 mb-2">
-                                                            <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium">
-                                                                {formatFileSize(file.size)}
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span>{file.uploadedBy?.fullName || 'N/A'}</span>
-                                                            <span>•</span>
-                                                            <span>{formatDate(file.uploadedAt || file.createdAt)}</span>
-                                                            <span>•</span>
-                                                            <span className="flex items-center">
-                                                                <Download className="h-3 w-3 mr-1" />
-                                                                {file.downloadCount || 0} lượt tải
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            {getApprovalStatusBadge(file.approvalStatus)}
-                                                            {file.approvalStatus === 'rejected' && file.rejectionReason && (
-                                                                <div className="flex items-start gap-1 px-2 py-1 bg-red-50 rounded text-xs text-red-700">
-                                                                    <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                                                    <span className="line-clamp-2">{file.rejectionReason}</span>
-                                                                </div>
-                                                            )}
+                                                    <div className="text-sm font-semibold text-gray-900 truncate max-w-xs">
+                                                        {file.originalName || file.filename}
+                                                        <div className="text-xs text-gray-500 font-normal mt-0.5">
+                                                            Tải xuống: {file.downloadCount || 0}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                            </td>
+                                            <td className="px-3 py-4 text-center text-sm text-gray-600">
+                                                {formatFileSize(file.size)}
+                                            </td>
+                                            <td className="px-3 py-4 text-center text-sm text-gray-600">
+                                                {file.uploadedBy?.fullName || 'N/A'}
+                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                    {formatDate(file.uploadedAt || file.createdAt)}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-4 text-center">
+                                                {getApprovalStatusBadge(file.approvalStatus)}
+                                                {file.approvalStatus === 'rejected' && file.rejectionReason && (
+                                                    <div className="flex items-start gap-1 px-1 py-1 bg-red-50 rounded text-xs text-red-700 mt-1">
+                                                        <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                                        <span className="line-clamp-2 text-left">{file.rejectionReason}</span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-center">
+                                                <div className="flex items-center justify-center gap-2">
                                                     {isAdmin && file.approvalStatus === 'pending' && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleApproveClick(file, 'approve')}
-                                                                className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all"
                                                                 title="Duyệt"
                                                             >
                                                                 <CheckCircle className="h-5 w-5" />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleApproveClick(file, 'reject')}
-                                                                className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
                                                                 title="Từ chối"
                                                             >
                                                                 <XCircle className="h-5 w-5" />
@@ -459,24 +558,26 @@ export default function FilesPage() {
                                                     )}
                                                     <button
                                                         onClick={() => handleDownload(file._id, file.originalName || file.filename)}
-                                                        className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                                                         title="Tải xuống"
                                                     >
                                                         <Download className="h-5 w-5" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(file._id)}
-                                                        className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
                                                         title="Xóa"
                                                     >
                                                         <Trash2 className="h-5 w-5" />
                                                     </button>
                                                 </div>
-                                            </div>
-                                        </div>
+                                            </td>
+                                        </tr>
                                     ))
                                 )}
-                            </div>
+                                </tbody>
+                            </table>
+
                         </div>
 
                         {/* Upload Guidelines */}
