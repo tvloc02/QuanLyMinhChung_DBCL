@@ -53,7 +53,7 @@ router.post('/:id/move', [
     body('newCode')
         .notEmpty()
         .withMessage('Mã minh chứng mới là bắt buộc')
-        .matches(/^H\d+\.\d{2}\.\d{2}\.\d{2}$/)
+        .matches(/^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/)
         .withMessage('Mã minh chứng mới không đúng format')
 ], validation, moveEvidence);
 
@@ -176,8 +176,8 @@ router.post('/', [
         .withMessage('ID tiêu chí không hợp lệ'),
     body('code')
         .optional()
-        .matches(/^H\d+\.\d{2}\.\d{2}\.\d{2}$/)
-        .withMessage('Mã minh chứng không đúng format (VD: H1.01.02.04)'),
+        .matches(/^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/)
+        .withMessage('Mã minh chứng không đúng format (VD: A1.01.02.04)'),
     body('documentNumber')
         .optional()
         .isLength({ max: 100 })
@@ -224,7 +224,7 @@ router.post('/:id/copy-to-year', [
     body('newCode')
         .notEmpty()
         .withMessage('Mã minh chứng mới là bắt buộc')
-        .matches(/^H\d+\.\d{2}\.\d{2}\.\d{2}$/)
+        .matches(/^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/)
         .withMessage('Mã minh chứng mới không đúng format')
 ], validation, copyEvidenceToAnotherYear);
 
