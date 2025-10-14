@@ -21,21 +21,29 @@ import {
     ChevronRight,
     CheckCircle,
     XCircle,
-    Clock
+    Clock,
+    AlertCircle // Import AlertCircle
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
 import ApproveFilesModal from './ApproveFilesModal.js'
+import { useAuth } from '../../contexts/AuthContext' // Import useAuth để kiểm tra quyền admin
+
+const ITEMS_PER_PAGE = 20; // Định nghĩa lại ITEMS_PER_PAGE
 
 export default function EvidenceManagement() {
     const router = useRouter()
+    const { user } = useAuth() // Lấy thông tin user
+    const isAdmin = user?.role === 'admin'
 
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(true)
     const [pagination, setPagination] = useState({
         current: 1,
         pages: 1,
-        total: 0
+        total: 0,
+        hasNext: false, // Thêm hasNext và hasPrev để sử dụng trong pagination
+        hasPrev: false
     })
 
     const [filters, setFilters] = useState({
@@ -46,7 +54,7 @@ export default function EvidenceManagement() {
         standardId: '',
         criteriaId: '',
         page: 1,
-        limit: 20,
+        limit: ITEMS_PER_PAGE, // Sử dụng ITEMS_PER_PAGE
         sortBy: 'createdAt',
         sortOrder: 'desc'
     })
@@ -112,7 +120,7 @@ export default function EvidenceManagement() {
             const data = response.data?.data || response.data
 
             setEvidences(data?.evidences || [])
-            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
+            setPagination(data?.pagination || { current: 1, pages: 1, total: 0, hasNext: false, hasPrev: false })
         } catch (error) {
             console.error('Fetch evidences error:', error)
             toast.error('Lỗi khi tải danh sách minh chứng')
@@ -178,7 +186,10 @@ export default function EvidenceManagement() {
 
     const handleSearch = (e) => {
         e.preventDefault()
-        fetchEvidences()
+        // Cập nhật state search và trigger useEffect
+        setFilters(prev => ({ ...prev, page: 1 }));
+        // Force fetchEvidences nếu chỉ thay đổi search mà không đổi page
+        if(filters.page === 1) fetchEvidences();
     }
 
     const handlePageChange = (page) => {
@@ -190,11 +201,12 @@ export default function EvidenceManagement() {
     }
 
     const handleEdit = (evidence) => {
-        toast.info('Chức năng chỉnh sửa đang phát triển')
+        // Thực hiện điều hướng đến trang chỉnh sửa thực tế
+        router.push(`/evidence/edit/${evidence._id}`);
     }
 
     const handleDelete = async (id) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa minh chứng này?')) return
+        if (!confirm('Bạn có chắc chắn muốn xóa minh chứng này? Hành động này sẽ xóa vĩnh viễn tất cả file đính kèm.')) return
 
         try {
             await apiMethods.evidences.delete(id)
@@ -212,9 +224,11 @@ export default function EvidenceManagement() {
             return
         }
 
-        if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedItems.length} minh chứng đã chọn?`)) return
+        if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedItems.length} minh chứng đã chọn? Hành động này sẽ xóa vĩnh viễn tất cả file đính kèm.`)) return
 
         try {
+            // Thay vì delete từng cái, nên dùng bulkDelete nếu API hỗ trợ
+            // Giả định API không hỗ trợ bulkDelete, ta vẫn dùng loop như ban đầu:
             for (const id of selectedItems) {
                 await apiMethods.evidences.delete(id)
             }
@@ -240,7 +254,7 @@ export default function EvidenceManagement() {
 
     const handleBulkApprove = () => {
         if (selectedItems.length === 0) {
-            toast.error('Vui lòng chọn minh chứng để duyệt')
+            toast.error('Vui lòng chọn minh chứng để duyệt file')
             return
         }
         setShowApproveModal(true)
@@ -282,7 +296,7 @@ export default function EvidenceManagement() {
             standardId: '',
             criteriaId: '',
             page: 1,
-            limit: 20,
+            limit: ITEMS_PER_PAGE,
             sortBy: 'createdAt',
             sortOrder: 'desc'
         })
@@ -291,49 +305,68 @@ export default function EvidenceManagement() {
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
 
-    const getApprovalStatus = (files) => {
-        if (!files || files.length === 0) {
-            return { status: 'no_files', text: 'Chưa có file', color: 'gray' }
-        }
+    // *** PHẦN SỬA LỖI LOGIC TRẠNG THÁI ***
 
-        const pendingCount = files.filter(f => f.approvalStatus === 'pending').length
-        const approvedCount = files.filter(f => f.approvalStatus === 'approved').length
-        const rejectedCount = files.filter(f => f.approvalStatus === 'rejected').length
+    // Hàm ánh xạ trạng thái từ model evidence.status
+    const getEvidenceStatusDisplay = (status, files) => {
+        const fileCount = files?.length || 0;
+        const approvedCount = files?.filter(f => f.approvalStatus === 'approved').length || 0;
+        const pendingCount = files?.filter(f => f.approvalStatus === 'pending').length || 0;
+        const rejectedCount = files?.filter(f => f.approvalStatus === 'rejected').length || 0;
 
-        if (pendingCount === files.length) {
-            return { status: 'pending', text: 'Chờ duyệt', color: 'yellow', icon: Clock }
+        // Logic dựa trên model Evidence.js và evidenceController.js
+        switch (status) {
+            case 'new':
+                return { status: 'new', text: 'Mới tạo', color: 'gray', icon: FileText };
+            case 'in_progress':
+                if (fileCount > 0 && pendingCount > 0) {
+                    return { status: 'pending', text: 'Đang chờ duyệt', color: 'yellow', icon: Clock };
+                }
+                return { status: 'in_progress', text: 'Đang thực hiện', color: 'blue', icon: Clock };
+            case 'completed':
+                if (approvedCount > 0 && approvedCount < fileCount) {
+                    return { status: 'partial', text: `${approvedCount}/${fileCount} file`, color: 'teal', icon: Clock }; // Dùng teal cho partially approved
+                }
+                return { status: 'completed', text: 'Hoàn thành (Cần duyệt)', color: 'blue', icon: CheckCircle };
+            case 'approved':
+                return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle };
+            case 'rejected':
+                return { status: 'rejected', text: 'Đã từ chối', color: 'red', icon: XCircle };
+            default:
+                if (fileCount === 0) {
+                    return { status: 'no_files', text: 'Chưa có file', color: 'gray', icon: FileText };
+                }
+                return { status: 'unknown', text: 'Trạng thái không rõ', color: 'gray', icon: AlertCircle };
         }
-        if (approvedCount === files.length) {
-            return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle }
-        }
-        if (rejectedCount > 0) {
-            return { status: 'rejected', text: 'Từ chối', color: 'red', icon: XCircle }
-        }
-        if (pendingCount > 0) {
-            return { status: 'partial', text: `${approvedCount}/${files.length} file`, color: 'blue', icon: Clock }
-        }
-        return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle }
     }
 
-    const ApprovalStatusBadge = ({ files }) => {
-        const status = getApprovalStatus(files)
-        const Icon = status.icon
+    const ApprovalStatusBadge = ({ evidence }) => {
+        // Lấy trạng thái từ thuộc tính status của evidence (đã được backend updateStatus tính toán)
+        const statusDisplay = getEvidenceStatusDisplay(evidence.status, evidence.files);
+        const Icon = statusDisplay.icon;
 
         const colorClasses = {
             gray: 'bg-gray-100 text-gray-700 border-gray-200',
             yellow: 'bg-yellow-100 text-yellow-700 border-yellow-200',
             green: 'bg-green-100 text-green-700 border-green-200',
             red: 'bg-red-100 text-red-700 border-red-200',
-            blue: 'bg-blue-100 text-blue-700 border-blue-200'
+            blue: 'bg-blue-100 text-blue-700 border-blue-200',
+            teal: 'bg-teal-100 text-teal-700 border-teal-200', // Thêm teal
+            new: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+            pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+            partial: 'bg-teal-100 text-teal-700 border-teal-200',
+            unknown: 'bg-red-100 text-red-700 border-red-200'
         }
 
         return (
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClasses[status.color]}`}>
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClasses[statusDisplay.color]}`}>
                 {Icon && <Icon className="h-3.5 w-3.5 mr-1" />}
-                {status.text}
+                {statusDisplay.text}
             </span>
         )
     }
+    // *** KẾT THÚC PHẦN SỬA LỖI LOGIC TRẠNG THÁI ***
+
 
     return (
         <div className="space-y-6">
@@ -504,13 +537,16 @@ export default function EvidenceManagement() {
                                 <X className="h-4 w-4 mr-2" />
                                 Hủy chọn
                             </button>
-                            <button
-                                onClick={handleBulkApprove}
-                                className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
-                            >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Duyệt tất cả
-                            </button>
+                            {/* Chỉ cho Admin duyệt hàng loạt */}
+                            {isAdmin && (
+                                <button
+                                    onClick={handleBulkApprove}
+                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Duyệt hàng loạt file
+                                </button>
+                            )}
                             <button
                                 onClick={handleBulkDelete}
                                 className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
@@ -702,7 +738,8 @@ export default function EvidenceManagement() {
                                             </span>
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <ApprovalStatusBadge files={evidence.files} />
+                                            {/* *** SỬ DỤNG evidence.status ĐÃ FIX *** */}
+                                            <ApprovalStatusBadge evidence={evidence} />
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
                                             {formatDate(evidence.createdAt)}
@@ -760,31 +797,31 @@ export default function EvidenceManagement() {
                                         >
                                             Trước
                                         </button>
-                                        {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
-                                            let pageNum;
-                                            if (pagination.pages <= 7) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.current <= 4) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.current >= pagination.pages - 3) {
-                                                pageNum = pagination.pages - 6 + i;
-                                            } else {
-                                                pageNum = pagination.current - 3 + i;
+                                        {[...Array(pagination.pages)].map((_, i) => {
+                                            const pageNum = i + 1;
+                                            // Logic hiển thị trang đơn giản hơn, có thể tối ưu thêm cho UX
+                                            if (
+                                                pagination.pages <= 7 ||
+                                                pageNum === 1 || pageNum === pagination.pages ||
+                                                (pageNum >= pagination.current - 2 && pageNum <= pagination.current + 2)
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => handlePageChange(pageNum)}
+                                                        className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
+                                                            pagination.current === pageNum
+                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                                                                : 'border-2 border-blue-200 hover:bg-white text-gray-700'
+                                                        }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            } else if ((pageNum === pagination.current - 3 && pagination.current > 4) || (pageNum === pagination.current + 3 && pagination.current < pagination.pages - 3)) {
+                                                return <span key={pageNum} className="px-2 py-2 text-sm">...</span>;
                                             }
-
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
-                                                        pagination.current === pageNum
-                                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
-                                                            : 'border-2 border-blue-200 hover:bg-white text-gray-700'
-                                                    }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
+                                            return null;
                                         })}
                                         <button
                                             onClick={() => handlePageChange(pagination.current + 1)}
@@ -814,7 +851,11 @@ export default function EvidenceManagement() {
 
             {showApproveModal && (
                 <ApproveFilesModal
-                    evidenceIds={selectedItems}
+                    // Chỉ gửi những minh chứng được chọn đang ở trạng thái cần duyệt (hoặc tất cả nếu là admin)
+                    evidenceIds={selectedItems.filter(id => {
+                        const evidence = evidences.find(e => e._id === id);
+                        return evidence && (evidence.status === 'completed' || evidence.status === 'in_progress' || isAdmin);
+                    })}
                     onClose={() => setShowApproveModal(false)}
                     onSuccess={handleApproveSuccess}
                 />
