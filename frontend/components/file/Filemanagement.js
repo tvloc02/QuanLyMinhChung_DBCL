@@ -14,7 +14,8 @@ import {
     Check,
     XCircle,
     Clock,
-    Loader2
+    Loader2,
+    AlertCircle
 } from 'lucide-react'
 
 export default function FileManagement({ evidence, onClose, onUpdate }) {
@@ -23,21 +24,58 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
 
+    // Thêm các state cần thiết cho modal duyệt (dù modal không nằm trong component này)
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [approvalAction, setApprovalAction] = useState('');
+    const [rejectionReason, setRejectionReason] = useState('');
+
+    const isAdmin = user?.role === 'admin';
+
     useEffect(() => {
         if (evidence) {
             fetchFiles()
         }
     }, [evidence])
 
+    // Hàm này phải tồn tại (hoặc được gọi từ bên ngoài) để mở modal
+    const handleApproveClick = (file, action) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền duyệt file.');
+            return;
+        }
+        setSelectedFile(file);
+        setApprovalAction(action);
+        setRejectionReason('');
+        setShowApprovalModal(true); // Giả định modal được quản lý tại đây
+    };
+
+    // Hàm duyệt file đơn (Giống files.js)
+    const handleApproveFile = async (fileId, status, rejectionReason = '') => {
+        try {
+            await apiMethods.files.approve(fileId, { status, rejectionReason })
+            toast.success(status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công')
+            fetchFiles()
+            if (onUpdate) onUpdate()
+        } catch (error) {
+            console.error('Approve file error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi duyệt file')
+        }
+    }
+
+
     const fetchFiles = async () => {
         try {
             setLoading(true)
+            // Gọi API lấy thông tin evidence (bao gồm files đã populate)
             const response = await apiMethods.evidences.getById(evidence.id)
             const data = response.data?.data || response.data
+            // Giả định response.data.files là mảng files
             setFiles(data?.files || [])
         } catch (error) {
             console.error('Fetch files error:', error)
-            toast.error('Lỗi khi tải danh sách files')
+            // Xử lý lỗi 403/500 tương tự như file files.js
+            toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách files')
         } finally {
             setLoading(false)
         }
@@ -47,48 +85,21 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         const selectedFiles = Array.from(e.target.files)
         if (selectedFiles.length === 0) return
 
-        console.group('📤 Upload Files Debug')
-        console.log('Evidence ID:', evidence.id)
-        console.log('Selected files:', selectedFiles.map(f => ({
-            name: f.name,
-            size: f.size,
-            type: f.type
-        })))
-        console.log('API method exists?', typeof apiMethods.files.uploadMultiple === 'function')
-        console.groupEnd()
-
         setUploading(true)
         try {
-            // Gọi uploadMultiple với array files và evidenceId
-            console.log('Calling uploadMultiple...')
+            // Giả định API uploadMultiple đã được cấu hình đúng trong api.js
             const response = await apiMethods.files.uploadMultiple(selectedFiles, evidence.id)
 
-            console.log('Upload response:', response)
-
             if (response.data?.success) {
-                toast.success('Upload files thành công')
+                toast.success(`Upload thành công ${selectedFiles.length} files`)
                 fetchFiles()
                 if (onUpdate) onUpdate()
             } else {
                 toast.error(response.data?.message || 'Upload thất bại')
             }
         } catch (error) {
-            console.group('❌ Upload Error Detail')
-            console.error('Error object:', error)
-            console.error('Response:', error.response)
-            console.error('Response data:', error.response?.data)
-            console.error('Status:', error.response?.status)
-            console.error('Config:', error.config)
-            console.groupEnd()
-
             const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi upload files'
             toast.error(errorMessage)
-
-            // Hiển thị chi tiết lỗi để debug
-            if (error.response?.status === 500) {
-                console.error('Server error 500 - Check backend logs')
-                toast.error('Lỗi server 500 - Kiểm tra console để biết chi tiết')
-            }
         } finally {
             setUploading(false)
             e.target.value = ''
@@ -109,18 +120,17 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         }
     }
 
-    const handleApproveFile = async (fileId, status, rejectionReason = '') => {
+    // *** SỬA LỖI FONT: HÀM DECODE TÊN FILE ***
+    const getSafeFileName = (fileName) => {
+        if (!fileName) return 'Tên file không xác định';
         try {
-            console.log('Approving file:', { fileId, status, rejectionReason })
-            await apiMethods.files.approve(fileId, { status, rejectionReason })
-            toast.success(status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công')
-            fetchFiles()
-            if (onUpdate) onUpdate()
-        } catch (error) {
-            console.error('Approve file error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi duyệt file')
+            return decodeURIComponent(fileName);
+        } catch (e) {
+            return fileName;
         }
-    }
+    };
+    // *** KẾT THÚC SỬA LỖI FONT ***
+
 
     const getFileIcon = (mimeType) => {
         if (mimeType?.startsWith('image/')) {
@@ -139,16 +149,20 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         const labels = {
             'pending': 'Chờ duyệt',
             'approved': 'Đã duyệt',
-            'rejected': 'Từ chối'
+            'rejected': 'Từ chối',
+            'new': 'Mới', // Thêm trạng thái Evidence
+            'in_progress': 'Đang thực hiện' // Thêm trạng thái Evidence
         }
-        return labels[status] || 'Chờ duyệt'
+        return labels[status] || status
     }
 
     const getStatusColor = (status) => {
         const colors = {
             'pending': 'bg-yellow-100 text-yellow-700 border-yellow-300',
             'approved': 'bg-green-100 text-green-700 border-green-300',
-            'rejected': 'bg-red-100 text-red-700 border-red-300'
+            'rejected': 'bg-red-100 text-red-700 border-red-300',
+            'new': 'bg-gray-100 text-gray-700 border-gray-300',
+            'in_progress': 'bg-blue-100 text-blue-700 border-blue-300'
         }
         return colors[status] || colors['pending']
     }
@@ -164,6 +178,28 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                 return <Clock className="h-4 w-4" />
         }
     }
+
+    // Hàm download riêng cho component này (để có thể gọi getSafeFileName)
+    const handleDownloadFile = async (fileId, originalName) => {
+        try {
+            const response = await apiMethods.files.download(fileId);
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', getSafeFileName(originalName));
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Tải file thành công');
+        } catch (error) {
+            console.error('Download error:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi tải file');
+        }
+    }
+
 
     return (
         <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-100">
@@ -187,6 +223,7 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                     <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
                         {evidence.code}
                     </span>
+                    {/* SỬ DỤNG STATUS CỦA EVIDENCE */}
                     <span className={`text-xs px-2 py-1 rounded border font-medium ${getStatusColor(evidence.status)}`}>
                         {getStatusLabel(evidence.status)}
                     </span>
@@ -246,7 +283,8 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-gray-900 truncate mb-1">
-                                            {file.originalName}
+                                            {/* SỬ DỤNG HÀM SỬA LỖI FONT */}
+                                            {getSafeFileName(file.originalName)}
                                         </p>
                                         <div className="flex items-center flex-wrap gap-2">
                                             <span className={`text-xs px-2 py-0.5 rounded border inline-flex items-center ${getStatusColor(file.approvalStatus)}`}>
@@ -263,7 +301,7 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                             </p>
                                         )}
                                         <div className="flex items-center space-x-2 mt-2">
-                                            {user?.role === 'admin' && file.approvalStatus === 'pending' && (
+                                            {isAdmin && file.approvalStatus === 'pending' && (
                                                 <>
                                                     <button
                                                         onClick={() => handleApproveFile(file._id, 'approved')}
@@ -285,8 +323,15 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                                 </>
                                             )}
                                             <button
-                                                onClick={() => handleDeleteFile(file._id)}
+                                                onClick={() => handleDownloadFile(file._id, file.originalName)}
                                                 className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium inline-flex items-center"
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                Tải xuống
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteFile(file._id)}
+                                                className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
                                             >
                                                 <Trash2 className="h-3 w-3 mr-1" />
                                                 Xóa
