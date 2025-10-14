@@ -2,7 +2,7 @@ const Evidence = require('../../models/Evidence/Evidence');
 const File = require('../../models/Evidence/File');
 const AcademicYear = require('../../models/system/AcademicYear');
 const exportService = require('../../services/exportService');
-const { importEvidencesFromExcel } = require('../../services/importService'); // <- Đã require đúng hàm
+const { importEvidencesFromExcel } = require('../../services/importService');
 const searchService = require('../../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
@@ -112,7 +112,7 @@ const getEvidences = async (req, res) => {
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
-                .populate('files', 'originalName size mimeType uploadedAt approvalStatus rejectionReason uploadedBy') // Thêm approvalStatus, rejectionReason, uploadedBy
+                .populate('files', 'originalName size mimeType uploadedAt approvalStatus rejectionReason uploadedBy')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -172,9 +172,6 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
-        // ==========================================================
-        // === SỬA ĐỔI: BỎ HOÀN TOÀN LOGIC KIỂM TRA QUYỀN TRUY CẬP ===
-        // MỌI NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP ĐỀU CÓ QUYỀN TRUY CẬP CHI TIẾT
         /*
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(evidence.standardId._id) &&
@@ -185,7 +182,6 @@ const getEvidenceById = async (req, res) => {
             });
         }
         */
-        // ==========================================================
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
@@ -576,7 +572,6 @@ const getStatistics = async (req, res) => {
                 $group: {
                     _id: null,
                     totalEvidences: { $sum: 1 },
-                    // Loại bỏ các trường gây lỗi (activeEvidences, inactiveEvidences, totalFilesSize, totalFilesSizeByExtension)
 
                     newEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] }
@@ -593,7 +588,6 @@ const getStatistics = async (req, res) => {
                     rejectedEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
                     },
-                    // Chỉ giữ lại totalFiles (tính theo độ dài mảng, an toàn)
                     totalFiles: { $sum: { $size: '$files' }
                     },
                 }
@@ -610,7 +604,6 @@ const getStatistics = async (req, res) => {
             totalFiles: 0
         };
 
-        // Bổ sung tính TotalFilesSize một cách an toàn bằng truy vấn phụ
         let totalFilesSize = 0;
         try {
             const evidenceIds = await Evidence.find(matchStage).distinct('_id');
@@ -629,14 +622,13 @@ const getStatistics = async (req, res) => {
             success: true,
             data: {
                 ...result,
-                totalFilesSize: totalFilesSize, // Thêm trường totalFilesSize đã tính toán an toàn
+                totalFilesSize: totalFilesSize,
                 academicYear: req.currentAcademicYear
             }
         });
 
     } catch (error) {
         console.error('Get statistics error:', error);
-        // Trả về thông báo lỗi chi tiết để hỗ trợ debug
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy thống kê: ' + error.message
