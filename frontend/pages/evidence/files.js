@@ -17,7 +17,12 @@ import {
     Presentation,
     Loader2,
     ArrowLeft,
-    Sparkles
+    Check,
+    X,
+    Clock,
+    CheckCircle2,
+    XCircle,
+    AlertCircle
 } from 'lucide-react'
 
 export default function FilesPage() {
@@ -29,6 +34,8 @@ export default function FilesPage() {
     const [evidence, setEvidence] = useState(null)
     const [files, setFiles] = useState([])
     const [uploading, setUploading] = useState(false)
+    const [rejectionModal, setRejectionModal] = useState({ show: false, fileId: null })
+    const [rejectionReason, setRejectionReason] = useState('')
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -86,35 +93,16 @@ export default function FilesPage() {
         }
 
         setUploading(true)
-        let successCount = 0
-        let failCount = 0
-
-        for (const file of filesToUpload) {
-            try {
-                const response = await apiMethods.files.upload(file, evidenceId)
-
-                if (response.data?.success) {
-                    successCount++
-                } else {
-                    failCount++
-                }
-            } catch (error) {
-                console.error('Upload error:', error)
-                failCount++
-            }
+        try {
+            await apiMethods.files.upload(evidenceId, filesToUpload)
+            toast.success('Upload files thành công')
+            fetchData()
+        } catch (error) {
+            console.error('Upload error:', error)
+            toast.error('Lỗi khi upload files')
+        } finally {
+            setUploading(false)
         }
-
-        setUploading(false)
-
-        if (successCount > 0 && failCount === 0) {
-            toast.success(`Upload thành công ${successCount} file`)
-        } else if (successCount > 0 && failCount > 0) {
-            toast.success(`Upload thành công ${successCount} file, thất bại ${failCount} file`)
-        } else {
-            toast.error('Upload thất bại')
-        }
-
-        fetchData()
     }
 
     const handleDownload = async (fileId, fileName) => {
@@ -155,6 +143,38 @@ export default function FilesPage() {
         }
     }
 
+    const handleApprove = async (fileId) => {
+        try {
+            await apiMethods.files.approve(fileId, { status: 'approved' })
+            toast.success('Duyệt file thành công')
+            fetchData()
+        } catch (error) {
+            console.error('Approve error:', error)
+            toast.error('Lỗi khi duyệt file')
+        }
+    }
+
+    const handleReject = async () => {
+        if (!rejectionReason.trim()) {
+            toast.error('Vui lòng nhập lý do từ chối')
+            return
+        }
+
+        try {
+            await apiMethods.files.approve(rejectionModal.fileId, {
+                status: 'rejected',
+                rejectionReason: rejectionReason.trim()
+            })
+            toast.success('Từ chối file thành công')
+            setRejectionModal({ show: false, fileId: null })
+            setRejectionReason('')
+            fetchData()
+        } catch (error) {
+            console.error('Reject error:', error)
+            toast.error('Lỗi khi từ chối file')
+        }
+    }
+
     const getFileIcon = (mimeType) => {
         if (mimeType?.startsWith('image/')) {
             return <FileImage className="h-8 w-8 text-blue-500" />
@@ -166,6 +186,36 @@ export default function FilesPage() {
             return <FileText className="h-8 w-8 text-red-500" />
         }
         return <File className="h-8 w-8 text-gray-500" />
+    }
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'approved':
+                return <CheckCircle2 className="h-5 w-5 text-green-500" />
+            case 'rejected':
+                return <XCircle className="h-5 w-5 text-red-500" />
+            case 'pending':
+            default:
+                return <Clock className="h-5 w-5 text-yellow-500" />
+        }
+    }
+
+    const getStatusLabel = (status) => {
+        const labels = {
+            'pending': 'Chờ duyệt',
+            'approved': 'Đã duyệt',
+            'rejected': 'Từ chối'
+        }
+        return labels[status] || 'Chờ duyệt'
+    }
+
+    const getStatusColor = (status) => {
+        const colors = {
+            'pending': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+            'approved': 'bg-green-100 text-green-700 border-green-300',
+            'rejected': 'bg-red-100 text-red-700 border-red-300'
+        }
+        return colors[status] || colors['pending']
     }
 
     if (isLoading) {
@@ -212,6 +262,14 @@ export default function FilesPage() {
 
                         <div className="flex items-center space-x-3">
                             <button
+                                onClick={() => router.push('/evidence-management')}
+                                className="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all font-medium"
+                            >
+                                <ArrowLeft className="h-5 w-5 mr-2" />
+                                Quay lại
+                            </button>
+
+                            <button
                                 onClick={fetchData}
                                 disabled={loading}
                                 className="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 disabled:opacity-50 transition-all font-medium"
@@ -244,7 +302,7 @@ export default function FilesPage() {
                 ) : (
                     <>
                         {/* Stats */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
                             <div className="bg-gradient-to-br from-indigo-50 to-purple-100 rounded-xl shadow-sm border-2 border-indigo-200 p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -257,30 +315,44 @@ export default function FilesPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-sm border-2 border-green-200 p-6">
+                            <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-xl shadow-sm border-2 border-yellow-200 p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-green-700 mb-1">Tổng dung lượng</p>
-                                        <p className="text-4xl font-bold text-green-900">
-                                            {formatFileSize(files.reduce((acc, file) => acc + (file.size || 0), 0))}
+                                        <p className="text-sm font-medium text-yellow-700 mb-1">Chờ duyệt</p>
+                                        <p className="text-4xl font-bold text-yellow-900">
+                                            {files.filter(f => f.approvalStatus === 'pending').length}
                                         </p>
                                     </div>
-                                    <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center">
-                                        <FileText className="h-8 w-8 text-green-600" />
+                                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center">
+                                        <Clock className="h-8 w-8 text-yellow-600" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-xl shadow-sm border-2 border-purple-200 p-6">
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-sm border-2 border-green-200 p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-purple-700 mb-1">Lượt tải xuống</p>
-                                        <p className="text-4xl font-bold text-purple-900">
-                                            {files.reduce((acc, file) => acc + (file.downloadCount || 0), 0)}
+                                        <p className="text-sm font-medium text-green-700 mb-1">Đã duyệt</p>
+                                        <p className="text-4xl font-bold text-green-900">
+                                            {files.filter(f => f.approvalStatus === 'approved').length}
                                         </p>
                                     </div>
-                                    <div className="w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center">
-                                        <Download className="h-8 w-8 text-purple-600" />
+                                    <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center">
+                                        <CheckCircle2 className="h-8 w-8 text-green-600" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-xl shadow-sm border-2 border-red-200 p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-red-700 mb-1">Từ chối</p>
+                                        <p className="text-4xl font-bold text-red-900">
+                                            {files.filter(f => f.approvalStatus === 'rejected').length}
+                                        </p>
+                                    </div>
+                                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center">
+                                        <XCircle className="h-8 w-8 text-red-600" />
                                     </div>
                                 </div>
                             </div>
@@ -290,7 +362,7 @@ export default function FilesPage() {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Sparkles className="h-5 w-5 mr-2 text-indigo-600" />
+                                    <File className="h-5 w-5 mr-2 text-indigo-600" />
                                     Danh sách files ({files.length})
                                 </h3>
                             </div>
@@ -324,26 +396,54 @@ export default function FilesPage() {
                                                         {getFileIcon(file.mimeType)}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">
+                                                        <h4 className="text-sm font-semibold text-gray-900 truncate mb-2">
                                                             {file.originalName || file.filename}
                                                         </h4>
-                                                        <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500">
-                                                            <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded font-medium">
+                                                        <div className="flex items-center flex-wrap gap-3">
+                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(file.approvalStatus)}`}>
+                                                                {getStatusIcon(file.approvalStatus)}
+                                                                <span className="ml-1">{getStatusLabel(file.approvalStatus)}</span>
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 px-2 py-1 bg-blue-50 rounded font-medium">
                                                                 {formatFileSize(file.size)}
                                                             </span>
-                                                            <span>•</span>
-                                                            <span>{file.uploadedBy?.fullName || 'N/A'}</span>
-                                                            <span>•</span>
-                                                            <span>{formatDate(file.uploadedAt || file.createdAt)}</span>
-                                                            <span>•</span>
-                                                            <span className="flex items-center">
-                                                                <Download className="h-3 w-3 mr-1" />
-                                                                {file.downloadCount || 0} lượt tải
+                                                            <span className="text-xs text-gray-500">
+                                                                {file.uploadedBy?.fullName || 'N/A'}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {formatDate(file.uploadedAt || file.createdAt)}
                                                             </span>
                                                         </div>
+                                                        {file.rejectionReason && (
+                                                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                                                <p className="text-xs text-red-700 flex items-center">
+                                                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                                                    <span className="font-medium">Lý do từ chối:</span>
+                                                                    <span className="ml-1">{file.rejectionReason}</span>
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-2">
+                                                <div className="flex items-center space-x-2 ml-4">
+                                                    {user.role === 'admin' && file.approvalStatus === 'pending' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleApprove(file._id)}
+                                                                className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                                                                title="Duyệt"
+                                                            >
+                                                                <Check className="h-5 w-5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setRejectionModal({ show: true, fileId: file._id })}
+                                                                className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                                title="Từ chối"
+                                                            >
+                                                                <X className="h-5 w-5" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                     <button
                                                         onClick={() => handleDownload(file._id, file.originalName || file.filename)}
                                                         className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
@@ -369,13 +469,13 @@ export default function FilesPage() {
                         {/* Upload Guidelines */}
                         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
                             <h4 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center">
-                                <Sparkles className="h-5 w-5 mr-2" />
+                                <AlertCircle className="h-5 w-5 mr-2" />
                                 Hướng dẫn upload files
                             </h4>
                             <ul className="text-sm text-indigo-800 space-y-2">
                                 <li className="flex items-start">
                                     <span className="mr-2">•</span>
-                                    <span>Các định dạng được hỗ trợ: PDF, Word, Excel, PowerPoint, Text, Image (JPG, PNG, GIF)</span>
+                                    <span>Các định dạng hỗ trợ: PDF, Word, Excel, PowerPoint, Text, Image (JPG, PNG, GIF)</span>
                                 </li>
                                 <li className="flex items-start">
                                     <span className="mr-2">•</span>
@@ -387,13 +487,47 @@ export default function FilesPage() {
                                 </li>
                                 <li className="flex items-start">
                                     <span className="mr-2">•</span>
-                                    <span>Tên file nên rõ ràng, dễ hiểu để dễ quản lý</span>
+                                    <span>File sẽ ở trạng thái "Chờ duyệt" sau khi upload, chờ Admin duyệt</span>
                                 </li>
                             </ul>
                         </div>
                     </>
                 )}
             </div>
+
+            {/* Rejection Modal */}
+            {rejectionModal.show && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Từ chối file</h3>
+                        <p className="text-sm text-gray-600 mb-4">Vui lòng nhập lý do từ chối file này:</p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Nhập lý do từ chối..."
+                            rows={4}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        />
+                        <div className="flex space-x-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setRejectionModal({ show: false, fileId: null })
+                                    setRejectionReason('')
+                                }}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleReject}
+                                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-medium"
+                            >
+                                Từ chối
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     )
 }
