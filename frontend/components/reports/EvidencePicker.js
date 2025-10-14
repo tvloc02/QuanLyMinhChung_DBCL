@@ -7,7 +7,9 @@ export default function EvidencePicker({
                                            standardId,
                                            criteriaId,
                                            onSelect,
-                                           onViewEvidence
+                                           onViewEvidence,
+                                           programId,
+                                           organizationId
                                        }) {
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(false)
@@ -18,12 +20,20 @@ export default function EvidencePicker({
         if (standardId || criteriaId) {
             fetchEvidences()
         }
-    }, [standardId, criteriaId, filter])
+    }, [standardId, criteriaId, filter, programId, organizationId])
 
     const fetchEvidences = async () => {
         try {
             setLoading(true)
-            const params = { limit: 100, status: 'active' }
+
+            const allowedStatuses = ['new', 'in_progress', 'completed', 'approved'];
+            const params = {
+                limit: 100,
+                statuses: allowedStatuses.join(',')
+            }
+
+            if (programId) params.programId = programId;
+            if (organizationId) params.organizationId = organizationId;
 
             if (filter === 'criteria' && criteriaId) {
                 params.criteriaId = criteriaId
