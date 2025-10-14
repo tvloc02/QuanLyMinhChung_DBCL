@@ -306,12 +306,15 @@ const updateReport = async (req, res) => {
             });
         }
 
+        // Bỏ kiểm tra quyền: Ai cũng có thể update báo cáo
+        /*
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền cập nhật báo cáo này'
             });
         }
+        */
 
         if (content && content !== report.content) {
             await report.addVersion(content, req.user.id, changeNote);
@@ -584,15 +587,7 @@ const getReportEvidences = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        const report = await Report.findOne({ _id: id, academicYearId })
-            .populate({
-                path: 'referencedEvidences.evidenceId',
-                select: 'code name description files',
-                populate: {
-                    path: 'files',
-                    select: 'originalName size'
-                }
-            });
+        const report = await Report.findOne({ _id: id, academicYearId });
 
         if (!report) {
             return res.status(404).json({
@@ -601,9 +596,48 @@ const getReportEvidences = async (req, res) => {
             });
         }
 
+        // Lấy danh sách ID minh chứng đã liên kết
+        const evidenceIds = report.referencedEvidences.map(ref => ref.evidenceId);
+
+        const Evidence = mongoose.model('Evidence');
+
+        // Populate chi tiết các minh chứng theo ID
+        const evidences = await Evidence.find({ _id: { $in: evidenceIds } })
+            .populate('files', 'originalName size approvalStatus')
+            .select('code name description files status')
+            .lean();
+
+        // Xây dựng lại mảng kết quả với thông tin đầy đủ
+        const evidencesMap = new Map(evidences.map(e => [e._id.toString(), e]));
+
+        const evidencesData = report.referencedEvidences
+            .map(ref => {
+                const evidenceDetails = evidencesMap.get(ref.evidenceId.toString());
+
+                if (!evidenceDetails) return null;
+
+                return {
+                    evidenceId: evidenceDetails._id,
+                    linkedText: ref.linkedText,
+                    contextText: ref.contextText,
+
+                    // Thêm chi tiết minh chứng đã được populate
+                    evidenceDetails: {
+                        code: evidenceDetails.code,
+                        name: evidenceDetails.name,
+                        description: evidenceDetails.description,
+                        status: evidenceDetails.status,
+                        files: evidenceDetails.files,
+                        fileCount: evidenceDetails.files.length
+                    }
+                };
+            })
+            .filter(item => item !== null); // Loại bỏ các minh chứng không tìm thấy
+
+
         res.json({
             success: true,
-            data: report.referencedEvidences
+            data: evidencesData
         });
 
     } catch (error) {
