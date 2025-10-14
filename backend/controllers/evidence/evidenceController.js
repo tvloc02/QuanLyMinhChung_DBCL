@@ -52,6 +52,11 @@ const getEvidences = async (req, res) => {
 
         let query = { academicYearId };
 
+        // =============================================================
+        // === SỬA ĐỔI: LOẠI BỎ KIỂM TRA QUYỀN ĐỂ TẤT CẢ NGƯỜI DÙNG XEM ĐƯỢC
+        // Nếu không có khối này, mọi người dùng đã đăng nhập sẽ thấy tất cả minh chứng
+        // trong năm học hiện tại.
+        /*
         if (req.user.role !== 'admin') {
             const accessibleStandards = req.user.standardAccess || [];
             const accessibleCriteria = req.user.criteriaAccess || [];
@@ -81,6 +86,8 @@ const getEvidences = async (req, res) => {
                 });
             }
         }
+        */
+        // =============================================================
 
         if (search) {
             query.$and = query.$and || [];
@@ -709,10 +716,6 @@ const importEvidences = async (req, res) => {
         const file = req.file;
         const { programId, organizationId, mode } = req.body;
 
-        // Lấy từ middleware và auth thay vì req.body
-        const academicYearId = req.academicYearId;
-        const userId = req.user.id;
-
         if (!file) {
             return res.status(400).json({
                 success: false,
@@ -722,10 +725,10 @@ const importEvidences = async (req, res) => {
 
         const result = await importEvidencesFromExcel(
             file.path,
-            academicYearId,
+            req.academicYearId,
             programId,
             organizationId,
-            userId,
+            req.user.id,
             mode
         );
 
