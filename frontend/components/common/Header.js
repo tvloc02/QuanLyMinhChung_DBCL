@@ -126,20 +126,15 @@ export default function Header({ onMenuClick, sidebarOpen }) {
         try {
             const response = await apiMethods.notifications.getUnreadCount()
 
-            // Kiểm tra response trước khi truy cập data
             if (response && response.data && response.data.success) {
-                setUnreadCount(response.data.data.unreadCount)
+                setUnreadCount(response.data.data.unread)
             } else {
-                // Xử lý trường hợp API trả về thành công (status 200) nhưng data.success là false
-                // hoặc response không có cấu trúc mong đợi.
                 console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
-                setUnreadCount(0); // Đặt về 0 để tránh hiển thị số lỗi.
+                setUnreadCount(0);
             }
         } catch (error) {
-            // BẮT LỖI AXIOS 500 TẠI ĐÂY
             console.error('Error fetching unread count (Server 500 likely):', error)
-            setUnreadCount(0) // Đặt về 0 khi có lỗi để tránh crash ứng dụng
-            // Có thể thêm toast thông báo lỗi nếu cần, nhưng log console là đủ cho header.
+            setUnreadCount(0)
         }
     }
 
