@@ -17,12 +17,8 @@ const {
     updateReport,
     deleteReport,
     publishReport,
-    addReviewer,
-    removeReviewer,
     addComment,
     resolveComment,
-    bulkAddReviewers,
-    bulkRemoveReviewers,
     getReportVersions,
     getReportEvidences,
     uploadReportFile,
@@ -111,30 +107,10 @@ router.post('/:id/publish', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
 ], validation, checkReportEditPermission, publishReport);
 
-router.post('/:id/reviewers', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-    body('reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
-    body('reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
-], validation, checkReportEditPermission, addReviewer);
-
-router.delete('/:id/reviewers', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-    body('reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
-    body('reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
-], validation, checkReportEditPermission, removeReviewer);
-
-router.post('/bulk/reviewers', auth, requireManager, [
-    body('reportIds').isArray().notEmpty().withMessage('Danh sách báo cáo là bắt buộc'),
-    body('reviewers').isArray().notEmpty().withMessage('Danh sách người đánh giá là bắt buộc'),
-    body('reviewers.*.reviewerId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
-    body('reviewers.*.reviewerType').isIn(['expert', 'advisor']).withMessage('Loại người đánh giá không hợp lệ')
-], validation, bulkAddReviewers);
-
-router.delete('/bulk/reviewers', auth, requireManager, [
-    body('reportIds').isArray().notEmpty(),
-    body('reviewerId').isMongoId(),
-    body('reviewerType').isIn(['expert', 'advisor'])
-], validation, bulkRemoveReviewers);
+// ĐÃ XÓA: router.post('/:id/reviewers', auth, [ ... ], validation, checkReportEditPermission, addReviewer);
+// ĐÃ XÓA: router.delete('/:id/reviewers', auth, [ ... ], validation, checkReportEditPermission, removeReviewer);
+// ĐÃ XÓA: router.post('/bulk/reviewers', auth, requireManager, [ ... ], validation, bulkAddReviewers);
+// ĐÃ XÓA: router.delete('/bulk/reviewers', auth, requireManager, [ ... ], validation, bulkRemoveReviewers);
 
 router.post('/:id/comments', auth, [
     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
