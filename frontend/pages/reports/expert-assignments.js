@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import { apiMethods } from '../../services/api' // Đảm bảo apiMethods có assignments.getAll
+import { apiMethods } from '../../services/api'
 import {
     FileText,
     Search,
@@ -21,7 +21,6 @@ import {
 import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
-// Helper function (Giả định nằm trong utils/helpers)
 const getStatusColor = (status) => {
     const colors = {
         pending: 'bg-gray-100 text-gray-800 border-gray-200',
@@ -49,6 +48,9 @@ export default function ExpertAssignmentsPage() {
     })
     const [statistics, setStatistics] = useState(null)
 
+    const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
+    const pageTitle = isManagerOrAdmin ? 'Quản lý Phân công Đánh giá' : 'Phân công đánh giá của tôi';
+
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
@@ -56,7 +58,7 @@ export default function ExpertAssignmentsPage() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user && user.role === 'expert') { // Chỉ chạy cho Expert
+        if (user) {
             fetchAssignments()
             fetchStatistics()
         }
@@ -64,18 +66,28 @@ export default function ExpertAssignmentsPage() {
 
     const breadcrumbItems = [
         { name: 'Báo cáo', path: '/reports/reports' },
-        { name: 'Phân công đánh giá của tôi', icon: UserCheck }
+        { name: pageTitle, icon: UserCheck }
     ]
+
+    const cleanParams = (obj) => {
+        return Object.fromEntries(
+            Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+        );
+    };
 
     const fetchAssignments = async () => {
         try {
             setLoading(true)
 
-            // Expert chỉ xem assignments của mình. Backend Assignments API đã có filter
-            const response = await apiMethods.assignments.getAll({
-                ...filters,
-                expertId: user.id // Gửi ID của mình
-            })
+            let params = cleanParams({ ...filters });
+
+            if (user?.role === 'expert') {
+                params.expertId = user.id;
+            } else if (isManagerOrAdmin && filters.expertId) {
+                params.expertId = filters.expertId;
+            }
+
+            const response = await apiMethods.assignments.getAll(params);
 
             const data = response.data?.data || response.data;
 
@@ -84,7 +96,10 @@ export default function ExpertAssignmentsPage() {
 
         } catch (error) {
             console.error('Error fetching assignments:', error)
-            toast.error(error.response?.data?.message || 'Lỗi tải danh sách phân công')
+            const message = error.response?.status === 400
+                ? 'Lỗi Dữ liệu 400. Kiểm tra các tham số lọc.'
+                : error.response?.data?.message || 'Lỗi tải danh sách phân công';
+            toast.error(message);
         } finally {
             setLoading(false)
         }
@@ -92,16 +107,33 @@ export default function ExpertAssignmentsPage() {
 
     const fetchStatistics = async () => {
         try {
-            // Lấy thống kê workload của Expert hiện tại
-            const response = await apiMethods.assignments.getWorkload(user.id)
-            setStatistics(response.data?.data)
+            let statsRes;
+            const expertId = user.id;
+            const cleanFilters = cleanParams({ ...filters });
+
+            if (user?.role === 'expert') {
+                statsRes = await apiMethods.assignments.getWorkload(expertId);
+            } else {
+                statsRes = await apiMethods.assignments.getStats(cleanFilters);
+            }
+
+            setStatistics(statsRes.data?.data)
+
         } catch (error) {
             console.error('Error fetching statistics:', error)
+            const message = error.response?.status === 500
+                ? 'Lỗi 500: Lỗi logic thống kê ở máy chủ.'
+                : error.response?.data?.message || 'Lỗi tải thống kê';
+            toast.error(message);
         }
     }
 
     const handleStartEvaluation = (assignment) => {
-        // Chỉ cho phép nếu đã 'accepted' hoặc 'in_progress'
+        if (user.role !== 'expert') {
+            toast.error('Chỉ chuyên gia được phân công mới có thể thực hiện đánh giá.');
+            return;
+        }
+
         if (!['accepted', 'in_progress', 'overdue'].includes(assignment.status)) {
             toast.error('Phân công chưa được chấp nhận hoặc đã hoàn thành/hủy.')
             return;
@@ -110,9 +142,8 @@ export default function ExpertAssignmentsPage() {
         const evaluationId = assignment.evaluationId;
 
         if (evaluationId) {
-            router.push(`/reports/evaluations/${evaluationId}`); // Chỉnh sửa Evaluation
+            router.push(`/reports/evaluations/${evaluationId}`);
         } else {
-            // Expert tạo Evaluation mới, cần AssignmentId
             router.push(`/reports/evaluations/new?assignmentId=${assignment._id}`);
         }
     }
@@ -150,8 +181,6 @@ export default function ExpertAssignmentsPage() {
         setFilters({ ...filters, page: 1 })
     }
 
-    // ... (getTypeColor)
-
     if (isLoading || !user) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -166,14 +195,13 @@ export default function ExpertAssignmentsPage() {
             breadcrumbItems={breadcrumbItems}
         >
             <div className="space-y-6">
-                {/* Header/Stats */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center space-x-4 mb-6">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
                             <UserCheck className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Phân công đánh giá của tôi</h1>
+                            <h1 className="text-3xl font-bold mb-1">{pageTitle}</h1>
                             <p className="text-indigo-100">
                                 Quản lý các nhiệm vụ đánh giá được giao
                             </p>
@@ -181,30 +209,51 @@ export default function ExpertAssignmentsPage() {
                     </div>
                     {statistics && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-indigo-100 text-sm mb-1">Tổng phân công</p>
-                                <p className="text-3xl font-bold">{statistics.total}</p>
-                            </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-indigo-100 text-sm mb-1">Chờ phản hồi</p>
-                                <p className="text-3xl font-bold">{statistics.pending}</p>
-                            </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-indigo-100 text-sm mb-1">Đang tiến hành</p>
-                                <p className="text-3xl font-bold">{statistics.inProgress + statistics.accepted}</p>
-                            </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-indigo-100 text-sm mb-1">Quá hạn</p>
-                                <p className="text-3xl font-bold">{statistics.overdue}</p>
-                            </div>
+                            {user?.role === 'expert' ? (
+                                <>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Tổng phân công</p>
+                                        <p className="text-3xl font-bold">{statistics.total}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Chờ phản hồi</p>
+                                        <p className="text-3xl font-bold">{statistics.pending}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Đang tiến hành</p>
+                                        <p className="text-3xl font-bold">{statistics.inProgress + statistics.accepted}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Quá hạn</p>
+                                        <p className="text-3xl font-bold">{statistics.overdue}</p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Tổng phân công</p>
+                                        <p className="text-3xl font-bold">{statistics.total}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Đã hoàn thành</p>
+                                        <p className="text-3xl font-bold">{statistics.completed}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Đang tiến hành</p>
+                                        <p className="text-3xl font-bold">{statistics.inProgress}</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
+                                        <p className="text-indigo-100 text-sm mb-1">Đã hủy/Từ chối</p>
+                                        <p className="text-3xl font-bold">{statistics.cancelled}</p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Filters */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                     <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
-                        {/* Search */}
                         <div className="flex-1">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -218,7 +267,6 @@ export default function ExpertAssignmentsPage() {
                             </div>
                         </div>
 
-                        {/* Status Filter */}
                         <select
                             value={filters.status}
                             onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
@@ -233,7 +281,6 @@ export default function ExpertAssignmentsPage() {
                             <option value="cancelled">Đã hủy</option>
                         </select>
 
-                        {/* Priority Filter */}
                         <select
                             value={filters.priority}
                             onChange={(e) => setFilters({ ...filters, priority: e.target.value, page: 1 })}
@@ -255,7 +302,6 @@ export default function ExpertAssignmentsPage() {
                     </form>
                 </div>
 
-                {/* Assignments List */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     {loading ? (
                         <div className="flex justify-center items-center py-12">
@@ -274,9 +320,16 @@ export default function ExpertAssignmentsPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Báo cáo
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Người phân công
-                                    </th>
+                                    {!isManagerOrAdmin && (
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Người phân công
+                                        </th>
+                                    )}
+                                    {isManagerOrAdmin && (
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Chuyên gia
+                                        </th>
+                                    )}
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Hạn chót
                                     </th>
@@ -304,9 +357,16 @@ export default function ExpertAssignmentsPage() {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">
-                                            {assignment.assignedBy?.fullName || 'N/A'}
-                                        </td>
+                                        {!isManagerOrAdmin && (
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {assignment.assignedBy?.fullName || 'N/A'}
+                                            </td>
+                                        )}
+                                        {isManagerOrAdmin && (
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {assignment.expertId?.fullName || 'N/A'}
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center text-sm text-gray-500">
                                                 <Calendar className="h-4 w-4 mr-1" />
@@ -328,8 +388,7 @@ export default function ExpertAssignmentsPage() {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end space-x-2">
 
-                                                {/* Actions cho trạng thái PENDING */}
-                                                {assignment.status === 'pending' && (
+                                                {assignment.status === 'pending' && user.role === 'expert' && (
                                                     <>
                                                         <button
                                                             onClick={() => handleAccept(assignment._id)}
@@ -348,8 +407,7 @@ export default function ExpertAssignmentsPage() {
                                                     </>
                                                 )}
 
-                                                {/* Actions cho trạng thái ACCEPTED/IN_PROGRESS/OVERDUE */}
-                                                {['accepted', 'in_progress', 'overdue'].includes(assignment.status) && (
+                                                {['accepted', 'in_progress', 'overdue'].includes(assignment.status) && user.role === 'expert' && (
                                                     <button
                                                         onClick={() => handleStartEvaluation(assignment)}
                                                         className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -359,7 +417,6 @@ export default function ExpertAssignmentsPage() {
                                                     </button>
                                                 )}
 
-                                                {/* Nút Xem báo cáo */}
                                                 <button
                                                     onClick={() => router.push(`/reports/${assignment.reportId._id}`)}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -376,10 +433,8 @@ export default function ExpertAssignmentsPage() {
                         </div>
                     )}
 
-                    {/* Pagination */}
                     {pagination && pagination.pages > 1 && (
                         <div className="px-6 py-4 border-t border-gray-200">
-                            {/* ... Pagination control (có thể tái sử dụng từ code gốc) */}
                         </div>
                     )}
                 </div>
