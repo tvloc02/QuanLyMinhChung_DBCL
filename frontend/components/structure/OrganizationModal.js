@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
 export default function OrganizationModal({ organization, onClose, onSuccess }) {
+    const isViewMode = organization?.isViewMode || false; // Check for view mode flag
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -29,6 +30,8 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
     }, [organization])
 
     const handleChange = (e) => {
+        if (isViewMode) return; // Prevent change in view mode
+
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
@@ -64,6 +67,11 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (isViewMode) {
+            onClose();
+            return;
+        }
+
         if (!validate()) return
 
         try {
@@ -74,7 +82,7 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                 code: formData.code.toUpperCase()
             }
 
-            if (organization) {
+            if (organization && !organization.isViewMode) {
                 await apiMethods.organizations.update(organization._id, submitData)
                 toast.success('Cập nhật tổ chức thành công')
             } else {
@@ -93,8 +101,8 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header với gradient */}
-                <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6">
+                {/* Header với gradient - Xanh Lam */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -102,10 +110,10 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">
-                                    {organization ? 'Chỉnh sửa tổ chức' : 'Thêm tổ chức mới'}
+                                    {isViewMode ? 'Chi tiết tổ chức' : (organization ? 'Chỉnh sửa tổ chức' : 'Thêm tổ chức mới')}
                                 </h2>
-                                <p className="text-green-100 text-sm">
-                                    {organization ? 'Cập nhật thông tin tổ chức đánh giá' : 'Tạo tổ chức đánh giá mới'}
+                                <p className="text-blue-100 text-sm">
+                                    {isViewMode ? 'Thông tin chi tiết tổ chức đánh giá' : (organization ? 'Cập nhật thông tin tổ chức đánh giá' : 'Tạo tổ chức đánh giá mới')}
                                 </p>
                             </div>
                         </div>
@@ -133,10 +141,11 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 name="code"
                                 value={formData.code}
                                 onChange={handleChange}
-                                disabled={!!organization}
+                                disabled={!!organization || isViewMode}
+                                readOnly={isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase ${
                                     errors.code ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'
-                                } ${organization ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${organization || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="VD: MOET"
                             />
                             {errors.code && (
@@ -159,16 +168,17 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+                                disabled={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
-                                <option value="active">✅ Hoạt động</option>
-                                <option value="inactive">⏸️ Không hoạt động</option>
-                                <option value="suspended">🔒 Tạm ngưng</option>
+                                <option value="active">Hoạt động</option>
+                                <option value="inactive">Không hoạt động</option>
+                                <option value="suspended">Tạm ngưng</option>
                             </select>
                         </div>
                     </div>
 
-                    {/* Tên tổ chức */}
+                    {/* Tên tổ chức - Gradient Green/Emerald (Giữ lại màu này cho sự khác biệt) */}
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-green-500 rounded-lg flex items-center justify-center mr-2">
@@ -181,9 +191,11 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${
                                 errors.name ? 'border-red-300 bg-red-50' : 'border-green-200 bg-white'
-                            }`}
+                            } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập tên tổ chức"
                         />
                         {errors.name && (
@@ -195,7 +207,7 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Email liên hệ */}
+                        {/* Email liên hệ - Gradient Purple/Pink */}
                         <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <Mail className="w-5 h-5 text-purple-500 mr-2" />
@@ -206,9 +218,11 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 name="contactEmail"
                                 value={formData.contactEmail}
                                 onChange={handleChange}
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
                                     errors.contactEmail ? 'border-red-300 bg-red-50' : 'border-purple-200 bg-white'
-                                }`}
+                                } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="contact@example.com"
                             />
                             {errors.contactEmail && (
@@ -219,7 +233,7 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                             )}
                         </div>
 
-                        {/* Số điện thoại */}
+                        {/* Số điện thoại - Gradient Orange/Amber */}
                         <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <Phone className="w-5 h-5 text-orange-500 mr-2" />
@@ -230,13 +244,15 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 name="contactPhone"
                                 value={formData.contactPhone}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 border-2 border-orange-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-orange-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="0243 869 8113"
                             />
                         </div>
                     </div>
 
-                    {/* Website */}
+                    {/* Website - Gradient Cyan/Blue */}
                     <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <Globe className="w-5 h-5 text-cyan-500 mr-2" />
@@ -247,9 +263,11 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                             name="website"
                             value={formData.website}
                             onChange={handleChange}
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all ${
                                 errors.website ? 'border-red-300 bg-red-50' : 'border-cyan-200 bg-white'
-                            }`}
+                            } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="https://example.com"
                         />
                         {errors.website && (
@@ -269,25 +287,27 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                         disabled={loading}
                         className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-50 font-medium"
                     >
-                        Hủy
+                        {isViewMode ? 'Đóng' : 'Hủy'}
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
-                    >
-                        {loading ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span>Đang lưu...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save size={20} />
-                                <span>Lưu tổ chức</span>
-                            </>
-                        )}
-                    </button>
+                    {!isViewMode && (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Đang lưu...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>Lưu tổ chức</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
