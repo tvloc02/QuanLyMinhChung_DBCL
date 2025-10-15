@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
 export default function StandardModal({ standard, programs, organizations, onClose, onSuccess }) {
+    const isViewMode = standard?.isViewMode || false;
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -12,7 +13,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
         organizationId: '',
         order: 1,
         objectives: '',
-        status: 'active' // Đã sửa mặc định sang 'active'
+        status: 'active'
     })
     const [errors, setErrors] = useState({})
 
@@ -31,6 +32,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
     }, [standard])
 
     const handleChange = (e) => {
+        if (isViewMode) return;
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
@@ -66,6 +68,11 @@ export default function StandardModal({ standard, programs, organizations, onClo
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (isViewMode) {
+            onClose();
+            return;
+        }
+
         if (!validate()) return
 
         try {
@@ -76,7 +83,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
                 code: formData.code.padStart(2, '0')
             }
 
-            if (standard) {
+            if (standard && !standard.isViewMode) {
                 await apiMethods.standards.update(standard._id, submitData)
                 toast.success('Cập nhật tiêu chuẩn thành công')
             } else {
@@ -104,10 +111,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">
-                                    {standard ? 'Chỉnh sửa tiêu chuẩn' : 'Thêm tiêu chuẩn mới'}
+                                    {isViewMode ? 'Chi tiết tiêu chuẩn' : (standard ? 'Chỉnh sửa tiêu chuẩn' : 'Thêm tiêu chuẩn mới')}
                                 </h2>
                                 <p className="text-blue-100 text-sm">
-                                    {standard ? 'Cập nhật thông tin tiêu chuẩn đánh giá' : 'Tạo tiêu chuẩn đánh giá mới'}
+                                    {isViewMode ? 'Thông tin chi tiết tiêu chuẩn đánh giá' : (standard ? 'Cập nhật thông tin tiêu chuẩn đánh giá' : 'Tạo tiêu chuẩn đánh giá mới')}
                                 </p>
                             </div>
                         </div>
@@ -134,10 +141,11 @@ export default function StandardModal({ standard, programs, organizations, onClo
                             name="code"
                             value={formData.code}
                             onChange={handleChange}
-                            disabled={!!standard}
+                            disabled={!!standard || isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                 errors.code ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'
-                            } ${standard ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            } ${standard || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="VD: 1, 01"
                         />
                         {errors.code && (
@@ -161,9 +169,11 @@ export default function StandardModal({ standard, programs, organizations, onClo
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all ${
                                 errors.name ? 'border-red-300 bg-red-50' : 'border-sky-200 bg-white'
-                            }`}
+                            } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập tên tiêu chuẩn"
                         />
                         {errors.name && (
@@ -185,10 +195,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 name="programId"
                                 value={formData.programId}
                                 onChange={handleChange}
-                                disabled={!!standard}
+                                disabled={!!standard || isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.programId ? 'border-red-300 bg-red-50' : 'border-indigo-200 bg-white'
-                                } ${standard ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${standard || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn chương trình</option>
                                 {programs.map(p => (
@@ -213,10 +223,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 name="organizationId"
                                 value={formData.organizationId}
                                 onChange={handleChange}
-                                disabled={!!standard}
+                                disabled={!!standard || isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all ${
                                     errors.organizationId ? 'border-red-300 bg-red-50' : 'border-teal-200 bg-white'
-                                } ${standard ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${standard || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn tổ chức</option>
                                 {organizations.map(o => (
@@ -243,7 +253,9 @@ export default function StandardModal({ standard, programs, organizations, onClo
                             value={formData.objectives}
                             onChange={handleChange}
                             rows={4}
-                            className="w-full px-4 py-3 border-2 border-cyan-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-none"
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-cyan-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-none ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập mục tiêu của tiêu chuẩn"
                         />
                     </div>
@@ -262,7 +274,9 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 value={formData.order}
                                 onChange={handleChange}
                                 min="1"
-                                className="w-full px-4 py-3 border-2 border-indigo-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-indigo-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             />
                         </div>
 
@@ -278,18 +292,19 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 name="status"
                                 value={formData.status}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+                                disabled={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="active">✅ Hoạt động</option>
                                 <option value="draft">📝 Nháp</option>
-                                <option value="inactive">⏸️ Không hoạt động</option>
+                                <option value="inactive">⏸️ Không hoạt lập</option>
                                 <option value="archived">📦 Lưu trữ</option>
                             </select>
                         </div>
                     </div>
                 </form>
 
-                {/* Footer Actions - Xanh Lam */}
+                {/* Footer Actions */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"
@@ -297,25 +312,27 @@ export default function StandardModal({ standard, programs, organizations, onClo
                         disabled={loading}
                         className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-50 font-medium"
                     >
-                        Hủy
+                        {isViewMode ? 'Đóng' : 'Hủy'}
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
-                    >
-                        {loading ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span>Đang lưu...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save size={20} />
-                                <span>Lưu tiêu chuẩn</span>
-                            </>
-                        )}
-                    </button>
+                    {!isViewMode && (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Đang lưu...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>Lưu tiêu chuẩn</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
