@@ -211,6 +211,9 @@ const createAssignment = async (req, res) => {
 
         await assignment.save();
 
+        // TỰ ĐỘNG PHÂN QUYỀN TRUY CẬP ĐÁNH GIÁ (ACCESS CONTROL) CHO REPORT
+        await report.addReviewer(expertId, 'expert', req.user.id);
+
         await assignment.populate([
             { path: 'reportId', select: 'title type code' },
             { path: 'expertId', select: 'fullName email' },
