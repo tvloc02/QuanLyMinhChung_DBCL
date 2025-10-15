@@ -47,9 +47,8 @@ router.get('/stats', auth, getAssignmentStats);
 
 router.get('/upcoming-deadlines', auth, getUpcomingDeadlines);
 
-router.get('/expert-workload/:expertId', auth, [
-    param('expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ')
-], validation, getExpertWorkload);
+// SỬA: Lấy workload cho Expert hiện tại
+router.get('/expert-workload', auth, getExpertWorkload);
 
 router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }),
