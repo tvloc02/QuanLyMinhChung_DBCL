@@ -1,0 +1,5 @@
+[
+  {"question": "import minh chứng", "answer": "Vào trang Import Evidence, chọn file Excel và nhấn Tải lên."},
+  {"question": "báo cáo", "answer": "Trang Báo cáo giúp xuất thống kê minh chứng ra Excel hoặc PDF."},
+  {"question": "phân quyền", "answer": "Trang Quản lý người dùng cho phép gán quyền theo tiêu chí hoặc tiêu chuẩn."}
+]
