@@ -18,6 +18,7 @@ const {
 } = require('../../controllers/report/assignmentController');
 
 const createAssignmentValidation = [
+    // ... (Giữ nguyên)
     body('reportId')
         .notEmpty()
         .withMessage('Báo cáo là bắt buộc')
@@ -43,14 +44,17 @@ const createAssignmentValidation = [
         .withMessage('Mức độ ưu tiên không hợp lệ')
 ];
 
-router.get('/stats', auth, getAssignmentStats);
+// SỬA LỖI 404: Chuẩn hóa route Stats và Workload
+router.get('/stats', auth, getAssignmentStats); // Route: /api/assignments/stats
 
 router.get('/upcoming-deadlines', auth, getUpcomingDeadlines);
 
-// SỬA: Lấy workload cho Expert hiện tại
-router.get('/expert-workload', auth, getExpertWorkload);
+// Route: /api/assignments/expert-workload
+router.get('/expert-workload', auth, [
+    query('expertId').optional().isMongoId() // Cho phép Admin query ID khác
+], validation, getExpertWorkload);
 
-router.get('/', auth, [
+router.get('/', auth, [ // Route: /api/assignments/
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('expertId').optional().isMongoId(),
