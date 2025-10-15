@@ -30,6 +30,7 @@ export default function CriteriaList() {
             loadStandards()
         } else {
             setStandards([])
+            setStandardId('') // Đảm bảo standardId bị reset khi programId thay đổi
         }
     }, [programId])
 
@@ -50,6 +51,9 @@ export default function CriteriaList() {
 
     const loadStandards = async () => {
         try {
+            // Load standards only if programId is selected
+            if (!programId) return
+
             const response = await apiMethods.standards.getAll({
                 programId,
                 status: 'active',
@@ -88,6 +92,8 @@ export default function CriteriaList() {
             setLoading(false)
         }
     }
+
+    // [GIỮ NGUYÊN HÀM handleDownloadTemplate CHO ĐƠN GIẢN, CHỈNH SỬA FRONTEND HTML]
 
     const handleDownloadTemplate = () => {
         try {
@@ -323,6 +329,7 @@ export default function CriteriaList() {
         }
     }
 
+
     const handleExportExcel = () => {
         try {
             const exportData = criteria.map((c, index) => ({
@@ -351,14 +358,17 @@ export default function CriteriaList() {
             ]
 
             const range = XLSX.utils.decode_range(ws['!ref'])
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
+            const customHeaderStyle = {
+                fill: { fgColor: { rgb: "1F4E78" } },
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            }
+
             for (let C = range.s.c; C <= range.e.c; ++C) {
                 const address = XLSX.utils.encode_col(C) + "1"
                 if (!ws[address]) continue
-                ws[address].s = {
-                    fill: { fgColor: { rgb: "4472C4" } },
-                    font: { bold: true, color: { rgb: "FFFFFF" } },
-                    alignment: { horizontal: "center", vertical: "center" }
-                }
+                ws[address].s = customHeaderStyle
             }
 
             XLSX.utils.book_append_sheet(wb, ws, 'Tiêu chí')
@@ -434,7 +444,7 @@ export default function CriteriaList() {
 
     return (
         <div className="space-y-6">
-            {/* Header với gradient */}
+            {/* Header với gradient (Sử dụng màu Tím/Indigo) */}
             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-lg p-8">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -556,6 +566,7 @@ export default function CriteriaList() {
                     <table className="w-full">
                         <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b-2 border-purple-200">
                         <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">STT</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Mã</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tên tiêu chí</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tiêu chuẩn</th>
@@ -566,7 +577,7 @@ export default function CriteriaList() {
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -575,7 +586,7 @@ export default function CriteriaList() {
                             </tr>
                         ) : criteria.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <CheckSquare className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -584,8 +595,11 @@ export default function CriteriaList() {
                                 </td>
                             </tr>
                         ) : (
-                            criteria.map((item) => (
+                            criteria.map((item, index) => (
                                 <tr key={item._id} className="hover:bg-purple-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        {((pagination.current - 1) * 10) + index + 1}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="px-3 py-1 text-sm font-bold text-purple-700 bg-purple-100 rounded-lg">
                                             {item.code}
