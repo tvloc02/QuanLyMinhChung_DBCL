@@ -108,9 +108,10 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             submenu: [
                 { name: 'Danh sách báo cáo', icon: FileText, path: '/reports/reports' },
                 { name: 'Tạo báo cáo mới', icon: UserPlus, path: '/reports/create' },
-                { name: 'Phân công đánh giá', icon: ClipboardCheck, path: '/reports/assessments' },
+                { name: 'Tổng quan báo cáo', icon: ClipboardCheck, path: '/reports/expert-assignments' },
                 { name: 'Đánh giá báo cáo', icon: Award, path: '/reports/evaluations/index' },
-                { name: 'Xuất báo cáo', icon: Download, path: '/reports/export' }
+                { name: 'Xuất báo cáo', icon: Download, path: '/reports/export' },
+                { name: 'Đánh giá của tôi', icon: Download, path: '/reports/evaluations' },
             ]
         },
         {
