@@ -20,6 +20,7 @@ logging.basicConfig(
 )
 
 try:
+    # Đảm bảo đường dẫn này đúng hoặc bạn có thể truyền thẳng tên file nếu nó cùng thư mục
     bot = ChatBot(data_file="training_data.json")
     logging.info("Chatbot initialized successfully")
 except Exception as e:
