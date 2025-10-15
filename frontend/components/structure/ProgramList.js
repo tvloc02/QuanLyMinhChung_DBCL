@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { BookOpen, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Calendar } from 'lucide-react'
+import { BookOpen, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Calendar, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import ProgramModal from './ProgramModal'
+import { ActionButton } from '../../components/ActionButtons' // Giả định đã có
 
 export default function ProgramList() {
     const [programs, setPrograms] = useState([])
@@ -156,6 +157,20 @@ export default function ProgramList() {
                 { wch: 12 }
             ]
 
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
+            const customHeaderStyle = {
+                fill: { fgColor: { rgb: "1F4E78" } },
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            }
+
+            const range = XLSX.utils.decode_range(ws['!ref'])
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!ws[address]) continue
+                ws[address].s = customHeaderStyle
+            }
+
             XLSX.utils.book_append_sheet(wb, ws, 'Chương trình')
             XLSX.writeFile(wb, `Danh_sach_chuong_trinh_${Date.now()}.xlsx`)
             toast.success('Xuất file thành công')
@@ -204,6 +219,18 @@ export default function ProgramList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết (Mở Modal ở chế độ chỉ đọc hoặc chuyển trang)
+    const handleViewDetail = (program) => {
+        setSelectedProgram({ ...program, isViewMode: true }) // Thêm flag isViewMode
+        setShowProgramModal(true)
+    }
+
+    // Hàm mở modal chỉnh sửa
+    const handleEdit = (program) => {
+        setSelectedProgram(program)
+        setShowProgramModal(true)
+    }
+
     const getStatusLabel = (status) => {
         const statuses = {
             draft: 'Nháp',
@@ -226,8 +253,8 @@ export default function ProgramList() {
 
     return (
         <div className="space-y-6">
-            {/* Header với gradient */}
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8">
+            {/* Header với gradient - Xanh Lam */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -306,7 +333,7 @@ export default function ProgramList() {
 
                     <button
                         onClick={loadPrograms}
-                        className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -315,23 +342,24 @@ export default function ProgramList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b-2 border-blue-200">
+                    <table className="w-full border-collapse">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Tên chương trình</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Trạng thái</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Năm áp dụng</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-blue-700 uppercase tracking-wider">Ngày tạo</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-blue-700 uppercase tracking-wider">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên chương trình</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Năm áp dụng</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Ngày tạo</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -340,7 +368,7 @@ export default function ProgramList() {
                             </tr>
                         ) : programs.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <BookOpen className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -349,14 +377,17 @@ export default function ProgramList() {
                                 </td>
                             </tr>
                         ) : (
-                            programs.map((program) => (
-                                <tr key={program._id} className="hover:bg-blue-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg">
+                            programs.map((program, index) => (
+                                <tr key={program._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                        {((pagination.current - 1) * 10) + index + 1}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {program.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{program.name}</div>
                                         {program.description && (
                                             <div className="text-sm text-gray-500 truncate max-w-md mt-1">
@@ -364,39 +395,46 @@ export default function ProgramList() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg ${getStatusColor(program.status)}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(program.status)}`}>
                                             {getStatusLabel(program.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <div className="flex items-center text-sm text-gray-900">
                                             <Calendar className="w-4 h-4 text-gray-400 mr-2" />
                                             <span className="font-semibold">{program.applicableYear}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                                         {formatDate(program.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedProgram(program)
-                                                    setShowProgramModal(true)
-                                                }}
-                                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
-                                                title="Chỉnh sửa"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
+                                            {/* ActionButton cho Xem chi tiết */}
+                                            <ActionButton
+                                                icon={Eye}
+                                                variant="view"
+                                                size="sm"
+                                                onClick={() => handleViewDetail(program)}
+                                                title="Xem chi tiết chương trình"
+                                            />
+                                            {/* ActionButton cho Chỉnh sửa */}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
+                                                onClick={() => handleEdit(program)}
+                                                title="Chỉnh sửa chương trình"
+                                            />
+                                            {/* ActionButton cho Xóa */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
                                                 onClick={() => handleDelete(program._id)}
-                                                className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all"
-                                                title="Xóa"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                                title="Xóa chương trình"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -408,7 +446,7 @@ export default function ProgramList() {
 
                 {/* Pagination */}
                 {!loading && programs.length > 0 && (
-                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-4 border-t-2 border-gray-100 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
                             Hiển thị <span className="font-bold text-blue-600">{programs.length}</span> trong tổng số{' '}
                             <span className="font-bold text-blue-600">{pagination.total}</span> chương trình
@@ -417,14 +455,14 @@ export default function ProgramList() {
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current - 1 })}
                                 disabled={!pagination.hasPrev}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current + 1 })}
                                 disabled={!pagination.hasNext}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Sau
                             </button>
