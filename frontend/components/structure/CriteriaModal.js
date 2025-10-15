@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
 export default function CriteriaModal({ criteria, standards, programs, onClose, onSuccess }) {
+    const isViewMode = criteria?.isViewMode || false;
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -12,7 +13,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         requirements: '',
         guidelines: '',
         indicators: [],
-        status: 'active', // Đã sửa mặc định sang 'active'
+        status: 'active',
         autoGenerateCode: true
     })
     const [errors, setErrors] = useState({})
@@ -24,6 +25,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 name: criteria.name || '',
                 code: criteria.code || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
+                requirements: criteria.requirements || '',
+                guidelines: criteria.guidelines || '',
                 indicators: criteria.indicators || [],
                 status: criteria.status || 'active',
                 autoGenerateCode: false
@@ -39,6 +42,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }, [criteria, standards])
 
     const handleChange = (e) => {
+        if (isViewMode) return;
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
@@ -47,6 +51,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     const handleStandardChange = (e) => {
+        if (isViewMode) return;
         const standardId = e.target.value
         const standard = standards.find(s => s._id === standardId)
 
@@ -63,6 +68,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     const handleCodeChange = (e) => {
+        if (isViewMode) return;
         let value = e.target.value
         value = value.replace(/[^\d]/g, '')
         if (value.length > 2) {
@@ -75,6 +81,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     const addIndicator = () => {
+        if (isViewMode) return;
         setFormData(prev => ({
             ...prev,
             indicators: [
@@ -91,6 +98,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     const removeIndicator = (index) => {
+        if (isViewMode) return;
         setFormData(prev => ({
             ...prev,
             indicators: prev.indicators.filter((_, i) => i !== index)
@@ -98,6 +106,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     }
 
     const updateIndicator = (index, field, value) => {
+        if (isViewMode) return;
         setFormData(prev => ({
             ...prev,
             indicators: prev.indicators.map((ind, i) =>
@@ -128,12 +137,17 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (isViewMode) {
+            onClose();
+            return;
+        }
+
         if (!validate()) return
 
         try {
             setLoading(true)
 
-            if (criteria) {
+            if (criteria && !criteria.isViewMode) {
                 await apiMethods.criteria.update(criteria._id, formData)
                 toast.success('Cập nhật tiêu chí thành công')
             } else {
@@ -161,10 +175,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">
-                                    {criteria ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí mới'}
+                                    {isViewMode ? 'Chi tiết tiêu chí' : (criteria ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí mới')}
                                 </h2>
                                 <p className="text-blue-100 text-sm">
-                                    {criteria ? 'Cập nhật thông tin tiêu chí đánh giá' : 'Tạo tiêu chí đánh giá mới'}
+                                    {isViewMode ? 'Thông tin chi tiết tiêu chí đánh giá' : (criteria ? 'Cập nhật thông tin tiêu chí đánh giá' : 'Tạo tiêu chí đánh giá mới')}
                                 </p>
                             </div>
                         </div>
@@ -190,10 +204,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             name="standardId"
                             value={formData.standardId}
                             onChange={handleStandardChange}
-                            disabled={!!criteria}
+                            disabled={!!criteria || isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                 errors.standardId ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'
-                            } ${criteria ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            } ${criteria || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
                             <option value="">Chọn tiêu chuẩn</option>
                             {standards.map(s => (
@@ -219,7 +233,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             Mã tiêu chí {!formData.autoGenerateCode && <span className="text-red-500 ml-1">*</span>}
                         </label>
 
-                        {!criteria && (
+                        {!criteria && !isViewMode && (
                             <div className="flex items-center gap-3 mb-3 p-3 bg-white rounded-lg border border-indigo-200">
                                 <input
                                     type="checkbox"
@@ -244,10 +258,11 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             name="code"
                             value={formData.code}
                             onChange={handleCodeChange}
-                            disabled={!!criteria || formData.autoGenerateCode}
+                            disabled={!!criteria || formData.autoGenerateCode || isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                 errors.code ? 'border-red-300 bg-red-50' : 'border-indigo-200 bg-white'
-                            } ${criteria || formData.autoGenerateCode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            } ${criteria || formData.autoGenerateCode || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder={formData.autoGenerateCode ? "Sẽ tự động tạo" : "VD: 1, 01, 12"}
                         />
                         {errors.code && (
@@ -256,7 +271,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 {errors.code}
                             </p>
                         )}
-                        {formData.autoGenerateCode && !criteria && (
+                        {formData.autoGenerateCode && !criteria && !isViewMode && (
                             <p className="mt-2 text-sm text-indigo-600 flex items-center bg-indigo-100 p-2 rounded-lg">
                                 <Info size={14} className="mr-2 flex-shrink-0" />
                                 Mã sẽ tự động tăng dần dựa trên tiêu chí cuối cùng của tiêu chuẩn đã chọn
@@ -264,7 +279,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Tên tiêu chí - Gradient Purple/Pink (Giữ lại màu này cho sự khác biệt) */}
+                    {/* Tên tiêu chí - Gradient Purple/Pink */}
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center mr-2">
@@ -277,9 +292,11 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
                                 errors.name ? 'border-red-300 bg-red-50' : 'border-purple-200 bg-white'
-                            }`}
+                            } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập tên tiêu chí"
                         />
                         {errors.name && (
@@ -301,7 +318,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             value={formData.requirements}
                             onChange={handleChange}
                             rows={3}
-                            className="w-full px-4 py-3 border-2 border-teal-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all resize-none"
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-teal-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all resize-none ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập yêu cầu của tiêu chí"
                         />
                     </div>
@@ -317,7 +336,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             value={formData.guidelines}
                             onChange={handleChange}
                             rows={3}
-                            className="w-full px-4 py-3 border-2 border-amber-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none"
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-amber-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập hướng dẫn đánh giá tiêu chí"
                         />
                     </div>
@@ -334,7 +355,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             name="status"
                             value={formData.status}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+                            disabled={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
                             <option value="active">✅ Hoạt động</option>
                             <option value="draft">📝 Nháp</option>
@@ -352,21 +374,23 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 </div>
                                 Chỉ số đánh giá
                             </h3>
-                            <button
-                                type="button"
-                                onClick={addIndicator}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-medium"
-                            >
-                                <Plus size={18} />
-                                Thêm chỉ số
-                            </button>
+                            {!isViewMode && (
+                                <button
+                                    type="button"
+                                    onClick={addIndicator}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all font-medium"
+                                >
+                                    <Plus size={18} />
+                                    Thêm chỉ số
+                                </button>
+                            )}
                         </div>
 
                         {formData.indicators.length === 0 ? (
                             <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-dashed border-gray-300">
                                 <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                                 <p className="text-gray-500 text-sm">
-                                    Chưa có chỉ số đánh giá nào. Click "Thêm chỉ số" để thêm mới.
+                                    Chưa có chỉ số đánh giá nào.
                                 </p>
                             </div>
                         ) : (
@@ -382,13 +406,15 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     Chỉ số {index + 1}
                                                 </span>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeIndicator(index)}
-                                                className="w-8 h-8 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-all flex items-center justify-center"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {!isViewMode && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeIndicator(index)}
+                                                    className="w-8 h-8 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-all flex items-center justify-center"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -398,7 +424,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.name}
                                                     onChange={(e) => updateIndicator(index, 'name', e.target.value)}
                                                     placeholder="Tên chỉ số"
-                                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm bg-white"
+                                                    disabled={isViewMode}
+                                                    readOnly={isViewMode}
+                                                    className={`w-full px-4 py-2.5 border-2 border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm bg-white ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div className="md:col-span-2">
@@ -407,7 +435,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.description}
                                                     onChange={(e) => updateIndicator(index, 'description', e.target.value)}
                                                     placeholder="Mô tả chỉ số"
-                                                    className="w-full px-4 py-2.5 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                                                    disabled={isViewMode}
+                                                    readOnly={isViewMode}
+                                                    className={`w-full px-4 py-2.5 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div className="md:col-span-2">
@@ -416,7 +446,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.measurementMethod}
                                                     onChange={(e) => updateIndicator(index, 'measurementMethod', e.target.value)}
                                                     placeholder="Phương pháp đo"
-                                                    className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white"
+                                                    disabled={isViewMode}
+                                                    readOnly={isViewMode}
+                                                    className={`w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm bg-white ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div>
@@ -425,7 +457,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.targetValue}
                                                     onChange={(e) => updateIndicator(index, 'targetValue', e.target.value)}
                                                     placeholder="Giá trị mục tiêu"
-                                                    className="w-full px-4 py-2.5 border-2 border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-sm bg-white"
+                                                    disabled={isViewMode}
+                                                    readOnly={isViewMode}
+                                                    className={`w-full px-4 py-2.5 border-2 border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all text-sm bg-white ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                             <div>
@@ -434,7 +468,9 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                                     value={indicator.unit}
                                                     onChange={(e) => updateIndicator(index, 'unit', e.target.value)}
                                                     placeholder="Đơn vị"
-                                                    className="w-full px-4 py-2.5 border-2 border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white"
+                                                    disabled={isViewMode}
+                                                    readOnly={isViewMode}
+                                                    className={`w-full px-4 py-2.5 border-2 border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all text-sm bg-white ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                 />
                                             </div>
                                         </div>
@@ -445,7 +481,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     </div>
                 </form>
 
-                {/* Footer Actions - Xanh Lam */}
+                {/* Footer Actions */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"
@@ -453,25 +489,27 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         disabled={loading}
                         className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-50 font-medium"
                     >
-                        Hủy
+                        {isViewMode ? 'Đóng' : 'Hủy'}
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
-                    >
-                        {loading ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span>Đang lưu...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save size={20} />
-                                <span>Lưu tiêu chí</span>
-                            </>
-                        )}
-                    </button>
+                    {!isViewMode && (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Đang lưu...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>Lưu tiêu chí</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
