@@ -6,7 +6,7 @@ async function migrateUserRoles() {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
 
-        // Tìm tất cả users không có roles hoặc roles rỗng
+        // Tìm tất cả  không có roles hoặc roles rỗng
         const usersToUpdate = await User.find({
             $or: [
                 { roles: { $exists: false } },
