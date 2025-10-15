@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
 export default function ProgramModal({ program, onClose, onSuccess }) {
+    const isViewMode = program?.isViewMode || false; // Check for view mode flag
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
@@ -31,6 +32,8 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
     }, [program])
 
     const handleChange = (e) => {
+        if (isViewMode) return; // Prevent change in view mode
+
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         if (errors[name]) {
@@ -64,6 +67,11 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (isViewMode) {
+            onClose();
+            return;
+        }
+
         if (!validate()) return
 
         try {
@@ -74,7 +82,7 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                 code: formData.code.toUpperCase()
             }
 
-            if (program) {
+            if (program && !program.isViewMode) {
                 await apiMethods.programs.update(program._id, submitData)
                 toast.success('Cập nhật chương trình thành công')
             } else {
@@ -93,8 +101,8 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header với gradient */}
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6">
+                {/* Header với gradient - Xanh Lam */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -102,10 +110,10 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">
-                                    {program ? 'Chỉnh sửa chương trình' : 'Thêm chương trình mới'}
+                                    {isViewMode ? 'Chi tiết chương trình' : (program ? 'Chỉnh sửa chương trình' : 'Thêm chương trình mới')}
                                 </h2>
                                 <p className="text-blue-100 text-sm">
-                                    {program ? 'Cập nhật thông tin chương trình đánh giá' : 'Tạo chương trình đánh giá mới'}
+                                    {isViewMode ? 'Thông tin chi tiết chương trình đánh giá' : (program ? 'Cập nhật thông tin chương trình đánh giá' : 'Tạo chương trình đánh giá mới')}
                                 </p>
                             </div>
                         </div>
@@ -133,10 +141,11 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                                 name="code"
                                 value={formData.code}
                                 onChange={handleChange}
-                                disabled={!!program}
+                                disabled={!!program || isViewMode}
+                                readOnly={isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase ${
                                     errors.code ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-white'
-                                } ${program ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${program || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="VD: DGCL-DH"
                             />
                             {errors.code && (
@@ -160,7 +169,9 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                                 onChange={handleChange}
                                 min="2000"
                                 max="2100"
-                                className="w-full px-4 py-3 border-2 border-indigo-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-indigo-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -178,9 +189,11 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
                             className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all ${
                                 errors.name ? 'border-red-300 bg-red-50' : 'border-cyan-200 bg-white'
-                            }`}
+                            } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập tên chương trình"
                         />
                         {errors.name && (
@@ -203,7 +216,9 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                                 name="effectiveDate"
                                 value={formData.effectiveDate}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 border-2 border-green-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
+                                className={`w-full px-4 py-3 border-2 border-green-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             />
                         </div>
 
@@ -218,9 +233,11 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                                 name="expiryDate"
                                 value={formData.expiryDate}
                                 onChange={handleChange}
+                                disabled={isViewMode}
+                                readOnly={isViewMode}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all ${
                                     errors.expiryDate ? 'border-red-300 bg-red-50' : 'border-orange-200 bg-white'
-                                }`}
+                                } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             />
                             {errors.expiryDate && (
                                 <p className="mt-2 text-sm text-red-600 flex items-center">
@@ -242,7 +259,9 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             value={formData.objectives}
                             onChange={handleChange}
                             rows={4}
-                            className="w-full px-4 py-3 border-2 border-purple-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none"
+                            disabled={isViewMode}
+                            readOnly={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-purple-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             placeholder="Nhập mục tiêu của chương trình"
                         />
                     </div>
@@ -259,7 +278,8 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             name="status"
                             value={formData.status}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+                            disabled={isViewMode}
+                            className={`w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
                             <option value="draft">Nháp</option>
                             <option value="active">Hoạt động</option>
@@ -277,25 +297,27 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                         disabled={loading}
                         className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all disabled:opacity-50 font-medium"
                     >
-                        Hủy
+                        {isViewMode ? 'Đóng' : 'Hủy'}
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
-                    >
-                        {loading ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span>Đang lưu...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save size={20} />
-                                <span>Lưu chương trình</span>
-                            </>
-                        )}
-                    </button>
+                    {!isViewMode && (
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Đang lưu...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={20} />
+                                    <span>Lưu chương trình</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
