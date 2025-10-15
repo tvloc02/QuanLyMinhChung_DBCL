@@ -12,7 +12,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
         organizationId: '',
         order: 1,
         objectives: '',
-        status: 'draft'
+        status: 'active'
     })
     const [errors, setErrors] = useState({})
 
@@ -25,7 +25,7 @@ export default function StandardModal({ standard, programs, organizations, onClo
                 organizationId: standard.organizationId?._id || standard.organizationId || '',
                 order: standard.order || 1,
                 objectives: standard.objectives || '',
-                status: standard.status || 'draft'
+                status: standard.status || 'active'
             })
         }
     }, [standard])
@@ -282,10 +282,10 @@ export default function StandardModal({ standard, programs, organizations, onClo
                                 onChange={handleChange}
                                 className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
                             >
-                                <option value="draft">📝 Nháp</option>
-                                <option value="active">✅ Hoạt động</option>
-                                <option value="inactive">⏸️ Không hoạt động</option>
-                                <option value="archived">📦 Lưu trữ</option>
+                                <option value="draft">Nháp</option>
+                                <option value="active">Hoạt động</option>
+                                <option value="inactive">Không hoạt động</option>
+                                <option value="archived">Lưu trữ</option>
                             </select>
                         </div>
                     </div>
