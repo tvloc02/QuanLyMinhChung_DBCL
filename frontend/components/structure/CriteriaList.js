@@ -6,7 +6,7 @@ import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import CriteriaModal from './CriteriaModal'
-import { ActionButton } from '../../components/ActionButtons' // Import ActionButton
+import { ActionButton } from '../../components/ActionButtons'
 
 export default function CriteriaList() {
     const [criteria, setCriteria] = useState([])
@@ -420,6 +420,18 @@ export default function CriteriaList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết
+    const handleViewDetail = (item) => {
+        setSelectedCriteria({ ...item, isViewMode: true })
+        setShowCriteriaModal(true)
+    }
+
+    // Hàm mở modal chỉnh sửa
+    const handleEdit = (item) => {
+        setSelectedCriteria(item)
+        setShowCriteriaModal(true)
+    }
+
     const getStatusLabel = (status) => {
         const statuses = {
             draft: 'Nháp',
@@ -625,15 +637,20 @@ export default function CriteriaList() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
+                                            {/* ActionButton cho Xem chi tiết */}
+                                            <ActionButton
+                                                icon={Eye}
+                                                variant="view"
+                                                size="sm"
+                                                onClick={() => handleViewDetail(item)}
+                                                title="Xem chi tiết tiêu chí"
+                                            />
                                             {/* ActionButton cho Chỉnh sửa */}
                                             <ActionButton
                                                 icon={Edit2}
                                                 variant="edit"
                                                 size="sm"
-                                                onClick={() => {
-                                                    setSelectedCriteria(item)
-                                                    setShowCriteriaModal(true)
-                                                }}
+                                                onClick={() => handleEdit(item)}
                                                 title="Chỉnh sửa tiêu chí"
                                             />
                                             {/* ActionButton cho Xóa */}
