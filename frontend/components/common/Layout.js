@@ -3,6 +3,8 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import Footer from './Footer'
 import Breadcrumb from './Breadcrumb'
+import AIChat from './AIChat';
+
 
 export default function Layout({ children, title, breadcrumbItems }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -57,6 +59,7 @@ export default function Layout({ children, title, breadcrumbItems }) {
 
                             {/* Children sẽ tự động chiếm toàn bộ width */}
                             {children}
+
                         </div>
                     </main>
 
