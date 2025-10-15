@@ -4,8 +4,14 @@ from model.chatbot import ChatBot
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+import os
 
-load_dotenv()
+# --- FIX LỖI OPENAI_API_KEY: Chỉ đường dẫn tới file backend/.env ---
+# os.path.dirname(__file__) là thư mục 'chatbot'
+# os.path.dirname(os.path.dirname(__file__)) là thư mục gốc của dự án
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
+load_dotenv(dotenv_path=dotenv_path)
+# --- END FIX ---
 
 app = Flask(__name__)
 CORS(app)
@@ -20,8 +26,8 @@ logging.basicConfig(
 )
 
 try:
-    # Đảm bảo đường dẫn này đúng hoặc bạn có thể truyền thẳng tên file nếu nó cùng thư mục
-    bot = ChatBot(data_file="training_data.json")
+    # FIX LỖI ĐƯỜNG DẪN DỮ LIỆU: Chỉ đường dẫn tới chatbot/model/training_data.json
+    bot = ChatBot(data_file="chatbot/model/training_data.json")
     logging.info("Chatbot initialized successfully")
 except Exception as e:
     logging.error(f"Failed to initialize chatbot: {str(e)}")
@@ -73,11 +79,18 @@ def ai_chat():
             "timestamp": datetime.now().isoformat()
         })
 
+    except RuntimeError as e:
+        logging.error(f"External service error: {str(e)}")
+        return jsonify({
+            "error": "Lỗi kết nối dịch vụ ngoài",
+            "reply": "Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau."
+        }), 503
+
     except Exception as e:
-        logging.error(f"Error in ai_chat: {str(e)}")
+        logging.error(f"Internal server error in ai_chat: {str(e)}")
         return jsonify({
             "error": "Đã xảy ra lỗi khi xử lý yêu cầu",
-            "reply": "Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau."
+            "reply": "Xin lỗi, tôi gặp sự cố nội bộ. Vui lòng thử lại sau."
         }), 500
 
 @app.route("/api/chat-history/<session_id>", methods=["GET"])
