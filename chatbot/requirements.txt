@@ -2,5 +2,5 @@ flask
 flask-cors
 transformers
 torch
-openai
+google-genai
 python-dotenv

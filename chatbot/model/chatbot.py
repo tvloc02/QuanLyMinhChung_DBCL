@@ -1,13 +1,14 @@
 import json
 import os
 import logging
-from openai import OpenAI
 from dotenv import load_dotenv
-from difflib import SequenceMatcher
+from google import genai
+from google.genai import types
+from google.genai.errors import APIError
 
-# FIX LỖI OPENAI_API_KEY environment variable not set: Load .env từ thư mục gốc
-# Đường dẫn: chatbot/model/ -> ../../.env
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+# --- FIX LỖI OPENAI_API_KEY environment variable not set (Logic load .env giữ nguyên) ---
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dotenv_path = os.path.join(parent_dir, '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 logging.basicConfig(level=logging.INFO)
@@ -21,18 +22,32 @@ class ChatBot:
             self.data = []
             logging.error(f"Error loading training data: {e}")
 
+        # --- CHUYỂN ĐỔI SANG GEMINI ---
         try:
-            api_key = os.getenv("OPENAI_API_KEY")
+            api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
-                raise ValueError("OPENAI_API_KEY environment variable not set.")
+                raise ValueError("GEMINI_API_KEY environment variable not set.")
 
-            self.client = OpenAI(api_key=api_key)
-            self.model = "gpt-4o-mini"
+            # Khởi tạo Gemini Client
+            self.client = genai.Client(api_key=api_key)
+            self.model = "gemini-2.5-flash" # Mô hình nhanh và hiệu quả về chi phí
+
+            # Khởi tạo Gemini Safety Settings (để đảm bảo không bị chặn các prompt không cần thiết)
+            self.safety_settings = [
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
+            ]
 
         except Exception as e:
-            logging.error(f"Failed to initialize OpenAI Client: {e}")
+            logging.error(f"Failed to initialize Gemini Client: {e}")
             self.client = None
-            raise # Bắt buộc phải raise để main.py bắt và trả về 503
+            raise
 
     def _build_system_prompt(self) -> str:
         prompt = (
@@ -54,30 +69,33 @@ class ChatBot:
         system_prompt = self._build_system_prompt()
 
         try:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ]
-
-            response = self.client.chat.completions.create(
+            # Gửi system prompt và user message
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=messages,
-                temperature=0.3,
-                max_tokens=250
+                contents=f"{system_prompt}\n\nUser Question: {message}",
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt, # Sử dụng system_instruction
+                    temperature=0.3,
+                    max_output_tokens=250,
+                    safety_settings=self.safety_settings
+                )
             )
 
-            reply = response.choices[0].message.content.strip()
+            reply = response.text.strip()
 
-            # XỬ LÝ CÂU TRẢ LỜI KHÔNG PHÙ HỢP
+            # XỬ LÝ CÂU TRẢ LỜI KHÔNG PHÙ HỢP (dựa trên hướng dẫn của system prompt)
             unrelated_phrase = "xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng"
             if unrelated_phrase in reply.lower():
                 return "Xin lỗi, tôi chưa hiểu câu hỏi này vì nó không liên quan đến Hệ thống Quản lý Minh chứng. Vui lòng đưa ra câu hỏi đúng hoặc chọn từ các gợi ý."
 
             return reply
 
+        except APIError as e:
+            logging.error(f"Error calling Gemini API: {e}")
+            raise RuntimeError("Gemini API call failed.")
         except Exception as e:
-            logging.error(f"Error calling OpenAI API: {e}")
-            raise RuntimeError("OpenAI API call failed.")
+            logging.error(f"Error in get_reply: {e}")
+            raise RuntimeError("Gemini API call failed due to an unknown error.")
 
     def get_contextual_followup(self, last_reply: str) -> list[str]:
         if not self.client:
@@ -93,18 +111,24 @@ class ChatBot:
         )
 
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
-                max_tokens=100
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.5,
+                    max_output_tokens=100,
+                    safety_settings=self.safety_settings
+                )
             )
 
-            suggestions_text = response.choices[0].message.content.strip()
+            suggestions_text = response.text.strip()
             suggestions = [s.strip() for s in suggestions_text.split('\n') if s.strip()]
 
             return suggestions[:3]
 
-        except Exception as e:
+        except APIError as e:
             logging.error(f"Error generating follow-up suggestions: {e}")
+            return []
+        except Exception as e:
+            logging.error(f"Error in get_contextual_followup: {e}")
             return []
