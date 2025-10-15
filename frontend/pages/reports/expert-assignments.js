@@ -114,7 +114,6 @@ export default function ExpertAssignmentsPage() {
             if (user?.role === 'expert') {
                 statsRes = await apiMethods.assignments.getWorkload(expertId);
             } else {
-                // Sửa lỗi: Gọi getStats với cleanFilters để gửi query params nếu có
                 statsRes = await apiMethods.assignments.getStats(cleanFilters);
             }
 
