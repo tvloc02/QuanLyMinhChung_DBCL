@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Đảm bảo logging được cấu hình trước khi sử dụng trong class
+# Tuy nhiên, cấu hình chính nằm trong main.py
+
 class ChatBot:
     def __init__(self, data_file="model/training_data.json"):
         try:
@@ -13,10 +16,12 @@ class ChatBot:
                 self.data = json.load(f)
         except Exception as e:
             self.data = []
+            logging.error(f"Error loading training data: {e}")
 
         try:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
+                # Raise ValueError ở đây sẽ bị bắt bởi try/except trong main.py
                 raise ValueError("OPENAI_API_KEY environment variable not set.")
 
             self.client = OpenAI(api_key=api_key)
