@@ -347,13 +347,13 @@ export default function ProgramList() {
                     <table className="w-full border-collapse">
                         <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên chương trình</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Năm áp dụng</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Ngày tạo</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">STT</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Mã</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[35%]">Tên chương trình</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Trạng thái</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Năm áp dụng</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Ngày tạo</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[10%]">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -379,10 +379,10 @@ export default function ProgramList() {
                         ) : (
                             programs.map((program, index) => (
                                 <tr key={program._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
                                         <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {program.code}
                                         </span>
@@ -395,22 +395,22 @@ export default function ProgramList() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(program.status)}`}>
                                             {getStatusLabel(program.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                                        <div className="flex items-center text-sm text-gray-900">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
+                                        <div className="flex items-center justify-center text-sm text-gray-900">
                                             <Calendar className="w-4 h-4 text-gray-400 mr-2" />
                                             <span className="font-semibold">{program.applicableYear}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 border-r border-gray-200">
                                         {formatDate(program.createdAt)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end gap-2">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                        <div className="flex items-center justify-center gap-2">
                                             {/* ActionButton cho Xem chi tiết */}
                                             <ActionButton
                                                 icon={Eye}
