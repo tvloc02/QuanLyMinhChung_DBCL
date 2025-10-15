@@ -41,7 +41,7 @@ const programSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['draft', 'active', 'inactive', 'archived'],
-        default: 'draft'
+        default: 'active'
     },
 
     effectiveDate: {
