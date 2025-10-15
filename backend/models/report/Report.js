@@ -72,55 +72,56 @@ const reportSchema = new mongoose.Schema({
         ref: 'File'
     },
 
-    referencedEvidences: [{
-        evidenceId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Evidence'
-        },
-        contextText: String,
-        linkedText: String
-    }],
+    // Loại bỏ trường referencedEvidences
+    // referencedEvidences: [{
+    //     evidenceId: {
+    //         type: mongoose.Schema.Types.ObjectId,
+    //         ref: 'Evidence'
+    //     },
+    //     contextText: String,
+    //     linkedText: String
+    // }],
 
-    accessControl: {
-        assignedExperts: [{
-            expertId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-            assignedAt: Date,
-            assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-            canComment: { type: Boolean, default: true },
-            canEvaluate: { type: Boolean, default: true }
-        }],
+    // Loại bỏ trường accessControl
+    // accessControl: {
+    //     assignedExperts: [{
+    //         expertId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //         assignedAt: Date,
+    //         assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //         canComment: { type: Boolean, default: true },
+    //         canEvaluate: { type: Boolean, default: true }
+    //     }],
+    //     advisors: [{
+    //         advisorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //         assignedAt: Date,
+    //         assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //         canComment: { type: Boolean, default: true },
+    //         canEvaluate: { type: Boolean, default: false }
+    //     }],
+    //     isPublic: { type: Boolean, default: false },
+    //     publicSince: Date
+    // },
 
-        advisors: [{
-            advisorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-            assignedAt: Date,
-            assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-            canComment: { type: Boolean, default: true },
-            canEvaluate: { type: Boolean, default: false }
-        }],
-
-        isPublic: { type: Boolean, default: false },
-        publicSince: Date
-    },
-
-    reviewerComments: [{
-        commentId: mongoose.Schema.Types.ObjectId,
-        reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        reviewerType: {
-            type: String,
-            enum: ['expert', 'advisor', 'manager'],
-            required: true
-        },
-        comment: {
-            type: String,
-            required: true,
-            maxlength: [2000, 'Comment không được quá 2000 ký tự']
-        },
-        commentedAt: { type: Date, default: Date.now },
-        section: String,
-        isResolved: { type: Boolean, default: false },
-        resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        resolvedAt: Date
-    }],
+    // Loại bỏ trường reviewerComments
+    // reviewerComments: [{
+    //     commentId: mongoose.Schema.Types.ObjectId,
+    //     reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //     reviewerType: {
+    //         type: String,
+    //         enum: ['expert', 'advisor', 'manager'],
+    //         required: true
+    //     },
+    //     comment: {
+    //         type: String,
+    //         required: true,
+    //         maxlength: [2000, 'Comment không được quá 2000 ký tự']
+    //     },
+    //     commentedAt: { type: Date, default: Date.now },
+    //     section: String,
+    //     isResolved: { type: Boolean, default: false },
+    //     resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    //     resolvedAt: Date
+    // }],
 
     status: {
         type: String,
@@ -165,10 +166,11 @@ const reportSchema = new mongoose.Schema({
         changeNote: String
     }],
 
-    evaluations: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Evaluation'
-    }],
+    // Loại bỏ trường evaluations
+    // evaluations: [{
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'Evaluation'
+    // }],
 
     metadata: {
         viewCount: {
@@ -179,14 +181,15 @@ const reportSchema = new mongoose.Schema({
             type: Number,
             default: 0
         },
-        evaluationCount: {
-            type: Number,
-            default: 0
-        },
-        averageScore: {
-            type: Number,
-            default: 0
-        }
+        // Loại bỏ evaluationCount và averageScore
+        // evaluationCount: {
+        //     type: Number,
+        //     default: 0
+        // },
+        // averageScore: {
+        //     type: Number,
+        //     default: 0
+        // }
     },
 
     createdAt: {
@@ -208,8 +211,9 @@ reportSchema.index({ createdBy: 1 });
 reportSchema.index({ status: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
-reportSchema.index({ 'accessControl.assignedExperts.expertId': 1 });
-reportSchema.index({ 'accessControl.advisors.advisorId': 1 });
+// Loại bỏ index liên quan đến accessControl
+// reportSchema.index({ 'accessControl.assignedExperts.expertId': 1 });
+// reportSchema.index({ 'accessControl.advisors.advisorId': 1 });
 
 reportSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -259,164 +263,23 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
     });
 };
 
-reportSchema.methods.canAccess = function(userId, userRole) {
-    if (userRole === 'admin') {
-        return { canView: true, canEdit: true, canComment: true, canEvaluate: true };
-    }
+// Loại bỏ phương thức canAccess
+// reportSchema.methods.canAccess = function(userId, userRole) { ... };
 
-    if (this.createdBy.toString() === userId.toString()) {
-        return { canView: true, canEdit: true, canComment: true, canEvaluate: false };
-    }
+// Loại bỏ phương thức addReviewer
+// reportSchema.methods.addReviewer = async function(reviewerId, reviewerType, addedBy) { ... };
 
-    if (this.status === 'published' || this.accessControl.isPublic) {
-        return { canView: true, canEdit: false, canComment: false, canEvaluate: false };
-    }
+// Loại bỏ phương thức removeReviewer
+// reportSchema.methods.removeReviewer = async function(reviewerId, reviewerType) { ... };
 
-    const expert = this.accessControl.assignedExperts.find(
-        e => e.expertId.toString() === userId.toString()
-    );
-    if (expert) {
-        return {
-            canView: true,
-            canEdit: false,
-            canComment: expert.canComment,
-            canEvaluate: expert.canEvaluate
-        };
-    }
+// Loại bỏ phương thức addComment
+// reportSchema.methods.addComment = async function(reviewerId, reviewerType, comment, section = null) { ... };
 
-    const advisor = this.accessControl.advisors.find(
-        a => a.advisorId.toString() === userId.toString()
-    );
-    if (advisor) {
-        return {
-            canView: true,
-            canEdit: false,
-            canComment: advisor.canComment,
-            canEvaluate: false
-        };
-    }
+// Loại bỏ phương thức resolveComment
+// reportSchema.methods.resolveComment = async function(commentId, resolvedBy) { ... };
 
-    return { canView: false, canEdit: false, canComment: false, canEvaluate: false };
-};
-
-reportSchema.methods.addReviewer = async function(reviewerId, reviewerType, addedBy) {
-    const isExpert = reviewerType === 'expert';
-    const targetArray = isExpert
-        ? this.accessControl.assignedExperts
-        : this.accessControl.advisors;
-
-    const idField = isExpert ? 'expertId' : 'advisorId';
-
-    const exists = targetArray.some(
-        r => r[idField].toString() === reviewerId.toString()
-    );
-
-    if (!exists) {
-        const newReviewer = {
-            [idField]: reviewerId,
-            assignedAt: new Date(),
-            assignedBy: addedBy,
-            canComment: true,
-            canEvaluate: isExpert
-        };
-        targetArray.push(newReviewer);
-
-        await this.save();
-
-        const Notification = mongoose.model('Notification');
-        await Notification.create({
-            recipientId: reviewerId,
-            senderId: addedBy,
-            type: 'report_access_granted',
-            title: `Được phân quyền xem báo cáo: ${this.title}`,
-            message: `Bạn đã được phân quyền ${isExpert ? 'đánh giá' : 'tư vấn/giám sát'} báo cáo "${this.title}"`,
-            data: {
-                reportId: this._id,
-                url: `/reports/${this._id}`
-            },
-            priority: 'normal'
-        });
-    }
-
-    return this;
-};
-
-reportSchema.methods.removeReviewer = async function(reviewerId, reviewerType) {
-    const isExpert = reviewerType === 'expert';
-    if (isExpert) {
-        this.accessControl.assignedExperts = this.accessControl.assignedExperts.filter(
-            e => e.expertId.toString() !== reviewerId.toString()
-        );
-    } else {
-        this.accessControl.advisors = this.accessControl.advisors.filter(
-            a => a.advisorId.toString() !== reviewerId.toString()
-        );
-    }
-
-    await this.save();
-    return this;
-};
-
-reportSchema.methods.addComment = async function(reviewerId, reviewerType, comment, section = null) {
-    this.reviewerComments.push({
-        commentId: new mongoose.Types.ObjectId(),
-        reviewerId,
-        reviewerType,
-        comment,
-        section,
-        commentedAt: new Date()
-    });
-
-    await this.save();
-
-    const Notification = mongoose.model('Notification');
-    await Notification.create({
-        recipientId: this.createdBy,
-        senderId: reviewerId,
-        type: 'report_comment_added',
-        title: `Nhận xét mới trên báo cáo: ${this.title}`,
-        message: `Có nhận xét mới từ ${reviewerType} trên báo cáo "${this.title}"`,
-        data: {
-            reportId: this._id,
-            url: `/reports/${this._id}`
-        },
-        priority: 'normal'
-    });
-
-    return this;
-};
-
-reportSchema.methods.resolveComment = async function(commentId, resolvedBy) {
-    const comment = this.reviewerComments.id(commentId);
-    if (comment) {
-        comment.isResolved = true;
-        comment.resolvedBy = resolvedBy;
-        comment.resolvedAt = new Date();
-        await this.save();
-    }
-    return this;
-};
-
-reportSchema.methods.validateEvidenceLinks = async function() {
-    const evidenceCodes = this.extractEvidenceReferences();
-    const Evidence = mongoose.model('Evidence');
-
-    const foundEvidences = await Evidence.find({
-        code: { $in: evidenceCodes },
-        academicYearId: this.academicYearId
-    }).select('code');
-
-    const foundCodes = foundEvidences.map(e => e.code);
-    const missingCodes = evidenceCodes.filter(code => !foundCodes.includes(code));
-
-    return {
-        valid: missingCodes.length === 0,
-        total: evidenceCodes.length,
-        found: foundCodes.length,
-        missing: missingCodes,
-        validCodes: foundCodes
-    };
-};
+// Loại bỏ phương thức validateEvidenceLinks
+// reportSchema.methods.validateEvidenceLinks = async function() { ... };
 
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
     const typePrefix = {
@@ -476,28 +339,30 @@ reportSchema.methods.addVersion = async function(newContent, userId, changeNote 
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
     return this.createdBy.toString() === userId.toString();
-
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
     if (userRole === 'admin') return true;
     if (this.createdBy.toString() === userId.toString()) return true;
-    if (this.status === 'published' || this.accessControl.isPublic) return true;
+    // Bỏ kiểm tra accessControl.isPublic và chỉ giữ lại status published
+    if (this.status === 'published') return true;
 
-    const hasExpertAccess = this.accessControl.assignedExperts.some(
-        e => e.expertId.toString() === userId.toString()
-    );
-    if (hasExpertAccess) return true;
-
-    const hasAdvisorAccess = this.accessControl.advisors.find(
-        a => a.advisorId.toString() === userId.toString()
-    );
-    if (advisor) return true; // Sửa lỗi: If advisor is found, it must be returned here
-
+    // Kiểm tra quyền truy cập theo tiêu chuẩn/tiêu chí
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
-    return this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString());
+    if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
 
+    // Loại bỏ kiểm tra expert/advisor access
+    // const hasExpertAccess = this.accessControl.assignedExperts.some(
+    //     e => e.expertId.toString() === userId.toString()
+    // );
+    // if (hasExpertAccess) return true;
 
+    // const hasAdvisorAccess = this.accessControl.advisors.find(
+    //     a => a.advisorId.toString() === userId.toString()
+    // );
+    // if (advisor) return true;
+
+    return false;
 };
 
 reportSchema.methods.incrementView = async function() {
@@ -526,70 +391,22 @@ reportSchema.methods.incrementDownload = async function() {
     return this;
 };
 
-reportSchema.methods.extractEvidenceReferences = function() {
-    if (!this.content) return [];
+// Loại bỏ phương thức extractEvidenceReferences
+// reportSchema.methods.extractEvidenceReferences = function() { ... };
 
-    const evidencePattern = /H\d+\.\d{2}\.\d{2}\.\d{2}/g;
-    const matches = this.content.match(evidencePattern) || [];
+// Loại bỏ phương thức linkEvidences
+// reportSchema.methods.linkEvidences = async function() { ... };
 
-    return [...new Set(matches)];
-};
-
-reportSchema.methods.linkEvidences = async function() {
-    const evidenceCodes = this.extractEvidenceReferences();
-    const Evidence = mongoose.model('Evidence');
-
-    // Tối ưu hóa truy vấn: Lấy tất cả thông tin cần thiết trong một lần
-    const evidences = await Evidence.find({
-        code: { $in: evidenceCodes },
-        academicYearId: this.academicYearId
-    })
-        .populate({
-            path: 'files',
-            select: 'originalName size approvalStatus'
-        })
-        .lean();
-
-    this.referencedEvidences = evidences.map(evidence => ({
-        // Lưu ID minh chứng và các trường cơ bản vào referencedEvidences
-        evidenceId: evidence._id,
-        contextText: this.getContextForCode(evidence.code),
-        linkedText: evidence.code,
-        // *** THÊM THÔNG TIN MINH CHỨNG VÀO referencedEvidences ***
-        // Điều này giúp việc populate/truy cập ở Controller đơn giản hơn
-        evidenceDetails: {
-            code: evidence.code,
-            name: evidence.name,
-            status: evidence.status,
-            fileCount: evidence.files.length,
-            files: evidence.files.map(file => ({
-                originalName: file.originalName,
-                size: file.size,
-                approvalStatus: file.approvalStatus
-            }))
-        }
-        // *** KẾT THÚC THÊM THÔNG TIN MINH CHỨNG ***
-    }));
-};
-
-reportSchema.methods.getContextForCode = function(code, contextLength = 100) {
-    if (!this.content) return '';
-
-    const index = this.content.indexOf(code);
-    if (index === -1) return '';
-
-    const start = Math.max(0, index - contextLength);
-    const end = Math.min(this.content.length, index + code.length + contextLength);
-
-    return this.content.substring(start, end);
-};
+// Loại bỏ phương thức getContextForCode
+// reportSchema.methods.getContextForCode = function(code, contextLength = 100) { ... };
 
 reportSchema.methods.publish = async function(userId) {
     const oldStatus = this.status;
     this.status = 'published';
     this.updatedBy = userId;
-    this.accessControl.isPublic = true;
-    this.accessControl.publicSince = new Date();
+    // Loại bỏ logic isPublic/publicSince
+    // this.accessControl.isPublic = true;
+    // this.accessControl.publicSince = new Date();
 
     await this.save();
 
@@ -639,18 +456,23 @@ reportSchema.post('findOneAndDelete', async function(doc, next) {
     next();
 });
 
+// Giữ lại và đơn giản hóa canView (bỏ logic expert/advisor)
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
     if (userRole === 'admin') return true;
     if (this.createdBy.toString() === userId.toString()) return true;
-    if (this.status === 'published' || this.accessControl.isPublic) return true;
-    const hasExpertAccess = this.accessControl.assignedExperts.some(
-        e => e.expertId.toString() === userId.toString()
-    );
-    if (hasExpertAccess) return true;
-    const hasAdvisorAccess = this.accessControl.advisors.some(
-        a => a.advisorId.toString() === userId.toString()
-    );
-    if (hasAdvisorAccess) return true;
+    // Bỏ isPublic
+    if (this.status === 'published') return true;
+
+    // Bỏ logic accessControl
+    // const hasExpertAccess = this.accessControl.assignedExperts.some(
+    //     e => e.expertId.toString() === userId.toString()
+    // );
+    // if (hasExpertAccess) return true;
+    // const hasAdvisorAccess = this.accessControl.advisors.some(
+    //     a => a.advisorId.toString() === userId.toString()
+    // );
+    // if (hasAdvisorAccess) return true;
+
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) {
         return true;
     }
@@ -660,34 +482,17 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
     return false;
 };
 
+// Giữ lại canEdit
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
     return this.createdBy.toString() === userId.toString();
 };
 
-reportSchema.methods.canComment = function(userId, userRole) {
-    if (userRole === 'admin') return true;
-    if (this.createdBy.toString() === userId.toString()) return true;
-    const expert = this.accessControl.assignedExperts.find(
-        e => e.expertId.toString() === userId.toString()
-    );
-    if (expert && expert.canComment) return true;
-    const advisor = this.accessControl.advisors.find(
-        a => a.advisorId.toString() === userId.toString()
-    );
-    if (advisor && advisor.canComment) return true;
+// Loại bỏ canComment
+// reportSchema.methods.canComment = function(userId, userRole) { ... };
 
-    return false;
-};
-
-reportSchema.methods.canEvaluate = function(userId, userRole) {
-    if (userRole === 'admin') return true;
-    const expert = this.accessControl.assignedExperts.find(
-        e => e.expertId.toString() === userId.toString()
-    );
-
-    return expert && expert.canEvaluate;
-};
+// Loại bỏ canEvaluate
+// reportSchema.methods.canEvaluate = function(userId, userRole) { ... };
 
 reportSchema.set('toJSON', { virtuals: true });
 reportSchema.set('toObject', { virtuals: true });
