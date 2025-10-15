@@ -38,6 +38,8 @@ const userGroupRoutes = require('./routes/user/userGroup');
 const systemRoutes = require('./routes/system/system');
 const importBatchRoutes = require('./routes/report/importBatch');
 const permissionRoutes = require('./routes/user/permission');
+//import aiChatRoutes from './routes/aiChat.js';
+// app.use('/api/ai-chat', aiChatRoutes);
 app.use('/api/user-groups', userGroupRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/import-batches', importBatchRoutes);
