@@ -3,11 +3,14 @@ import os
 import logging
 from openai import OpenAI
 from dotenv import load_dotenv
+from difflib import SequenceMatcher
 
-load_dotenv()
+# FIX LỖI OPENAI_API_KEY environment variable not set: Load .env từ thư mục gốc
+# Đường dẫn: chatbot/model/ -> ../../.env
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
-# Đảm bảo logging được cấu hình trước khi sử dụng trong class
-# Tuy nhiên, cấu hình chính nằm trong main.py
+logging.basicConfig(level=logging.INFO)
 
 class ChatBot:
     def __init__(self, data_file="model/training_data.json"):
@@ -21,7 +24,6 @@ class ChatBot:
         try:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
-                # Raise ValueError ở đây sẽ bị bắt bởi try/except trong main.py
                 raise ValueError("OPENAI_API_KEY environment variable not set.")
 
             self.client = OpenAI(api_key=api_key)
@@ -30,12 +32,13 @@ class ChatBot:
         except Exception as e:
             logging.error(f"Failed to initialize OpenAI Client: {e}")
             self.client = None
+            raise # Bắt buộc phải raise để main.py bắt và trả về 503
 
     def _build_system_prompt(self) -> str:
         prompt = (
             "Bạn là trợ lý AI thông minh, thân thiện, chuyên tư vấn về **Hệ thống Quản lý Minh chứng (Evidence Management System)** "
             "tại VNUA. Nhiệm vụ của bạn là trả lời các câu hỏi của người dùng **CHỈ** dựa trên kiến thức được cung cấp dưới đây. "
-            "Nếu câu hỏi nằm ngoài phạm vi, hãy trả lời: 'Xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng.'.\n\n"
+            "Nếu câu hỏi nằm ngoài phạm vi, hãy trả lời chính xác và duy nhất bằng câu: 'Xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng.'\n\n"
             "**DỮ LIỆU HUẤN LUYỆN TÙY CHỈNH (Q&A):**\n"
         )
 
@@ -64,14 +67,23 @@ class ChatBot:
             )
 
             reply = response.choices[0].message.content.strip()
+
+            # XỬ LÝ CÂU TRẢ LỜI KHÔNG PHÙ HỢP
+            unrelated_phrase = "xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng"
+            if unrelated_phrase in reply.lower():
+                return "Xin lỗi, tôi chưa hiểu câu hỏi này vì nó không liên quan đến Hệ thống Quản lý Minh chứng. Vui lòng đưa ra câu hỏi đúng hoặc chọn từ các gợi ý."
+
             return reply
 
         except Exception as e:
             logging.error(f"Error calling OpenAI API: {e}")
-            return "Xin lỗi, tôi gặp sự cố kỹ thuật với dịch vụ AI. Vui lòng thử lại sau."
+            raise RuntimeError("OpenAI API call failed.")
 
     def get_contextual_followup(self, last_reply: str) -> list[str]:
         if not self.client:
+            return []
+
+        if "xin lỗi, tôi chưa hiểu câu hỏi này" in last_reply.lower():
             return []
 
         prompt = (
