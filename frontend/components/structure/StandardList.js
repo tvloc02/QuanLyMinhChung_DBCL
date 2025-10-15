@@ -6,7 +6,7 @@ import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import StandardModal from './StandardModal'
-import { ActionButton } from '../../components/ActionButtons' // Import ActionButton
+import { ActionButton } from '../../components/ActionButtons'
 
 export default function StandardList() {
     const [standards, setStandards] = useState([])
@@ -258,6 +258,18 @@ export default function StandardList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết
+    const handleViewDetail = (standard) => {
+        setSelectedStandard({ ...standard, isViewMode: true })
+        setShowStandardModal(true)
+    }
+
+    // Hàm mở modal chỉnh sửa
+    const handleEdit = (standard) => {
+        setSelectedStandard(standard)
+        setShowStandardModal(true)
+    }
+
     const getStatusLabel = (status) => {
         const statuses = {
             draft: 'Nháp',
@@ -461,15 +473,20 @@ export default function StandardList() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
+                                            {/* ActionButton cho Xem chi tiết */}
+                                            <ActionButton
+                                                icon={Eye}
+                                                variant="view"
+                                                size="sm"
+                                                onClick={() => handleViewDetail(standard)}
+                                                title="Xem chi tiết tiêu chuẩn"
+                                            />
                                             {/* ActionButton cho Chỉnh sửa */}
                                             <ActionButton
                                                 icon={Edit2}
                                                 variant="edit"
                                                 size="sm"
-                                                onClick={() => {
-                                                    setSelectedStandard(standard)
-                                                    setShowStandardModal(true)
-                                                }}
+                                                onClick={() => handleEdit(standard)}
                                                 title="Chỉnh sửa tiêu chuẩn"
                                             />
                                             {/* ActionButton cho Xóa */}
