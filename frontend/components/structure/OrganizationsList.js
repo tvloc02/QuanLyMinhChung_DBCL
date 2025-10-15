@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Building2, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Mail, Phone } from 'lucide-react'
+import { Building2, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Mail, Phone, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import OrganizationModal from './OrganizationModal'
+import { ActionButton } from '../../components/ActionButtons' // Giả định đã có
 
 export default function OrganizationsList() {
     const [organizations, setOrganizations] = useState([])
@@ -138,6 +139,20 @@ export default function OrganizationsList() {
                 { wch: 12 }
             ]
 
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
+            const customHeaderStyle = {
+                fill: { fgColor: { rgb: "1F4E78" } },
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            }
+
+            const range = XLSX.utils.decode_range(ws['!ref'])
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!ws[address]) continue
+                ws[address].s = customHeaderStyle
+            }
+
             XLSX.utils.book_append_sheet(wb, ws, 'Tổ chức')
             XLSX.writeFile(wb, `Danh_sach_to_chuc_${Date.now()}.xlsx`)
             toast.success('Xuất file thành công')
@@ -189,6 +204,18 @@ export default function OrganizationsList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết
+    const handleViewDetail = (org) => {
+        setSelectedOrg({ ...org, isViewMode: true })
+        setShowOrgModal(true)
+    }
+
+    // Hàm mở modal chỉnh sửa
+    const handleEdit = (org) => {
+        setSelectedOrg(org)
+        setShowOrgModal(true)
+    }
+
     const getStatusLabel = (status) => {
         const statuses = {
             active: 'Hoạt động',
@@ -209,8 +236,8 @@ export default function OrganizationsList() {
 
     return (
         <div className="space-y-6">
-            {/* Header với gradient */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-lg p-8">
+            {/* Header với gradient - Xanh Lam */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -218,7 +245,7 @@ export default function OrganizationsList() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-1">Quản lý Tổ chức</h1>
-                            <p className="text-green-100">Quản lý các tổ chức - cấp đánh giá</p>
+                            <p className="text-blue-100">Quản lý các tổ chức - cấp đánh giá</p>
                         </div>
                     </div>
                     <div className="flex gap-3">
@@ -248,7 +275,7 @@ export default function OrganizationsList() {
                                 setSelectedOrg(null)
                                 setShowOrgModal(true)
                             }}
-                            className="px-6 py-2.5 bg-white text-green-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
                         >
                             <Plus size={20} />
                             Thêm tổ chức
@@ -260,7 +287,7 @@ export default function OrganizationsList() {
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                    <Filter className="w-5 h-5 text-green-600" />
+                    <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -271,14 +298,14 @@ export default function OrganizationsList() {
                             placeholder="Tìm kiếm tổ chức..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="active">Hoạt động</option>
@@ -288,7 +315,7 @@ export default function OrganizationsList() {
 
                     <button
                         onClick={loadOrganizations}
-                        className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -297,31 +324,32 @@ export default function OrganizationsList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gradient-to-r from-green-50 to-emerald-50 border-b-2 border-green-200">
+                    <table className="w-full border-collapse">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Tên tổ chức</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Trạng thái</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Liên hệ</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tổ chức</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Liên hệ</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
                                     </div>
                                 </td>
                             </tr>
                         ) : organizations.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <Building2 className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -330,14 +358,17 @@ export default function OrganizationsList() {
                                 </td>
                             </tr>
                         ) : (
-                            organizations.map((org) => (
-                                <tr key={org._id} className="hover:bg-green-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-3 py-1 text-sm font-bold text-green-700 bg-green-100 rounded-lg">
+                            organizations.map((org, index) => (
+                                <tr key={org._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                        {((pagination.current - 1) * 10) + index + 1}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {org.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{org.name}</div>
                                         {org.description && (
                                             <div className="text-sm text-gray-500 truncate max-w-md mt-1">
@@ -345,12 +376,12 @@ export default function OrganizationsList() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg ${getStatusColor(org.status)}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(org.status)}`}>
                                             {getStatusLabel(org.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         {org.contactEmail && (
                                             <div className="flex items-center text-sm text-gray-900 mb-1">
                                                 <Mail className="w-4 h-4 text-gray-400 mr-2" />
@@ -366,23 +397,30 @@ export default function OrganizationsList() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedOrg(org)
-                                                    setShowOrgModal(true)
-                                                }}
-                                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
-                                                title="Chỉnh sửa"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
+                                            {/* ActionButton cho Xem chi tiết */}
+                                            <ActionButton
+                                                icon={Eye}
+                                                variant="view"
+                                                size="sm"
+                                                onClick={() => handleViewDetail(org)}
+                                                title="Xem chi tiết tổ chức"
+                                            />
+                                            {/* ActionButton cho Chỉnh sửa */}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
+                                                onClick={() => handleEdit(org)}
+                                                title="Chỉnh sửa tổ chức"
+                                            />
+                                            {/* ActionButton cho Xóa */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
                                                 onClick={() => handleDelete(org._id)}
-                                                className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all"
-                                                title="Xóa"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                                title="Xóa tổ chức"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -394,23 +432,23 @@ export default function OrganizationsList() {
 
                 {/* Pagination */}
                 {!loading && organizations.length > 0 && (
-                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-4 border-t-2 border-gray-100 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
-                            Hiển thị <span className="font-bold text-green-600">{organizations.length}</span> trong tổng số{' '}
-                            <span className="font-bold text-green-600">{pagination.total}</span> tổ chức
+                            Hiển thị <span className="font-bold text-blue-600">{organizations.length}</span> trong tổng số{' '}
+                            <span className="font-bold text-blue-600">{pagination.total}</span> tổ chức
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current - 1 })}
                                 disabled={!pagination.hasPrev}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current + 1 })}
                                 disabled={!pagination.hasNext}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Sau
                             </button>
@@ -419,6 +457,7 @@ export default function OrganizationsList() {
                 )}
             </div>
 
+            {/* Modals */}
             {showImportModal && (
                 <ImportExcelModal
                     onClose={() => setShowImportModal(false)}
