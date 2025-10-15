@@ -12,7 +12,9 @@ const {
     submitEvaluation,
     reviewEvaluation,
     finalizeEvaluation,
-    getEvaluatorStats
+    getEvaluatorStats,
+    getSystemStats, // Cần thêm vào import
+    autoSaveEvaluation // Cần thêm vào import
 } = require('../../controllers/report/evaluationController');
 
 const createEvaluationValidation = [
@@ -21,11 +23,12 @@ const createEvaluationValidation = [
         .withMessage('Phân công là bắt buộc')
         .isMongoId()
         .withMessage('ID phân công không hợp lệ'),
-    body('reportId')
-        .notEmpty()
-        .withMessage('Báo cáo là bắt buộc')
-        .isMongoId()
-        .withMessage('ID báo cáo không hợp lệ')
+    // Bỏ validation reportId vì nó sẽ được lấy từ assignment trong controller
+    // body('reportId')
+    //     .notEmpty()
+    //     .withMessage('Báo cáo là bắt buộc')
+    //     .isMongoId()
+    //     .withMessage('ID báo cáo không hợp lệ')
 ];
 
 const updateEvaluationValidation = [
@@ -36,11 +39,20 @@ const updateEvaluationValidation = [
     body('evidenceAssessment').optional().isObject()
 ];
 
-router.get('/evaluator-stats/:evaluatorId', [
-    param('evaluatorId').isMongoId().withMessage('ID đánh giá viên không hợp lệ')
+// Sửa: Cho phép query evaluatorId hoặc không (sẽ dùng req.user.id)
+router.get('/evaluator-stats', auth, [
+    query('evaluatorId').optional().isMongoId().withMessage('ID đánh giá viên không hợp lệ')
 ], validation, getEvaluatorStats);
 
-router.get('/', [
+// Thêm route cho System Stats (đã có trong file api.js)
+router.get('/system-stats', auth, getSystemStats);
+
+// Thêm route cho Auto Save (đã có trong file api.js)
+router.put('/:id/auto-save', auth, [
+    param('id').isMongoId().withMessage('ID đánh giá không hợp lệ')
+], validation, autoSaveEvaluation);
+
+router.get('/', auth, [ // Thêm auth cho tất cả
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('evaluatorId').optional().isMongoId(),
@@ -49,15 +61,15 @@ router.get('/', [
     query('rating').optional().isIn(['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor'])
 ], validation, getEvaluations);
 
-router.get('/:id', [
+router.get('/:id', auth, [
     param('id').isMongoId().withMessage('ID đánh giá không hợp lệ')
 ], validation, getEvaluationById);
 
-router.post('/', createEvaluationValidation, validation, createEvaluation);
+router.post('/', auth, createEvaluationValidation, validation, createEvaluation); // Thêm auth
 
-router.put('/:id', updateEvaluationValidation, validation, updateEvaluation);
+router.put('/:id', auth, updateEvaluationValidation, validation, updateEvaluation); // Thêm auth
 
-router.post('/:id/submit', [
+router.post('/:id/submit', auth, [
     param('id').isMongoId().withMessage('ID đánh giá không hợp lệ')
 ], validation, submitEvaluation);
 
