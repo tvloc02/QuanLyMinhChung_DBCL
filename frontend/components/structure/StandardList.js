@@ -358,7 +358,7 @@ export default function StandardList() {
                         onChange={(e) => setStatus(e.target.value)}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     >
-                        <option value="">⚡ Tất cả trạng thái</option>
+                        <option value="">Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
                         <option value="active">Hoạt động</option>
                         <option value="inactive">Không hoạt động</option>
