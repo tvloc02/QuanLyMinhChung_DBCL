@@ -6,6 +6,11 @@ import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {UserPlus, X, CheckCircle, Loader2, FileText, ClipboardCheck} from 'lucide-react'
 
+const REVIEWER_ROLE_MAP = {
+    EXPERT: 'expert',
+    ADVISOR: 'advisor',
+}
+
 export default function AssignReviewers() {
     const router = useRouter()
     const { user } = useAuth()
@@ -15,7 +20,7 @@ export default function AssignReviewers() {
     const [reports, setReports] = useState([])
     const [allUsers, setAllUsers] = useState([])
     const [selectedReviewers, setSelectedReviewers] = useState([])
-    const [reviewerType, setReviewerType] = useState('expert')
+    const [roleFilter, setRoleFilter] = useState(REVIEWER_ROLE_MAP.EXPERT)
 
     const breadcrumbItems = [
         { name: 'Trang chủ', href: '/', icon: FileText },
@@ -24,11 +29,11 @@ export default function AssignReviewers() {
     ]
 
     useEffect(() => {
-        if (reportIds) {
+        if (reportIds && user) {
             fetchReports()
             fetchUsers()
         }
-    }, [reportIds])
+    }, [reportIds, user])
 
     const fetchReports = async () => {
         try {
@@ -44,86 +49,52 @@ export default function AssignReviewers() {
 
     const fetchUsers = async () => {
         try {
-            console.log('🔄 Fetching all users...')
+            const relevantRoles = ['expert', 'advisor', 'manager', 'admin'];
             let usersData = []
 
-            // Cách 1: Lấy tất cả users
-            try {
-                const response = await apiMethods.users.getAll()
-                usersData = response.data?.data?.users || response.data?.users || []
-                console.log('✅ Method 1 - Got users:', usersData.length)
-            } catch (err) {
-                console.log('Method 1 failed, trying method 2...')
+            const response = await apiMethods.users.getAll({ limit: 5000 })
+            usersData = response.data?.data?.users || response.data?.users || []
 
-                try {
-                    const response = await apiMethods.users.getAll({ limit: 1000 })
-                    usersData = response.data?.data?.users || response.data?.users || []
-                    console.log('✅ Method 2 - Got users:', usersData.length)
-                } catch (err2) {
-                    console.log('Method 2 failed, trying method 3...')
+            const filteredAndActiveUsers = usersData.filter(u =>
+                u.status === 'active' && relevantRoles.includes(u.role)
+            );
 
-                    try {
-                        const [expertsRes, advisorsRes] = await Promise.all([
-                            fetch('/api/users?role=expert', {
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                            }),
-                            fetch('/api/users?role=advisor', {
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                            })
-                        ])
+            setAllUsers(filteredAndActiveUsers)
 
-                        const expertsData = await expertsRes.json()
-                        const advisorsData = await advisorsRes.json()
-
-                        usersData = [
-                            ...(expertsData.data?.users || []),
-                            ...(advisorsData.data?.users || [])
-                        ]
-                        console.log('✅ Method 3 - Got users:', usersData.length)
-                    } catch (err3) {
-                        throw new Error('All methods failed')
-                    }
-                }
+            if (filteredAndActiveUsers.length === 0) {
+                toast.warning('Không tìm thấy người dùng nào có vai trò liên quan')
             }
-
-            usersData = usersData.filter(u => u.status === 'active')
-
-            console.log('📊 Total active users:', usersData.length)
-            console.log('📊 Experts:', usersData.filter(u => u.role === 'expert').length)
-            console.log('📊 Advisors:', usersData.filter(u => u.role === 'advisor').length)
-
-            setAllUsers(usersData)
-
-            if (usersData.length === 0) {
-                toast.warning('Không tìm thấy người dùng nào trong hệ thống')
-            }
-
         } catch (error) {
             console.error('❌ Fetch users error:', error)
-            toast.error('Lỗi khi tải danh sách người đánh giá')
-
-            // Fallback: Thử direct fetch
-            try {
-                const response = await fetch('/api/users', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                })
-                const data = await response.json()
-                const users = data.data?.users || data.users || []
-                setAllUsers(users.filter(u => u.status === 'active'))
-                console.log('✅ Fallback method - Got users:', users.length)
-            } catch (fallbackError) {
-                console.error('❌ Fallback also failed:', fallbackError)
-            }
+            const errorMessage = error.response?.status === 404
+                ? 'Lỗi 404: Không tìm thấy dịch vụ API Người dùng.'
+                : error.response?.data?.message || 'Lỗi khi tải danh sách người đánh giá'
+            toast.error(errorMessage)
+            setAllUsers([])
         }
     }
 
     const handleAddReviewer = (userId) => {
+        const userToAdd = allUsers.find(u => u._id === userId)
+        if (!userToAdd) return toast.error('Không tìm thấy người dùng này.')
+
+        // Nếu là Expert, hệ thống sẽ tạo Assignment. Nếu là Advisor, không thể tạo Assignment
+        // Chức năng Phân công hiện tại (Assignment) chỉ dành cho Expert (role=expert).
+        // Ta cần lọc người dùng, chỉ Expert mới được chọn nếu mục tiêu là tạo Assignment.
+
+        // Vì Backend chỉ cho phép tạo Assignment cho expert (Assignment.expertId)
+        // Ta chỉ cho phép chọn người dùng có role Expert ở đây.
+        if (userToAdd.role !== REVIEWER_ROLE_MAP.EXPERT) {
+            toast.error('Chức năng Phân quyền/Phân công chỉ hỗ trợ Chuyên gia đánh giá (Expert) cho mục đích này.')
+            return
+        }
+
+        const type = REVIEWER_ROLE_MAP.EXPERT;
+
         if (!selectedReviewers.find(r => r.reviewerId === userId)) {
             setSelectedReviewers([...selectedReviewers, {
                 reviewerId: userId,
-                reviewerType: reviewerType
+                reviewerType: type
             }])
         }
     }
@@ -144,81 +115,59 @@ export default function AssignReviewers() {
             setLoading(true)
             const ids = Array.isArray(reportIds) ? reportIds : reportIds.split(',')
 
-            console.log('📤 Submitting data:')
-            console.log('Report IDs:', ids)
-            console.log('Selected Reviewers:', selectedReviewers)
-
-            // Validate data
             if (ids.length === 0) {
                 throw new Error('Không có báo cáo nào được chọn')
             }
 
-            // Check if backend has bulkAddReviewers endpoint
-            // If not, use single add approach
-            let successCount = 0
-            let failCount = 0
-
-            // Try bulk first
-            try {
-                const bulkPayload = {
-                    reportIds: ids,
-                    reviewers: selectedReviewers
-                }
-                console.log('Trying bulk API with payload:', bulkPayload)
-
-                await apiMethods.reports.bulkAddReviewers(bulkPayload)
-                toast.success('Phân quyền đánh giá thành công')
-                router.push('/reports/reports')
-                return
-            } catch (bulkError) {
-                console.log('Bulk API failed, trying individual approach...')
-                console.error('Bulk error:', bulkError.response?.data)
-
-                // Fallback: Add reviewers one by one
-                for (const reportId of ids) {
-                    for (const reviewer of selectedReviewers) {
-                        try {
-                            await apiMethods.reports.addReviewer(
-                                reportId,
-                                reviewer.reviewerId,
-                                reviewer.reviewerType
-                            )
-                            successCount++
-                        } catch (err) {
-                            console.error(`Failed to add reviewer to report ${reportId}:`, err)
-                            failCount++
-                        }
-                    }
-                }
-
-                if (successCount > 0) {
-                    toast.success(`Đã phân quyền thành công ${successCount} lượt`)
-                }
-                if (failCount > 0) {
-                    toast.warning(`${failCount} lượt thất bại`)
-                }
-
-                router.push('/reports/reports')
+            // Xây dựng payload cho Bulk Assignment (giả định)
+            const bulkAssignmentPayload = {
+                reportIds: ids,
+                expertIds: selectedReviewers.map(r => r.reviewerId),
+                // Các thông tin bắt buộc khác cho Assignment (deadline, priority) cần phải được hỏi người dùng.
+                // Vì giao diện này không hỏi, ta dùng giá trị mặc định/giả định cho API Bulk Create
+                deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 ngày
+                priority: 'normal',
+                evaluationCriteria: []
             }
-        } catch (error) {
-            console.error('❌ Assign reviewers error:', error)
-            console.error('Error response:', error.response?.data)
-            console.error('Error status:', error.response?.status)
 
-            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi phân quyền'
+            // GỌI API BULK CREATE ASSIGNMENTS MỚI
+            const response = await apiMethods.assignments.bulkCreate(bulkAssignmentPayload)
+            const results = response.data?.data || {};
+
+            if (results.successCount > 0) {
+                toast.success(`Phân công thành công ${results.successCount} nhiệm vụ.`);
+            }
+            if (results.failedCount > 0) {
+                toast.error(`Phân công thất bại cho ${results.failedCount} nhiệm vụ. Vui lòng kiểm tra lỗi chi tiết.`);
+            }
+
+            router.push('/reports')
+
+        } catch (error) {
+            console.error('❌ Bulk Assignment error:', error)
+
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi phân công hàng loạt'
             toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
     }
 
-    const getUserName = (userId) => {
+    const getUserDetails = (userId) => {
         const user = allUsers.find(u => u._id === userId)
-        return user ? `${user.fullName} (${user.email})` : 'N/A'
+        return user ? user : { fullName: 'N/A', email: 'N/A', role: 'N/A' }
     }
 
-    // Filter users theo type
-    const filteredUsers = allUsers.filter(u => u.role === reviewerType)
+    const getRoleDisplayText = (role) => {
+        if (role === 'expert') return 'Chuyên gia';
+        if (role === 'advisor') return 'Cố vấn';
+        if (role === 'manager') return 'Giám sát';
+        if (role === 'admin') return 'Quản trị viên';
+        return role;
+    }
+
+    // Vì Assignment chỉ dành cho Expert, ta chỉ lọc Expert
+    const filteredUsers = allUsers.filter(u => u.role === REVIEWER_ROLE_MAP.EXPERT)
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
@@ -229,16 +178,15 @@ export default function AssignReviewers() {
                             <UserPlus className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Phân quyền đánh giá báo cáo</h1>
+                            <h1 className="text-3xl font-bold mb-1">Phân công đánh giá báo cáo</h1>
                             <p className="text-blue-100">
-                                Phân quyền cho {reports.length} báo cáo đã chọn
+                                Phân công nhiệm vụ đánh giá cho {reports.length} báo cáo đã chọn
                             </p>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Danh sách báo cáo */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -267,82 +215,78 @@ export default function AssignReviewers() {
                         </div>
                     </div>
 
-                    {/* Form phân quyền */}
                     <div className="lg:col-span-2">
                         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-6">Chọn người đánh giá</h2>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-6">Chọn người đánh giá (Expert)</h2>
 
-                            {/* Loại người đánh giá */}
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                                    Vai trò
+                                    Vai trò phân công
                                 </label>
                                 <div className="flex gap-4">
                                     <button
                                         type="button"
-                                        onClick={() => setReviewerType('expert')}
-                                        className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all ${
-                                            reviewerType === 'expert'
-                                                ? 'bg-blue-600 text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
+                                        className='flex-1 px-6 py-3 rounded-xl font-medium bg-blue-600 text-white shadow-md'
+                                        disabled
                                     >
                                         Chuyên gia đánh giá
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setReviewerType('advisor')}
-                                        className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all ${
-                                            reviewerType === 'advisor'
-                                                ? 'bg-purple-600 text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
+                                        className='flex-1 px-6 py-3 rounded-xl font-medium bg-gray-300 text-gray-700 cursor-not-allowed'
+                                        disabled
                                     >
-                                        Cố vấn/Giám sát
+                                        Cố vấn/Giám sát (Không tạo Assignment)
                                     </button>
                                 </div>
+                                <p className="mt-2 text-xs text-red-500">
+                                    Chức năng này đã được đơn giản hóa: chỉ hỗ trợ phân công nhiệm vụ (tạo Assignment) cho **Chuyên gia đánh giá (Expert)**.
+                                </p>
                             </div>
 
-                            {/* Danh sách người đánh giá */}
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                                    Chọn {reviewerType === 'expert' ? 'chuyên gia' : 'cố vấn'}
+                                    Chọn **chuyên gia**
                                     <span className="ml-2 text-gray-500">({filteredUsers.length} người)</span>
                                 </label>
                                 <div className="border border-gray-200 rounded-xl p-4 max-h-64 overflow-y-auto">
                                     {filteredUsers.length === 0 ? (
                                         <div className="text-center py-8 text-gray-500">
-                                            Không có {reviewerType === 'expert' ? 'chuyên gia' : 'cố vấn'} nào
+                                            Không có chuyên gia nào được kích hoạt
                                         </div>
                                     ) : (
-                                        filteredUsers.map(person => (
-                                            <div key={person._id} className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                                        {person.fullName.charAt(0)}
+                                        filteredUsers.map(person => {
+                                            const isSelected = selectedReviewers.find(r => r.reviewerId === person._id)
+                                            return (
+                                                <div key={person._id} className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg">
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                                            {person.fullName.charAt(0)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                                {person.fullName}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 truncate">
+                                                                {person.email} ({getRoleDisplayText(person.role)})
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900">
-                                                            {person.fullName}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">{person.email}</p>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAddReviewer(person._id)}
+                                                        disabled={isSelected}
+                                                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                                                    >
+                                                        {isSelected ? 'Đã chọn' : 'Chọn'}
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleAddReviewer(person._id)}
-                                                    disabled={selectedReviewers.find(r => r.reviewerId === person._id)}
-                                                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
-                                                >
-                                                    {selectedReviewers.find(r => r.reviewerId === person._id) ? 'Đã chọn' : 'Chọn'}
-                                                </button>
-                                            </div>
-                                        ))
+                                            )
+                                        })
                                     )}
                                 </div>
                             </div>
 
-                            {/* Danh sách đã chọn */}
                             {selectedReviewers.length > 0 && (
                                 <div className="mb-6">
                                     <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -351,25 +295,21 @@ export default function AssignReviewers() {
                                     <div className="border border-blue-200 rounded-xl p-4 bg-blue-50">
                                         <div className="space-y-2">
                                             {selectedReviewers.map(reviewer => {
-                                                const user = allUsers.find(u => u._id === reviewer.reviewerId)
+                                                const userDetails = getUserDetails(reviewer.reviewerId)
                                                 return (
-                                                    <div key={reviewer.reviewerId} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg">
-                                                        <div className="flex items-center space-x-3">
-                                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                                reviewer.reviewerType === 'expert'
-                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                    : 'bg-purple-100 text-purple-800'
-                                                            }`}>
-                                                                {reviewer.reviewerType === 'expert' ? 'Chuyên gia' : 'Cố vấn'}
+                                                    <div key={reviewer.reviewerId} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                                        <div className="flex items-center space-x-3 min-w-0">
+                                                            <span className={`px-2 py-1 rounded text-xs font-semibold flex-shrink-0 bg-blue-100 text-blue-800`}>
+                                                                Chuyên gia
                                                             </span>
-                                                            <span className="text-sm text-gray-900">
-                                                                {user ? user.fullName : getUserName(reviewer.reviewerId)}
+                                                            <span className="text-sm text-gray-900 font-medium truncate">
+                                                                {userDetails.fullName} ({getRoleDisplayText(userDetails.role)})
                                                             </span>
                                                         </div>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveReviewer(reviewer.reviewerId)}
-                                                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-all"
+                                                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-all flex-shrink-0"
                                                         >
                                                             <X className="h-4 w-4" />
                                                         </button>
@@ -381,7 +321,6 @@ export default function AssignReviewers() {
                                 </div>
                             )}
 
-                            {/* Actions */}
                             <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
                                 <button
                                     type="button"
@@ -403,7 +342,7 @@ export default function AssignReviewers() {
                                     ) : (
                                         <>
                                             <CheckCircle className="h-5 w-5 mr-2" />
-                                            Phân quyền cho {reports.length} báo cáo
+                                            Phân công {reports.length} báo cáo
                                         </>
                                     )}
                                 </button>
