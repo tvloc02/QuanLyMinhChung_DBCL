@@ -12,7 +12,7 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
         effectiveDate: '',
         expiryDate: '',
         objectives: '',
-        status: 'draft'
+        status: 'active'
     })
     const [errors, setErrors] = useState({})
 
@@ -25,7 +25,7 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                 effectiveDate: program.effectiveDate ? program.effectiveDate.split('T')[0] : '',
                 expiryDate: program.expiryDate ? program.expiryDate.split('T')[0] : '',
                 objectives: program.objectives || '',
-                status: program.status || 'draft'
+                status: program.status || 'active'
             })
         }
     }, [program])
@@ -261,10 +261,10 @@ export default function ProgramModal({ program, onClose, onSuccess }) {
                             onChange={handleChange}
                             className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
                         >
-                            <option value="draft">📝 Nháp</option>
-                            <option value="active">✅ Hoạt động</option>
-                            <option value="inactive">⏸️ Không hoạt động</option>
-                            <option value="archived">📦 Lưu trữ</option>
+                            <option value="draft">Nháp</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                            <option value="archived">Lưu trữ</option>
                         </select>
                     </div>
                 </form>
