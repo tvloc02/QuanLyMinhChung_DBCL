@@ -26,6 +26,7 @@ const getReports = async (req, res) => {
 
         let query = { academicYearId };
 
+        // Loại bỏ logic truy cập phức tạp. Giữ lại logic cơ bản.
         if (req.user.role !== 'admin') {
             const userAccessQuery = {
                 $or: [
@@ -34,6 +35,7 @@ const getReports = async (req, res) => {
                 ]
             };
 
+            // Thêm kiểm tra quyền truy cập theo tiêu chuẩn/tiêu chí
             if (req.user.standardAccess && req.user.standardAccess.length > 0) {
                 userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
             }
@@ -119,14 +121,15 @@ const getReportById = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
             .populate('attachedFile')
-            .populate({
-                path: 'referencedEvidences.evidenceId',
-                select: 'code name'
-            })
-            .populate({
-                path: 'versions.changedBy',
-                select: 'fullName email'
-            });
+        // Loại bỏ populate liên quan đến referencedEvidences và versions
+        // .populate({
+        //     path: 'referencedEvidences.evidenceId',
+        //     select: 'code name'
+        // })
+        // .populate({
+        //     path: 'versions.changedBy',
+        //     select: 'fullName email'
+        // });
 
         if (!report) {
             return res.status(404).json({
@@ -135,6 +138,7 @@ const getReportById = async (req, res) => {
             });
         }
 
+        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -242,14 +246,15 @@ const createReport = async (req, res) => {
         const report = new Report(reportData);
         await report.save();
 
-        if (reportData.content && reportData.content.length > 0) {
-            try {
-                await report.linkEvidences();
-                await report.save();
-            } catch (error) {
-                console.error('Error linking evidences:', error);
-            }
-        }
+        // Loại bỏ logic liên kết minh chứng (vì không còn liên quan đến đánh giá/bình luận)
+        // if (reportData.content && reportData.content.length > 0) {
+        //     try {
+        //         await report.linkEvidences();
+        //         await report.save();
+        //     } catch (error) {
+        //         console.error('Error linking evidences:', error);
+        //     }
+        // }
 
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
@@ -295,7 +300,8 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, changeNote, ...updateData } = req.body;
+        // Bỏ changeNote (liên quan đến versioning)
+        const { content, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
 
         const report = await Report.findOne({ _id: id, academicYearId });
@@ -306,9 +312,10 @@ const updateReport = async (req, res) => {
             });
         }
 
-        if (content && content !== report.content) {
-            await report.addVersion(content, req.user.id, changeNote);
-        }
+        // Bỏ logic thêm version
+        // if (content && content !== report.content) {
+        //     await report.addVersion(content, req.user.id, changeNote);
+        // }
 
         const allowedFields = [
             'title', 'summary', 'keywords', 'contentMethod'
@@ -320,9 +327,15 @@ const updateReport = async (req, res) => {
             }
         });
 
+        // Cập nhật nội dung trực tiếp nếu có
+        if (content !== undefined) {
+            report.content = content;
+        }
+
         report.updatedBy = req.user.id;
 
-        await report.linkEvidences();
+        // Bỏ logic liên kết minh chứng
+        // await report.linkEvidences();
         await report.save();
 
         await report.populate([
@@ -376,15 +389,16 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        const Assignment = require('../../models/report/Assignment');
-        const assignmentCount = await Assignment.countDocuments({ reportId: id });
+        // Loại bỏ kiểm tra phân công đánh giá
+        // const Assignment = require('../../models/report/Assignment');
+        // const assignmentCount = await Assignment.countDocuments({ reportId: id });
 
-        if (assignmentCount > 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không thể xóa báo cáo đã có phân công đánh giá'
-            });
-        }
+        // if (assignmentCount > 0) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: 'Không thể xóa báo cáo đã có phân công đánh giá'
+        //     });
+        // }
 
         report.updatedBy = req.user.id;
         await Report.findByIdAndDelete(id);
@@ -485,6 +499,7 @@ const downloadReport = async (req, res) => {
             });
         }
 
+        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -548,8 +563,9 @@ const getReportVersions = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        const report = await Report.findOne({ _id: id, academicYearId }, 'versions')
-            .populate('versions.changedBy', 'fullName email');
+        // Bỏ populate('versions.changedBy', 'fullName email')
+        const report = await Report.findOne({ _id: id, academicYearId }, 'versions');
+        // .populate('versions.changedBy', 'fullName email');
 
         if (!report) {
             return res.status(404).json({
@@ -572,79 +588,21 @@ const getReportVersions = async (req, res) => {
     }
 };
 
-const getReportEvidences = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-
-        if (!report) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy báo cáo'
-            });
-        }
-
-        const evidenceIds = report.referencedEvidences.map(ref => ref.evidenceId);
-
-        const Evidence = mongoose.model('Evidence');
-
-        const evidences = await Evidence.find({ _id: { $in: evidenceIds } })
-            .populate('files', 'originalName size approvalStatus')
-            .select('code name description files status')
-            .lean();
-
-        const evidencesMap = new Map(evidences.map(e => [e._id.toString(), e]));
-
-        const evidencesData = report.referencedEvidences
-            .map(ref => {
-                const evidenceDetails = evidencesMap.get(ref.evidenceId.toString());
-
-                if (!evidenceDetails) return null;
-
-                return {
-                    evidenceId: evidenceDetails._id,
-                    linkedText: ref.linkedText,
-                    contextText: ref.contextText,
-
-                    evidenceDetails: {
-                        code: evidenceDetails.code,
-                        name: evidenceDetails.name,
-                        description: evidenceDetails.description,
-                        status: evidenceDetails.status,
-                        files: evidenceDetails.files,
-                        fileCount: evidenceDetails.files.length
-                    }
-                };
-            })
-            .filter(item => item !== null);
-
-
-        res.json({
-            success: true,
-            data: evidencesData
-        });
-
-    } catch (error) {
-        console.error('Get report evidences error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy minh chứng báo cáo'
-        });
-    }
-};
+// Loại bỏ hàm getReportEvidences và validateEvidenceLinks
+// const getReportEvidences = async (req, res) => { ... };
+// const validateEvidenceLinks = async (req, res) => { ... };
 
 const getReportStats = async (req, res) => {
     try {
         const { type, status, programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
 
-        let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
+        // Sử dụng mongoose.Types.ObjectId trực tiếp (Đảm bảo logic tương thích)
+        let matchStage = { academicYearId: new mongoose.Types.ObjectId(academicYearId) };
         if (type) matchStage.type = type;
         if (status) matchStage.status = status;
-        if (programId) matchStage.programId = mongoose.Types.ObjectId(programId);
-        if (organizationId) matchStage.organizationId = mongoose.Types.ObjectId(organizationId);
+        if (programId) matchStage.programId = new mongoose.Types.ObjectId(programId);
+        if (organizationId) matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
 
         const stats = await Report.aggregate([
             { $match: matchStage },
@@ -698,60 +656,9 @@ const getReportStats = async (req, res) => {
     }
 };
 
-const addComment = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { comment, section } = req.body;
-        const academicYearId = req.academicYearId;
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
-
-        const access = report.canAccess(req.user.id, req.user.role);
-        if (!access.canComment) {
-            return res.status(403).json({ success: false, message: 'Không có quyền bình luận' });
-        }
-
-        await report.addComment(req.user.id, access.role || 'expert', comment, section);
-        res.json({ success: true, message: 'Thêm nhận xét thành công', data: report.reviewerComments });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Lỗi khi thêm nhận xét' });
-    }
-};
-
-const resolveComment = async (req, res) => {
-    try {
-        const { id, commentId } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
-
-        if (!report.canEdit(req.user.id, req.user.role)) {
-            return res.status(403).json({ success: false, message: 'Không có quyền xử lý nhận xét' });
-        }
-
-        await report.resolveComment(commentId, req.user.id);
-        res.json({ success: true, message: 'Đã xử lý nhận xét', data: report.reviewerComments });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Lỗi khi xử lý nhận xét' });
-    }
-};
-
-const validateEvidenceLinks = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-        if (!report) return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
-
-        const result = await report.validateEvidenceLinks();
-        res.json({ success: true, data: result });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Lỗi khi kiểm tra liên kết minh chứng' });
-    }
-};
+// Loại bỏ các hàm liên quan đến bình luận: addComment, resolveComment
+// const addComment = async (req, res) => { ... };
+// const resolveComment = async (req, res) => { ... };
 
 const uploadReportFile = async (req, res) => {
     try {
@@ -848,6 +755,7 @@ const downloadReportFile = async (req, res) => {
             });
         }
 
+        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -928,6 +836,7 @@ const convertFileToContent = async (req, res) => {
 
         if (report.attachedFile.mimetype === 'application/pdf') {
             const data = await pdfParse(fileBuffer);
+            // Cải thiện logic chuyển đổi PDF thô thành HTML cơ bản
             htmlContent = data.text
                 .split('\n\n')
                 .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
@@ -949,7 +858,8 @@ const convertFileToContent = async (req, res) => {
         report.contentMethod = 'online_editor';
         report.updatedBy = req.user.id;
 
-        await report.linkEvidences();
+        // Bỏ logic liên kết minh chứng
+        // await report.linkEvidences();
         await report.save();
 
         res.json({
@@ -978,11 +888,11 @@ module.exports = {
     publishReport,
     downloadReport,
     getReportVersions,
-    getReportEvidences,
+    // getReportEvidences, // Loại bỏ
     getReportStats,
-    addComment,
-    resolveComment,
-    validateEvidenceLinks,
+    // addComment, // Loại bỏ
+    // resolveComment, // Loại bỏ
+    // validateEvidenceLinks, // Loại bỏ
     uploadReportFile,
     downloadReportFile,
     convertFileToContent
