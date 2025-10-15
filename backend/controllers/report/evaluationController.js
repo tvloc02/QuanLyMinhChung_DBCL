@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Evaluation = require('../../models/report/Evaluation');
 const Assignment = require('../../models/report/Assignment');
+const Report = require('../../models/report/Report'); // Đảm bảo import Report
 
 const getEvaluations = async (req, res) => {
     try {
@@ -24,6 +25,7 @@ const getEvaluations = async (req, res) => {
 
         let query = { academicYearId };
 
+        // Đảm bảo Expert chỉ thấy đánh giá của mình
         if (req.user.role === 'expert') {
             query.evaluatorId = req.user.id;
         }
@@ -100,6 +102,7 @@ const getEvaluationById = async (req, res) => {
             });
         }
 
+        // LƯU Ý: logic canView đã được định nghĩa trong Evaluation.js
         if (!evaluation.canView(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -138,7 +141,8 @@ const createEvaluation = async (req, res) => {
             });
         }
 
-        if (!assignment.canEvaluate(req.user.id)) {
+        // CHUYÊN GIA TẠO ĐÁNH GIÁ CỦA CHÍNH MÌNH
+        if (assignment.expertId.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền tạo đánh giá cho phân công này'
@@ -180,6 +184,7 @@ const createEvaluation = async (req, res) => {
 
         await evaluation.save();
 
+        // Cập nhật trạng thái Assignment sang 'in_progress'
         await assignment.start();
 
         await evaluation.populate([
@@ -217,6 +222,7 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
+        // LƯU Ý: logic canEdit đã được định nghĩa trong Evaluation.js
         if (!evaluation.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -283,6 +289,7 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
+        // KIỂM TRA ĐẦY ĐỦ THÔNG TIN
         if (!evaluation.isComplete) {
             return res.status(400).json({
                 success: false,
@@ -294,6 +301,7 @@ const submitEvaluation = async (req, res) => {
 
         const assignment = await Assignment.findById(evaluation.assignmentId);
         if (assignment) {
+            // Cập nhật trạng thái Assignment sang 'completed'
             await assignment.complete(evaluation._id);
         }
 
@@ -385,6 +393,24 @@ const finalizeEvaluation = async (req, res) => {
         }
 
         await evaluation.finalize(req.user.id);
+
+        // --- BỔ SUNG: CẬP NHẬT ĐIỂM TRUNG BÌNH VÀ SỐ LƯỢNG ĐÁNH GIÁ CỦA BÁO CÁO ---
+        const averageScore = await Evaluation.getAverageScoreByReport(evaluation.reportId);
+
+        const report = await Report.findById(evaluation.reportId);
+        if (report) {
+            // Cập nhật điểm trung bình
+            report.metadata.averageScore = averageScore;
+            // Tăng số lượng đánh giá
+            report.metadata.evaluationCount = (report.metadata.evaluationCount || 0) + 1;
+            // Thêm ID đánh giá vào mảng evaluations của Report (nếu chưa có)
+            if (!report.evaluations.map(e => e.toString()).includes(evaluation._id.toString())) {
+                report.evaluations.push(evaluation._id);
+            }
+
+            await report.save();
+        }
+        // -----------------------------------------------------------------------
 
         res.json({
             success: true,
