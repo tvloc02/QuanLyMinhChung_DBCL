@@ -2,11 +2,10 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Lấy URL AI Service từ biến môi trường
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000/api/ai-chat';
 const AI_BASE_URL = AI_SERVICE_URL.replace('/api/ai-chat', '');
 
-// API chat chính: POST /api/ai-chat (được gọi từ frontend)
+// API chat chính: POST /api/ai-chat
 router.post('/ai-chat', async (req, res) => {
     try {
         const { message, session_id } = req.body;
@@ -24,7 +23,7 @@ router.post('/ai-chat', async (req, res) => {
     }
 });
 
-// Lấy lịch sử chat: GET /api/chat-history/:session_id (được gọi từ frontend)
+// Lấy lịch sử chat: GET /api/chat-history/:session_id
 router.get('/chat-history/:session_id', async (req, res) => {
     try {
         const { session_id } = req.params;
