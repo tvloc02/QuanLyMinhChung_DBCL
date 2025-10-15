@@ -42,12 +42,10 @@ api.interceptors.response.use(
             }
         }
 
-        // Handle 403 Forbidden
         if (error.response?.status === 403) {
             toast.error('Bạn không có quyền thực hiện hành động này')
         }
 
-        // Handle 500 Internal Server Error
         if (error.response?.status >= 500) {
             toast.error('Có lỗi xảy ra từ máy chủ. Vui lòng thử lại sau.')
         }
@@ -56,9 +54,7 @@ api.interceptors.response.use(
     }
 )
 
-// API Methods
 export const apiMethods = {
-    // Auth
     auth: {
         login: (credentials) => api.post('/auth/login', credentials),
         logout: () => api.post('/auth/logout'),
@@ -69,7 +65,6 @@ export const apiMethods = {
         resetPassword: (token, password) => api.post('/auth/reset-password', { token, password })
     },
 
-    // Academic Years
     academicYears: {
         getAll: (params) => api.get('/academic-years', { params }),
         getCurrent: () => api.get('/academic-years/current'),
@@ -83,7 +78,6 @@ export const apiMethods = {
         getStatistics: (id) => api.get(`/academic-years/${id}/statistics`)
     },
 
-    // Users
     users: {
         getAll: (params) => api.get('/users', { params }),
         getById: (id) => api.get(`/users/${id}`),
@@ -100,7 +94,6 @@ export const apiMethods = {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
-        // User permissions management
         getPermissions: (id) => api.get(`/users/${id}/permissions`),
         addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
         removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
@@ -110,7 +103,6 @@ export const apiMethods = {
     },
 
 
-    // Programs
     programs: {
         getAll: (params) => axios.get('http://localhost:5000/api/programs', { params }),
         getById: (id) => axios.get(`http://localhost:5000/api/programs/${id}`),
@@ -124,32 +116,32 @@ export const apiMethods = {
         getAll: (params) => api.get('/api/organizations', { params }),
         getById: (id) => api.get(`/api/organizations/${id}`),
         create: (data) => api.post('/api/organizations', data),
-        update: (id, data) => api.put(`/api/organizations/${id}`, data),
-        delete: (id) => api.delete(`/api/organizations/${id}`),
-        getByAcademicYear: (academicYearId) => api.get(`/api/organizations/academic-year/${academicYearId}`)
+        update: (id, data) => api.put('/api/organizations/${id}', data),
+        delete: (id) => api.delete('/api/organizations/${id}'),
+        getByAcademicYear: (academicYearId) => api.get('/api/organizations/academic-year/${academicYearId}')
     },
 
     standards: {
         getAll: (params) => api.get('/api/standards', { params }),
         getById: (id) => api.get(`/api/standards/${id}`),
         create: (data) => api.post('/api/standards', data),
-        update: (id, data) => api.put(`/api/standards/${id}`, data),
-        delete: (id) => api.delete(`/api/standards/${id}`),
+        update: (id, data) => api.put('/api/standards/${id}', data),
+        delete: (id) => api.delete('/api/standards/${id}'),
         getByProgram: (programId, organizationId) =>
-            api.get(`/api/standards/program/${programId}/organization/${organizationId}`),
-        getByAcademicYear: (academicYearId) => api.get(`/api/standards/academic-year/${academicYearId}`)
+            api.get('/api/standards/program/${programId}/organization/${organizationId}'),
+        getByAcademicYear: (academicYearId) => api.get('/api/standards/academic-year/${academicYearId}')
     },
 
     criteria: {
         getAll: (params) => api.get('/api/criteria', { params }),
         getById: (id) => api.get(`/api/criteria/${id}`),
         create: (data) => api.post('/api/criteria', data),
-        update: (id, data) => api.put(`/api/criteria/${id}`, data),
-        delete: (id) => api.delete(`/api/criteria/${id}`),
-        getByStandard: (standardId) => api.get(`/api/criteria/standard/${standardId}`),
+        update: (id, data) => api.put('/api/criteria/${id}', data),
+        delete: (id) => api.delete('/api/criteria/${id}'),
+        getByStandard: (standardId) => api.get('/api/criteria/standard/${standardId}'),
         getByProgram: (programId, organizationId) =>
-            api.get(`/api/criteria/program/${programId}/organization/${organizationId}`),
-        getByAcademicYear: (academicYearId) => api.get(`/api/criteria/academic-year/${academicYearId}`),
+            api.get('/api/criteria/program/${programId}/organization/${organizationId}'),
+        getByAcademicYear: (academicYearId) => api.get('/api/criteria/academic-year/${academicYearId}'),
         import: (formData) => api.post('/api/criteria/import', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         }),
@@ -158,13 +150,12 @@ export const apiMethods = {
         })
     },
 
-    // Evidences
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
         getById: (id) => api.get(`/api/evidences/${id}`),
         create: (data) => api.post('/api/evidences', data),
-        update: (id, data) => api.put(`/api/evidences/${id}`, data),
-        delete: (id) => api.delete(`/api/evidences/${id}`),
+        update: (id, data) => api.put('/api/evidences/${id}', data),
+        delete: (id) => api.delete('/api/evidences/${id}'),
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
 
@@ -182,14 +173,14 @@ export const apiMethods = {
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
         copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
-            api.post(`/api/evidences/${id}/copy`, {
+            api.post('/api/evidences/${id}/copy', {
                 targetAcademicYearId,
                 targetStandardId,
                 targetCriteriaId
             }),
         move: (id, targetStandardId, targetCriteriaId) =>
-            api.post(`/api/evidences/${id}/move`, { targetStandardId, targetCriteriaId }),
-        getByAcademicYear: (academicYearId) => api.get(`/api/evidences/academic-year/${academicYearId}`),
+            api.post('/api/evidences/${id}/move', { targetStandardId, targetCriteriaId }),
+        getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
 
         import: (formData) => {
             return api.post('/api/evidences/import', formData, {
@@ -208,12 +199,11 @@ export const apiMethods = {
             }),
     },
 
-    // Files
     files: {
         upload: (file, evidenceId, config = {}) => {
             const formData = new FormData()
             formData.append('files', file)
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
+            return api.post('/api/files/upload/${evidenceId}', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
@@ -223,24 +213,23 @@ export const apiMethods = {
             files.forEach(file => {
                 formData.append('files', file)
             })
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
+            return api.post('/api/files/upload/${evidenceId}', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
         },
-        getById: (id) => api.get(`/api/files/${id}`),
+        getById: (id) => api.get('/api/files/${id}'),
 
-        download: (id) => api.get(`/api/files/download/${id}`, {
+        download: (id) => api.get('/api/files/download/${id}', {
             responseType: 'blob'
         }),
-        delete: (id) => api.delete(`/api/files/${id}`),
-        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`),
+        delete: (id) => api.delete('/api/files/${id}'),
+        getByEvidence: (evidenceId) => api.get('/api/files/evidence/${evidenceId}'),
         approve: (fileId, data) => {
-            return api.post(`/api/evidences/files/${fileId}/approve`, data)
+            return api.post('/api/evidences/files/${fileId}/approve', data)
         }
     },
 
-    // Reports
     reports: {
         getAll: (params) => api.get('/api/reports', { params }),
         getById: (id) => api.get(`/api/reports/${id}`),
@@ -280,11 +269,7 @@ export const apiMethods = {
             params: { format },
             responseType: 'blob'
         }),
-
-        addReviewer: (id, reviewerId, reviewerType) =>
-            api.post(`/api/reports/${id}/reviewers`, { reviewerId, reviewerType }),
-        removeReviewer: (id, reviewerId, reviewerType) =>
-            api.delete(`/api/reports/${id}/reviewers`, { data: { reviewerId, reviewerType } }),
+        // ĐÃ XÓA CÁC API PHÂN QUYỀN TRUY CẬP: addReviewer, removeReviewer, bulkAddReviewers, bulkRemoveReviewers
 
         addComment: (id, comment, section) =>
             api.post(`/api/reports/${id}/comments`, { comment, section }),
@@ -295,10 +280,6 @@ export const apiMethods = {
         generateCode: (type, standardCode, criteriaCode) =>
             api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
 
-        bulkAddReviewers: (data) =>
-            api.post('/api/reports/bulk/reviewers', data),
-        bulkRemoveReviewers: (data) =>
-            api.delete('/api/reports/bulk/reviewers', { data }),
 
         bulkDelete: (reportIds) =>
             api.post('/api/reports/bulk/delete', { reportIds }),
@@ -308,7 +289,6 @@ export const apiMethods = {
             api.post('/api/reports/bulk/archive', { reportIds }),
     },
 
-    // Assignments
     assignments: {
         getAll: (params) => api.get('/api/assignments', { params }),
         getById: (id) => api.get(`/api/assignments/${id}`),
@@ -323,45 +303,43 @@ export const apiMethods = {
         getWorkload: (expertId) =>
             api.get('/api/assignments/expert-workload', { params: { expertId } }),
         getUpcomingDeadlines: (academicYearId, days) =>
-            api.get(`/api/assignments/upcoming-deadlines`, { params: { days } })
+            api.get('/api/assignments/upcoming-deadlines', { params: { days } }),
+        // BỔ SUNG API BULK CREATE để xử lý phân công hàng loạt từ assign-reviewers.js
+        bulkCreate: (data) => api.post('/api/assignments/bulk-create', data)
     },
 
-    // Evaluations
     evaluations: {
         getAll: (params) => api.get('/api/evaluations', { params }),
         getById: (id) => api.get(`/api/evaluations/${id}`),
         create: (data) => api.post('/api/evaluations', data),
-        update: (id, data) => api.put(`/api/evaluations/${id}`, data),
-        submit: (id) => api.post(`/api/evaluations/${id}/submit`),
-        review: (id, data) => api.post(`/api/evaluations/${id}/review`, data),
-        finalize: (id, data) => api.post(`/api/evaluations/${id}/finalize`, data),
-        autoSave: (id, data) => api.put(`/api/evaluations/${id}/autosave`, data),
-        getEvaluatorStats: (evaluatorId) => api.get(`/api/evaluations/evaluator-stats/${evaluatorId}`),
+        update: (id, data) => api.put('/api/evaluations/${id}', data),
+        submit: (id) => api.post('/api/evaluations/${id}/submit'),
+        review: (id, data) => api.post('/api/evaluations/${id}/review', data),
+        finalize: (id, data) => api.post('/api/evaluations/${id}/finalize', data),
+        autoSave: (id, data) => api.put('/api/evaluations/${id}/autosave', data),
+        getEvaluatorStats: (evaluatorId) => api.get('/api/evaluations/evaluator-stats/${evaluatorId}'),
         getSystemStats: () => api.get('/api/evaluations/system-stats'),
-        getAverageScoreByReport: (reportId) => api.get(`/api/evaluations/average-score/${reportId}`),
+        getAverageScoreByReport: (reportId) => api.get('/api/evaluations/average-score/${reportId}'),
     },
 
-    // Notifications
     notifications: {
         getAll: (params) => api.get('/api/notifications', { params }),
-        getById: (id) => api.get(`/api/notifications/${id}`),
-        markAsRead: (id) => api.post(`/api/notifications/${id}/read`),
+        getById: (id) => api.get('/api/notifications/${id}'),
+        markAsRead: (id) => api.post('/api/notifications/${id}/read'),
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
-        delete: (id) => api.delete(`/api/notifications/${id}`),
+        delete: (id) => api.delete('/api/notifications/${id}'),
         getUnreadCount: () => api.get('/api/notifications/unread-count'),
         getStats: () => api.get('/api/notifications/stats')
     },
 
-    // Activity Logs
     activityLogs: {
         getAll: (params) => api.get('/activity-logs', { params }),
-        getUserActivity: (userId, params) => api.get(`/activity-logs/user/${userId}`, { params }),
+        getUserActivity: (userId, params) => api.get('/activity-logs/user/${userId}', { params }),
         getAuditTrail: (targetType, targetId) =>
-            api.get(`/activity-logs/audit/${targetType}/${targetId}`),
+            api.get('/activity-logs/audit/${targetType}/${targetId}'),
         getStats: (params) => api.get('/activity-logs/stats', { params })
     },
 
-    // System
     system: {
         getStats: () => api.get('/system/stats'),
         getDashboard: () => api.get('/system/dashboard'),
@@ -369,35 +347,32 @@ export const apiMethods = {
         getHealth: () => api.get('/system/health')
     },
 
-    // Permissions
     permissions: {
         getAll: (params) => api.get('/api/permissions', { params }),
         getByModule: () => api.get('/api/permissions/by-module'),
-        getById: (id) => api.get(`/api/permissions/${id}`),
+        getById: (id) => api.get('/api/permissions/${id}'),
         create: (data) => api.post('/api/permissions', data),
-        update: (id, data) => api.put(`/api/permissions/${id}`, data),
-        delete: (id) => api.delete(`/api/permissions/${id}`),
+        update: (id, data) => api.put('/api/permissions/${id}', data),
+        delete: (id) => api.delete('/api/permissions/${id}'),
         seed: () => api.post('/api/permissions/seed')
     },
 
-    // User Groups - FIXED: Removed /api prefix
     userGroups: {
         getAll: (params) => api.get('/api/user-groups', { params }),
-        getById: (id) => api.get(`/api/user-groups/${id}`),
+        getById: (id) => api.get('/api/user-groups/${id}'),
         create: (data) => api.post('/api/user-groups', data),
-        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
-        delete: (id) => api.delete(`/api/user-groups/${id}`),
+        update: (id, data) => api.put('/api/user-groups/${id}', data),
+        delete: (id) => api.delete('/api/user-groups/${id}'),
         seed: () => api.post('/api/user-groups/seed'),
 
-        addPermissions: (id, permissionIds) => api.post(`/api/user-groups/${id}/permissions`, { permissionIds }),
-        removePermissions: (id, permissionIds) => api.delete(`/api/user-groups/${id}/permissions`, { data: { permissionIds } }),
+        addPermissions: (id, permissionIds) => api.post('/api/user-groups/${id}/permissions', { permissionIds }),
+        removePermissions: (id, permissionIds) => api.delete('/api/user-groups/${id}/permissions', { data: { permissionIds } }),
 
-        addMembers: (id, userIds) => api.post(`/api/user-groups/${id}/members`, { userIds }),
-        removeMembers: (id, userIds) => api.delete(`/api/user-groups/${id}/members`, { data: { userIds } })
+        addMembers: (id, userIds) => api.post('/api/user-groups/${id}/members', { userIds }),
+        removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
     },
 }
 
-// Utility functions
 export const uploadFile = (file, evidenceId, onProgress) => {
     return apiMethods.files.upload(file, evidenceId, {
         onUploadProgress: (progressEvent) => {
@@ -413,7 +388,6 @@ export const downloadFile = async (fileId, filename) => {
     try {
         const response = await apiMethods.files.download(fileId)
 
-        // Create blob URL and trigger download
         const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
         link.href = url
