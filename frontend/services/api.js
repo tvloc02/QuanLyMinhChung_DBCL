@@ -310,44 +310,35 @@ export const apiMethods = {
 
     // Assignments
     assignments: {
-        getAll: (params) => api.get('/assignments', { params }),
-        getById: (id) => api.get(`/assignments/${id}`),
-        create: (data) => api.post('/assignments', data),
-        update: (id, data) => api.put(`/assignments/${id}`, data),
-        delete: (id) => api.delete(`/assignments/${id}`),
-        accept: (id, responseNote) => api.post(`/assignments/${id}/accept`, { responseNote }),
-        reject: (id, responseNote) => api.post(`/assignments/${id}/reject`, { responseNote }),
-        cancel: (id, reason) => api.post(`/assignments/${id}/cancel`, { reason }),
-        getByExpert: (expertId, params) => api.get(`/assignments/expert/${expertId}`, { params }),
-        getWorkload: (expertId, academicYearId) =>
-            api.get(`/assignments/expert/${expertId}/workload/${academicYearId}`),
-        getStats: (academicYearId, params) =>
-            api.get(`/assignments/stats/${academicYearId}`, { params }),
+        getAll: (params) => api.get('/api/assignments', { params }),
+        getById: (id) => api.get(`/api/assignments/${id}`),
+        create: (data) => api.post('/api/assignments', data),
+        update: (id, data) => api.put(`/api/assignments/${id}`, data),
+        delete: (id) => api.delete(`/api/assignments/${id}`),
+        getExpertWorkload: (expertId) => api.get(`/api/assignments/expert-workload/${expertId}`),
+        getStats: () => api.get('/api/assignments/stats'),
+        accept: (id) => api.post(`/api/assignments/${id}/accept`),
+        reject: (id, responseNote) => api.post(`/api/assignments/${id}/reject`, { responseNote }),
+        cancel: (id, responseNote) => api.post(`/api/assignments/${id}/cancel`, { responseNote }),
+        getWorkload: (expertId) =>
+            api.get('/api/assignments/expert-workload', { params: { expertId } }),
         getUpcomingDeadlines: (academicYearId, days) =>
-            api.get(`/assignments/upcoming-deadlines/${academicYearId}`, { params: { days } })
+            api.get(`/api/assignments/upcoming-deadlines`, { params: { days } })
     },
 
     // Evaluations
     evaluations: {
-        getAll: (params) => api.get('/evaluations', { params }),
-        getById: (id) => api.get(`/evaluations/${id}`),
-        create: (data) => api.post('/evaluations', data),
-        update: (id, data) => api.put(`/evaluations/${id}`, data),
-        delete: (id) => api.delete(`/evaluations/${id}`),
-        submit: (id) => api.post(`/evaluations/${id}/submit`),
-        review: (id, comments) => api.post(`/evaluations/${id}/review`, { comments }),
-        finalize: (id) => api.post(`/evaluations/${id}/finalize`),
-        autoSave: (id, data) => api.post(`/evaluations/${id}/auto-save`, data),
-        getByAssignment: (assignmentId) => api.get(`/evaluations/assignment/${assignmentId}`),
-        getByEvaluator: (evaluatorId, params) => api.get(`/evaluations/evaluator/${evaluatorId}`, { params }),
-        getStats: (evaluatorId, academicYearId) =>
-            api.get(`/evaluations/stats/${evaluatorId}/${academicYearId}`),
-        getEvaluatorStats: (evaluatorId) =>
-            api.get(`/api/reports/evaluations/evaluator-stats/${evaluatorId}`),
-        getSystemStats: () =>
-            api.get('/api/reports/evaluations/system-stats'),
-        getAverageScoreByReport: (reportId) =>
-            api.get(`/api/reports/evaluations/average-score/${reportId}`)
+        getAll: (params) => api.get('/api/evaluations', { params }),
+        getById: (id) => api.get(`/api/evaluations/${id}`),
+        create: (data) => api.post('/api/evaluations', data),
+        update: (id, data) => api.put(`/api/evaluations/${id}`, data),
+        submit: (id) => api.post(`/api/evaluations/${id}/submit`),
+        review: (id, data) => api.post(`/api/evaluations/${id}/review`, data),
+        finalize: (id, data) => api.post(`/api/evaluations/${id}/finalize`, data),
+        autoSave: (id, data) => api.put(`/api/evaluations/${id}/autosave`, data),
+        getEvaluatorStats: (evaluatorId) => api.get(`/api/evaluations/evaluator-stats/${evaluatorId}`),
+        getSystemStats: () => api.get('/api/evaluations/system-stats'),
+        getAverageScoreByReport: (reportId) => api.get(`/api/evaluations/average-score/${reportId}`),
     },
 
     // Notifications
