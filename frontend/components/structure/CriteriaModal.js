@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles } from 'lucide-react'
+import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles, FolderOpen, Code, FileText, Globe } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -12,7 +12,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         requirements: '',
         guidelines: '',
         indicators: [],
-        status: 'active',
+        status: 'active', // Đã sửa mặc định sang 'active'
         autoGenerateCode: true
     })
     const [errors, setErrors] = useState({})
@@ -152,8 +152,8 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header với gradient */}
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6">
+                {/* Header với gradient - Xanh Lam */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -163,7 +163,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 <h2 className="text-2xl font-bold text-white">
                                     {criteria ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí mới'}
                                 </h2>
-                                <p className="text-purple-100 text-sm">
+                                <p className="text-blue-100 text-sm">
                                     {criteria ? 'Cập nhật thông tin tiêu chí đánh giá' : 'Tạo tiêu chí đánh giá mới'}
                                 </p>
                             </div>
@@ -178,7 +178,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
-                    {/* Tiêu chuẩn */}
+                    {/* Tiêu chuẩn - Gradient Blue/Indigo */}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center mr-2">
@@ -210,7 +210,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Mã tiêu chí */}
+                    {/* Mã tiêu chí - Gradient Indigo/Purple */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-indigo-500 rounded-lg flex items-center justify-center mr-2">
@@ -264,7 +264,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Tên tiêu chí */}
+                    {/* Tên tiêu chí - Gradient Purple/Pink (Giữ lại màu này cho sự khác biệt) */}
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center mr-2">
@@ -290,7 +290,39 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Trạng thái */}
+                    {/* Yêu cầu - Gradient Teal/Cyan */}
+                    <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <FileText className="w-5 h-5 text-teal-500 mr-2" />
+                            Yêu cầu
+                        </label>
+                        <textarea
+                            name="requirements"
+                            value={formData.requirements}
+                            onChange={handleChange}
+                            rows={3}
+                            className="w-full px-4 py-3 border-2 border-teal-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all resize-none"
+                            placeholder="Nhập yêu cầu của tiêu chí"
+                        />
+                    </div>
+
+                    {/* Hướng dẫn - Gradient Amber/Orange */}
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-xl p-5">
+                        <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
+                            <Globe className="w-5 h-5 text-amber-500 mr-2" />
+                            Hướng dẫn
+                        </label>
+                        <textarea
+                            name="guidelines"
+                            value={formData.guidelines}
+                            onChange={handleChange}
+                            rows={3}
+                            className="w-full px-4 py-3 border-2 border-amber-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none"
+                            placeholder="Nhập hướng dẫn đánh giá tiêu chí"
+                        />
+                    </div>
+
+                    {/* Trạng thái - Gradient Gray */}
                     <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center mr-2">
@@ -304,10 +336,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             onChange={handleChange}
                             className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
                         >
-                            <option value="draft">Nháp</option>
-                            <option value="active">Hoạt động</option>
-                            <option value="inactive">Không hoạt động</option>
-                            <option value="archived">Lưu trữ</option>
+                            <option value="active">✅ Hoạt động</option>
+                            <option value="draft">📝 Nháp</option>
+                            <option value="inactive">⏸️ Không hoạt động</option>
+                            <option value="archived">📦 Lưu trữ</option>
                         </select>
                     </div>
 
@@ -413,7 +445,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     </div>
                 </form>
 
-                {/* Footer Actions */}
+                {/* Footer Actions - Xanh Lam */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"
@@ -426,7 +458,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
                     >
                         {loading ? (
                             <>
