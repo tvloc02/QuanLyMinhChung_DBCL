@@ -78,6 +78,8 @@ export default function StandardList() {
         }
     }
 
+    // [GIỮ NGUYÊN HÀM handleDownloadTemplate CHO ĐƠN GIẢN, CHỈNH SỬA FRONTEND HTML]
+
     const handleDownloadTemplate = () => {
         try {
             const wb = XLSX.utils.book_new()
@@ -192,6 +194,20 @@ export default function StandardList() {
                 { wch: 12 }
             ]
 
+            const range = XLSX.utils.decode_range(ws['!ref'])
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
+            const customHeaderStyle = {
+                fill: { fgColor: { rgb: "1F4E78" } },
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            }
+
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_col(C) + "1"
+                if (!ws[address]) continue
+                ws[address].s = customHeaderStyle
+            }
+
             XLSX.utils.book_append_sheet(wb, ws, 'Tiêu chuẩn')
             XLSX.writeFile(wb, `Danh_sach_tieu_chuan_${Date.now()}.xlsx`)
             toast.success('Xuất file thành công')
@@ -265,7 +281,7 @@ export default function StandardList() {
 
     return (
         <div className="space-y-6">
-            {/* Header với gradient */}
+            {/* Header với gradient (Sử dụng màu Cam/Amber) */}
             <div className="bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl shadow-lg p-8">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -358,7 +374,7 @@ export default function StandardList() {
                         onChange={(e) => setStatus(e.target.value)}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     >
-                        <option value="">Tất cả trạng thái</option>
+                        <option value="">⚡ Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
                         <option value="active">Hoạt động</option>
                         <option value="inactive">Không hoạt động</option>
@@ -381,6 +397,7 @@ export default function StandardList() {
                     <table className="w-full">
                         <thead className="bg-gradient-to-r from-orange-50 to-amber-50 border-b-2 border-orange-200">
                         <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-orange-700 uppercase tracking-wider">STT</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-orange-700 uppercase tracking-wider">Mã</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-orange-700 uppercase tracking-wider">Tên tiêu chuẩn</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-orange-700 uppercase tracking-wider">Chương trình</th>
@@ -392,7 +409,7 @@ export default function StandardList() {
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -401,7 +418,7 @@ export default function StandardList() {
                             </tr>
                         ) : standards.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <Target className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -410,8 +427,11 @@ export default function StandardList() {
                                 </td>
                             </tr>
                         ) : (
-                            standards.map((standard) => (
+                            standards.map((standard, index) => (
                                 <tr key={standard._id} className="hover:bg-orange-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        {((pagination.current - 1) * 10) + index + 1}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="px-3 py-1 text-sm font-bold text-orange-700 bg-orange-100 rounded-lg">
                                             {standard.code}
