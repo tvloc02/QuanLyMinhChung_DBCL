@@ -493,19 +493,40 @@ const getExpertWorkload = async (req, res) => {
 
 const getAssignmentStats = async (req, res) => {
     try {
-        const { assignedBy, expertId, status } = req.query;
         const academicYearId = req.academicYearId;
+        const { expertId } = req.query;
 
-        const filters = {};
-        if (assignedBy) filters.assignedBy = assignedBy;
-        if (expertId) filters.expertId = expertId;
-        if (status) filters.status = status;
+        let matchQuery = {
+            academicYearId: mongoose.Types.ObjectId(academicYearId)
+        };
 
-        const stats = await Assignment.getAssignmentStats(academicYearId, filters);
+        if (expertId) {
+            matchQuery.expertId = mongoose.Types.ObjectId(expertId);
+        }
+
+        const stats = await Assignment.aggregate([
+            { $match: matchQuery },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+                    accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+                    inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
+                    completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                    overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
+                    cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
+                }
+            }
+        ]);
+        const defaultStats = {
+            total: 0, pending: 0, accepted: 0, inProgress: 0,
+            completed: 0, overdue: 0, cancelled: 0
+        };
 
         res.json({
             success: true,
-            data: stats
+            data: stats[0] || defaultStats
         });
 
     } catch (error) {
