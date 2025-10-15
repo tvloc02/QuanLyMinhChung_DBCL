@@ -3,7 +3,7 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import Footer from './Footer'
 import Breadcrumb from './Breadcrumb'
-import AIChat from './AIChat';
+import AIChatWidget from "./AIChatWidget";
 
 
 export default function Layout({ children, title, breadcrumbItems }) {
@@ -59,6 +59,7 @@ export default function Layout({ children, title, breadcrumbItems }) {
 
                             {/* Children sẽ tự động chiếm toàn bộ width */}
                             {children}
+                            <AIChatWidget />
 
                         </div>
                     </main>
