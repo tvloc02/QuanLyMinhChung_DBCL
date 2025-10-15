@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { FileText, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, CheckSquare, Filter, Sparkles } from 'lucide-react'
+import { FileText, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, CheckSquare, Filter, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import CriteriaModal from './CriteriaModal'
+import { ActionButton } from '../../components/ActionButtons' // Import ActionButton
 
 export default function CriteriaList() {
     const [criteria, setCriteria] = useState([])
@@ -30,7 +31,7 @@ export default function CriteriaList() {
             loadStandards()
         } else {
             setStandards([])
-            setStandardId('') // Đảm bảo standardId bị reset khi programId thay đổi
+            setStandardId('')
         }
     }, [programId])
 
@@ -51,7 +52,6 @@ export default function CriteriaList() {
 
     const loadStandards = async () => {
         try {
-            // Load standards only if programId is selected
             if (!programId) return
 
             const response = await apiMethods.standards.getAll({
@@ -60,7 +60,8 @@ export default function CriteriaList() {
                 limit: 100
             })
             if (response.data.success) {
-                setStandards(response.data.data.standards || response.data.data || [])
+                // Ensure the list contains only objects with _id and name
+                setStandards((response.data.data.standards || response.data.data || []).filter(s => s._id))
             }
         } catch (error) {
             console.error('Load standards error:', error)
@@ -92,8 +93,6 @@ export default function CriteriaList() {
             setLoading(false)
         }
     }
-
-    // [GIỮ NGUYÊN HÀM handleDownloadTemplate CHO ĐƠN GIẢN, CHỈNH SỬA FRONTEND HTML]
 
     const handleDownloadTemplate = () => {
         try {
@@ -329,7 +328,6 @@ export default function CriteriaList() {
         }
     }
 
-
     const handleExportExcel = () => {
         try {
             const exportData = criteria.map((c, index) => ({
@@ -444,8 +442,8 @@ export default function CriteriaList() {
 
     return (
         <div className="space-y-6">
-            {/* Header với gradient (Sử dụng màu Tím/Indigo) */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-lg p-8">
+            {/* Header với gradient - Xanh Lam */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -453,7 +451,7 @@ export default function CriteriaList() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-1">Quản lý Tiêu chí</h1>
-                            <p className="text-purple-100">Quản lý các tiêu chí đánh giá chất lượng</p>
+                            <p className="text-blue-100">Quản lý các tiêu chí đánh giá chất lượng</p>
                         </div>
                     </div>
                     <div className="flex gap-3">
@@ -483,7 +481,7 @@ export default function CriteriaList() {
                                 setSelectedCriteria(null)
                                 setShowCriteriaModal(true)
                             }}
-                            className="px-6 py-2.5 bg-white text-purple-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
                         >
                             <Plus size={20} />
                             Thêm tiêu chí
@@ -495,7 +493,7 @@ export default function CriteriaList() {
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                    <Filter className="w-5 h-5 text-indigo-600" />
+                    <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -506,7 +504,7 @@ export default function CriteriaList() {
                             placeholder="Tìm kiếm tiêu chí..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
@@ -516,7 +514,7 @@ export default function CriteriaList() {
                             setProgramId(e.target.value)
                             setStandardId('')
                         }}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả chương trình</option>
                         {programs.map(p => (
@@ -527,7 +525,7 @@ export default function CriteriaList() {
                     <select
                         value={standardId}
                         onChange={(e) => setStandardId(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         disabled={!programId}
                     >
                         <option value="">Tất cả tiêu chuẩn</option>
@@ -541,7 +539,7 @@ export default function CriteriaList() {
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
@@ -552,7 +550,7 @@ export default function CriteriaList() {
 
                     <button
                         onClick={loadCriteria}
-                        className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -561,17 +559,17 @@ export default function CriteriaList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b-2 border-purple-200">
+                    <table className="w-full border-collapse">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">STT</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tên tiêu chí</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tiêu chuẩn</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Trạng thái</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-purple-700 uppercase tracking-wider">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chí</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Tiêu chuẩn</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -579,7 +577,7 @@ export default function CriteriaList() {
                             <tr>
                                 <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
                                     </div>
                                 </td>
@@ -596,16 +594,16 @@ export default function CriteriaList() {
                             </tr>
                         ) : (
                             criteria.map((item, index) => (
-                                <tr key={item._id} className="hover:bg-purple-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-3 py-1 text-sm font-bold text-purple-700 bg-purple-100 rounded-lg">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {item.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{item.name}</div>
                                         {item.description && (
                                             <div className="text-sm text-gray-500 truncate max-w-md mt-1">
@@ -613,37 +611,39 @@ export default function CriteriaList() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm text-gray-900">
                                             <span className="font-bold text-indigo-600">{item.standardId?.code}</span>
                                             {' - '}
                                             <span className="text-gray-700">{item.standardId?.name || '-'}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg ${getStatusColor(item.status)}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
+                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(item.status)}`}>
                                             {getStatusLabel(item.status)}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button
+                                            {/* ActionButton cho Chỉnh sửa */}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
                                                 onClick={() => {
                                                     setSelectedCriteria(item)
                                                     setShowCriteriaModal(true)
                                                 }}
-                                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
-                                                title="Chỉnh sửa"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button
+                                                title="Chỉnh sửa tiêu chí"
+                                            />
+                                            {/* ActionButton cho Xóa */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
                                                 onClick={() => handleDelete(item._id)}
-                                                className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all"
-                                                title="Xóa"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
+                                                title="Xóa tiêu chí"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -655,23 +655,23 @@ export default function CriteriaList() {
 
                 {/* Pagination */}
                 {!loading && criteria.length > 0 && (
-                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 px-6 py-4 border-t-2 border-gray-100 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
-                            Hiển thị <span className="font-bold text-purple-600">{criteria.length}</span> trong tổng số{' '}
-                            <span className="font-bold text-purple-600">{pagination.total}</span> tiêu chí
+                            Hiển thị <span className="font-bold text-blue-600">{criteria.length}</span> trong tổng số{' '}
+                            <span className="font-bold text-blue-600">{pagination.total}</span> tiêu chí
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current - 1 })}
                                 disabled={!pagination.hasPrev}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Trước
                             </button>
                             <button
                                 onClick={() => setPagination({ ...pagination, current: pagination.current + 1 })}
                                 disabled={!pagination.hasNext}
-                                className="px-4 py-2 border-2 border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                className="px-4 py-2 border-2 border-blue-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             >
                                 Sau
                             </button>
