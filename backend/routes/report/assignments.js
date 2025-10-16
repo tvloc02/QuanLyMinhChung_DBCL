@@ -14,8 +14,20 @@ const {
     cancelAssignment,
     getExpertWorkload,
     getAssignmentStats,
-    getUpcomingDeadlines
+    getUpcomingDeadlines,
+    bulkCreateAssignments
 } = require('../../controllers/report/assignmentController');
+
+// Bulk create route - TRƯỚC routes có :id
+router.post('/bulk-create', auth, requireManager, [
+    body('assignments').isArray({ min: 1, max: 100 }).withMessage('Danh sách phân công không hợp lệ'),
+    body('assignments.*.reportId').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+    body('assignments.*.expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ'),
+    body('assignments.*.deadline').isISO8601().withMessage('Ngày hạn chót không hợp lệ'),
+    body('assignments.*.priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
+    body('assignments.*.assignmentNote').optional().isLength({ max: 1000 }),
+    body('assignments.*.evaluationCriteria').optional().isArray()
+], validation, bulkCreateAssignments);
 
 // Statistics routes (place before :id routes to avoid conflicts)
 router.get('/stats', auth, getAssignmentStats);
