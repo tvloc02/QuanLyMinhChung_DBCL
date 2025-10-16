@@ -3,7 +3,8 @@ const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
-const upload = require('../../middleware/upload'); // Assuming multer middleware
+const { upload } = require('../../middleware/upload');
+
 const {
     getReports,
     getReportById,
@@ -88,7 +89,6 @@ router.get('/:id/download', auth, [
     query('format').optional().isIn(['html', 'pdf'])
 ], validation, downloadReport);
 
-// File operations
 router.post('/:id/upload', auth, requireManager, [
     param('id').isMongoId()
 ], upload.single('file'), uploadReportFile);
@@ -102,4 +102,3 @@ router.post('/:id/convert', auth, requireManager, [
 ], validation, convertFileToContent);
 
 module.exports = router;
-
