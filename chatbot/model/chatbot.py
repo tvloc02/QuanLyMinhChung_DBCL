@@ -6,7 +6,6 @@ from google import genai
 from google.genai import types
 from google.genai.errors import APIError
 
-# --- FIX LỖI OPENAI_API_KEY environment variable not set (Logic load .env giữ nguyên) ---
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dotenv_path = os.path.join(parent_dir, '.env')
 load_dotenv(dotenv_path=dotenv_path)
@@ -14,7 +13,7 @@ load_dotenv(dotenv_path=dotenv_path)
 logging.basicConfig(level=logging.INFO)
 
 class ChatBot:
-    def __init__(self, data_file="model/training_data.json"):
+    def __init__(self, data_file="/model/training_data.json"):
         try:
             with open(data_file, encoding="utf-8") as f:
                 self.data = json.load(f)
@@ -22,7 +21,6 @@ class ChatBot:
             self.data = []
             logging.error(f"Error loading training data: {e}")
 
-        # --- CHUYỂN ĐỔI SANG GEMINI ---
         try:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
@@ -30,9 +28,7 @@ class ChatBot:
 
             # Khởi tạo Gemini Client
             self.client = genai.Client(api_key=api_key)
-            self.model = "gemini-2.5-flash" # Mô hình nhanh và hiệu quả về chi phí
-
-            # Khởi tạo Gemini Safety Settings (để đảm bảo không bị chặn các prompt không cần thiết)
+            self.model = "gemini-2.5-flash"
             self.safety_settings = [
                 types.SafetySetting(
                     category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -83,7 +79,6 @@ class ChatBot:
 
             reply = response.text.strip()
 
-            # XỬ LÝ CÂU TRẢ LỜI KHÔNG PHÙ HỢP (dựa trên hướng dẫn của system prompt)
             unrelated_phrase = "xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng"
             if unrelated_phrase in reply.lower():
                 return "Xin lỗi, tôi chưa hiểu câu hỏi này vì nó không liên quan đến Hệ thống Quản lý Minh chứng. Vui lòng đưa ra câu hỏi đúng hoặc chọn từ các gợi ý."
