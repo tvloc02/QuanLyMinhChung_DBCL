@@ -1,17 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-// Giữ lại requireManager cho các thao tác tạo/cập nhật cơ bản
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
-const { setAcademicYearContext } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
-const {
-    checkReportViewPermission,
-    checkReportEditPermission,
-    // Loại bỏ checkReportCommentPermission
-    // checkReportCommentPermission
-} = require('../../middleware/reportPermission');
-
+const upload = require('../../middleware/upload'); // Assuming multer middleware
 const {
     getReports,
     getReportById,
@@ -19,121 +11,95 @@ const {
     updateReport,
     deleteReport,
     publishReport,
-    // Loại bỏ addComment, resolveComment
-    // addComment,
-    // resolveComment,
-    getReportVersions,
-    // Loại bỏ getReportEvidences
-    // getReportEvidences,
+    unpublishReport,
+    downloadReport,
+    getReportStats,
     uploadReportFile,
     downloadReportFile,
     convertFileToContent
 } = require('../../controllers/report/reportController');
 
-const createReportValidation = [
-    body('title')
-        .notEmpty()
-        .withMessage('Tiêu đề báo cáo là bắt buộc')
-        .isLength({ max: 500 })
-        .withMessage('Tiêu đề không được quá 500 ký tự'),
-    body('type')
-        .notEmpty()
-        .withMessage('Loại báo cáo là bắt buộc')
-        .isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report'])
-        .withMessage('Loại báo cáo không hợp lệ'),
-    body('content')
-        .if(body('contentMethod').equals('online_editor'))
-        .notEmpty()
-        .withMessage('Nội dung báo cáo là bắt buộc'),
-    body('programId')
-        .notEmpty()
-        .withMessage('Chương trình là bắt buộc')
-        .isMongoId()
-        .withMessage('ID chương trình không hợp lệ'),
-    body('organizationId')
-        .notEmpty()
-        .withMessage('Tổ chức là bắt buộc')
-        .isMongoId()
-        .withMessage('ID tổ chức không hợp lệ'),
-    body('standardId')
-        .optional()
-        .isMongoId()
-        .withMessage('ID tiêu chuẩn không hợp lệ'),
-    body('criteriaId')
-        .optional()
-        .isMongoId()
-        .withMessage('ID tiêu chí không hợp lệ'),
-    body('contentMethod')
-        .optional()
-        .isIn(['online_editor', 'file_upload'])
-        .withMessage('Phương thức nhập không hợp lệ')
-];
+// Statistics route (before :id routes)
+router.get('/stats', auth, [
+    query('type').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
+    query('status').optional().isIn(['draft', 'published', 'archived']),
+    query('programId').optional().isMongoId(),
+    query('organizationId').optional().isMongoId()
+], validation, getReportStats);
 
+// List and create
 router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('search').optional().trim().escape(),
+    query('search').optional().trim(),
     query('type').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
-    query('status').optional().isIn(['draft', 'under_review', 'published', 'archived']),
+    query('status').optional().isIn(['draft', 'published', 'archived']),
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
     query('criteriaId').optional().isMongoId()
 ], validation, getReports);
 
+router.post('/', auth, requireManager, [
+    body('title').notEmpty().isLength({ max: 500 }),
+    body('type').isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
+    body('programId').isMongoId(),
+    body('organizationId').isMongoId(),
+    body('standardId').optional().isMongoId(),
+    body('criteriaId').optional().isMongoId(),
+    body('content').optional(),
+    body('contentMethod').optional().isIn(['online_editor', 'file_upload']),
+    body('summary').optional().isLength({ max: 1000 }),
+    body('keywords').optional().isArray()
+], validation, createReport);
+
+// Get by ID
 router.get('/:id', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportViewPermission, getReportById);
+    param('id').isMongoId()
+], validation, getReportById);
 
-router.get('/:id/versions', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportViewPermission, getReportVersions);
-
-// Loại bỏ route lấy minh chứng
-// router.get('/:id/evidences', auth, [
-//     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-// ], validation, checkReportViewPermission, getReportEvidences);
-
-router.post('/', auth, requireManager, createReportValidation, validation, createReport);
-
-router.put('/:id', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+// Update
+router.put('/:id', auth, requireManager, [
+    param('id').isMongoId(),
     body('title').optional().isLength({ max: 500 }),
     body('content').optional(),
     body('summary').optional().isLength({ max: 1000 }),
-    body('keywords').optional().isArray()
-], validation, checkReportEditPermission, updateReport);
+    body('keywords').optional().isArray(),
+    body('contentMethod').optional().isIn(['online_editor', 'file_upload'])
+], validation, updateReport);
 
-router.delete('/:id', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportEditPermission, deleteReport);
+// Delete
+router.delete('/:id', auth, requireManager, [
+    param('id').isMongoId()
+], validation, deleteReport);
 
-router.post('/:id/publish', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportEditPermission, publishReport);
+// Publish/Unpublish
+router.post('/:id/publish', auth, requireManager, [
+    param('id').isMongoId()
+], validation, publishReport);
 
-// Loại bỏ tất cả các route liên quan đến bình luận/đánh giá
-// router.post('/:id/comments', auth, [
-//     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-//     body('comment').notEmpty().withMessage('Nội dung bình luận là bắt buộc'),
-//     body('section').optional()
-// ], validation, checkReportCommentPermission, addComment);
+router.post('/:id/unpublish', auth, requireManager, [
+    param('id').isMongoId()
+], validation, unpublishReport);
 
-// router.put('/:id/comments/:commentId/resolve', auth, [
-//     param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-//     param('commentId').isMongoId().withMessage('ID bình luận không hợp lệ')
-// ], validation, checkReportEditPermission, resolveComment);
+// Download
+router.get('/:id/download', auth, [
+    param('id').isMongoId(),
+    query('format').optional().isIn(['html', 'pdf'])
+], validation, downloadReport);
 
-router.post('/:id/upload', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportEditPermission, uploadReportFile);
+// File operations
+router.post('/:id/upload', auth, requireManager, [
+    param('id').isMongoId()
+], upload.single('file'), uploadReportFile);
 
 router.get('/:id/download-file', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportViewPermission, downloadReportFile);
+    param('id').isMongoId()
+], validation, downloadReportFile);
 
-router.post('/:id/convert', auth, [
-    param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')
-], validation, checkReportEditPermission, convertFileToContent);
+router.post('/:id/convert', auth, requireManager, [
+    param('id').isMongoId()
+], validation, convertFileToContent);
 
 module.exports = router;
+
