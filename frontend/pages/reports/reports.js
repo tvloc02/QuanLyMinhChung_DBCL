@@ -20,7 +20,8 @@ import {
     X,
     Loader2,
     BarChart3,
-    Send
+    Send,
+    RotateCcw
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -251,6 +252,19 @@ export default function ReportsManagement() {
         }
     }
 
+    const handleUnpublish = async (id) => {
+        if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này?')) return
+
+        try {
+            await apiMethods.reports.unpublish(id)
+            toast.success('Thu hồi xuất bản báo cáo thành công')
+            fetchReports()
+        } catch (error) {
+            console.error('Unpublish error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi xuất bản báo cáo')
+        }
+    }
+
     const toggleSelectItem = (id) => {
         setSelectedItems(prev =>
             prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -291,7 +305,6 @@ export default function ReportsManagement() {
     const getStatusColor = (status) => {
         const colors = {
             draft: 'bg-gray-100 text-gray-800 border-gray-200',
-            under_review: 'bg-amber-100 text-amber-800 border-amber-200',
             published: 'bg-green-100 text-green-800 border-green-200',
             archived: 'bg-blue-100 text-blue-800 border-blue-200'
         }
@@ -301,7 +314,6 @@ export default function ReportsManagement() {
     const getStatusLabel = (status) => {
         const labels = {
             draft: 'Bản nháp',
-            under_review: 'Đang xem xét',
             published: 'Đã xuất bản',
             archived: 'Lưu trữ'
         }
@@ -365,11 +377,11 @@ export default function ReportsManagement() {
                         </div>
                         <div className="flex gap-3">
                             <button
-                                onClick={() => router.push('/reports/assignments')}
+                                onClick={() => router.push('/reports/evaluations')}
                                 className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
                             >
                                 <BarChart3 className="h-5 w-5 mr-2" />
-                                Phân công
+                                Đánh giá
                             </button>
                             <button
                                 onClick={() => router.push('/reports/create')}
@@ -533,7 +545,6 @@ export default function ReportsManagement() {
                                     >
                                         <option value="">Tất cả trạng thái</option>
                                         <option value="draft">Bản nháp</option>
-                                        <option value="under_review">Đang xem xét</option>
                                         <option value="published">Đã xuất bản</option>
                                         <option value="archived">Lưu trữ</option>
                                     </select>
@@ -664,7 +675,7 @@ export default function ReportsManagement() {
                                         <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                             Ngày tạo
                                         </th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-72">
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-80">
                                             Thao tác
                                         </th>
                                     </tr>
@@ -766,13 +777,13 @@ export default function ReportsManagement() {
                                                     {formatDate(report.createdAt)}
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <div className="flex items-center justify-center gap-2">
+                                                    <div className="flex items-center justify-center gap-2 flex-wrap">
                                                         <ActionButton
                                                             icon={Eye}
                                                             variant="view"
                                                             size="sm"
                                                             onClick={() => handleViewDetail(report._id)}
-                                                            title="Xem chi tiết báo cáo" // <-- ĐÃ THÊM TITLE
+                                                            title="Xem chi tiết báo cáo"
                                                         />
 
                                                         <ActionButton
@@ -780,7 +791,7 @@ export default function ReportsManagement() {
                                                             variant="edit"
                                                             size="sm"
                                                             onClick={() => handleEdit(report._id)}
-                                                            title="Chỉnh sửa báo cáo" // <-- ĐÃ THÊM TITLE
+                                                            title="Chỉnh sửa báo cáo"
                                                         />
 
                                                         <ActionButton
@@ -789,7 +800,7 @@ export default function ReportsManagement() {
                                                             size="sm"
                                                             disabled={!isPublished}
                                                             onClick={() => isPublished && router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
-                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"} // <-- ĐÃ THÊM TITLE
+                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
                                                         />
 
                                                         <ActionButton
@@ -798,7 +809,16 @@ export default function ReportsManagement() {
                                                             size="sm"
                                                             disabled={!isDraft}
                                                             onClick={() => isDraft && handlePublish(report._id)}
-                                                            title={isDraft ? "Xuất bản báo cáo" : "Đã xuất bản hoặc đang xem xét"} // <-- ĐÃ THÊM TITLE
+                                                            title={isDraft ? "Xuất bản báo cáo" : "Đã xuất bản"}
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={RotateCcw}
+                                                            variant="warning"
+                                                            size="sm"
+                                                            disabled={!isPublished}
+                                                            onClick={() => isPublished && handleUnpublish(report._id)}
+                                                            title={isPublished ? "Thu hồi xuất bản" : "Chỉ thu hồi khi đã xuất bản"}
                                                         />
 
                                                         <ActionButton
@@ -806,7 +826,7 @@ export default function ReportsManagement() {
                                                             variant="delete"
                                                             size="sm"
                                                             onClick={() => handleDelete(report._id)}
-                                                            title="Xóa báo cáo" // <-- ĐÃ THÊM TITLE
+                                                            title="Xóa báo cáo"
                                                         />
                                                     </div>
                                                 </td>
