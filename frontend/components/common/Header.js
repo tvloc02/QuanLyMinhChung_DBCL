@@ -672,7 +672,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         <button
                                             onClick={() => {
                                                 setNotificationDropdownOpen(false)
-                                                router.push('/notifications')
+                                                router.push('/notifications/notifications')
                                             }}
                                             className="w-full text-center text-sm font-bold text-indigo-600"
                                         >
