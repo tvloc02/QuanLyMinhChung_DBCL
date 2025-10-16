@@ -1166,6 +1166,74 @@ const approveFile = async (req, res) => {
     }
 };
 
+const getEvidenceByCode = async (req, res) => {
+    try {
+        const { code } = req.params;
+
+        const evidence = await Evidence.findOne({ code: code.toUpperCase() })
+            .populate('createdBy', 'fullName email')
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code')
+            .populate({
+                path: 'files',
+                select: 'originalName size mimeType uploadedAt'
+            });
+
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Minh chứng không tồn tại'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: evidence
+        });
+
+    } catch (error) {
+        console.error('Get evidence by code error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống'
+        });
+    }
+};
+
+const getPublicEvidence = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const evidence = await Evidence.findById(id)
+            .populate('createdBy', 'fullName email')
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code')
+            .populate({
+                path: 'files',
+                select: 'originalName size mimeType uploadedAt'
+            });
+
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Minh chứng không tồn tại'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: evidence
+        });
+
+    } catch (error) {
+        console.error('Get public evidence error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -1183,5 +1251,7 @@ module.exports = {
     validateEvidenceFileName,
     moveEvidence,
     getFullEvidenceTree,
-    approveFile
+    approveFile,
+    getEvidenceByCode,
+    getPublicEvidence
 };
