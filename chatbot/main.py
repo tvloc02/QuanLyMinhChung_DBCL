@@ -6,9 +6,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 
-# --- FIX LỖI OPENAI_API_KEY: Chỉ đường dẫn tới file backend/.env ---
-# os.path.dirname(__file__) là thư mục 'chatbot'
-# os.path.dirname(os.path.dirname(__file__)) là thư mục gốc của dự án
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 # --- END FIX ---
@@ -26,8 +23,7 @@ logging.basicConfig(
 )
 
 try:
-    # FIX LỖI ĐƯỜNG DẪN DỮ LIỆU: Chỉ đường dẫn tới chatbot/model/training_data.json
-    bot = ChatBot(data_file="chatbot/model/training_data.json")
+    bot = ChatBot(data_file="/model/training_data.json")
     logging.info("Chatbot initialized successfully")
 except Exception as e:
     logging.error(f"Failed to initialize chatbot: {str(e)}")
