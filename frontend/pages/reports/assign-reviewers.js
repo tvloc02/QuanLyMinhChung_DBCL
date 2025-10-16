@@ -14,7 +14,8 @@ import {
     CheckCircle,
     Calendar,
     Zap,
-    Users
+    Users,
+    X
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
@@ -61,7 +62,6 @@ export default function AssignReviewersPage() {
                 reportsData.map(res => res.data?.data || res.data).filter(Boolean)
             )
 
-            // Initialize assignments state
             const initialAssignments = {}
             reportsData.forEach((res, idx) => {
                 const report = res.data?.data || res.data
@@ -79,15 +79,43 @@ export default function AssignReviewersPage() {
 
     const fetchExperts = async () => {
         try {
-            const response = await apiMethods.users.getExperts({
-                status: 'active',
-                limit: 1000
+            console.log('Fetching experts...')
+
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/users?status=active&limit=100&role=expert', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             })
 
-            const expertsList = response.data?.data?.users || response.data?.data || []
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
+
+            const data = await response.json()
+            console.log('Response:', data)
+
+            let expertsList = []
+
+            if (data?.data?.users) {
+                expertsList = data.data.users
+            } else if (data?.data && Array.isArray(data.data)) {
+                expertsList = data.data
+            } else if (Array.isArray(data?.users)) {
+                expertsList = data.users
+            }
+
+            console.log('Total experts:', expertsList.length)
             setExperts(expertsList)
+
+            if (expertsList.length === 0) {
+                toast.warning('Không tìm thấy chuyên gia nào trong hệ thống')
+            }
+
         } catch (error) {
-            console.error('Error fetching experts:', error.message)
+            console.error('Error fetching experts:', error)
+            toast.error('Lỗi khi tải danh sách chuyên gia: ' + error.message)
             setExperts([])
         }
     }
@@ -147,11 +175,11 @@ export default function AssignReviewersPage() {
         Object.entries(assignments).forEach(([reportId, reportsAssignments]) => {
             reportsAssignments.forEach((assignment, idx) => {
                 if (!assignment.expertIds || assignment.expertIds.length === 0) {
-                    toast.error(`Vui lòng chọn ít nhất một chuyên gia cho báo cáo: ${reportId} (phân quyền ${idx + 1})`)
+                    toast.error(`Vui lòng chọn ít nhất một chuyên gia cho báo cáo: ${reportId}`)
                     hasErrors = true
                 }
                 if (!assignment.deadline) {
-                    toast.error(`Vui lòng chọn hạn chót cho báo cáo: ${reportId} (phân quyền ${idx + 1})`)
+                    toast.error(`Vui lòng chọn hạn chót cho báo cáo: ${reportId}`)
                     hasErrors = true
                 }
                 if (!hasErrors) {
@@ -178,14 +206,44 @@ export default function AssignReviewersPage() {
                     )
                 )
 
-            await Promise.all(
-                allAssignments.map(assignment =>
-                    apiMethods.assignments.create(assignment)
-                )
-            )
+            console.log('Creating assignments:', allAssignments)
 
-            toast.success(`Đã phân quyền ${totalAssignments} đánh giá thành công`)
+            try {
+                const response = await apiMethods.assignments.bulkCreate(allAssignments)
+                console.log('Bulk create response:', response)
+
+                if (response.data?.success) {
+                    const created = response.data?.data?.summary?.success || 0
+                    toast.success(`Đã phân quyền ${created} thành công`)
+                    router.push('/reports')
+                    return
+                }
+            } catch (bulkError) {
+                console.log('Bulk create not available, trying individual creates...')
+            }
+
+            let successCount = 0
+            let failCount = 0
+
+            for (const assignment of allAssignments) {
+                try {
+                    await apiMethods.assignments.create(assignment)
+                    successCount++
+                } catch (err) {
+                    console.error('Failed to create assignment:', err)
+                    failCount++
+                }
+            }
+
+            if (successCount > 0) {
+                toast.success(`Đã phân quyền ${successCount} đánh giá thành công`)
+            }
+            if (failCount > 0) {
+                toast.warning(`${failCount} lượt thất bại`)
+            }
+
             router.push('/reports')
+
         } catch (error) {
             console.error('Error creating assignments:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi phân quyền')
@@ -248,7 +306,6 @@ export default function AssignReviewersPage() {
     return (
         <Layout title="Phân quyền đánh giá" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="flex items-center space-x-4 mb-6">
                     <button
                         onClick={() => router.back()}
@@ -264,10 +321,8 @@ export default function AssignReviewersPage() {
                     </div>
                 </div>
 
-                {/* Report Cards */}
                 {reports.map((report) => (
                     <div key={report._id} className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                        {/* Report Header */}
                         <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-b border-gray-200">
                             <div className="flex items-start justify-between">
                                 <div>
@@ -293,7 +348,6 @@ export default function AssignReviewersPage() {
                             </div>
                         </div>
 
-                        {/* Assignments List */}
                         <div className="px-6 py-4">
                             <div className="mb-4">
                                 <p className="text-sm font-semibold text-gray-900 mb-3">
@@ -318,7 +372,6 @@ export default function AssignReviewersPage() {
                                                             Phân quyền #{idx + 1}
                                                         </p>
 
-                                                        {/* Experts Multi-Select */}
                                                         <div className="mb-3">
                                                             <label className="block text-xs font-semibold text-gray-600 mb-2">
                                                                 Chuyên gia <span className="text-red-500">*</span>
@@ -370,7 +423,6 @@ export default function AssignReviewersPage() {
                                                             )}
                                                         </div>
 
-                                                        {/* Deadline */}
                                                         <div className="mb-3">
                                                             <label className="block text-xs font-semibold text-gray-600 mb-1">
                                                                 Hạn chót <span className="text-red-500">*</span>
@@ -383,7 +435,6 @@ export default function AssignReviewersPage() {
                                                             />
                                                         </div>
 
-                                                        {/* Priority */}
                                                         <div className="mb-3">
                                                             <label className="block text-xs font-semibold text-gray-600 mb-1">
                                                                 Ưu tiên
@@ -400,7 +451,6 @@ export default function AssignReviewersPage() {
                                                             </select>
                                                         </div>
 
-                                                        {/* Note */}
                                                         <div>
                                                             <label className="block text-xs font-semibold text-gray-600 mb-1">
                                                                 Ghi chú
@@ -424,7 +474,6 @@ export default function AssignReviewersPage() {
                                                     </button>
                                                 </div>
 
-                                                {/* Summary */}
                                                 {assignment.expertIds.length > 0 && assignment.deadline && (
                                                     <div className="bg-white rounded p-3 border border-gray-200 text-xs">
                                                         <div className="flex flex-wrap items-center space-x-3 gap-2">
@@ -448,7 +497,6 @@ export default function AssignReviewersPage() {
                                 )}
                             </div>
 
-                            {/* Add Button */}
                             <button
                                 onClick={() => handleAddAssignment(report._id)}
                                 className="w-full mt-4 px-4 py-3 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center"
@@ -460,7 +508,6 @@ export default function AssignReviewersPage() {
                     </div>
                 ))}
 
-                {/* Submit Section */}
                 <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-6 py-4 flex items-center justify-between rounded-lg shadow-lg">
                     <div className="flex items-center space-x-4">
                         <AlertCircle className="h-5 w-5 text-blue-600" />
