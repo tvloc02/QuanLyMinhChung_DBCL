@@ -169,6 +169,22 @@ const createAssignment = async (req, res) => {
             });
         }
 
+        // ✅ Thêm kiểm tra bắt buộc cho các trường ID
+        if (!reportId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID báo cáo (reportId) là bắt buộc.'
+            });
+        }
+
+        if (!expertId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID chuyên gia (expertId) là bắt buộc.'
+            });
+        }
+
+
         const [report, expert] = await Promise.all([
             Report.findOne({ _id: reportId, academicYearId }),
             User.findById(expertId)
@@ -211,6 +227,14 @@ const createAssignment = async (req, res) => {
             });
         }
 
+        // Kiểm tra trường deadline bắt buộc
+        if (!deadline) {
+            return res.status(400).json({
+                success: false,
+                message: 'Hạn chót (deadline) là bắt buộc.'
+            });
+        }
+
         const assignment = new Assignment({
             academicYearId,
             reportId,
@@ -235,7 +259,7 @@ const createAssignment = async (req, res) => {
         await Notification.create({
             recipientId: expertId,
             senderId: req.user.id,
-            type: 'assignment_created',
+            type: 'assignment_new',
             title: 'Phân quyền đánh giá mới',
             message: `Bạn được phân quyền đánh giá báo cáo: ${report.title}`,
             data: {
@@ -254,6 +278,16 @@ const createAssignment = async (req, res) => {
 
     } catch (error) {
         console.error('Create assignment error:', error);
+
+        // Xử lý lỗi validation của Mongoose (thường là lỗi 400)
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi hệ thống khi tạo phân quyền'

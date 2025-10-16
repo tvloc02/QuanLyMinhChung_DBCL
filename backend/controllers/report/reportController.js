@@ -142,7 +142,8 @@ const getReportById = async (req, res) => {
             });
         }
 
-        await report.incrementView();
+        // Đã sửa: Truyền req.user.id vào để ghi ActivityLog thành công
+        await report.incrementView(req.user.id);
 
         res.json({
             success: true,
