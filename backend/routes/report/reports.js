@@ -17,7 +17,13 @@ const {
     getReportStats,
     uploadReportFile,
     downloadReportFile,
-    convertFileToContent
+    convertFileToContent,
+    getReportEvidences,
+    getReportVersions,
+    addReportVersion,
+    getReportComments,
+    addReportComment,
+    resolveReportComment
 } = require('../../controllers/report/reportController');
 
 // Statistics route (before :id routes)
@@ -83,20 +89,68 @@ router.post('/:id/unpublish', auth, requireManager, [
     param('id').isMongoId()
 ], validation, unpublishReport);
 
-// Download
+
+// ===============================================
+// ROUTES CHI TIẾT
+// ===============================================
+
+// Get Evidences linked to the report
+router.get('/:id/evidences', auth, [
+    param('id').isMongoId()
+], validation, getReportEvidences);
+
+// Get Report Versions
+router.get('/:id/versions', auth, [
+    param('id').isMongoId()
+], validation, getReportVersions);
+
+// Add new Version (API POST cho versions)
+router.post('/:id/versions', auth, requireManager, [
+    param('id').isMongoId(),
+    body('content').notEmpty(),
+    body('changeNote').optional().isLength({ max: 500 })
+], validation, addReportVersion);
+
+// Get Report Comments
+router.get('/:id/comments', auth, [
+    param('id').isMongoId()
+], validation, getReportComments);
+
+// Add Comment
+router.post('/:id/comments', auth, [
+    param('id').isMongoId(),
+    body('comment').notEmpty().withMessage('Nội dung nhận xét là bắt buộc'),
+    body('section').optional()
+], validation, addReportComment);
+
+// Resolve Comment
+router.put('/:id/comments/:commentId/resolve', auth, requireManager, [
+    param('id').isMongoId(),
+    param('commentId').isMongoId()
+], validation, resolveReportComment);
+
+
+// ===============================================
+// CÁC ROUTES FILE VÀ TẢI XUỐNG
+// ===============================================
+
+// Download Report (HTML/PDF)
 router.get('/:id/download', auth, [
     param('id').isMongoId(),
     query('format').optional().isIn(['html', 'pdf'])
 ], validation, downloadReport);
 
+// Upload File Attachment
 router.post('/:id/upload', auth, requireManager, [
     param('id').isMongoId()
 ], upload.single('file'), uploadReportFile);
 
+// Download File Attachment
 router.get('/:id/download-file', auth, [
     param('id').isMongoId()
 ], validation, downloadReportFile);
 
+// Convert File Content to Online Editor Content
 router.post('/:id/convert', auth, requireManager, [
     param('id').isMongoId()
 ], validation, convertFileToContent);
