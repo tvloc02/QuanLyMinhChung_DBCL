@@ -10,7 +10,7 @@ const evaluationSchema = new mongoose.Schema({
     assignmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Assignment',
-        required: [true, 'Phân công là bắt buộc']
+        required: [true, 'Phân quyền là bắt buộc']
     },
 
     reportId: {
@@ -138,20 +138,24 @@ const evaluationSchema = new mongoose.Schema({
             type: String,
             enum: ['poor', 'fair', 'good', 'excellent'],
             required: [true, 'Đánh giá chất lượng minh chứng là bắt buộc']
+        }
+    },
+
+    supervisorGuidance: {
+        comments: {
+            type: String,
+            maxlength: [3000, 'Hướng dẫn không được quá 3000 ký tự']
         },
-        missingEvidence: [{
-            description: String,
-            importance: {
-                type: String,
-                enum: ['low', 'medium', 'high'],
-                default: 'medium'
-            }
-        }]
+        guidedAt: Date,
+        guidedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }
     },
 
     status: {
         type: String,
-        enum: ['draft', 'submitted', 'reviewed', 'final'],
+        enum: ['draft', 'submitted', 'supervised', 'final'],
         default: 'draft'
     },
 
@@ -162,19 +166,9 @@ const evaluationSchema = new mongoose.Schema({
 
     submittedAt: Date,
 
-    reviewedAt: Date,
+    supervisedAt: Date,
 
     finalizedAt: Date,
-
-    reviewedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-
-    reviewerComments: {
-        type: String,
-        maxlength: [2000, 'Bình luận người xem xét không được quá 2000 ký tự']
-    },
 
     metadata: {
         timeSpent: Number,
@@ -195,7 +189,7 @@ const evaluationSchema = new mongoose.Schema({
     history: [{
         action: {
             type: String,
-            enum: ['created', 'updated', 'submitted', 'reviewed', 'finalized'],
+            enum: ['created', 'updated', 'submitted', 'supervised', 'finalized'],
             required: true
         },
         timestamp: {
@@ -221,6 +215,7 @@ const evaluationSchema = new mongoose.Schema({
     }
 });
 
+// Indexes
 evaluationSchema.index({ academicYearId: 1, reportId: 1 });
 evaluationSchema.index({ academicYearId: 1, evaluatorId: 1 });
 evaluationSchema.index({ assignmentId: 1 }, { unique: true });
@@ -228,6 +223,7 @@ evaluationSchema.index({ status: 1 });
 evaluationSchema.index({ averageScore: 1 });
 evaluationSchema.index({ submittedAt: -1 });
 
+// Pre hooks
 evaluationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -248,8 +244,8 @@ evaluationSchema.pre('save', function(next) {
             case 'submitted':
                 if (!this.submittedAt) this.submittedAt = now;
                 break;
-            case 'reviewed':
-                if (!this.reviewedAt) this.reviewedAt = now;
+            case 'supervised':
+                if (!this.supervisedAt) this.supervisedAt = now;
                 break;
             case 'final':
                 if (!this.finalizedAt) this.finalizedAt = now;
@@ -260,6 +256,7 @@ evaluationSchema.pre('save', function(next) {
     next();
 });
 
+// Methods
 evaluationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -302,6 +299,7 @@ evaluationSchema.methods.calculateScores = function() {
         this.averageScore = 0;
     }
 
+    // Tự động xác định rating dựa trên averageScore
     if (this.averageScore >= 9) {
         this.rating = 'excellent';
     } else if (this.averageScore >= 7) {
@@ -333,21 +331,22 @@ evaluationSchema.methods.submit = async function() {
     return this;
 };
 
-evaluationSchema.methods.review = async function(reviewerId, comments = '') {
+evaluationSchema.methods.supervise = async function(supervisorId, comments = '') {
     const oldStatus = this.status;
-    this.status = 'reviewed';
-    this.reviewedAt = new Date();
-    this.reviewedBy = reviewerId;
-    this.reviewerComments = comments;
-    this.addHistory('reviewed', reviewerId);
+    this.status = 'supervised';
+    this.supervisedAt = new Date();
+    this.supervisorGuidance.guidedAt = new Date();
+    this.supervisorGuidance.guidedBy = supervisorId;
+    this.supervisorGuidance.comments = comments;
+    this.addHistory('supervised', supervisorId);
 
     await this.save();
 
-    await this.addActivityLog('evaluation_review', reviewerId,
-        'Xem xét đánh giá báo cáo', {
+    await this.addActivityLog('evaluation_supervise', supervisorId,
+        'Giám sát đánh giá báo cáo', {
             severity: 'medium',
             oldData: { status: oldStatus },
-            newData: { status: 'reviewed' },
+            newData: { status: 'supervised' },
             metadata: { comments }
         });
 
@@ -398,6 +397,8 @@ evaluationSchema.methods.canView = function(userId, userRole) {
 
     if (this.evaluatorId.toString() === userId.toString()) return true;
 
+    if (userRole === 'supervisor') return true;
+
     if (userRole === 'manager' && this.status !== 'draft') return true;
 
     return false;
@@ -422,6 +423,7 @@ evaluationSchema.methods.getProgress = function() {
     return Math.round((completedFields / totalFields) * 100);
 };
 
+// Virtuals
 evaluationSchema.virtual('ratingText').get(function() {
     const ratingMap = {
         'excellent': 'Xuất sắc',
@@ -437,7 +439,7 @@ evaluationSchema.virtual('statusText').get(function() {
     const statusMap = {
         'draft': 'Bản nháp',
         'submitted': 'Đã nộp',
-        'reviewed': 'Đã xem xét',
+        'supervised': 'Đã giám sát',
         'final': 'Hoàn tất'
     };
     return statusMap[this.status] || this.status;
@@ -452,10 +454,11 @@ evaluationSchema.virtual('isComplete').get(function() {
     return this.getProgress() === 100;
 });
 
+// Static methods
 evaluationSchema.statics.getAverageScoreByReport = async function(reportId) {
     const evaluations = await this.find({
         reportId,
-        status: { $in: ['submitted', 'reviewed', 'final'] }
+        status: { $in: ['submitted', 'supervised', 'final'] }
     });
 
     if (evaluations.length === 0) return 0;
@@ -474,7 +477,7 @@ evaluationSchema.statics.getEvaluatorStats = async function(evaluatorId, academi
         total: evaluations.length,
         draft: 0,
         submitted: 0,
-        reviewed: 0,
+        supervised: 0,
         final: 0,
         averageScore: 0,
         totalTimeSpent: 0
@@ -524,6 +527,7 @@ evaluationSchema.statics.getSystemStats = async function(academicYearId) {
     return stats;
 };
 
+// Post hooks
 evaluationSchema.post('save', async function(doc, next) {
     if (this.isNew && this.evaluatorId) {
         try {
