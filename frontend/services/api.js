@@ -3,7 +3,7 @@ import { getLocalStorage, removeLocalStorage } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+    baseURL: process.env.NEXT_PUBLIC_API_URL ,
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json'
@@ -105,12 +105,12 @@ export const apiMethods = {
 
 
     programs: {
-        getAll: (params) => axios.get('http://localhost:5000/api/programs', { params }),
-        getById: (id) => axios.get(`http://localhost:5000/api/programs/${id}`),
-        create: (data) => axios.post('http://localhost:5000/api/programs', data),
-        update: (id, data) => axios.put(`http://localhost:5000/api/programs/${id}`, data),
-        delete: (id) => axios.delete(`http://localhost:5000/api/programs/${id}`),
-        getByAcademicYear: (academicYearId) => axios.get(`http://localhost:5000/api/programs/academic-year/${academicYearId}`)
+        getAll: (params) => api.get('/api/programs', { params }),
+        getById: (id) => api.get(`/api/programs/${id}`),
+        create: (data) => api.post('/api/programs', data),
+        update: (id, data) => api.put(`/api/programs/${id}`, data),
+        delete: (id) => api.delete(`/api/programs/${id}`),
+        getByAcademicYear: (academicYearId) => api.get(`/api/programs/academic-year/${academicYearId}`)
     },
 
     organizations: {
