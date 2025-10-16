@@ -230,7 +230,7 @@ const createReport = async (req, res) => {
                     message: 'Nội dung báo cáo là bắt buộc khi dùng trình soạn thảo trực tuyến'
                 });
             }
-            reportData.content = content.trim();
+            reportData.content = processEvidenceLinksInContent(content);
         } else {
             reportData.content = '';
         }
@@ -308,7 +308,7 @@ const updateReport = async (req, res) => {
         });
 
         if (content !== undefined) {
-            report.content = content;
+            report.content = processEvidenceLinksInContent(content);
         }
 
         report.updatedBy = req.user.id;
@@ -492,7 +492,7 @@ const unpublishReport = async (req, res) => {
 const downloadReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { format = 'pdf' } = req.query;
+        const { format = 'html' } = req.query;
         const academicYearId = req.academicYearId;
 
         const report = await Report.findOne({ _id: id, academicYearId })
@@ -509,7 +509,6 @@ const downloadReport = async (req, res) => {
             });
         }
 
-        // --- CHUẨN BỊ NỘI DUNG VÀ LINK MINH CHỨNG ---
         const ReportModel = mongoose.model('Report');
         const reportWithEvidences = await ReportModel.findById(id)
             .select('linkedEvidences')
@@ -525,7 +524,7 @@ const downloadReport = async (req, res) => {
             reportWithEvidences.linkedEvidences.forEach(linkItem => {
                 const evidence = linkItem.evidenceId;
                 if (evidence) {
-                    const evidenceUrl = `${protocol}://${host}/evidences/${evidence._id}`;
+                    const evidenceUrl = `${protocol}://${host}/public/evidences/${evidence.code}`;
                     evidenceLinksHtml += `
                         <li>
                             <strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>
@@ -537,23 +536,38 @@ const downloadReport = async (req, res) => {
         }
 
         const finalContent = (report.content || '') + evidenceLinksHtml;
-        // --- HẾT CHUẨN BỊ NỘI DUNG ---
 
-        // --- KHẮC PHỤC LỖI ERR_INVALID_CHAR ---
         const filename = `${report.code}-${report.title}.${format}`;
         const encodedFilename = encodeURIComponent(filename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
-        // ------------------------------------
 
         if (format === 'html') {
-
-            // TRẢ VỀ CHỈ NỘI DUNG VÀ LINK MINH CHỨNG
             const htmlResponse = `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
                     <title>${report.title}</title>
-                    <style> body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; } </style>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                        a.evidence-link {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 0.25rem;
+                            padding: 0.25rem 0.75rem;
+                            background-color: #dbeafe;
+                            color: #1e40af;
+                            border-radius: 0.375rem;
+                            font-family: monospace;
+                            font-weight: 600;
+                            font-size: 0.875rem;
+                            text-decoration: none;
+                            border: 1px solid #7dd3fc;
+                        }
+                        a.evidence-link:hover {
+                            background-color: #93c5fd;
+                            text-decoration: underline;
+                        }
+                    </style>
                 </head>
                 <body>
                     ${finalContent}
@@ -571,13 +585,11 @@ const downloadReport = async (req, res) => {
             });
 
         } else if (format === 'pdf') {
-            // Định dạng PDF chưa được hỗ trợ (trả về 400)
             return res.status(400).json({
                 success: false,
                 message: 'Định dạng PDF chưa được hỗ trợ/triển khai'
             });
         } else {
-            // Trường hợp format không hợp lệ
             return res.status(400).json({
                 success: false,
                 message: 'Định dạng tải về không được hỗ trợ'
@@ -753,8 +765,6 @@ const downloadReportFile = async (req, res) => {
             });
         }
 
-        // Đã xóa kiểm tra quyền nghiêm ngặt để cho phép bất kỳ người dùng đã xác thực nào tải xuống file
-
         if (!report.attachedFile) {
             return res.status(404).json({
                 success: false,
@@ -845,7 +855,7 @@ const convertFileToContent = async (req, res) => {
             });
         }
 
-        report.content = htmlContent;
+        report.content = processEvidenceLinksInContent(htmlContent);
         report.contentMethod = 'online_editor';
         report.updatedBy = req.user.id;
 
@@ -855,7 +865,7 @@ const convertFileToContent = async (req, res) => {
             success: true,
             message: 'Chuyển đổi file sang nội dung thành công',
             data: {
-                content: htmlContent
+                content: report.content
             }
         });
 
@@ -960,7 +970,6 @@ const addReportVersion = async (req, res) => {
             });
         }
 
-        // Giả định Report có method addVersion
         if (report.addVersion && typeof report.addVersion === 'function') {
             await report.addVersion({
                 content: content.trim(),
@@ -1046,7 +1055,6 @@ const addReportComment = async (req, res) => {
             });
         }
 
-        // Giả định Report có method addComment
         if (report.addComment && typeof report.addComment === 'function') {
             await report.addComment({
                 comment: comment.trim(),
@@ -1100,7 +1108,6 @@ const resolveReportComment = async (req, res) => {
             });
         }
 
-        // Giả định Report có method resolveComment
         if (report.resolveComment && typeof report.resolveComment === 'function') {
             await report.resolveComment(commentId);
 
@@ -1129,34 +1136,20 @@ const resolveReportComment = async (req, res) => {
     }
 };
 
-const processEvidenceLinksInContent = (content, baseUrl = '') => {
+const processEvidenceLinksInContent = (content) => {
     if (!content) return '';
 
-    // Regex để tìm mã minh chứng (VD: A1.01.02.04)
-    const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+    const evidenceCodePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
 
     return content.replace(evidenceCodePattern, (match) => {
-        const url = `${baseUrl}/public/evidences/${match}`;
-
-        // HTML link với styling
-        return `<a href="${url}" 
-                    class="evidence-link" 
-                    data-code="${match}" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc;">
-                    ${match}
-                    <svg style="width: 0.75rem; height: 0.75rem; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                    </svg>
-                </a>`;
+        return `<a href="/public/evidences/${match}" class="evidence-link" data-code="${match}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc;">${match}</a>`;
     });
 };
 
 const extractEvidenceCodes = (content) => {
     if (!content) return [];
 
-    const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+    const evidenceCodePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
     const codes = [];
     let match;
 
@@ -1168,30 +1161,6 @@ const extractEvidenceCodes = (content) => {
 
     return codes;
 };
-
-afterCreateReport = async (report, baseUrl) => {
-    try {
-        // Xử lý nội dung - gắn link vào mã minh chứng
-        if (report.content) {
-            report.content = processEvidenceLinksInContent(report.content, baseUrl);
-            await report.save();
-        }
-
-        // Trích xuất mã minh chứng (optional - cho tracking)
-        const codes = extractEvidenceCodes(report.content);
-        if (codes.length > 0) {
-            console.log(`Report ${report.code} references evidences:`, codes);
-            // Có thể lưu vào DB để tracking
-        }
-
-    } catch (error) {
-        console.error('Error processing evidence links:', error);
-    }
-};
-
-
-
-
 
 module.exports = {
     getReports,
@@ -1213,6 +1182,5 @@ module.exports = {
     addReportComment,
     resolveReportComment,
     processEvidenceLinksInContent,
-    extractEvidenceCodes,
-    afterCreateReport
+    extractEvidenceCodes
 };
