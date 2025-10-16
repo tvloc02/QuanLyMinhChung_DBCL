@@ -31,7 +31,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     useEffect(() => {
         if (editorRef.current && value !== editorRef.current.innerHTML) {
             editorRef.current.innerHTML = value || ''
-            // Detect existing evidence codes in loaded content
             detectExistingEvidenceCodes()
         }
     }, [value])
@@ -40,10 +39,10 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         if (!editorRef.current) return
 
         const foundCodes = new Set()
-        const evidenceSpans = editorRef.current.querySelectorAll('.evidence-code')
+        const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link')
 
-        evidenceSpans.forEach(span => {
-            const code = span.getAttribute('data-code')
+        evidenceLinks.forEach(link => {
+            const code = link.getAttribute('data-code')
             if (code) {
                 foundCodes.add(code)
             }
@@ -54,13 +53,11 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
     const handleInput = () => {
         if (onChange && editorRef.current) {
-            // Auto-detect evidence codes while typing
             autoDetectEvidenceCodes()
             onChange(editorRef.current.innerHTML)
         }
     }
 
-    // Auto-detect and convert evidence codes to styled spans
     const autoDetectEvidenceCodes = () => {
         if (!editorRef.current) return
 
@@ -71,45 +68,25 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         let content = editorRef.current.innerHTML
         const foundCodes = new Set()
 
-        // Pattern để nhận diện mã minh chứng
-        // Ví dụ: H1.01.01.04, TC-3.1, MC.2023.01, v.v.
-        const evidencePattern = /(?:^|\s)((?:[A-Z]{1,3}[-.])?[0-9]{1,2}\.?[0-9]{1,2}\.?[0-9]{1,2}\.?[0-9]{0,2}(?:[A-Z]?))\s/gi
+        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
 
-        // Tìm và thay thế các mã chưa được format
+        let hasChanges = false
         content = content.replace(evidencePattern, (match, code) => {
-            // Kiểm tra xem đã được format chưa
-            if (match.includes('evidence-code')) {
-                foundCodes.add(code.trim())
-                return match
-            }
-
-            const trimmedCode = code.trim()
-            // Chỉ format nếu code có ít nhất 1 dấu . hoặc -
-            if (trimmedCode.includes('.') || trimmedCode.includes('-')) {
-                foundCodes.add(trimmedCode)
-                return ` <span class="evidence-code" data-code="${trimmedCode}" style="background-color: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-weight: 500; font-family: monospace;">${trimmedCode}</span> `
-            }
-            return match
-        })
-
-        // Pattern để nhận diện khi có dấu #
-        const hashPattern = /#([A-Z0-9.-]+)/gi
-        content = content.replace(hashPattern, (match, code) => {
-            if (match.includes('evidence-code')) {
+            if (match.includes('evidence-link')) {
                 foundCodes.add(code)
                 return match
             }
+
             foundCodes.add(code)
-            return `<span class="evidence-code" data-code="${code}" style="background-color: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-weight: 500; font-family: monospace;">${code}</span>&nbsp;`
+            hasChanges = true
+            return `<a href="/public/evidences/${code}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc; cursor: pointer;">${code}</a>`
         })
 
-        // Update detected codes state
         setDetectedCodes(foundCodes)
 
-        if (content !== editorRef.current.innerHTML) {
+        if (hasChanges) {
             editorRef.current.innerHTML = content
 
-            // Restore cursor position
             try {
                 const newRange = document.createRange()
                 const textNodes = getTextNodes(editorRef.current)
@@ -191,21 +168,17 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     }
 
     const handleInsertEvidenceCode = (code) => {
-        const evidenceHTML = `<span class="evidence-code" data-code="${code}" style="background-color: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-weight: 500; font-family: monospace;">${code}</span>&nbsp;`
+        const evidenceHTML = `<a href="/public/evidences/${code}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc; cursor: pointer;">${code}</a>&nbsp;`
 
-        // Focus the editor first
         if (editorRef.current) {
             editorRef.current.focus()
-            // Wait a tick for focus to complete
             setTimeout(() => {
                 execCommand('insertHTML', evidenceHTML)
-                // Update detected codes
                 setDetectedCodes(prev => new Set([...prev, code]))
             }, 0)
         }
     }
 
-    // Expose method to parent using useImperativeHandle
     useImperativeHandle(ref, () => ({
         insertEvidenceCode: handleInsertEvidenceCode
     }))
@@ -224,9 +197,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
     return (
         <div className="border border-gray-300 rounded-lg overflow-hidden">
-            {/* Toolbar */}
             <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
-                {/* Text Formatting */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('bold')} title="Bold (Ctrl+B)">
                         <Bold className="h-4 w-4" />
@@ -242,7 +213,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Headings */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('formatBlock', '<h1>')} title="Heading 1">
                         <Heading1 className="h-4 w-4" />
@@ -255,7 +225,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Font Size */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <select
                         onChange={(e) => handleFontSize(e.target.value)}
@@ -273,7 +242,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </select>
                 </div>
 
-                {/* Colors */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={handleTextColor} title="Text Color">
                         <Type className="h-4 w-4" />
@@ -283,7 +251,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Alignment */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('justifyLeft')} title="Align Left">
                         <AlignLeft className="h-4 w-4" />
@@ -299,7 +266,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Lists */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('insertUnorderedList')} title="Bullet List">
                         <List className="h-4 w-4" />
@@ -309,7 +275,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Insert */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={handleInsertLink} title="Insert Link">
                         <LinkIcon className="h-4 w-4" />
@@ -319,7 +284,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Other */}
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('formatBlock', '<blockquote>')} title="Quote">
                         <Quote className="h-4 w-4" />
@@ -329,7 +293,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
-                {/* Undo/Redo */}
                 <div className="flex gap-1">
                     <ToolbarButton onClick={() => execCommand('undo')} title="Undo (Ctrl+Z)">
                         <Undo className="h-4 w-4" />
@@ -340,7 +303,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             </div>
 
-            {/* Link Input Modal */}
             {showLinkInput && (
                 <div className="bg-blue-50 border-b border-blue-200 p-3">
                     <div className="flex gap-2 items-end">
@@ -386,7 +348,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
-            {/* Editor Area */}
             <div
                 ref={editorRef}
                 contentEditable={!disabled}
@@ -399,7 +360,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 data-placeholder={placeholder || 'Nhập nội dung báo cáo...'}
             />
 
-            {/* Evidence Codes Counter */}
             {detectedCodes.size > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -478,35 +438,24 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     color: #2563eb;
                     text-decoration: underline;
                 }
-                .evidence-code {
+                a.evidence-link {
                     display: inline-flex;
                     align-items: center;
+                    padding: 0.25rem 0.75rem;
+                    background-color: #dbeafe;
+                    color: #1e40af;
+                    border-radius: 0.375rem;
+                    font-family: monospace;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    text-decoration: none;
+                    border: 1px solid #7dd3fc;
+                    cursor: pointer;
                     transition: all 0.2s ease;
-                    border: 1px solid #93c5fd;
-                    position: relative;
                 }
-                .evidence-code:hover {
-                    background-color: #93c5fd !important;
-                    transform: translateY(-1px);
+                a.evidence-link:hover {
+                    background-color: #93c5fd;
                     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-                }
-                .evidence-code::before {
-                    content: '🔗';
-                    margin-right: 4px;
-                    font-size: 0.85em;
-                }
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-                .evidence-code {
-                    animation: fadeIn 0.3s ease;
                 }
             `}</style>
         </div>
