@@ -25,9 +25,11 @@ const getAssignments = async (req, res) => {
 
         let query = { academicYearId };
 
+        // Experts chỉ thấy phân quyền của mình
         if (req.user.role === 'expert') {
             query.expertId = req.user.id;
         } else if (req.user.role === 'manager' && !expertId && !assignedBy) {
+            // Managers thấy phân quyền mà họ tạo
             query.assignedBy = req.user.id;
         }
 
@@ -99,7 +101,7 @@ const getAssignments = async (req, res) => {
         console.error('Get assignments error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách phân công'
+            message: 'Lỗi hệ thống khi lấy danh sách phân quyền'
         });
     }
 };
@@ -118,16 +120,17 @@ const getAssignmentById = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công trong năm học này'
+                message: 'Không tìm thấy phân quyền trong năm học này'
             });
         }
 
+        // Kiểm tra quyền xem
         if (req.user.role !== 'admin' &&
             assignment.expertId._id.toString() !== req.user.id.toString() &&
             assignment.assignedBy._id.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xem phân công này'
+                message: 'Không có quyền xem phân quyền này'
             });
         }
 
@@ -140,7 +143,7 @@ const getAssignmentById = async (req, res) => {
         console.error('Get assignment by ID error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thông tin phân công'
+            message: 'Lỗi hệ thống khi lấy thông tin phân quyền'
         });
     }
 };
@@ -158,10 +161,11 @@ const createAssignment = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
+        // Chỉ manager hoặc admin mới tạo được phân quyền
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền tạo phân công đánh giá'
+                message: 'Không có quyền tạo phân quyền đánh giá'
             });
         }
 
@@ -177,6 +181,14 @@ const createAssignment = async (req, res) => {
             });
         }
 
+        // Báo cáo phải đã xuất bản mới phân quyền được
+        if (report.status !== 'published') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể phân quyền đánh giá báo cáo đã xuất bản'
+            });
+        }
+
         if (!expert || expert.role !== 'expert') {
             return res.status(400).json({
                 success: false,
@@ -184,6 +196,7 @@ const createAssignment = async (req, res) => {
             });
         }
 
+        // Kiểm tra xem chuyên gia này đã được phân quyền chưa
         const existingAssignment = await Assignment.findOne({
             reportId,
             expertId,
@@ -194,7 +207,7 @@ const createAssignment = async (req, res) => {
         if (existingAssignment) {
             return res.status(400).json({
                 success: false,
-                message: 'Chuyên gia này đã được phân công đánh giá báo cáo này'
+                message: 'Chuyên gia này đã được phân quyền đánh giá báo cáo này'
             });
         }
 
@@ -211,22 +224,20 @@ const createAssignment = async (req, res) => {
 
         await assignment.save();
 
-        // TỰ ĐỘNG PHÂN QUYỀN TRUY CẬP ĐÁNH GIÁ (ACCESS CONTROL) CHO REPORT
-        await report.addReviewer(expertId, 'expert', req.user.id);
-
         await assignment.populate([
             { path: 'reportId', select: 'title type code' },
             { path: 'expertId', select: 'fullName email' },
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
+        // Gửi notification
         const Notification = mongoose.model('Notification');
         await Notification.create({
             recipientId: expertId,
             senderId: req.user.id,
             type: 'assignment_created',
-            title: 'Phân công đánh giá mới',
-            message: `Bạn được phân công đánh giá báo cáo: ${report.title}`,
+            title: 'Phân quyền đánh giá mới',
+            message: `Bạn được phân quyền đánh giá báo cáo: ${report.title}`,
             data: {
                 assignmentId: assignment._id,
                 reportId: report._id,
@@ -237,7 +248,7 @@ const createAssignment = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Tạo phân công đánh giá thành công',
+            message: 'Tạo phân quyền đánh giá thành công',
             data: assignment
         });
 
@@ -245,7 +256,7 @@ const createAssignment = async (req, res) => {
         console.error('Create assignment error:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Lỗi hệ thống khi tạo phân công'
+            message: error.message || 'Lỗi hệ thống khi tạo phân quyền'
         });
     }
 };
@@ -260,14 +271,14 @@ const updateAssignment = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công trong năm học này'
+                message: 'Không tìm thấy phân quyền trong năm học này'
             });
         }
 
         if (req.user.role !== 'admin' && assignment.assignedBy.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền cập nhật phân công này'
+                message: 'Không có quyền cập nhật phân quyền này'
             });
         }
 
@@ -289,7 +300,7 @@ const updateAssignment = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Cập nhật phân công thành công',
+            message: 'Cập nhật phân quyền thành công',
             data: assignment
         });
 
@@ -297,7 +308,7 @@ const updateAssignment = async (req, res) => {
         console.error('Update assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi cập nhật phân công'
+            message: 'Lỗi hệ thống khi cập nhật phân quyền'
         });
     }
 };
@@ -311,21 +322,21 @@ const deleteAssignment = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công trong năm học này'
+                message: 'Không tìm thấy phân quyền trong năm học này'
             });
         }
 
         if (req.user.role !== 'admin' && assignment.assignedBy.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xóa phân công này'
+                message: 'Không có quyền xóa phân quyền này'
             });
         }
 
         if (assignment.status === 'completed') {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa phân công đã hoàn thành'
+                message: 'Không thể xóa phân quyền đã hoàn thành'
             });
         }
 
@@ -333,14 +344,14 @@ const deleteAssignment = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Xóa phân công thành công'
+            message: 'Xóa phân quyền thành công'
         });
 
     } catch (error) {
         console.error('Delete assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi xóa phân công'
+            message: 'Lỗi hệ thống khi xóa phân quyền'
         });
     }
 };
@@ -355,21 +366,21 @@ const acceptAssignment = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công'
+                message: 'Không tìm thấy phân quyền'
             });
         }
 
         if (assignment.expertId.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền phản hồi phân công này'
+                message: 'Không có quyền phản hồi phân quyền này'
             });
         }
 
         if (assignment.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                message: 'Phân công đã được phản hồi trước đó'
+                message: 'Phân quyền đã được phản hồi trước đó'
             });
         }
 
@@ -377,7 +388,7 @@ const acceptAssignment = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Chấp nhận phân công thành công',
+            message: 'Chấp nhận phân quyền thành công',
             data: assignment
         });
 
@@ -385,7 +396,7 @@ const acceptAssignment = async (req, res) => {
         console.error('Accept assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi chấp nhận phân công'
+            message: 'Lỗi hệ thống khi chấp nhận phân quyền'
         });
     }
 };
@@ -400,21 +411,21 @@ const rejectAssignment = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công'
+                message: 'Không tìm thấy phân quyền'
             });
         }
 
         if (assignment.expertId.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền phản hồi phân công này'
+                message: 'Không có quyền phản hồi phân quyền này'
             });
         }
 
         if (assignment.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                message: 'Phân công đã được phản hồi trước đó'
+                message: 'Phân quyền đã được phản hồi trước đó'
             });
         }
 
@@ -422,7 +433,7 @@ const rejectAssignment = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Từ chối phân công thành công',
+            message: 'Từ chối phân quyền thành công',
             data: assignment
         });
 
@@ -430,7 +441,7 @@ const rejectAssignment = async (req, res) => {
         console.error('Reject assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi từ chối phân công'
+            message: 'Lỗi hệ thống khi từ chối phân quyền'
         });
     }
 };
@@ -445,14 +456,14 @@ const cancelAssignment = async (req, res) => {
         if (!assignment) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy phân công'
+                message: 'Không tìm thấy phân quyền'
             });
         }
 
         if (req.user.role !== 'admin' && assignment.assignedBy.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền hủy phân công này'
+                message: 'Không có quyền hủy phân quyền này'
             });
         }
 
@@ -460,7 +471,7 @@ const cancelAssignment = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Hủy phân công thành công',
+            message: 'Hủy phân quyền thành công',
             data: assignment
         });
 
@@ -468,15 +479,22 @@ const cancelAssignment = async (req, res) => {
         console.error('Cancel assignment error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi hủy phân công'
+            message: 'Lỗi hệ thống khi hủy phân quyền'
         });
     }
 };
 
 const getExpertWorkload = async (req, res) => {
     try {
-        const { expertId } = req.params;
+        const { expertId } = req.query;
         const academicYearId = req.academicYearId;
+
+        if (!expertId) {
+            return res.status(400).json({
+                success: false,
+                message: 'expertId là bắt buộc'
+            });
+        }
 
         const workload = await Assignment.getExpertWorkload(expertId, academicYearId);
 
@@ -522,6 +540,7 @@ const getAssignmentStats = async (req, res) => {
                 }
             }
         ]);
+
         const defaultStats = {
             total: 0, pending: 0, accepted: 0, inProgress: 0,
             completed: 0, overdue: 0, cancelled: 0
@@ -536,7 +555,7 @@ const getAssignmentStats = async (req, res) => {
         console.error('Get assignment stats error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê phân công'
+            message: 'Lỗi hệ thống khi lấy thống kê phân quyền'
         });
     }
 };
