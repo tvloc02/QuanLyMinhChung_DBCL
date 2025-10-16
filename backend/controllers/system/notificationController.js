@@ -206,6 +206,14 @@ const deleteNotification = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // **BỔ SUNG: Kiểm tra tính hợp lệ của ID**
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID thông báo không hợp lệ.'
+            });
+        }
+
         const notification = await Notification.findById(id);
         if (!notification) {
             return res.status(404).json({
@@ -279,14 +287,27 @@ const createSystemNotification = async (req, res) => {
 
 const getNotificationStats = async (req, res) => {
     try {
-        const { userId = null } = req.query;
+        const { userId } = req.query;
 
-        let targetUserId = userId;
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            targetUserId = req.user.id;
+        let targetUserId;
+        const isAdminOrManager = req.user.role === 'admin' || req.user.role === 'manager';
+
+        if (!isAdminOrManager) {
+            targetUserId = req.user.id.toString();
+        } else if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+            targetUserId = userId;
+        } else {
+            targetUserId = req.user.id.toString();
         }
 
-        const stats = await Notification.getNotificationStats(targetUserId);
+        if (!targetUserId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể xác định ID người dùng mục tiêu'
+            });
+        }
+
+        const stats = await Notification.getNotificationStats(targetUserId.toString());
 
         res.json({
             success: true,
@@ -295,9 +316,11 @@ const getNotificationStats = async (req, res) => {
 
     } catch (error) {
         console.error('Get notification stats error:', error);
-        res.status(500).json({
+        const defaultStats = { total: 0, unread: 0, read: 0, clicked: 0, dismissed: 0 };
+        res.status(200).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê thông báo'
+            message: 'Lỗi hệ thống khi lấy thống kê thông báo',
+            data: defaultStats
         });
     }
 };
