@@ -135,14 +135,9 @@ const getReportById = async (req, res) => {
             });
         }
 
-        if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền xem báo cáo này'
-            });
-        }
+        // Đã xóa kiểm tra quyền nghiêm ngặt để cho phép bất kỳ người dùng đã xác thực nào xem
+        // Điều kiện: Báo cáo phải tồn tại trong năm học hiện tại
 
-        // Đã sửa: Truyền req.user.id vào để ghi ActivityLog thành công
         await report.incrementView(req.user.id);
 
         res.json({
@@ -514,61 +509,89 @@ const downloadReport = async (req, res) => {
             });
         }
 
-        if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tải báo cáo này'
+        // --- CHUẨN BỊ NỘI DUNG VÀ LINK MINH CHỨNG ---
+        const ReportModel = mongoose.model('Report');
+        const reportWithEvidences = await ReportModel.findById(id)
+            .select('linkedEvidences')
+            .populate('linkedEvidences.evidenceId', 'code name');
+
+        let evidenceLinksHtml = '';
+        if (reportWithEvidences?.linkedEvidences?.length) {
+            evidenceLinksHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan (Links)</h2><ul>';
+
+            const host = req.get('host');
+            const protocol = req.protocol;
+
+            reportWithEvidences.linkedEvidences.forEach(linkItem => {
+                const evidence = linkItem.evidenceId;
+                if (evidence) {
+                    const evidenceUrl = `${protocol}://${host}/evidences/${evidence._id}`;
+                    evidenceLinksHtml += `
+                        <li>
+                            <strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>
+                            ${linkItem.contextText ? ` (Ngữ cảnh: ${linkItem.contextText})` : ''}
+                        </li>`;
+                }
             });
+            evidenceLinksHtml += '</ul>';
         }
 
-        await report.incrementDownload();
+        const finalContent = (report.content || '') + evidenceLinksHtml;
+        // --- HẾT CHUẨN BỊ NỘI DUNG ---
+
+        // --- KHẮC PHỤC LỖI ERR_INVALID_CHAR ---
+        const filename = `${report.code}-${report.title}.${format}`;
+        const encodedFilename = encodeURIComponent(filename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+        // ------------------------------------
 
         if (format === 'html') {
-            const htmlContent = `
+
+            // TRẢ VỀ CHỈ NỘI DUNG VÀ LINK MINH CHỨNG
+            const htmlResponse = `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
                     <title>${report.title}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                        h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                        .meta { background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px; }
-                        .content { margin-top: 30px; }
-                    </style>
+                    <style> body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; } </style>
                 </head>
                 <body>
-                    <h1>${report.title}</h1>
-                    <div class="meta">
-                        <p><strong>Mã báo cáo:</strong> ${report.code}</p>
-                        <p><strong>Loại:</strong> ${report.typeText}</p>
-                        <p><strong>Người tạo:</strong> ${report.createdBy.fullName}</p>
-                        <p><strong>Ngày tạo:</strong> ${report.createdAt.toLocaleDateString('vi-VN')}</p>
-                        ${report.summary ? `<p><strong>Tóm tắt:</strong> ${report.summary}</p>` : ''}
-                    </div>
-                    <div class="content">
-                        ${report.content}
-                    </div>
+                    ${finalContent}
                 </body>
                 </html>
             `;
 
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.setHeader('Content-Disposition', `attachment; filename="${report.code}-${report.title}.html"`);
-            res.send(htmlContent);
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+
+            res.send(htmlResponse);
+
+            report.incrementDownload().catch(err => {
+                console.error('ASYNCHRONOUS INCREMENT DOWNLOAD FAILED:', err);
+            });
+
+        } else if (format === 'pdf') {
+            // Định dạng PDF chưa được hỗ trợ (trả về 400)
+            return res.status(400).json({
+                success: false,
+                message: 'Định dạng PDF chưa được hỗ trợ/triển khai'
+            });
         } else {
-            res.status(400).json({
+            // Trường hợp format không hợp lệ
+            return res.status(400).json({
                 success: false,
                 message: 'Định dạng tải về không được hỗ trợ'
             });
         }
 
     } catch (error) {
-        console.error('Download report error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi tải báo cáo'
-        });
+        console.error('Download report error (CRASH):', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi tải báo cáo'
+            });
+        }
     }
 };
 
@@ -730,12 +753,7 @@ const downloadReportFile = async (req, res) => {
             });
         }
 
-        if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tải file báo cáo này'
-            });
-        }
+        // Đã xóa kiểm tra quyền nghiêm ngặt để cho phép bất kỳ người dùng đã xác thực nào tải xuống file
 
         if (!report.attachedFile) {
             return res.status(404).json({
@@ -850,6 +868,267 @@ const convertFileToContent = async (req, res) => {
     }
 };
 
+const getReportEvidences = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .select('linkedEvidences')
+            .populate({
+                path: 'linkedEvidences.evidenceId',
+                select: 'code name'
+            });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: report.linkedEvidences || []
+        });
+    } catch (error) {
+        console.error('Get report evidences error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy minh chứng báo cáo'
+        });
+    }
+};
+
+const getReportVersions = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .select('versions')
+            .populate({
+                path: 'versions.changedBy',
+                select: 'fullName email'
+            });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: report.versions || []
+        });
+    } catch (error) {
+        console.error('Get report versions error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy phiên bản báo cáo'
+        });
+    }
+};
+
+const addReportVersion = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { content, changeNote } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền thêm phiên bản cho báo cáo này'
+            });
+        }
+
+        if (!content || content.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nội dung phiên bản không được để trống'
+            });
+        }
+
+        // Giả định Report có method addVersion
+        if (report.addVersion && typeof report.addVersion === 'function') {
+            await report.addVersion({
+                content: content.trim(),
+                changeNote: changeNote?.trim() || '',
+                changedBy: req.user.id
+            });
+
+            await report.populate({
+                path: 'versions.changedBy',
+                select: 'fullName email'
+            });
+
+            return res.json({
+                success: true,
+                message: 'Thêm phiên bản thành công',
+                data: report.versions
+            });
+        } else {
+            return res.status(501).json({
+                success: false,
+                message: 'Tính năng thêm phiên bản chưa được triển khai đầy đủ'
+            });
+        }
+    } catch (error) {
+        console.error('Add report version error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thêm phiên bản'
+        });
+    }
+};
+
+const getReportComments = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .select('reviewerComments')
+            .populate({
+                path: 'reviewerComments.reviewerId',
+                select: 'fullName email'
+            });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        return res.json({
+            success: true,
+            data: report.reviewerComments || []
+        });
+    } catch (error) {
+        console.error('Get report comments error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy nhận xét báo cáo'
+        });
+    }
+};
+
+const addReportComment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { comment, section } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!comment || comment.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nội dung nhận xét không được để trống'
+            });
+        }
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        // Giả định Report có method addComment
+        if (report.addComment && typeof report.addComment === 'function') {
+            await report.addComment({
+                comment: comment.trim(),
+                section: section || '',
+                reviewerId: req.user.id,
+                reviewerType: req.user.role || 'reviewer'
+            });
+
+            await report.populate({
+                path: 'reviewerComments.reviewerId',
+                select: 'fullName email'
+            });
+
+            return res.json({
+                success: true,
+                message: 'Thêm nhận xét thành công',
+                data: report.reviewerComments
+            });
+        } else {
+            return res.status(501).json({
+                success: false,
+                message: 'Tính năng thêm nhận xét chưa được triển khai đầy đủ'
+            });
+        }
+    } catch (error) {
+        console.error('Add report comment error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thêm nhận xét'
+        });
+    }
+};
+
+const resolveReportComment = async (req, res) => {
+    try {
+        const { id, commentId } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền giải quyết nhận xét'
+            });
+        }
+
+        // Giả định Report có method resolveComment
+        if (report.resolveComment && typeof report.resolveComment === 'function') {
+            await report.resolveComment(commentId);
+
+            await report.populate({
+                path: 'reviewerComments.reviewerId',
+                select: 'fullName email'
+            });
+
+            return res.json({
+                success: true,
+                message: 'Đánh dấu nhận xét đã xử lý',
+                data: report.reviewerComments
+            });
+        } else {
+            return res.status(501).json({
+                success: false,
+                message: 'Tính năng giải quyết nhận xét chưa được triển khai đầy đủ'
+            });
+        }
+    } catch (error) {
+        console.error('Resolve report comment error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi giải quyết nhận xét'
+        });
+    }
+};
+
 module.exports = {
     getReports,
     getReportById,
@@ -862,5 +1141,11 @@ module.exports = {
     getReportStats,
     uploadReportFile,
     downloadReportFile,
-    convertFileToContent
+    convertFileToContent,
+    getReportEvidences,
+    getReportVersions,
+    addReportVersion,
+    getReportComments,
+    addReportComment,
+    resolveReportComment
 };
