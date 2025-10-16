@@ -19,23 +19,21 @@ const getReports = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
-
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
         let query = { academicYearId };
 
-        // Loại bỏ logic truy cập phức tạp. Giữ lại logic cơ bản.
-        if (req.user.role !== 'admin') {
+        // Quyền truy cập báo cáo
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
             const userAccessQuery = {
                 $or: [
-                    { createdBy: req.user.id },
-                    { status: 'published' }
+                    { createdBy: req.user.id }, // Báo cáo do mình tạo
+                    { status: 'published' } // Báo cáo đã xuất bản
                 ]
             };
 
-            // Thêm kiểm tra quyền truy cập theo tiêu chuẩn/tiêu chí
             if (req.user.standardAccess && req.user.standardAccess.length > 0) {
                 userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
             }
@@ -121,15 +119,14 @@ const getReportById = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
             .populate('attachedFile')
-        // Loại bỏ populate liên quan đến referencedEvidences và versions
-        // .populate({
-        //     path: 'referencedEvidences.evidenceId',
-        //     select: 'code name'
-        // })
-        // .populate({
-        //     path: 'versions.changedBy',
-        //     select: 'fullName email'
-        // });
+            .populate({
+                path: 'evaluations',
+                select: 'averageScore rating status evaluatorId',
+                populate: {
+                    path: 'evaluatorId',
+                    select: 'fullName email'
+                }
+            });
 
         if (!report) {
             return res.status(404).json({
@@ -138,7 +135,6 @@ const getReportById = async (req, res) => {
             });
         }
 
-        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -246,16 +242,6 @@ const createReport = async (req, res) => {
         const report = new Report(reportData);
         await report.save();
 
-        // Loại bỏ logic liên kết minh chứng (vì không còn liên quan đến đánh giá/bình luận)
-        // if (reportData.content && reportData.content.length > 0) {
-        //     try {
-        //         await report.linkEvidences();
-        //         await report.save();
-        //     } catch (error) {
-        //         console.error('Error linking evidences:', error);
-        //     }
-        // }
-
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
@@ -273,7 +259,6 @@ const createReport = async (req, res) => {
 
     } catch (error) {
         console.error('Create report error:', error);
-        console.error('Error stack:', error.stack);
 
         if (error.code === 11000) {
             return res.status(400).json({
@@ -300,7 +285,6 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        // Bỏ changeNote (liên quan đến versioning)
         const { content, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
 
@@ -312,14 +296,14 @@ const updateReport = async (req, res) => {
             });
         }
 
-        // Bỏ logic thêm version
-        // if (content && content !== report.content) {
-        //     await report.addVersion(content, req.user.id, changeNote);
-        // }
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền chỉnh sửa báo cáo này'
+            });
+        }
 
-        const allowedFields = [
-            'title', 'summary', 'keywords', 'contentMethod'
-        ];
+        const allowedFields = ['title', 'summary', 'keywords', 'contentMethod'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -327,15 +311,11 @@ const updateReport = async (req, res) => {
             }
         });
 
-        // Cập nhật nội dung trực tiếp nếu có
         if (content !== undefined) {
             report.content = content;
         }
 
         report.updatedBy = req.user.id;
-
-        // Bỏ logic liên kết minh chứng
-        // await report.linkEvidences();
         await report.save();
 
         await report.populate([
@@ -388,17 +368,6 @@ const deleteReport = async (req, res) => {
                 message: 'Không thể xóa báo cáo đã xuất bản'
             });
         }
-
-        // Loại bỏ kiểm tra phân công đánh giá
-        // const Assignment = require('../../models/report/Assignment');
-        // const assignmentCount = await Assignment.countDocuments({ reportId: id });
-
-        // if (assignmentCount > 0) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: 'Không thể xóa báo cáo đã có phân công đánh giá'
-        //     });
-        // }
 
         report.updatedBy = req.user.id;
         await Report.findByIdAndDelete(id);
@@ -479,6 +448,51 @@ const publishReport = async (req, res) => {
     }
 };
 
+const unpublishReport = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền thu hồi báo cáo này'
+            });
+        }
+
+        if (report.status !== 'published') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể thu hồi báo cáo đã xuất bản'
+            });
+        }
+
+        await report.unpublish(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Thu hồi xuất bản báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Unpublish report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thu hồi báo cáo'
+        });
+    }
+};
+
 const downloadReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -499,7 +513,6 @@ const downloadReport = async (req, res) => {
             });
         }
 
-        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -558,46 +571,11 @@ const downloadReport = async (req, res) => {
     }
 };
 
-const getReportVersions = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        // Bỏ populate('versions.changedBy', 'fullName email')
-        const report = await Report.findOne({ _id: id, academicYearId }, 'versions');
-        // .populate('versions.changedBy', 'fullName email');
-
-        if (!report) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy báo cáo'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: report.versions
-        });
-
-    } catch (error) {
-        console.error('Get report versions error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy phiên bản báo cáo'
-        });
-    }
-};
-
-// Loại bỏ hàm getReportEvidences và validateEvidenceLinks
-// const getReportEvidences = async (req, res) => { ... };
-// const validateEvidenceLinks = async (req, res) => { ... };
-
 const getReportStats = async (req, res) => {
     try {
         const { type, status, programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
 
-        // Sử dụng mongoose.Types.ObjectId trực tiếp (Đảm bảo logic tương thích)
         let matchStage = { academicYearId: new mongoose.Types.ObjectId(academicYearId) };
         if (type) matchStage.type = type;
         if (status) matchStage.status = status;
@@ -655,10 +633,6 @@ const getReportStats = async (req, res) => {
         });
     }
 };
-
-// Loại bỏ các hàm liên quan đến bình luận: addComment, resolveComment
-// const addComment = async (req, res) => { ... };
-// const resolveComment = async (req, res) => { ... };
 
 const uploadReportFile = async (req, res) => {
     try {
@@ -755,7 +729,6 @@ const downloadReportFile = async (req, res) => {
             });
         }
 
-        // Cập nhật lại logic kiểm tra quyền dựa trên Report Model mới
         if (!report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess)) {
             return res.status(403).json({
                 success: false,
@@ -836,7 +809,6 @@ const convertFileToContent = async (req, res) => {
 
         if (report.attachedFile.mimetype === 'application/pdf') {
             const data = await pdfParse(fileBuffer);
-            // Cải thiện logic chuyển đổi PDF thô thành HTML cơ bản
             htmlContent = data.text
                 .split('\n\n')
                 .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
@@ -858,8 +830,6 @@ const convertFileToContent = async (req, res) => {
         report.contentMethod = 'online_editor';
         report.updatedBy = req.user.id;
 
-        // Bỏ logic liên kết minh chứng
-        // await report.linkEvidences();
         await report.save();
 
         res.json({
@@ -886,13 +856,9 @@ module.exports = {
     updateReport,
     deleteReport,
     publishReport,
+    unpublishReport,
     downloadReport,
-    getReportVersions,
-    // getReportEvidences, // Loại bỏ
     getReportStats,
-    // addComment, // Loại bỏ
-    // resolveComment, // Loại bỏ
-    // validateEvidenceLinks, // Loại bỏ
     uploadReportFile,
     downloadReportFile,
     convertFileToContent
