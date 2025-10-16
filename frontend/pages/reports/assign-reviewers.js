@@ -71,7 +71,7 @@ export default function AssignReviewersPage() {
         } catch (error) {
             console.error('Error fetching reports:', error)
             toast.error('Lỗi khi tải báo cáo')
-            router.push('/reports/reports')
+            router.push('/reports')
         } finally {
             setLoading(false)
         }
@@ -79,11 +79,16 @@ export default function AssignReviewersPage() {
 
     const fetchExperts = async () => {
         try {
-            const response = await apiMethods.users.getExperts()
-            setExperts(response.data?.data || [])
+            const response = await apiMethods.users.getExperts({
+                status: 'active',
+                limit: 1000
+            })
+
+            const expertsList = response.data?.data?.users || response.data?.data || []
+            setExperts(expertsList)
         } catch (error) {
-            console.error('Error fetching experts:', error)
-            toast.error('Lỗi khi tải danh sách chuyên gia')
+            console.error('Error fetching experts:', error.message)
+            setExperts([])
         }
     }
 
@@ -93,11 +98,10 @@ export default function AssignReviewersPage() {
             [reportId]: [
                 ...prev[reportId],
                 {
-                    expertId: '',
+                    expertIds: [],
                     deadline: '',
                     priority: 'normal',
-                    assignmentNote: '',
-                    evaluationCriteria: []
+                    assignmentNote: ''
                 }
             ]
         }))
@@ -108,6 +112,21 @@ export default function AssignReviewersPage() {
             ...prev,
             [reportId]: prev[reportId].filter((_, i) => i !== index)
         }))
+    }
+
+    const handleToggleExpert = (reportId, assignmentIndex, expertId) => {
+        setAssignments(prev => {
+            const updated = { ...prev }
+            const assignment = updated[reportId][assignmentIndex]
+
+            if (assignment.expertIds.includes(expertId)) {
+                assignment.expertIds = assignment.expertIds.filter(id => id !== expertId)
+            } else {
+                assignment.expertIds.push(expertId)
+            }
+
+            return updated
+        })
     }
 
     const handleAssignmentChange = (reportId, index, field, value) => {
@@ -122,18 +141,21 @@ export default function AssignReviewersPage() {
     }
 
     const handleSubmit = async () => {
-        // Validate
         let hasErrors = false
+        let totalAssignments = 0
 
         Object.entries(assignments).forEach(([reportId, reportsAssignments]) => {
             reportsAssignments.forEach((assignment, idx) => {
-                if (!assignment.expertId) {
-                    toast.error(`Vui lòng chọn chuyên gia cho báo cáo: ${reportId} (phân quyền ${idx + 1})`)
+                if (!assignment.expertIds || assignment.expertIds.length === 0) {
+                    toast.error(`Vui lòng chọn ít nhất một chuyên gia cho báo cáo: ${reportId} (phân quyền ${idx + 1})`)
                     hasErrors = true
                 }
                 if (!assignment.deadline) {
                     toast.error(`Vui lòng chọn hạn chót cho báo cáo: ${reportId} (phân quyền ${idx + 1})`)
                     hasErrors = true
+                }
+                if (!hasErrors) {
+                    totalAssignments += assignment.expertIds.length
                 }
             })
         })
@@ -143,13 +165,17 @@ export default function AssignReviewersPage() {
         try {
             setSaving(true)
 
-            // Create all assignments
             const allAssignments = Object.entries(assignments)
                 .flatMap(([reportId, reportsAssignments]) =>
-                    reportsAssignments.map(assignment => ({
-                        reportId,
-                        ...assignment
-                    }))
+                    reportsAssignments.flatMap(assignment =>
+                        assignment.expertIds.map(expertId => ({
+                            reportId,
+                            expertId,
+                            deadline: assignment.deadline,
+                            priority: assignment.priority,
+                            assignmentNote: assignment.assignmentNote
+                        }))
+                    )
                 )
 
             await Promise.all(
@@ -158,7 +184,7 @@ export default function AssignReviewersPage() {
                 )
             )
 
-            toast.success(`Đã phân quyền ${allAssignments.length} đánh giá thành công`)
+            toast.success(`Đã phân quyền ${totalAssignments} đánh giá thành công`)
             router.push('/reports')
         } catch (error) {
             console.error('Error creating assignments:', error)
@@ -169,7 +195,10 @@ export default function AssignReviewersPage() {
     }
 
     const getTotalAssignments = () => {
-        return Object.values(assignments).reduce((sum, arr) => sum + arr.length, 0)
+        return Object.values(assignments).reduce(
+            (sum, arr) => sum + arr.reduce((acc, item) => acc + (item.expertIds?.length || 0), 0),
+            0
+        )
     }
 
     const getExpertName = (expertId) => {
@@ -289,23 +318,56 @@ export default function AssignReviewersPage() {
                                                             Phân quyền #{idx + 1}
                                                         </p>
 
-                                                        {/* Expert Selection */}
+                                                        {/* Experts Multi-Select */}
                                                         <div className="mb-3">
-                                                            <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                                            <label className="block text-xs font-semibold text-gray-600 mb-2">
                                                                 Chuyên gia <span className="text-red-500">*</span>
                                                             </label>
-                                                            <select
-                                                                value={assignment.expertId}
-                                                                onChange={(e) => handleAssignmentChange(report._id, idx, 'expertId', e.target.value)}
-                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                                            >
-                                                                <option value="">-- Chọn chuyên gia --</option>
-                                                                {experts.map(expert => (
-                                                                    <option key={expert._id} value={expert._id}>
-                                                                        {expert.fullName} ({expert.email})
-                                                                    </option>
-                                                                ))}
-                                                            </select>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                                                                {experts.length === 0 ? (
+                                                                    <p className="text-gray-500 text-sm col-span-2 text-center py-4">
+                                                                        Không có chuyên gia nào
+                                                                    </p>
+                                                                ) : (
+                                                                    experts.map(expert => (
+                                                                        <label
+                                                                            key={expert._id}
+                                                                            className="flex items-center space-x-2 cursor-pointer hover:bg-blue-50 p-2 rounded transition-colors"
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={assignment.expertIds.includes(expert._id)}
+                                                                                onChange={() => handleToggleExpert(report._id, idx, expert._id)}
+                                                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                            />
+                                                                            <span className="text-sm text-gray-700 flex-1">
+                                                                                {expert.fullName}
+                                                                            </span>
+                                                                            <span className="text-xs text-gray-500">
+                                                                                {expert.email}
+                                                                            </span>
+                                                                        </label>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                            {assignment.expertIds.length > 0 && (
+                                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                                    {assignment.expertIds.map(expertId => (
+                                                                        <span
+                                                                            key={expertId}
+                                                                            className="inline-flex items-center space-x-1 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs"
+                                                                        >
+                                                                            <span>{getExpertName(expertId)}</span>
+                                                                            <button
+                                                                                onClick={() => handleToggleExpert(report._id, idx, expertId)}
+                                                                                className="hover:text-blue-900"
+                                                                            >
+                                                                                <X className="h-3 w-3" />
+                                                                            </button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
 
                                                         {/* Deadline */}
@@ -363,12 +425,12 @@ export default function AssignReviewersPage() {
                                                 </div>
 
                                                 {/* Summary */}
-                                                {assignment.expertId && assignment.deadline && (
+                                                {assignment.expertIds.length > 0 && assignment.deadline && (
                                                     <div className="bg-white rounded p-3 border border-gray-200 text-xs">
-                                                        <div className="flex items-center space-x-3">
+                                                        <div className="flex flex-wrap items-center space-x-3 gap-2">
                                                             <div className="flex items-center space-x-1 text-gray-600">
-                                                                <User className="h-3.5 w-3.5" />
-                                                                <span>{getExpertName(assignment.expertId)}</span>
+                                                                <Users className="h-3.5 w-3.5" />
+                                                                <span>{assignment.expertIds.length} chuyên gia</span>
                                                             </div>
                                                             <div className="flex items-center space-x-1 text-gray-600">
                                                                 <Calendar className="h-3.5 w-3.5" />
@@ -434,7 +496,7 @@ export default function AssignReviewersPage() {
                             ) : (
                                 <>
                                     <Save className="h-4 w-4 mr-2" />
-                                    Lưu phân quyền
+                                    Lưu phân quyền ({getTotalAssignments()})
                                 </>
                             )}
                         </button>

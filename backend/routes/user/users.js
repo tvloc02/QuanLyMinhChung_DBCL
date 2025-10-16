@@ -24,6 +24,7 @@ const {
 } = require('../../controllers/user/userController');
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
+router.get('/experts', auth, requireManager, getUsers);
 
 router.get('/', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
@@ -35,6 +36,8 @@ router.get('/', auth, requireManager, [
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers);
+
+router.get('/:id', auth, requireManager, getUserById);
 
 router.get('/:id', auth, requireManager, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
@@ -288,5 +291,13 @@ router.delete('/:id/permissions', auth, requireAdmin, [
         .isMongoId()
         .withMessage('permissionId không hợp lệ')
 ], validation, removeUserPermission);
+
+router.get('/experts', auth, requireManager, [
+    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('search').optional().trim().escape(),
+    query('sortBy').optional().isIn(['createdAt', 'fullName']),
+    query('sortOrder').optional().isIn(['asc', 'desc'])
+], validation, getUsers);
 
 module.exports = router;

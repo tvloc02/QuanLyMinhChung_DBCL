@@ -87,6 +87,7 @@ export const apiMethods = {
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
         getStats: () => api.get('/users/statistics'),
+        getExperts: (params) => api.get('/api/users', { params: { ...params, role: 'expert' } }),
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
