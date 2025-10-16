@@ -41,8 +41,9 @@ import {
     Mail,
     Plus,
     Book,
-    Play
+    Play,
 } from 'lucide-react'
+import GracefulDegradeBoundary from "next/dist/client/components/errors/graceful-degrade-boundary";
 
 export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
     const router = useRouter()
@@ -111,7 +112,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Tổng quan báo cáo', icon: ClipboardCheck, path: '/reports/expert-assignments' },
                 { name: 'Đánh giá báo cáo', icon: Award, path: '/reports/evaluations/index' },
                 { name: 'Xuất báo cáo', icon: Download, path: '/reports/export' },
-                { name: 'Đánh giá của tôi', icon: Download, path: '/reports/evaluations' },
+                { name: 'Đánh giá của tôi', icon: GraduationCap, path: '/reports/evaluations' },
             ]
         },
         {
