@@ -181,19 +181,19 @@ export default function NotificationsPage() {
             case 'assignment_overdue':
             case 'assignment_cancelled':
                 return notification.data?.assignmentId
-                    ? `/assignments/${notification.data.assignmentId}`
+                    ? `/assignments/assignments/${notification.data.assignmentId}`
                     : null
 
             case 'evaluation_submitted':
             case 'evaluation_reviewed':
                 return notification.data?.evaluationId
-                    ? `/evaluations/${notification.data.evaluationId}`
+                    ? `/evaluations/evaluations/${notification.data.evaluationId}`
                     : null
 
             case 'report_published':
             case 'report_updated':
                 return notification.data?.reportId
-                    ? `/reports/${notification.data.reportId}`
+                    ? `/reports/reports/${notification.data.reportId}`
                     : null
 
             default:
