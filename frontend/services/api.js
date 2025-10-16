@@ -87,7 +87,7 @@ export const apiMethods = {
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
         getStats: () => api.get('/users/statistics'),
-        getExperts: (params) => api.get('/api/users', { params: { ...params, role: 'expert' } }),
+        getExperts: (params) => api.get('/users', { params: { ...params, role: 'expert' } }),
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
@@ -305,7 +305,7 @@ export const apiMethods = {
             api.get('/api/assignments/expert-workload', { params: { expertId } }),
         getUpcomingDeadlines: (academicYearId, days) =>
             api.get('/api/assignments/upcoming-deadlines', { params: { days } }),
-        // BỔ SUNG API BULK CREATE để xử lý phân công hàng loạt từ assign-reviewers.js
+
         bulkCreate: (data) => api.post('/api/assignments/bulk-create', data)
     },
 
@@ -372,6 +372,7 @@ export const apiMethods = {
         addMembers: (id, userIds) => api.post('/api/user-groups/${id}/members', { userIds }),
         removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
     },
+
 }
 
 export const uploadFile = (file, evidenceId, onProgress) => {
