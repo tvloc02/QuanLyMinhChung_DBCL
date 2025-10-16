@@ -1,5 +1,59 @@
 const mongoose = require('mongoose');
 
+// Định nghĩa sub-schema cho Versions
+const versionSubSchema = new mongoose.Schema({
+    content: { type: String, required: true },
+    changeNote: String,
+    changedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    changedAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: false });
+
+// Định nghĩa sub-schema cho Linked Evidences
+const linkedEvidenceSubSchema = new mongoose.Schema({
+    evidenceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Evidence',
+        required: true
+    },
+    contextText: { // Ngữ cảnh/Giải thích việc liên kết
+        type: String,
+        maxlength: 500
+    },
+    linkedAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: false });
+
+// Định nghĩa sub-schema cho Reviewer Comments
+const reviewerCommentSubSchema = new mongoose.Schema({
+    comment: String,
+    section: String,
+    commentedAt: {
+        type: Date,
+        default: Date.now
+    },
+    reviewerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    reviewerType: {
+        type: String,
+        enum: ['manager', 'expert', 'admin', 'reviewer']
+    },
+    isResolved: {
+        type: Boolean,
+        default: false
+    }
+});
+
+
 const reportSchema = new mongoose.Schema({
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -101,6 +155,12 @@ const reportSchema = new mongoose.Schema({
         ref: 'User'
     },
 
+    // THÊM CÁC TRƯỜNG MỚI ĐỂ HỖ TRỢ API
+    versions: [versionSubSchema],
+    linkedEvidences: [linkedEvidenceSubSchema],
+    reviewerComments: [reviewerCommentSubSchema],
+
+
     // Danh sách đánh giá của báo cáo
     evaluations: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -156,7 +216,18 @@ reportSchema.pre('save', function(next) {
 
         if (this.isModified('content')) {
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
+
+            // Tự động thêm phiên bản mới (Logic mẫu)
+            if (this.versions) {
+                this.versions.push({
+                    content: this.content,
+                    changeNote: 'Cập nhật nội dung tự động',
+                    changedBy: this.updatedBy
+                });
+            }
         }
+    } else if (this.isNew && this.content) {
+        this.wordCount = this.content.split(/\s+/).length;
     }
     next();
 });
@@ -224,11 +295,11 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
     return false;
 };
 
-reportSchema.methods.incrementView = async function() {
+reportSchema.methods.incrementView = async function(userId) {
     this.metadata.viewCount += 1;
     await this.save();
 
-    await this.addActivityLog('report_view', null,
+    await this.addActivityLog('report_view', userId,
         `Xem báo cáo: ${this.title}`, {
             severity: 'low'
         });
@@ -236,11 +307,11 @@ reportSchema.methods.incrementView = async function() {
     return this;
 };
 
-reportSchema.methods.incrementDownload = async function() {
+reportSchema.methods.incrementDownload = async function(userId) {
     this.metadata.downloadCount += 1;
     await this.save();
 
-    await this.addActivityLog('report_download', null,
+    await this.addActivityLog('report_download', userId,
         `Tải xuống báo cáo: ${this.title}`, {
             severity: 'low'
         });
@@ -283,6 +354,25 @@ reportSchema.methods.unpublish = async function(userId) {
 
     return this;
 };
+
+reportSchema.methods.addVersion = async function(versionData) {
+    this.versions.push(versionData);
+    return this.save();
+};
+
+reportSchema.methods.addComment = async function(commentData) {
+    this.reviewerComments.push(commentData);
+    return this.save();
+};
+
+reportSchema.methods.resolveComment = async function(commentId) {
+    const comment = this.reviewerComments.id(commentId);
+    if (comment) {
+        comment.isResolved = true;
+    }
+    return this.save();
+};
+
 
 // Static methods
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
