@@ -3,86 +3,263 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../../contexts/AuthContext'
 import Layout from '../../../components/common/Layout'
 import { apiMethods } from '../../../services/api'
-import toast from 'react-hot-toast'
 import {
-    Plus, Save, ArrowLeft, FileText, Loader2, AlertCircle, X,
-    BookOpen, UserCheck, Calendar
+    Save,
+    Send,
+    FileText,
+    AlertCircle,
+    Plus,
+    Trash2,
+    ArrowLeft,
+    BookOpen,
+    Clock
 } from 'lucide-react'
+import { formatDate } from '../../../utils/helpers'
+import toast from 'react-hot-toast'
 
-export default function CreateEvaluationPage() {
+const getRatingColor = (rating) => {
+    const colors = {
+        excellent: 'text-green-600',
+        good: 'text-blue-600',
+        satisfactory: 'text-yellow-600',
+        needs_improvement: 'text-orange-600',
+        poor: 'text-red-600'
+    }
+    return colors[rating] || 'text-gray-600'
+}
+
+export default function EvaluationFormPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
-    const { assignmentId } = router.query
+    const { id, assignmentId } = router.query
 
     const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [evaluation, setEvaluation] = useState(null)
     const [assignment, setAssignment] = useState(null)
     const [report, setReport] = useState(null)
-    const [message, setMessage] = useState({ type: '', text: '' })
+    const [progress, setProgress] = useState(0)
 
-    const breadcrumbItems = [
-        { name: 'Phân công', path: '/reports/assignments' },
-        { name: 'Đánh giá của tôi', path: '/reports/expert-assignments' },
-        { name: 'Tạo đánh giá mới', icon: Plus }
-    ]
+    const [formData, setFormData] = useState({
+        criteriaScores: [],
+        overallComment: '',
+        strengths: [],
+        improvementAreas: [],
+        recommendations: [],
+        evidenceAssessment: {
+            adequacy: 'adequate',
+            relevance: 'fair',
+            quality: 'fair'
+        }
+    })
 
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
-        } else if (user && assignmentId) {
-            fetchAssignmentDetails()
         }
-    }, [user, isLoading, assignmentId, router])
+    }, [user, isLoading, router])
 
-    const fetchAssignmentDetails = async () => {
+    useEffect(() => {
+        if (user && user.role === 'expert' && router.isReady) {
+            if (id) {
+                fetchEvaluation()
+            } else if (assignmentId) {
+                fetchAssignmentAndCreateEvaluation()
+            }
+        }
+    }, [user, id, assignmentId, router.isReady])
+
+    const breadcrumbItems = [
+        { name: 'Báo cáo', path: '/reports' },
+        { name: 'Đánh giá', path: '/reports/evaluations' },
+        { name: id ? 'Chỉnh sửa' : 'Tạo mới', icon: BookOpen }
+    ]
+
+    const fetchEvaluation = async () => {
         try {
             setLoading(true)
-            const assignmentRes = await apiMethods.assignments.getById(assignmentId)
-            const assignmentData = assignmentRes.data?.data
-            setAssignment(assignmentData)
+            const response = await apiMethods.evaluations.getById(id)
+            const data = response.data?.data || response.data
 
-            if (assignmentData.evaluationId) {
-                // Nếu đã có Evaluation, chuyển hướng sang trang chỉnh sửa
-                router.replace(`/reports/evaluations/${assignmentData.evaluationId}`);
-                return;
-            }
-
-            // Lấy thông tin report (giả định assignment trả về reportId đã populate)
-            // Nếu không, cần gọi thêm apiMethods.reports.getById(assignmentData.reportId)
-            setReport(assignmentData.reportId);
-
+            setEvaluation(data)
+            setReport(data.reportId)
+            setFormData({
+                criteriaScores: data.criteriaScores || [],
+                overallComment: data.overallComment || '',
+                strengths: data.strengths || [],
+                improvementAreas: data.improvementAreas || [],
+                recommendations: data.recommendations || [],
+                evidenceAssessment: data.evidenceAssessment || {
+                    adequacy: 'adequate',
+                    relevance: 'fair',
+                    quality: 'fair'
+                }
+            })
+            calculateProgress(data)
         } catch (error) {
-            console.error('Fetch assignment error:', error)
-            toast.error('Lỗi tải thông tin phân công')
-            router.push('/reports/expert-assignments'); // Quay lại trang danh sách
+            console.error('Error fetching evaluation:', error)
+            toast.error('Lỗi tải đánh giá')
+            router.push('/reports/evaluations')
         } finally {
             setLoading(false)
         }
     }
 
-    const handleCreateEvaluation = async (e) => {
-        e.preventDefault()
+    const fetchAssignmentAndCreateEvaluation = async () => {
+        try {
+            setLoading(true)
+            const assignmentRes = await apiMethods.assignments.getById(assignmentId)
+            const assignmentData = assignmentRes.data?.data || assignmentRes.data
 
-        if (!assignmentId) return;
+            setAssignment(assignmentData)
+            setReport(assignmentData.reportId)
+
+            // Initialize form with criteria from assignment
+            const criteriaScores = assignmentData.evaluationCriteria?.map(criteria => ({
+                criteriaName: criteria.name,
+                maxScore: criteria.maxScore,
+                score: 0,
+                weight: criteria.weight || 1,
+                comment: ''
+            })) || []
+
+            setFormData(prev => ({
+                ...prev,
+                criteriaScores
+            }))
+        } catch (error) {
+            console.error('Error fetching assignment:', error)
+            toast.error('Lỗi tải phân quyền')
+            router.push('/reports/expert-assignments')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const calculateProgress = (data = null) => {
+        const currentEval = data || evaluation
+        if (!currentEval) return
+
+        let completed = 0
+        let total = 5
+
+        if (currentEval.overallComment) completed++
+        if (currentEval.rating) completed++
+        if (currentEval.evidenceAssessment?.adequacy) completed++
+        if (currentEval.evidenceAssessment?.relevance) completed++
+        if (currentEval.evidenceAssessment?.quality) completed++
+
+        setProgress(Math.round((completed / total) * 100))
+    }
+
+    const handleCriteriaScoreChange = (index, field, value) => {
+        const updated = [...formData.criteriaScores]
+        updated[index] = { ...updated[index], [field]: value }
+        setFormData({ ...formData, criteriaScores: updated })
+    }
+
+    const handleAddStrength = () => {
+        setFormData({
+            ...formData,
+            strengths: [...formData.strengths, { point: '', evidenceReference: '' }]
+        })
+    }
+
+    const handleRemoveStrength = (index) => {
+        setFormData({
+            ...formData,
+            strengths: formData.strengths.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleStrengthChange = (index, field, value) => {
+        const updated = [...formData.strengths]
+        updated[index] = { ...updated[index], [field]: value }
+        setFormData({ ...formData, strengths: updated })
+    }
+
+    const handleAddImprovement = () => {
+        setFormData({
+            ...formData,
+            improvementAreas: [...formData.improvementAreas, { area: '', recommendation: '', priority: 'medium' }]
+        })
+    }
+
+    const handleRemoveImprovement = (index) => {
+        setFormData({
+            ...formData,
+            improvementAreas: formData.improvementAreas.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleImprovementChange = (index, field, value) => {
+        const updated = [...formData.improvementAreas]
+        updated[index] = { ...updated[index], [field]: value }
+        setFormData({ ...formData, improvementAreas: updated })
+    }
+
+    const handleAddRecommendation = () => {
+        setFormData({
+            ...formData,
+            recommendations: [...formData.recommendations, { recommendation: '', type: 'short_term', priority: 'medium' }]
+        })
+    }
+
+    const handleRemoveRecommendation = (index) => {
+        setFormData({
+            ...formData,
+            recommendations: formData.recommendations.filter((_, i) => i !== index)
+        })
+    }
+
+    const handleRecommendationChange = (index, field, value) => {
+        const updated = [...formData.recommendations]
+        updated[index] = { ...updated[index], [field]: value }
+        setFormData({ ...formData, recommendations: updated })
+    }
+
+    const handleAutoSave = async () => {
+        try {
+            await apiMethods.evaluations.autoSave(id, formData)
+            // Silently auto-save
+        } catch (error) {
+            console.error('Auto-save error:', error)
+        }
+    }
+
+    const handleSave = async () => {
+        try {
+            setSaving(true)
+            await apiMethods.evaluations.update(id, formData)
+            toast.success('Đánh giá đã được lưu')
+            fetchEvaluation()
+        } catch (error) {
+            console.error('Error saving:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi lưu đánh giá')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const handleSubmit = async () => {
+        if (!formData.overallComment.trim()) {
+            toast.error('Vui lòng nhập nhận xét tổng thể')
+            return
+        }
+
+        if (!window.confirm('Xác nhận nộp đánh giá? Sau khi nộp sẽ không thể chỉnh sửa.')) {
+            return
+        }
 
         try {
             setSubmitting(true)
-            const response = await apiMethods.evaluations.create({ assignmentId })
-
-            if (response.data.success) {
-                toast.success('Khởi tạo đánh giá thành công. Bắt đầu đánh giá!')
-                // Chuyển hướng đến trang chỉnh sửa đánh giá vừa tạo
-                const newEvaluationId = response.data.data._id;
-                setTimeout(() => {
-                    router.push(`/reports/evaluations/${newEvaluationId}`)
-                }, 1000)
-            }
+            await apiMethods.evaluations.submit(id)
+            toast.success('Đánh giá đã được nộp')
+            router.push('/reports/evaluations')
         } catch (error) {
-            console.error('Create evaluation error:', error)
-            setMessage({
-                type: 'error',
-                text: error.response?.data?.message || 'Lỗi khởi tạo đánh giá'
-            })
+            console.error('Error submitting:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
         } finally {
             setSubmitting(false)
         }
@@ -90,123 +267,367 @@ export default function CreateEvaluationPage() {
 
     if (isLoading || loading) {
         return (
-            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Đang tải dữ liệu...</p>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        )
+    }
+
+    if (user.role !== 'expert') {
+        return (
+            <Layout breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 className="text-red-800 font-semibold">Lỗi truy cập</h3>
+                    <p className="text-red-600">Trang này chỉ dành cho chuyên gia đánh giá</p>
                 </div>
             </Layout>
         )
     }
 
-    if (!user || !assignment) {
-        return null;
-    }
-
-    // Đảm bảo chỉ Expert mới có quyền tạo đánh giá cho assignment của mình
-    if (assignment.expertId.toString() !== user.id.toString()) {
-        return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
-                <div className="p-8 text-center bg-red-50 border border-red-200 rounded-xl mt-6">
-                    <AlertCircle className="w-10 h-10 text-red-600 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-red-800">Truy cập bị từ chối</h2>
-                    <p className="text-red-700">Bạn không phải là chuyên gia được phân công cho nhiệm vụ này.</p>
-                </div>
-            </Layout>
-        );
-    }
-
     return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="max-w-8xl mx-auto space-y-6">
-
+        <Layout title={id ? 'Chỉnh sửa đánh giá' : 'Tạo đánh giá'} breadcrumbItems={breadcrumbItems}>
+            <div className="space-y-6">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <BookOpen className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold mb-1">Khởi tạo đánh giá báo cáo</h1>
-                                <p className="text-purple-100">Bắt đầu quá trình đánh giá cho phân công đã chọn</p>
-                            </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Quay lại
+                    </button>
+
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                                {report?.title}
+                            </h1>
+                            <p className="text-gray-600">{report?.code}</p>
                         </div>
+                        <div className="text-right">
+                            <p className="text-sm text-gray-600 mb-1">Tiến độ</p>
+                            <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-300 ${progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 mt-1">{progress}% hoàn thành</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Criteria Scores */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Điểm theo tiêu chí</h2>
+
+                    <div className="space-y-4">
+                        {formData.criteriaScores.map((criteria, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-gray-900">{criteria.criteriaName}</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Trọng số: {(criteria.weight * 100).toFixed(0)}% | Điểm tối đa: {criteria.maxScore}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max={criteria.maxScore}
+                                            value={criteria.score}
+                                            onChange={(e) => handleCriteriaScoreChange(idx, 'score', parseFloat(e.target.value))}
+                                            className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <span className="text-gray-600">/ {criteria.maxScore}</span>
+                                    </div>
+                                </div>
+
+                                <textarea
+                                    value={criteria.comment}
+                                    onChange={(e) => handleCriteriaScoreChange(idx, 'comment', e.target.value)}
+                                    placeholder="Bình luận cho tiêu chí này..."
+                                    maxLength={2000}
+                                    rows={2}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {criteria.comment?.length || 0}/2000 ký tự
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Overall Comment */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Nhận xét tổng thể</h2>
+
+                    <textarea
+                        value={formData.overallComment}
+                        onChange={(e) => setFormData({ ...formData, overallComment: e.target.value })}
+                        placeholder="Nhập nhận xét tổng thể về báo cáo..."
+                        maxLength={5000}
+                        rows={5}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                        {formData.overallComment?.length || 0}/5000 ký tự
+                    </p>
+                </div>
+
+                {/* Evidence Assessment */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Đánh giá minh chứng</h2>
+
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
+                                Tính đầy đủ
+                            </label>
+                            <select
+                                value={formData.evidenceAssessment.adequacy}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    evidenceAssessment: {
+                                        ...formData.evidenceAssessment,
+                                        adequacy: e.target.value
+                                    }
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="insufficient">Không đủ</option>
+                                <option value="adequate">Đủ</option>
+                                <option value="comprehensive">Toàn diện</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
+                                Tính liên quan
+                            </label>
+                            <select
+                                value={formData.evidenceAssessment.relevance}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    evidenceAssessment: {
+                                        ...formData.evidenceAssessment,
+                                        relevance: e.target.value
+                                    }
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="poor">Kém</option>
+                                <option value="fair">Trung bình</option>
+                                <option value="good">Tốt</option>
+                                <option value="excellent">Xuất sắc</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-900 mb-2">
+                                Chất lượng
+                            </label>
+                            <select
+                                value={formData.evidenceAssessment.quality}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    evidenceAssessment: {
+                                        ...formData.evidenceAssessment,
+                                        quality: e.target.value
+                                    }
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="poor">Kém</option>
+                                <option value="fair">Trung bình</option>
+                                <option value="good">Tốt</option>
+                                <option value="excellent">Xuất sắc</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Strengths */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Điểm mạnh</h2>
                         <button
-                            onClick={() => router.push('/reports/expert-assignments')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-purple-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            onClick={handleAddStrength}
+                            className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                         >
-                            <ArrowLeft className="w-5 h-5" />
-                            <span>Danh sách phân công</span>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Thêm
                         </button>
                     </div>
+
+                    <div className="space-y-3">
+                        {formData.strengths.map((strength, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
+                                <div className="flex-1 space-y-2">
+                                    <input
+                                        type="text"
+                                        value={strength.point}
+                                        onChange={(e) => handleStrengthChange(idx, 'point', e.target.value)}
+                                        placeholder="Mô tả điểm mạnh..."
+                                        maxLength={500}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={strength.evidenceReference}
+                                        onChange={(e) => handleStrengthChange(idx, 'evidenceReference', e.target.value)}
+                                        placeholder="Tham chiếu minh chứng..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => handleRemoveStrength(idx)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Assignment Info */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Thông tin phân công</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                        <div className='flex items-center space-x-2'>
-                            <FileText className='w-5 h-5 text-indigo-500' />
-                            <span className="font-semibold text-gray-700">Báo cáo:</span>
-                            <span className="text-gray-900">{report?.title} ({report?.code})</span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                            <Calendar className='w-5 h-5 text-indigo-500' />
-                            <span className="font-semibold text-gray-700">Hạn chót:</span>
-                            <span className="text-gray-900">{formatDate(assignment.deadline)}</span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                            <UserCheck className='w-5 h-5 text-indigo-500' />
-                            <span className="font-semibold text-gray-700">Phân công bởi:</span>
-                            <span className="text-gray-900">{assignment.assignedBy?.fullName || 'N/A'}</span>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                            <AlertCircle className='w-5 h-5 text-indigo-500' />
-                            <span className="font-semibold text-gray-700">Trạng thái hiện tại:</span>
-                            <span className="text-green-600 font-bold">{assignment.statusText}</span>
-                        </div>
+                {/* Improvement Areas */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Cần cải thiện</h2>
+                        <button
+                            onClick={handleAddImprovement}
+                            className="flex items-center px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                        >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Thêm
+                        </button>
                     </div>
 
-                    {assignment.assignmentNote && (
-                        <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                            <span className="font-semibold text-indigo-800">Ghi chú từ Người phân công:</span>
-                            <p className="text-indigo-900 mt-1">{assignment.assignmentNote}</p>
-                        </div>
-                    )}
+                    <div className="space-y-3">
+                        {formData.improvementAreas.map((area, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
+                                <div className="flex-1 space-y-2">
+                                    <input
+                                        type="text"
+                                        value={area.area}
+                                        onChange={(e) => handleImprovementChange(idx, 'area', e.target.value)}
+                                        placeholder="Mô tả lĩnh vực cần cải thiện..."
+                                        maxLength={500}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <textarea
+                                        value={area.recommendation}
+                                        onChange={(e) => handleImprovementChange(idx, 'recommendation', e.target.value)}
+                                        placeholder="Khuyến nghị..."
+                                        maxLength={1000}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    />
+                                    <select
+                                        value={area.priority}
+                                        onChange={(e) => handleImprovementChange(idx, 'priority', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="low">Ưu tiên thấp</option>
+                                        <option value="medium">Ưu tiên trung bình</option>
+                                        <option value="high">Ưu tiên cao</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={() => handleRemoveImprovement(idx)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Action Block */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                    {message.text && (
-                        <div className={`rounded-lg border p-4 mb-6 ${message.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
-                            {message.text}
-                        </div>
-                    )}
-                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                        Sẵn sàng để bắt đầu đánh giá?
-                    </h3>
-                    <p className="text-gray-600 mb-8">
-                        Thao tác này sẽ khởi tạo một Bản nháp đánh giá (Draft Evaluation) và cập nhật trạng thái phân công thành **Đang đánh giá**.
-                    </p>
+                {/* Recommendations */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Khuyến nghị</h2>
+                        <button
+                            onClick={handleAddRecommendation}
+                            className="flex items-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Thêm
+                        </button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {formData.recommendations.map((rec, idx) => (
+                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
+                                <div className="flex-1 space-y-2">
+                                    <textarea
+                                        value={rec.recommendation}
+                                        onChange={(e) => handleRecommendationChange(idx, 'recommendation', e.target.value)}
+                                        placeholder="Nội dung khuyến nghị..."
+                                        maxLength={1000}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                            value={rec.type}
+                                            onChange={(e) => handleRecommendationChange(idx, 'type', e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="immediate">Ngay lập tức</option>
+                                            <option value="short_term">Ngắn hạn</option>
+                                            <option value="long_term">Dài hạn</option>
+                                        </select>
+                                        <select
+                                            value={rec.priority}
+                                            onChange={(e) => handleRecommendationChange(idx, 'priority', e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="low">Ưu tiên thấp</option>
+                                            <option value="medium">Ưu tiên trung bình</option>
+                                            <option value="high">Ưu tiên cao</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleRemoveRecommendation(idx)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-lg shadow-lg">
                     <button
-                        onClick={handleCreateEvaluation}
-                        disabled={submitting || assignment.status === 'completed'}
-                        className="flex items-center justify-center space-x-2 px-10 py-4 mx-auto bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-xl disabled:opacity-50 transition-all font-medium text-lg"
+                        onClick={() => router.back()}
+                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                        {submitting ? (
-                            <>
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                                <span>Đang khởi tạo...</span>
-                            </>
-                        ) : (
-                            <>
-                                <BookOpen className="w-6 h-6" />
-                                <span>Khởi tạo và Bắt đầu Đánh giá</span>
-                            </>
-                        )}
+                        Hủy
                     </button>
-                    {assignment.status === 'completed' && <p className="text-red-500 mt-4">Phân công này đã hoàn thành.</p>}
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saving ? 'Đang lưu...' : 'Lưu'}
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={submitting || progress < 100}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                        <Send className="h-4 w-4 mr-2" />
+                        {submitting ? 'Đang nộp...' : 'Nộp đánh giá'}
+                    </button>
                 </div>
             </div>
         </Layout>
