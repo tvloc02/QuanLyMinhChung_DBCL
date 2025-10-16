@@ -16,7 +16,8 @@ import {
     MessageSquare,
     Loader2,
     Link as LinkIcon,
-    Clock
+    Clock,
+    ExternalLink
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -40,77 +41,117 @@ export default function ReportDetail() {
         { name: report?.title || 'Chi tiết báo cáo' }
     ]
 
+    // Chuyển hướng nếu chưa đăng nhập
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
         }
     }, [user, isLoading, router])
 
+    // Fetch dữ liệu chính khi ID và User sẵn sàng
     useEffect(() => {
-        if (id && user) {
-            fetchReportDetail()
-            fetchEvidences()
-            fetchVersions()
-        }
-    }, [id, user])
-
-    const fetchReportDetail = async () => {
-        try {
+        if (router.isReady && id && user) {
             setLoading(true)
-            const response = await apiMethods.reports.getById(id)
-            setReport(response.data?.data || response.data)
-            setComments(response.data?.data?.reviewerComments || [])
+            fetchReportDetail(id)
+        }
+    }, [router.isReady, id, user])
+
+    const fetchReportDetail = async (reportId) => {
+        try {
+            const response = await apiMethods.reports.getById(reportId)
+            const reportData = response.data?.data || response.data
+
+            if (reportData && reportData._id) {
+                setReport(reportData)
+                setComments(reportData.reviewerComments || [])
+
+                fetchEvidences(reportId)
+                fetchVersions(reportId)
+            } else {
+                toast.error('Không tìm thấy dữ liệu báo cáo')
+                router.push('/reports')
+            }
         } catch (error) {
-            console.error('Fetch report error:', error)
-            toast.error('Không thể tải thông tin báo cáo')
+            console.error('Fetch report detail error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi tải thông tin báo cáo')
             router.push('/reports')
         } finally {
             setLoading(false)
         }
     }
 
-    const fetchEvidences = async () => {
+    const fetchEvidences = async (reportId) => {
         try {
-            const response = await apiMethods.reports.getEvidences(id)
-            setEvidences(response.data?.data || [])
+            const response = await apiMethods.reports.getEvidences(reportId)
+            const data = response.data?.data || response.data || []
+            setEvidences(Array.isArray(data) ? data : [])
         } catch (error) {
-            console.error('Fetch evidences error:', error)
+            console.error('Fetch evidences error:', error.response?.status, error.message)
+            // Nếu 404 hoặc 501 (chưa implement) thì không toast
+            setEvidences([])
         }
     }
 
-    const fetchVersions = async () => {
+    const fetchVersions = async (reportId) => {
         try {
-            const response = await apiMethods.reports.getVersions(id)
-            setVersions(response.data?.data || [])
+            const response = await apiMethods.reports.getVersions(reportId)
+            const data = response.data?.data || response.data || []
+            setVersions(Array.isArray(data) ? data : [])
         } catch (error) {
-            console.error('Fetch versions error:', error)
+            console.error('Fetch versions error:', error.response?.status, error.message)
+            // Nếu 404 hoặc 501 (chưa implement) thì không toast
+            setVersions([])
         }
     }
 
     const handleDownload = async (format = 'html') => {
+        if (!id) return toast.error('ID báo cáo không hợp lệ')
+        if (!report?.code) return toast.error('Mã báo cáo không hợp lệ')
+
         try {
+            console.log('Downloading report:', id, format)
             const response = await apiMethods.reports.download(id, format)
-            const url = window.URL.createObjectURL(new Blob([response.data]))
+
+            // response.data là arraybuffer từ axios
+            let blob
+            if (response.data instanceof Blob) {
+                blob = response.data
+            } else if (response.data instanceof ArrayBuffer) {
+                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
+            } else {
+                // Fallback: convert string to blob
+                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
+            }
+
+            const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
             link.setAttribute('download', `${report.code}.${format}`)
             document.body.appendChild(link)
             link.click()
-            link.remove()
+
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(link)
+                window.URL.revokeObjectURL(url)
+            }, 100)
+
             toast.success('Tải xuống thành công')
         } catch (error) {
             console.error('Download error:', error)
-            toast.error('Lỗi khi tải xuống')
+            console.error('Error response:', error.response)
+            toast.error(error.response?.data?.message || 'Lỗi khi tải xuống')
         }
     }
 
     const handlePublish = async () => {
         if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+        if (!id) return toast.error('ID báo cáo không hợp lệ')
 
         try {
             await apiMethods.reports.publish(id)
             toast.success('Xuất bản báo cáo thành công')
-            fetchReportDetail()
+            fetchReportDetail(id)
         } catch (error) {
             console.error('Publish error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi xuất bản')
@@ -122,19 +163,25 @@ export default function ReportDetail() {
             toast.error('Vui lòng nhập nội dung nhận xét')
             return
         }
+        if (!id) return toast.error('ID báo cáo không hợp lệ')
 
         try {
             setAddingComment(true)
             await apiMethods.reports.addComment(id, newComment.trim())
             toast.success('Thêm nhận xét thành công')
             setNewComment('')
-            fetchReportDetail()
+            fetchReportDetail(id)
         } catch (error) {
             console.error('Add comment error:', error)
             toast.error('Lỗi khi thêm nhận xét')
         } finally {
             setAddingComment(false)
         }
+    }
+
+    const handleViewEvidence = (evidenceId) => {
+        // Chuyển hướng đến trang chi tiết minh chứng
+        router.push(`/evidences/${evidenceId}`)
     }
 
     const getStatusColor = (status) => {
@@ -389,11 +436,11 @@ export default function ReportDetail() {
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                                            {evidence.evidenceId?.code}
+                                                            {evidence.evidenceId?.code || 'N/A'}
                                                         </span>
                                                     </div>
                                                     <p className="text-sm font-medium text-gray-900 mb-1">
-                                                        {evidence.evidenceId?.name}
+                                                        {evidence.evidenceId?.name || 'Tên minh chứng'}
                                                     </p>
                                                     {evidence.contextText && (
                                                         <p className="text-xs text-gray-500 italic">
@@ -402,10 +449,11 @@ export default function ReportDetail() {
                                                     )}
                                                 </div>
                                                 <button
-                                                    onClick={() => router.push(`/evidence/files?evidenceId=${evidence.evidenceId?._id}`)}
-                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                    onClick={() => handleViewEvidence(evidence.evidenceId?._id)}
+                                                    className="ml-3 inline-flex items-center px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-all"
                                                 >
-                                                    Xem chi tiết →
+                                                    Xem chi tiết
+                                                    <ExternalLink className="h-4 w-4 ml-1" />
                                                 </button>
                                             </div>
                                         </div>
