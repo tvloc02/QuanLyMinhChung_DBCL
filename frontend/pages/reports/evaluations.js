@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
+import {useAuth} from '../../contexts/AuthContext';
 import {
     BarChart3,
     Search,
@@ -210,8 +210,8 @@ export default function EvaluationsPage() {
     }
 
     const handleEditEvaluation = (evaluationId) => {
-        router.push(`/reports/evaluations/${evaluationId}/edit`)
-    }
+             router.push(`/reports/evaluations/${evaluationId}/edit`)
+         }
 
     const handleSearch = (e) => {
         e.preventDefault()
