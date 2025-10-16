@@ -1129,6 +1129,70 @@ const resolveReportComment = async (req, res) => {
     }
 };
 
+const processEvidenceLinksInContent = (content, baseUrl = '') => {
+    if (!content) return '';
+
+    // Regex để tìm mã minh chứng (VD: A1.01.02.04)
+    const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+
+    return content.replace(evidenceCodePattern, (match) => {
+        const url = `${baseUrl}/public/evidences/${match}`;
+
+        // HTML link với styling
+        return `<a href="${url}" 
+                    class="evidence-link" 
+                    data-code="${match}" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc;">
+                    ${match}
+                    <svg style="width: 0.75rem; height: 0.75rem; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                </a>`;
+    });
+};
+
+const extractEvidenceCodes = (content) => {
+    if (!content) return [];
+
+    const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+    const codes = [];
+    let match;
+
+    while ((match = evidenceCodePattern.exec(content)) !== null) {
+        if (!codes.includes(match[1])) {
+            codes.push(match[1]);
+        }
+    }
+
+    return codes;
+};
+
+afterCreateReport = async (report, baseUrl) => {
+    try {
+        // Xử lý nội dung - gắn link vào mã minh chứng
+        if (report.content) {
+            report.content = processEvidenceLinksInContent(report.content, baseUrl);
+            await report.save();
+        }
+
+        // Trích xuất mã minh chứng (optional - cho tracking)
+        const codes = extractEvidenceCodes(report.content);
+        if (codes.length > 0) {
+            console.log(`Report ${report.code} references evidences:`, codes);
+            // Có thể lưu vào DB để tracking
+        }
+
+    } catch (error) {
+        console.error('Error processing evidence links:', error);
+    }
+};
+
+
+
+
+
 module.exports = {
     getReports,
     getReportById,
@@ -1147,5 +1211,8 @@ module.exports = {
     addReportVersion,
     getReportComments,
     addReportComment,
-    resolveReportComment
+    resolveReportComment,
+    processEvidenceLinksInContent,
+    extractEvidenceCodes,
+    afterCreateReport
 };
