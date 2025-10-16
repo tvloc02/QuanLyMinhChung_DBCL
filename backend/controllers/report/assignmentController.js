@@ -615,6 +615,255 @@ const getUpcomingDeadlines = async (req, res) => {
     }
 };
 
+const bulkCreateAssignments = async (req, res) => {
+    try {
+        const { assignments } = req.body;
+        const academicYearId = req.academicYearId;
+
+        // Kiểm tra input
+        if (!Array.isArray(assignments) || assignments.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách phân công không hợp lệ'
+            });
+        }
+
+        if (assignments.length > 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tối đa 100 phân công trong một lần. Vui lòng chia nhỏ yêu cầu'
+            });
+        }
+
+        // Chỉ manager hoặc admin mới tạo được phân công
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền tạo phân công đánh giá'
+            });
+        }
+
+        // Validate tất cả assignments trước khi lưu
+        const validatedAssignments = [];
+        const errors = [];
+
+        for (let i = 0; i < assignments.length; i++) {
+            const { reportId, expertId, deadline, priority, assignmentNote, evaluationCriteria } = assignments[i];
+
+            // Validate required fields
+            if (!reportId) {
+                errors.push(`Phân công ${i + 1}: ID báo cáo là bắt buộc`);
+                continue;
+            }
+
+            if (!expertId) {
+                errors.push(`Phân công ${i + 1}: ID chuyên gia là bắt buộc`);
+                continue;
+            }
+
+            if (!deadline) {
+                errors.push(`Phân công ${i + 1}: Hạn chót là bắt buộc`);
+                continue;
+            }
+
+            // Validate deadline
+            const deadlineDate = new Date(deadline);
+            if (deadlineDate <= new Date()) {
+                errors.push(`Phân công ${i + 1}: Hạn chót phải lớn hơn ngày hiện tại`);
+                continue;
+            }
+
+            validatedAssignments.push({
+                index: i + 1,
+                data: {
+                    academicYearId,
+                    reportId,
+                    expertId,
+                    assignedBy: req.user.id,
+                    assignmentNote: assignmentNote?.trim() || '',
+                    deadline: new Date(deadline),
+                    priority: priority || 'normal',
+                    evaluationCriteria: evaluationCriteria || []
+                }
+            });
+        }
+
+        if (errors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Có lỗi trong dữ liệu',
+                errors
+            });
+        }
+
+        if (validatedAssignments.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có phân công hợp lệ'
+            });
+        }
+
+        // Fetch reports và experts để validate
+        const reportIds = [...new Set(validatedAssignments.map(a => a.data.reportId))];
+        const expertIds = [...new Set(validatedAssignments.map(a => a.data.expertId))];
+
+        const reports = await Report.find({
+            _id: { $in: reportIds },
+            academicYearId,
+            status: 'published'
+        });
+
+        const experts = await User.find({
+            _id: { $in: expertIds },
+            role: 'expert'
+        });
+
+        const reportMap = new Map(reports.map(r => [r._id.toString(), r]));
+        const expertMap = new Map(experts.map(e => [e._id.toString(), e]));
+
+        // Validate reports and experts existence
+        const validationErrors = [];
+        for (const assignment of validatedAssignments) {
+            if (!reportMap.has(assignment.data.reportId.toString())) {
+                validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại hoặc chưa xuất bản`);
+            }
+            if (!expertMap.has(assignment.data.expertId.toString())) {
+                validationErrors.push(`Chuyên gia ${assignment.data.expertId} không tồn tại`);
+            }
+        }
+
+        if (validationErrors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lỗi xác thực dữ liệu',
+                errors: validationErrors
+            });
+        }
+
+        // Check for existing assignments
+        const existingAssignments = await Assignment.find({
+            academicYearId,
+            reportId: { $in: reportIds },
+            expertId: { $in: expertIds },
+            status: { $in: ['pending', 'accepted', 'in_progress'] }
+        });
+
+        const existingMap = new Map();
+        for (const existing of existingAssignments) {
+            const key = `${existing.reportId.toString()}-${existing.expertId.toString()}`;
+            existingMap.set(key, existing);
+        }
+
+        // Check for duplicates in new assignments
+        const newAssignments = [];
+        const skipped = [];
+
+        for (const assignment of validatedAssignments) {
+            const key = `${assignment.data.reportId.toString()}-${assignment.data.expertId.toString()}`;
+
+            if (existingMap.has(key) || newAssignments.some(a => {
+                const aKey = `${a.reportId.toString()}-${a.expertId.toString()}`;
+                return aKey === key;
+            })) {
+                skipped.push({
+                    report: reportMap.get(assignment.data.reportId.toString())?.code,
+                    expert: expertMap.get(assignment.data.expertId.toString())?.fullName,
+                    reason: 'Đã được phân công hoặc là bản sao trong danh sách'
+                });
+            } else {
+                newAssignments.push(assignment.data);
+            }
+        }
+
+        if (newAssignments.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tất cả phân công đã tồn tại hoặc trùng lặp',
+                skipped
+            });
+        }
+
+        // Create assignments
+        const createdAssignments = await Assignment.insertMany(newAssignments);
+
+        // Populate the created assignments
+        const populatedAssignments = await Assignment.find({
+            _id: { $in: createdAssignments.map(a => a._id) }
+        })
+            .populate('reportId', 'title type code')
+            .populate('expertId', 'fullName email')
+            .populate('assignedBy', 'fullName email');
+
+        // Send notifications
+        const Notification = mongoose.model('Notification');
+        const notifications = [];
+
+        for (const assignment of populatedAssignments) {
+            const report = await Report.findById(assignment.reportId);
+            notifications.push(
+                Notification.create({
+                    recipientId: assignment.expertId._id,
+                    senderId: req.user.id,
+                    type: 'assignment_new',
+                    title: 'Phân quyền đánh giá mới',
+                    message: `Bạn được phân quyền đánh giá báo cáo: ${report.title}`,
+                    data: {
+                        assignmentId: assignment._id,
+                        reportId: report._id,
+                        url: `/reports/assignments/${assignment._id}`
+                    },
+                    priority: assignment.priority === 'urgent' ? 'high' : 'normal'
+                })
+            );
+        }
+
+        await Promise.all(notifications);
+
+        // Log activity
+        await ActivityLog.logCriticalAction(
+            req.user.id,
+            'assignment_bulk_create',
+            `Tạo ${newAssignments.length} phân công đánh giá hàng loạt`,
+            {
+                severity: 'high',
+                metadata: {
+                    totalCreated: newAssignments.length,
+                    totalSkipped: skipped.length,
+                    reports: reportIds.length,
+                    experts: expertIds.length
+                }
+            }
+        );
+
+        res.status(201).json({
+            success: true,
+            message: `Đã tạo ${newAssignments.length} phân công thành công`,
+            data: {
+                created: newAssignments.length,
+                skipped: skipped.length,
+                assignments: populatedAssignments,
+                skippedDetails: skipped
+            }
+        });
+
+    } catch (error) {
+        console.error('Bulk create assignments error:', error);
+
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi hệ thống khi tạo phân công'
+        });
+    }
+};
+
 module.exports = {
     getAssignments,
     getAssignmentById,
@@ -626,5 +875,6 @@ module.exports = {
     cancelAssignment,
     getExpertWorkload,
     getAssignmentStats,
-    getUpcomingDeadlines
+    getUpcomingDeadlines,
+    bulkCreateAssignments
 };
