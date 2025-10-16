@@ -6,7 +6,7 @@ import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import OrganizationModal from './OrganizationModal'
-import { ActionButton } from '../../components/ActionButtons' // Giả định đã có
+import { ActionButton } from '../ActionButtons'
 
 export default function OrganizationsList() {
     const [organizations, setOrganizations] = useState([])
