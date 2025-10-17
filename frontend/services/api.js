@@ -292,6 +292,7 @@ export const apiMethods = {
             api.post('/api/reports/bulk/publish', { reportIds }),
         bulkArchive: (reportIds) =>
             api.post('/api/reports/bulk/archive', { reportIds }),
+        unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
     },
 
     assignments: {
