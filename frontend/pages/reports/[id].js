@@ -267,7 +267,7 @@ export default function ReportDetail() {
                                 ) : (
                                     <>
                                         <Download className="h-4 w-4 mr-2" />
-                                        Tải HTML
+                                        Tải báo cáo
                                     </>
                                 )}
                             </button>
@@ -298,21 +298,6 @@ export default function ReportDetail() {
                                 )}
                             </div>
                         </div>
-
-                        {/* Public Link Info - Hiển thị khi published */}
-                        {report.status === 'published' && publicLink && (
-                            <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                                <p className="text-sm font-semibold text-green-900 mb-2">
-                                    🔗 Liên kết công khai (có thể chia sẻ):
-                                </p>
-                                <p className="text-sm text-green-800 break-all font-mono">
-                                    {publicLink}
-                                </p>
-                                <p className="text-xs text-green-700 mt-2">
-                                    💡 Khi bạn tải file HTML về, nó sẽ chứa link này để người khác có thể xem báo cáo công khai.
-                                </p>
-                            </div>
-                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
                             <div className="flex items-center space-x-3">
