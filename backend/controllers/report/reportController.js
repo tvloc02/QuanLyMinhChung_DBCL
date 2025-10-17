@@ -25,12 +25,11 @@ const getReports = async (req, res) => {
 
         let query = { academicYearId };
 
-        // Quyền truy cập báo cáo
         if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
             const userAccessQuery = {
                 $or: [
-                    { createdBy: req.user.id }, // Báo cáo do mình tạo
-                    { status: 'published' } // Báo cáo đã xuất bản
+                    { createdBy: req.user.id },
+                    { status: 'published' }
                 ]
             };
 
@@ -50,7 +49,7 @@ const getReports = async (req, res) => {
                 $or: [
                     { title: { $regex: search, $options: 'i' } },
                     { code: { $regex: search, $options: 'i' } },
-                    { summary: { $regex: search, $options: 'i' } }
+                    { summary: { $regex: search, 'i': 'i' } }
                 ]
             });
         }
@@ -134,9 +133,6 @@ const getReportById = async (req, res) => {
                 message: 'Không tìm thấy báo cáo trong năm học này'
             });
         }
-
-        // Đã xóa kiểm tra quyền nghiêm ngặt để cho phép bất kỳ người dùng đã xác thực nào xem
-        // Điều kiện: Báo cáo phải tồn tại trong năm học hiện tại
 
         await report.incrementView(req.user.id);
 
@@ -518,13 +514,13 @@ const downloadReport = async (req, res) => {
         if (reportWithEvidences?.linkedEvidences?.length) {
             evidenceLinksHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan (Links)</h2><ul>';
 
-            const host = req.get('host');
-            const protocol = req.protocol;
+            const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
 
             reportWithEvidences.linkedEvidences.forEach(linkItem => {
                 const evidence = linkItem.evidenceId;
                 if (evidence) {
-                    const evidenceUrl = `${protocol}://${host}/public/evidences/${evidence.code}`;
+                    const evidenceUrl = `${baseUrl}/public/evidences/${evidence.code}`;
+                    // SỬA ĐỔI: Đơn giản hóa thẻ <a> để Word nhận diện
                     evidenceLinksHtml += `
                         <li>
                             <strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>
@@ -535,10 +531,25 @@ const downloadReport = async (req, res) => {
             evidenceLinksHtml += '</ul>';
         }
 
-        const finalContent = (report.content || '') + evidenceLinksHtml;
+        let finalContent = report.content || '';
+        const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+
+        finalContent = finalContent.replace(evidenceCodePattern, (match) => {
+            const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            const evidenceUrl = `${baseUrl}/public/evidences/${match}`;
+
+            // SỬA ĐỔI: Đơn giản hóa thẻ <a> để Word nhận diện
+            return `<a href="${evidenceUrl}" target="_blank">${match}</a>`;
+        });
+
+        finalContent = finalContent + evidenceLinksHtml;
 
         const filename = `${report.code}-${report.title}.${format}`;
-        const encodedFilename = encodeURIComponent(filename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
+
+        const safeEncodedFilename = encodeURIComponent(filename).replace(/[!'()*]/g, function(c) {
+            return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+        });
+
 
         if (format === 'html') {
             const htmlResponse = `
@@ -546,27 +557,12 @@ const downloadReport = async (req, res) => {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>${report.title}</title>
+                    <title>${escapeHtml(report.title)}</title>
                     <style>
                         body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                        a.evidence-link {
-                            display: inline-flex;
-                            align-items: center;
-                            gap: 0.25rem;
-                            padding: 0.25rem 0.75rem;
-                            background-color: #dbeafe;
-                            color: #1e40af;
-                            border-radius: 0.375rem;
-                            font-family: monospace;
-                            font-weight: 600;
-                            font-size: 0.875rem;
-                            text-decoration: none;
-                            border: 1px solid #7dd3fc;
-                        }
-                        a.evidence-link:hover {
-                            background-color: #93c5fd;
-                            text-decoration: underline;
-                        }
+                        a { color: #1e40af; text-decoration: underline; }
+                        h1, h2, h3, h4 { color: #000; margin-top: 1em; margin-bottom: 0.5em; }
+                        strong { font-weight: bold; }
                     </style>
                 </head>
                 <body>
@@ -576,7 +572,7 @@ const downloadReport = async (req, res) => {
             `;
 
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeEncodedFilename}`);
 
             res.send(htmlResponse);
 
@@ -1136,15 +1132,20 @@ const resolveReportComment = async (req, res) => {
     }
 };
 
-const processEvidenceLinksInContent = (content) => {
+// FIX: Chuyển sang function để tránh SyntaxError: Identifier has already been declared
+function processEvidenceLinksInContent(content) {
     if (!content) return '';
 
     const evidenceCodePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
 
+    const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+
     return content.replace(evidenceCodePattern, (match) => {
-        return `<a href="/public/evidences/${match}" class="evidence-link" data-code="${match}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc;">${match}</a>`;
+        const url = `${baseUrl}/public/evidences/${match}`;
+        // Loại bỏ style inline quá phức tạp, giữ lại class và thuộc tính cần thiết cho frontend
+        return `<a href="${url}" class="evidence-link" data-code="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
     });
-};
+}
 
 const extractEvidenceCodes = (content) => {
     if (!content) return [];
@@ -1161,6 +1162,38 @@ const extractEvidenceCodes = (content) => {
 
     return codes;
 };
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatDateVN(date) {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getReportTypeLabel(type) {
+    const labels = {
+        'criteria_analysis': 'Phân tích tiêu chí',
+        'standard_analysis': 'Phân tích tiêu chuẩn',
+        'comprehensive_report': 'Báo cáo tổng hợp'
+    };
+    return labels[type] || type;
+}
 
 module.exports = {
     getReports,
