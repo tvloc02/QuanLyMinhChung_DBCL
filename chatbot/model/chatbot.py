@@ -13,7 +13,7 @@ load_dotenv(dotenv_path=dotenv_path)
 logging.basicConfig(level=logging.INFO)
 
 class ChatBot:
-    def __init__(self, data_file="/model/training_data.json"):
+    def __init__(self, data_file="/training_data.json"):
         try:
             with open(data_file, encoding="utf-8") as f:
                 self.data = json.load(f)
