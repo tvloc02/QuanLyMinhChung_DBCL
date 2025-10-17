@@ -62,6 +62,10 @@ router.get('/:id', auth, [
     param('id').isMongoId()
 ], validation, getReportById);
 
+router.post('/:id/unpublish', auth, requireManager, [
+    param('id').isMongoId()
+], validation, unpublishReport);
+
 router.put('/:id', auth, requireManager, [
     param('id').isMongoId(),
     body('title').optional().isLength({ max: 500 }),
@@ -78,10 +82,6 @@ router.delete('/:id', auth, requireManager, [
 router.post('/:id/publish', auth, requireManager, [
     param('id').isMongoId()
 ], validation, publishReport);
-
-router.post('/:id/unpublish', auth, requireManager, [
-    param('id').isMongoId()
-], validation, unpublishReport);
 
 router.get('/:id/evidences', auth, [
     param('id').isMongoId()
