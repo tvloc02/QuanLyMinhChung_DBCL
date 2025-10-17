@@ -2,8 +2,18 @@ import axios from 'axios'
 import { getLocalStorage, removeLocalStorage } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
+// API instance với authentication (cho protected routes)
 export const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL ,
+    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    timeout: 30000,
+    headers: {
+        'Content-Type': 'application/json'
+    }
+})
+
+// API instance công khai (cho public routes - không cần token)
+export const publicApi = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_API_URL,
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json'
@@ -50,6 +60,16 @@ api.interceptors.response.use(
             toast.error('Có lỗi xảy ra từ máy chủ. Vui lòng thử lại sau.')
         }
 
+        return Promise.reject(error)
+    }
+)
+
+// Public API không cần error handling đặc biệt
+publicApi.interceptors.response.use(
+    (response) => {
+        return response
+    },
+    (error) => {
         return Promise.reject(error)
     }
 )
@@ -102,7 +122,6 @@ export const apiMethods = {
         denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
         removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
     },
-
 
     programs: {
         getAll: (params) => api.get('/api/programs', { params }),
@@ -194,7 +213,7 @@ export const apiMethods = {
         }),
 
         exportData: (params) =>
-            axios.get('/api/evidences/export', {
+            api.get('/api/evidences/export', {
                 params,
                 responseType: 'blob'
             }),
@@ -237,23 +256,20 @@ export const apiMethods = {
     },
 
     reports: {
-        getAll: (params) => api.get('/api/reports', { params }), // Giữ nguyên
-        getById: (id) => api.get(`/api/reports/${id}`), // Giữ nguyên
-        create: (data) => api.post('/api/reports', data), // Giữ nguyên
-        update: (id, data) => api.put(`/api/reports/${id}`, data), // Giữ nguyên
-        delete: (id) => api.delete(`/api/reports/${id}`), // Giữ nguyên
-        publish: (id) => api.post(`/api/reports/${id}/publish`), // Giữ nguyên
+        getAll: (params) => api.get('/api/reports', { params }),
+        getById: (id) => api.get(`/api/reports/${id}`),
+        create: (data) => api.post('/api/reports', data),
+        update: (id, data) => api.put(`/api/reports/${id}`, data),
+        delete: (id) => api.delete(`/api/reports/${id}`),
+        publish: (id) => api.post(`/api/reports/${id}/publish`),
 
-        // SỬA ĐỔI: Sử dụng đường dẫn tương đối (hoặc đường dẫn đầy đủ)
         addVersion: (id, content, changeNote) =>
-            api.post(`/api/reports/${id}/versions`, { content, changeNote }), // Đảm bảo khớp route server
-        getVersions: (id) => api.get(`/api/reports/${id}/versions`), // SỬA ĐỔI: Chuẩn hóa về /api/reports/
+            api.post(`/api/reports/${id}/versions`, { content, changeNote }),
+        getVersions: (id) => api.get(`/api/reports/${id}/versions`),
 
         linkEvidences: (id) => api.post(`/api/reports/${id}/link-evidences`),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`), // SỬA ĐỔI: Chuẩn hóa về /api/reports/
+        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
         validateEvidenceLinks: (id) => api.post(`/api/reports/${id}/validate-evidence-links`),
-
-        // ... (uploadFile, downloadFile, convertFileToContent giữ nguyên)
 
         download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
             params: { format },
@@ -262,7 +278,6 @@ export const apiMethods = {
 
         addComment: (id, comment, section) =>
             api.post(`/api/reports/${id}/comments`, { comment, section }),
-        // THÊM: getComments (Dù component chưa dùng, nhưng API nên có)
         getComments: (id) => api.get(`/api/reports/${id}/comments`),
         resolveComment: (id, commentId) =>
             api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
@@ -271,14 +286,12 @@ export const apiMethods = {
         generateCode: (type, standardCode, criteriaCode) =>
             api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
 
-
         bulkDelete: (reportIds) =>
             api.post('/api/reports/bulk/delete', { reportIds }),
         bulkPublish: (reportIds) =>
             api.post('/api/reports/bulk/publish', { reportIds }),
         bulkArchive: (reportIds) =>
             api.post('/api/reports/bulk/archive', { reportIds }),
-
     },
 
     assignments: {
@@ -364,6 +377,11 @@ export const apiMethods = {
         removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
     },
 
+    // ✅ Public API methods (không cần authentication)
+    publicEvidence: {
+        getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
+        getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)
+    }
 }
 
 export const uploadFile = (file, evidenceId, onProgress) => {
