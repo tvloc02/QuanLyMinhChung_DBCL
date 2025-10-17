@@ -5,6 +5,7 @@ const validation = require('../../middleware/validation');
 const Evidence = require('../../models/Evidence/Evidence');
 
 // GET /api/public/evidences/:code
+// Lấy minh chứng theo code (public access)
 router.get('/:code', [
     param('code').notEmpty().trim().toUpperCase()
 ], validation, async (req, res) => {
@@ -15,7 +16,10 @@ router.get('/:code', [
             .populate('createdBy', 'fullName email')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
-            .populate('files', 'originalName size mimeType uploadedAt');
+            .populate({
+                path: 'files',
+                select: 'originalName size mimeType uploadedAt _id'
+            });
 
         if (!evidence) {
             return res.status(404).json({
@@ -38,6 +42,7 @@ router.get('/:code', [
 });
 
 // GET /api/public/evidences/id/:id
+// Lấy minh chứng theo ID (public access)
 router.get('/id/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -46,7 +51,10 @@ router.get('/id/:id', async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
-            .populate('files', 'originalName size mimeType uploadedAt');
+            .populate({
+                path: 'files',
+                select: 'originalName size mimeType uploadedAt _id'
+            });
 
         if (!evidence) {
             return res.status(404).json({
