@@ -136,9 +136,14 @@ export const apiMethods = {
         getAll: (params) => api.get('/api/organizations', { params }),
         getById: (id) => api.get(`/api/organizations/${id}`),
         create: (data) => api.post('/api/organizations', data),
-        update: (id, data) => api.put('/api/organizations/${id}', data),
-        delete: (id) => api.delete('/api/organizations/${id}'),
-        getByAcademicYear: (academicYearId) => api.get('/api/organizations/academic-year/${academicYearId}')
+        update: (id, data) => api.put(`/api/organizations/${id}`, data),
+        delete: (id) => api.delete(`/api/organizations/${id}`),
+        getByAcademicYear: (academicYearId) => api.get(`/api/organizations/academic-year/${academicYearId}`),
+
+        // Departments endpoints
+        addDepartment: (orgId, data) => api.post(`/api/organizations/${orgId}/departments`, data),
+        updateDepartment: (orgId, deptId, data) => api.put(`/api/organizations/${orgId}/departments/${deptId}`, data),
+        deleteDepartment: (orgId, deptId) => api.delete(`/api/organizations/${orgId}/departments/${deptId}`)
     },
 
     standards: {
