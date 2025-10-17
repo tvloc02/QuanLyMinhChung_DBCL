@@ -1,21 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
+import {useEffect, useState} from 'react'
+import {useRouter} from 'next/router'
+import {useAuth} from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import api, { apiMethods } from '../../services/api'
-import {
-    Plus,
-    Trash2,
-    Save,
-    ArrowLeft,
-    FileText,
-    Search,
-    AlertCircle,
-    Calendar,
-    Users,
-    X,
-    Loader2
-} from 'lucide-react'
+import api, {apiMethods} from '../../services/api'
+import {AlertCircle, ArrowLeft, FileText, Loader2, Plus, Save, Search, Trash2, Users, X} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function AssignReviewersPage() {
@@ -145,46 +133,42 @@ export default function AssignReviewersPage() {
             const assignmentPromises = reportsList.map(report =>
                 apiMethods.assignments.getAll({
                     reportId: report._id,
-                    status: 'pending,accepted,in_progress', // Lọc các trạng thái đang hoạt động
-                    limit: 100 // Lấy số lượng lớn để bao quát
+                    limit: 100
                 }).catch(err => {
-                    console.warn(`Cannot fetch assignments for report ${report._id}:`, err.message)
-                    return null
+                    console.warn(`Cannot fetch assignments for report ${report._id}:`, err.message);
+                    return null;
                 })
-            )
+            );
 
-            const assignmentResponses = await Promise.all(assignmentPromises)
+            const assignmentResponses = await Promise.all(assignmentPromises);
 
-            const activeExpertsMap = {}
+            const activeExpertsMap = {};
 
             assignmentResponses.forEach((res, index) => {
                 if (!res || !res.data) {
-                    activeExpertsMap[reportsList[index]._id] = new Set()
-                    return
+                    activeExpertsMap[reportsList[index]._id] = new Set();
+                    return;
                 }
 
-                const reportId = reportsList[index]._id
+                const reportId = reportsList[index]._id;
 
-                // CÁCH TRÍCH XUẤT ĐÚNG DỰA TRÊN assignmentController.js: response.data.data.assignments
-                const assignmentsData = res.data?.data?.assignments || res.data?.assignments || []
+                // Trích xuất đúng từ response structure
+                const assignmentsData = res.data?.data?.assignments || [];
 
-                const expertIds = new Set(
+                activeExpertsMap[reportId] = new Set(
                     assignmentsData
-                        .map(a => a.expertId?._id || a.expertId) // Lấy ID của chuyên gia
+                        .filter(a => a.status && ['pending', 'accepted', 'in_progress'].includes(a.status))
+                        .map(a => a.expertId?._id || a.expertId)
                         .filter(Boolean)
-                )
+                );
+            });
 
-                // Lưu Set ID của các chuyên gia đang hoạt động cho báo cáo này
-                activeExpertsMap[reportId] = expertIds
-            })
-
-            // Cập nhật state để loại trừ trong modal search
-            setExistingActiveExperts(activeExpertsMap)
+            setExistingActiveExperts(activeExpertsMap);
 
         } catch (error) {
-            console.error('Error fetching existing assignments:', error)
+            console.error('Error fetching existing assignments:', error);
         }
-    }
+    };
 
     // GIỮ NGUYÊN LOGIC CŨ CỦA BẠN CHO fetchExperts
     const fetchExperts = async (page = pagination.current) => {
@@ -426,7 +410,7 @@ export default function AssignReviewersPage() {
     }
 
     return (
-        <Layout title="Phân quyền đánh giá" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 <div className="flex items-center space-x-4 mb-6">
                     <button
