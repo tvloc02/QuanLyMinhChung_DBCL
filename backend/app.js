@@ -19,7 +19,8 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-
+const publicEvidenceRoutes = require('./routes/public/publicEvidenceRoutes');
+app.use('/api/public/evidences', publicEvidenceRoutes);
 
 const authRoutes = require('./routes/user/auth');
 const usersRoutes = require('./routes/user/users');
