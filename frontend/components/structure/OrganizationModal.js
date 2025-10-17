@@ -70,6 +70,10 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
             newErrors.email = 'Email không hợp lệ'
         }
 
+        if (deptFormData.phone && !/^[\d\s\-\+\(\)]+$/.test(deptFormData.phone)) {
+            newErrors.phone = 'Số điện thoại không hợp lệ'
+        }
+
         setDeptErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -86,17 +90,50 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                 // Organization đã tồn tại - gọi API
                 if (editingDeptId) {
                     // Update existing department
-                    await apiMethods.organizations.updateDepartment(organization._id, editingDeptId, deptFormData)
-                    setDepartments(prev =>
-                        prev.map(d => d._id === editingDeptId ? { ...d, ...deptFormData } : d)
-                    )
-                    toast.success('Cập nhật phòng ban thành công')
-                    setEditingDeptId(null)
+                    try {
+                        await apiMethods.organizations.updateDepartment(
+                            organization._id,
+                            editingDeptId,
+                            deptFormData
+                        )
+                        setDepartments(prev =>
+                            prev.map(d => d._id === editingDeptId ? { ...d, ...deptFormData } : d)
+                        )
+                        toast.success('Cập nhật phòng ban thành công')
+                        setEditingDeptId(null)
+                    } catch (apiError) {
+                        const errorMsg = apiError.response?.data?.message || apiError.message
+                        toast.error(`Cập nhật phòng ban thất bại: ${errorMsg}`)
+                        console.error('Update department error:', apiError)
+                        setLoading(false)
+                        return
+                    }
                 } else {
                     // Add new department
-                    const response = await apiMethods.organizations.addDepartment(organization._id, deptFormData)
-                    setDepartments(prev => [...prev, response.data.data])
-                    toast.success('Thêm phòng ban thành công')
+                    try {
+                        // Trim data trước gửi
+                        const deptData = {
+                            name: (deptFormData.name || '').trim(),
+                            email: (deptFormData.email || '').trim() || undefined,
+                            phone: (deptFormData.phone || '').trim() || undefined
+                        }
+
+                        const response = await apiMethods.organizations.addDepartment(
+                            organization._id,
+                            deptData
+                        )
+
+                        if (response.data?.data) {
+                            setDepartments(prev => [...prev, response.data.data])
+                            toast.success('Thêm phòng ban thành công')
+                        }
+                    } catch (apiError) {
+                        const errorMsg = apiError.response?.data?.message || apiError.message
+                        toast.error(`Thêm phòng ban thất bại: ${errorMsg}`)
+                        console.error('Add department error:', apiError)
+                        setLoading(false)
+                        return
+                    }
                 }
             } else {
                 // Tạo mới - thêm vào state local
@@ -124,9 +161,10 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
 
             setDeptFormData({ name: '', email: '', phone: '' })
             setShowDeptForm(false)
+            setLoading(false)  // ← Chú ý: setLoading TRƯỚC để form không bị disable
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Có lỗi xảy ra')
-        } finally {
+            console.error('Unexpected error:', error)
+            toast.error(error.message || 'Có lỗi xảy ra khi xử lý phòng ban')
             setLoading(false)
         }
     }
@@ -149,14 +187,23 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
 
             if (organization?._id) {
                 // Delete từ server nếu organization đã tồn tại
-                await apiMethods.organizations.deleteDepartment(organization._id, deptId)
+                try {
+                    await apiMethods.organizations.deleteDepartment(organization._id, deptId)
+                } catch (apiError) {
+                    const errorMsg = apiError.response?.data?.message || apiError.message
+                    toast.error(`Xóa phòng ban thất bại: ${errorMsg}`)
+                    console.error('Delete department error:', apiError)
+                    setLoading(false)
+                    return
+                }
             }
 
             // Delete từ state local
             setDepartments(prev => prev.filter(d => d._id !== deptId))
             toast.success('Xóa phòng ban thành công')
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Có lỗi xảy ra')
+            console.error('Unexpected error:', error)
+            toast.error(error.message || 'Có lỗi xảy ra khi xóa phòng ban')
         } finally {
             setLoading(false)
         }
@@ -190,6 +237,10 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
             newErrors.contactEmail = 'Email không hợp lệ'
         }
 
+        if (formData.contactPhone && !/^[\d\s\-\+\(\)]+$/.test(formData.contactPhone)) {
+            newErrors.contactPhone = 'Số điện thoại không hợp lệ'
+        }
+
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
     }
@@ -207,33 +258,66 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
         try {
             setLoading(true)
 
-            // Lọc departments để chỉ lấy các trường cần thiết
-            const processedDepts = departments.map(dept => ({
-                ...(dept._id && !dept._id.startsWith('temp_') && { _id: dept._id }),
-                name: dept.name,
-                email: dept.email || undefined,
-                phone: dept.phone || undefined
-            }))
+            // Xử lý departments - chỉ gửi những thay đổi thực tế
+            let submitDepartments = []
+
+            if (Array.isArray(departments) && departments.length > 0) {
+                submitDepartments = departments.map(dept => ({
+                    ...(dept._id && !String(dept._id).startsWith('temp_') && { _id: dept._id }),
+                    name: dept.name,
+                    email: dept.email || undefined,
+                    phone: dept.phone || undefined
+                }))
+            }
 
             const submitData = {
-                ...formData,
-                code: formData.code.toUpperCase(),
-                departments: processedDepts
+                name: formData.name.trim(),
+                code: formData.code.toUpperCase().trim(),
+                website: formData.website ? formData.website.trim() : undefined,
+                contactEmail: formData.contactEmail ? formData.contactEmail.trim() : undefined,
+                contactPhone: formData.contactPhone ? formData.contactPhone.trim() : undefined,
+                status: formData.status,
+                departments: submitDepartments
             }
+
+            console.log('📤 Submitting data:', {
+                isUpdate: !!organization?._id,
+                departmentsCount: submitDepartments.length,
+                data: submitData
+            })
 
             if (organization && !organization.isViewMode) {
                 // Update organization
-                await apiMethods.organizations.update(organization._id, submitData)
-                toast.success('Cập nhật tổ chức thành công')
+                try {
+                    const response = await apiMethods.organizations.update(organization._id, submitData)
+                    console.log('✅ Update response:', response.data)
+                    toast.success('Cập nhật tổ chức thành công')
+                } catch (apiError) {
+                    const errorMsg = apiError.response?.data?.message || apiError.message
+                    console.error('❌ Update error:', apiError.response?.data)
+                    toast.error(`Cập nhật tổ chức thất bại: ${errorMsg}`)
+                    setLoading(false)
+                    return
+                }
             } else {
                 // Create new organization
-                await apiMethods.organizations.create(submitData)
-                toast.success('Tạo tổ chức thành công')
+                try {
+                    const response = await apiMethods.organizations.create(submitData)
+                    console.log('✅ Create response:', response.data)
+                    toast.success('Tạo tổ chức thành công')
+                } catch (apiError) {
+                    const errorMsg = apiError.response?.data?.message || apiError.message
+                    console.error('❌ Create error:', apiError.response?.data)
+                    toast.error(`Tạo tổ chức thất bại: ${errorMsg}`)
+                    setLoading(false)
+                    return
+                }
             }
 
             onSuccess()
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Có lỗi xảy ra')
+            console.error('❌ Unexpected error:', error)
+            toast.error(error.message || 'Có lỗi xảy ra khi lưu tổ chức')
         } finally {
             setLoading(false)
         }
@@ -387,9 +471,17 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 onChange={handleChange}
                                 disabled={isViewMode}
                                 readOnly={isViewMode}
-                                className={`w-full px-4 py-3 border-2 border-orange-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all ${
+                                    errors.contactPhone ? 'border-red-300 bg-red-50' : 'border-orange-200 bg-white'
+                                } ${isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="0243 869 8113"
                             />
+                            {errors.contactPhone && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <Info size={14} className="mr-1" />
+                                    {errors.contactPhone}
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -419,7 +511,7 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                         )}
                     </div>
 
-                    {/* Departments Section - FIX: Hiển thị cả khi tạo mới */}
+                    {/* Departments Section */}
                     {!isViewMode && (
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
                             <div className="flex items-center justify-between mb-4">
@@ -483,9 +575,12 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                                 name="phone"
                                                 value={deptFormData.phone}
                                                 onChange={handleDeptChange}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                                                    deptErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                                                }`}
                                                 placeholder="0212345678"
                                             />
+                                            {deptErrors.phone && <p className="text-xs text-red-600 mt-1">{deptErrors.phone}</p>}
                                         </div>
 
                                         <div className="flex gap-2 justify-end">
