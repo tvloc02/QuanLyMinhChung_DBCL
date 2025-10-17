@@ -1,35 +1,50 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { ArrowLeft, Loader2, AlertCircle, FileText, Download, ExternalLink } from 'lucide-react'
-import axios from 'axios'
+import { apiMethods } from '../../../services/api'
 
 export default function PublicEvidenceView() {
     const router = useRouter()
-    const { code } = router.query
     const [evidence, setEvidence] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
     useEffect(() => {
-        if (code) {
-            fetchEvidence()
-        }
-    }, [code])
+        // ✅ Kiểm tra router ready trước
+        if (!router.isReady) return
 
-    const fetchEvidence = async () => {
+        const { code } = router.query
+
+        // ✅ Handle code là array hoặc string
+        const codeValue = Array.isArray(code) ? code[0] : code
+
+        if (codeValue && typeof codeValue === 'string' && codeValue.trim() !== '') {
+            fetchEvidence(codeValue)
+        }
+    }, [router.isReady, router.query])
+
+    const fetchEvidence = async (code) => {
         try {
             setLoading(true)
             setError(null)
 
-            const response = await axios.get(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/evidences/code/${code}`
-            )
+            console.log('Fetching evidence with code:', code)
+
+            // ✅ Dùng apiMethods.publicEvidence
+            const response = await apiMethods.publicEvidence.getByCode(code)
+
+            console.log('Response:', response.data)
 
             if (response.data.success) {
                 setEvidence(response.data.data)
+            } else {
+                setError(response.data.message || 'Không thể tải minh chứng')
             }
         } catch (err) {
             console.error('Fetch evidence error:', err)
+            console.error('Error response:', err.response?.data)
+            console.error('Error status:', err.response?.status)
+
             setError(err.response?.data?.message || 'Lỗi khi tải minh chứng')
         } finally {
             setLoading(false)
@@ -108,10 +123,10 @@ export default function PublicEvidenceView() {
                                         {evidence.code}
                                     </span>
                                     <span className="text-xs font-semibold bg-white bg-opacity-20 px-2 py-1 rounded">
-                                        {evidence.status === 'approved' && '✓ Đã duyệt'}
-                                        {evidence.status === 'completed' && '✓ Hoàn thành'}
-                                        {evidence.status === 'in_progress' && '⏳ Đang thực hiện'}
-                                        {evidence.status === 'new' && '◯ Mới'}
+                                        {evidence.status === 'approved' && 'Đã duyệt'}
+                                        {evidence.status === 'completed' && 'Hoàn thành'}
+                                        {evidence.status === 'in_progress' && 'Đang thực hiện'}
+                                        {evidence.status === 'new' && 'Mới'}
                                     </span>
                                 </div>
                                 <h1 className="text-3xl font-bold mb-2">{evidence.name}</h1>
@@ -126,7 +141,7 @@ export default function PublicEvidenceView() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {evidence.standardId && (
                                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">📋 Tiêu chuẩn</p>
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chuẩn</p>
                                     <p className="text-lg font-bold text-gray-900">
                                         {evidence.standardId.code} - {evidence.standardId.name}
                                     </p>
@@ -135,7 +150,7 @@ export default function PublicEvidenceView() {
 
                             {evidence.criteriaId && (
                                 <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">✓ Tiêu chí</p>
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chí</p>
                                     <p className="text-lg font-bold text-gray-900">
                                         {evidence.criteriaId.code} - {evidence.criteriaId.name}
                                     </p>
@@ -144,7 +159,7 @@ export default function PublicEvidenceView() {
 
                             {evidence.createdBy && (
                                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">👤 Người tạo</p>
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Người tạo</p>
                                     <p className="text-lg font-bold text-gray-900">{evidence.createdBy.fullName}</p>
                                     <p className="text-sm text-gray-600 mt-1">{evidence.createdBy.email}</p>
                                 </div>
@@ -152,7 +167,7 @@ export default function PublicEvidenceView() {
 
                             {evidence.createdAt && (
                                 <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">📅 Ngày tạo</p>
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Ngày tạo</p>
                                     <p className="text-lg font-bold text-gray-900">{formatDate(evidence.createdAt)}</p>
                                 </div>
                             )}
@@ -201,18 +216,18 @@ export default function PublicEvidenceView() {
 
                         {evidence.notes && (
                             <div className="border-t pt-8 bg-blue-50 rounded-xl p-6 border border-blue-200">
-                                <h3 className="font-semibold text-gray-900 mb-2">📝 Ghi chú</h3>
+                                <h3 className="font-semibold text-gray-900 mb-2">Ghi chú</h3>
                                 <p className="text-gray-700">{evidence.notes}</p>
                             </div>
                         )}
 
                         {evidence.tags && evidence.tags.length > 0 && (
                             <div className="border-t pt-8">
-                                <h3 className="font-semibold text-gray-900 mb-3">🏷️ Nhãn</h3>
+                                <h3 className="font-semibold text-gray-900 mb-3">Nhãn</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {evidence.tags.map((tag, idx) => (
                                         <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                                            #{tag}
+                                            {tag}
                                         </span>
                                     ))}
                                 </div>
@@ -222,7 +237,7 @@ export default function PublicEvidenceView() {
                         {evidence.files && evidence.files.length > 0 && (
                             <div className="border-t pt-8">
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                                    📎 Tài liệu đính kèm ({evidence.files.length})
+                                    Tài liệu đính kèm ({evidence.files.length})
                                 </h2>
                                 <div className="space-y-3">
                                     {evidence.files.map((file, idx) => (
