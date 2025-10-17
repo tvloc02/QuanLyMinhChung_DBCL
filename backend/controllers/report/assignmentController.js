@@ -64,8 +64,24 @@ const getAssignments = async (req, res) => {
 
         if (status) query.status = status;
         if (priority) query.priority = priority;
-        if (expertId) query.expertId = expertId;
-        if (assignedBy) query.assignedBy = assignedBy;
+        if (expertId) {
+            if (req.user.role === 'expert' && req.user.id !== expertId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không có quyền xem phân quyền của người khác'
+                });
+            }
+            query.expertId = expertId;
+        }
+        if (assignedBy) {
+            if (req.user.role === 'manager' && req.user.id !== assignedBy) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không có quyền xem phân quyền của người khác'
+                });
+            }
+            query.assignedBy = assignedBy;
+        }
         if (reportId) query.reportId = reportId;
 
         const sortOptions = {};
