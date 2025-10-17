@@ -75,7 +75,7 @@ const getAllOrganizations = async (req, res) => {
             academicYearId,
             status: 'active'
         })
-            .select('name code')
+            .select('name code departments')
             .sort({ name: 1 });
 
         res.json({
@@ -132,7 +132,8 @@ const createOrganization = async (req, res) => {
             contactEmail,
             contactPhone,
             address,
-            country
+            country,
+            departments
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -155,6 +156,7 @@ const createOrganization = async (req, res) => {
             code: code.toUpperCase().trim(),
             contactEmail: contactEmail?.trim(),
             contactPhone: contactPhone?.trim(),
+            departments: departments || [],
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -219,7 +221,7 @@ const updateOrganization = async (req, res) => {
 
         const allowedFields = [
             'name',
-            'contactEmail', 'contactPhone', 'status'
+            'contactEmail', 'contactPhone', 'status', 'departments'
         ];
 
         allowedFields.forEach(field => {
@@ -251,6 +253,129 @@ const updateOrganization = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật tổ chức'
+        });
+    }
+};
+
+const addDepartment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phone } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên phòng ban là bắt buộc'
+            });
+        }
+
+        const organization = await Organization.findOne({ _id: id, academicYearId });
+        if (!organization) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tổ chức'
+            });
+        }
+
+        const newDept = {
+            _id: new mongoose.Types.ObjectId(),
+            name: name.trim(),
+            email: email?.trim(),
+            phone: phone?.trim(),
+            createdAt: new Date()
+        };
+
+        organization.departments.push(newDept);
+        organization.updatedBy = req.user.id;
+        await organization.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Thêm phòng ban thành công',
+            data: newDept
+        });
+
+    } catch (error) {
+        console.error('Add department error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thêm phòng ban'
+        });
+    }
+};
+
+const updateDepartment = async (req, res) => {
+    try {
+        const { id, deptId } = req.params;
+        const { name, email, phone } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const organization = await Organization.findOne({ _id: id, academicYearId });
+        if (!organization) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tổ chức'
+            });
+        }
+
+        const dept = organization.departments.id(deptId);
+        if (!dept) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy phòng ban'
+            });
+        }
+
+        if (name) dept.name = name.trim();
+        if (email) dept.email = email.trim();
+        if (phone) dept.phone = phone.trim();
+
+        organization.updatedBy = req.user.id;
+        await organization.save();
+
+        res.json({
+            success: true,
+            message: 'Cập nhật phòng ban thành công',
+            data: dept
+        });
+
+    } catch (error) {
+        console.error('Update department error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi cập nhật phòng ban'
+        });
+    }
+};
+
+const deleteDepartment = async (req, res) => {
+    try {
+        const { id, deptId } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const organization = await Organization.findOne({ _id: id, academicYearId });
+        if (!organization) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tổ chức'
+            });
+        }
+
+        organization.departments.id(deptId).deleteOne();
+        organization.updatedBy = req.user.id;
+        await organization.save();
+
+        res.json({
+            success: true,
+            message: 'Xóa phòng ban thành công'
+        });
+
+    } catch (error) {
+        console.error('Delete department error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi xóa phòng ban'
         });
     }
 };
@@ -335,5 +460,8 @@ module.exports = {
     createOrganization,
     updateOrganization,
     deleteOrganization,
-    getOrganizationStatistics
+    getOrganizationStatistics,
+    addDepartment,
+    updateDepartment,
+    deleteDepartment
 };
