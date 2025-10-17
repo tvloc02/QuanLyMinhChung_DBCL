@@ -25,11 +25,12 @@ const getReports = async (req, res) => {
 
         let query = { academicYearId };
 
+        // Quyền truy cập báo cáo
         if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
             const userAccessQuery = {
                 $or: [
-                    { createdBy: req.user.id },
-                    { status: 'published' }
+                    { createdBy: req.user.id }, // Báo cáo do mình tạo
+                    { status: 'published' } // Báo cáo đã xuất bản
                 ]
             };
 
@@ -133,6 +134,9 @@ const getReportById = async (req, res) => {
                 message: 'Không tìm thấy báo cáo trong năm học này'
             });
         }
+
+        // Đã xóa kiểm tra quyền nghiêm ngặt để cho phép bất kỳ người dùng đã xác thực nào xem
+        // Điều kiện: Báo cáo phải tồn tại trong năm học hiện tại
 
         await report.incrementView(req.user.id);
 
@@ -510,52 +514,28 @@ const downloadReport = async (req, res) => {
             .select('linkedEvidences')
             .populate('linkedEvidences.evidenceId', 'code name');
 
-        // TẠO PUBLIC LINK CHO BÁOCÁO
-        const protocol = req.protocol;
-        const host = req.get('host');
-        const reportPublicLink = `${protocol}://${host}/public/reports/${report.code}`;
-
         let evidenceLinksHtml = '';
         if (reportWithEvidences?.linkedEvidences?.length) {
-            evidenceLinksHtml = `<h2 style="margin-top: 30px; border-top: 2px solid #1e40af; padding-top: 20px; color: #1e3a8a;">Minh chứng liên quan</h2><ul style="list-style: none; padding: 0;">`;
+            evidenceLinksHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan (Links)</h2><ul>';
+
+            const host = req.get('host');
+            const protocol = req.protocol;
 
             reportWithEvidences.linkedEvidences.forEach(linkItem => {
                 const evidence = linkItem.evidenceId;
                 if (evidence) {
                     const evidenceUrl = `${protocol}://${host}/public/evidences/${evidence.code}`;
                     evidenceLinksHtml += `
-                        <li style="margin-bottom: 12px;">
-                            <a href="${evidenceUrl}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background-color: #dbeafe; color: #1e40af; border-radius: 6px; text-decoration: none; border: 1px solid #7dd3fc; font-weight: 600; font-family: monospace;">
-                                📎 ${evidence.code}
-                            </a>
-                            <span style="display: block; margin-top: 4px; font-size: 14px; color: #333;">
-                                <strong>${evidence.name}</strong>
-                            </span>
-                            ${linkItem.contextText ? `<span style="display: block; margin-top: 4px; font-size: 13px; color: #666; font-style: italic;">Ngữ cảnh: ${linkItem.contextText}</span>` : ''}
+                        <li>
+                            <strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>
+                            ${linkItem.contextText ? ` (Ngữ cảnh: ${linkItem.contextText})` : ''}
                         </li>`;
                 }
             });
             evidenceLinksHtml += '</ul>';
         }
 
-        // THÊM THÔNG TIN BÁOCÁO VÀ LINK CÔNG KHAI
-        let reportInfoHtml = `
-            <div style="margin-top: 40px; padding: 20px; background-color: #f0f9ff; border: 2px solid #0284c7; border-radius: 8px;">
-                <h2 style="margin-top: 0; color: #0c4a6e;">Thông tin báo cáo</h2>
-                <p><strong>Mã báo cáo:</strong> ${report.code}</p>
-                <p><strong>Tiêu đề:</strong> ${report.title}</p>
-                <p><strong>Người tạo:</strong> ${report.createdBy?.fullName || 'N/A'}</p>
-                <p><strong>Ngày tạo:</strong> ${new Date(report.createdAt).toLocaleDateString('vi-VN')}</p>
-                <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #7dd3fc;">
-                    <strong>🔗 Xem báo cáo công khai:</strong><br>
-                    <a href="${reportPublicLink}" style="display: inline-block; margin-top: 8px; padding: 10px 15px; background-color: #0284c7; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                        ${reportPublicLink}
-                    </a>
-                </p>
-            </div>
-        `;
-
-        const finalContent = (report.content || '') + evidenceLinksHtml + reportInfoHtml;
+        const finalContent = (report.content || '') + evidenceLinksHtml;
 
         const filename = `${report.code}-${report.title}.${format}`;
         const encodedFilename = encodeURIComponent(filename).replace(/['()]/g, escape).replace(/\*/g, '%2A');
@@ -566,189 +546,31 @@ const downloadReport = async (req, res) => {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>${report.title}</title>
                     <style>
-                        * {
-                            margin: 0;
-                            padding: 0;
-                            box-sizing: border-box;
-                        }
-                        body {
-                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                            margin: 0;
-                            padding: 20px;
-                            line-height: 1.6;
-                            background-color: #f8f9fa;
-                            color: #333;
-                        }
-                        .container {
-                            max-width: 900px;
-                            margin: 0 auto;
-                            background-color: white;
-                            padding: 40px;
-                            border-radius: 8px;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                        }
-                        h1 {
-                            color: #0c4a6e;
-                            margin-bottom: 10px;
-                            border-bottom: 3px solid #0284c7;
-                            padding-bottom: 10px;
-                        }
-                        h2 {
-                            color: #1e3a8a;
-                            margin-top: 30px;
-                            margin-bottom: 15px;
-                            font-size: 1.4em;
-                        }
-                        h3 {
-                            color: #1e40af;
-                            margin-top: 20px;
-                            margin-bottom: 10px;
-                        }
-                        p {
-                            margin-bottom: 10px;
-                        }
-                        a {
-                            color: #0284c7;
-                            text-decoration: underline;
-                        }
-                        a:hover {
-                            color: #0369a1;
-                        }
+                        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
                         a.evidence-link {
                             display: inline-flex;
                             align-items: center;
-                            gap: 6px;
-                            padding: 8px 12px;
+                            gap: 0.25rem;
+                            padding: 0.25rem 0.75rem;
                             background-color: #dbeafe;
                             color: #1e40af;
-                            border-radius: 6px;
-                            font-family: 'Courier New', monospace;
+                            border-radius: 0.375rem;
+                            font-family: monospace;
                             font-weight: 600;
-                            font-size: 0.9em;
+                            font-size: 0.875rem;
                             text-decoration: none;
                             border: 1px solid #7dd3fc;
-                            transition: all 0.3s ease;
                         }
                         a.evidence-link:hover {
                             background-color: #93c5fd;
-                            text-decoration: none;
-                            transform: translateY(-2px);
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                        }
-                        .report-info {
-                            margin-top: 40px;
-                            padding: 20px;
-                            background-color: #f0f9ff;
-                            border: 2px solid #0284c7;
-                            border-radius: 8px;
-                        }
-                        .public-link {
-                            margin-top: 15px;
-                            padding-top: 15px;
-                            border-top: 1px solid #7dd3fc;
-                        }
-                        .public-link a {
-                            display: inline-block;
-                            margin-top: 8px;
-                            padding: 12px 20px;
-                            background-color: #0284c7;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 6px;
-                            font-weight: bold;
-                            text-align: center;
-                            word-break: break-all;
-                        }
-                        .public-link a:hover {
-                            background-color: #0369a1;
-                        }
-                        ul {
-                            list-style: none;
-                            padding-left: 0;
-                        }
-                        li {
-                            margin-bottom: 15px;
-                            padding-left: 0;
-                        }
-                        .meta {
-                            font-size: 0.9em;
-                            color: #666;
-                            margin-top: 5px;
-                        }
-                        .evidence-context {
-                            display: block;
-                            margin-top: 4px;
-                            font-size: 13px;
-                            color: #666;
-                            font-style: italic;
-                        }
-                        code {
-                            background-color: #f3f4f6;
-                            padding: 2px 6px;
-                            border-radius: 3px;
-                            font-family: 'Courier New', monospace;
-                        }
-                        blockquote {
-                            border-left: 4px solid #0284c7;
-                            padding-left: 16px;
-                            margin-left: 0;
-                            color: #666;
-                        }
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin: 15px 0;
-                        }
-                        table th, table td {
-                            border: 1px solid #ddd;
-                            padding: 12px;
-                            text-align: left;
-                        }
-                        table th {
-                            background-color: #f3f4f6;
-                            font-weight: bold;
-                        }
-                        .footer {
-                            margin-top: 40px;
-                            padding-top: 20px;
-                            border-top: 1px solid #ddd;
-                            font-size: 0.9em;
-                            color: #666;
-                            text-align: center;
-                        }
-                        @media print {
-                            body {
-                                background: white;
-                                padding: 0;
-                            }
-                            .container {
-                                box-shadow: none;
-                                max-width: 100%;
-                            }
+                            text-decoration: underline;
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="container">
-                        <h1>${report.title}</h1>
-                        ${report.summary ? `<p style="font-size: 1.1em; color: #666; font-style: italic;">${report.summary}</p>` : ''}
-                        
-                        <div class="meta">
-                            <p><strong>Mã:</strong> ${report.code}</p>
-                            ${report.standardId ? `<p><strong>Tiêu chuẩn:</strong> ${report.standardId.code} - ${report.standardId.name}</p>` : ''}
-                            ${report.criteriaId ? `<p><strong>Tiêu chí:</strong> ${report.criteriaId.code} - ${report.criteriaId.name}</p>` : ''}
-                        </div>
-                        
-                        ${finalContent}
-                        
-                        <div class="footer">
-                            <p>Tài liệu được tạo vào ${new Date(report.createdAt).toLocaleString('vi-VN')}</p>
-                            <p>© ${new Date().getFullYear()} - Hệ thống quản lý minh chứng</p>
-                        </div>
-                    </div>
+                    ${finalContent}
                 </body>
                 </html>
             `;
@@ -765,7 +587,7 @@ const downloadReport = async (req, res) => {
         } else if (format === 'pdf') {
             return res.status(400).json({
                 success: false,
-                message: 'Định dạng PDF chưa được hỗ trợ'
+                message: 'Định dạng PDF chưa được hỗ trợ/triển khai'
             });
         } else {
             return res.status(400).json({
