@@ -17,7 +17,8 @@ import {
     Loader2,
     Link as LinkIcon,
     Clock,
-    ExternalLink
+    ExternalLink,
+    RotateCcw
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -152,6 +153,20 @@ export default function ReportDetail() {
         }
     }
 
+    const handleUnpublish = async () => {
+        if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này?')) return
+        if (!id) return toast.error('ID báo cáo không hợp lệ')
+
+        try {
+            await apiMethods.reports.unpublish(id)
+            toast.success('Thu hồi xuất bản báo cáo thành công')
+            fetchReportDetail(id)
+        } catch (error) {
+            console.error('Unpublish error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi xuất bản')
+        }
+    }
+
     const handleAddComment = async () => {
         if (!newComment.trim()) {
             toast.error('Vui lòng nhập nội dung nhận xét')
@@ -245,6 +260,15 @@ export default function ReportDetail() {
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Xuất bản
+                                </button>
+                            )}
+                            {report.status === 'published' && (
+                                <button
+                                    onClick={handleUnpublish}
+                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                >
+                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                    Thu hồi
                                 </button>
                             )}
                             <button
