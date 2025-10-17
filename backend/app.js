@@ -19,7 +19,8 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-
+// ✅ Import public routes (không cần authentication)
+const publicEvidenceRoutes = require('./routes/public/publicEvidenceRoutes');
 
 const authRoutes = require('./routes/user/auth');
 const usersRoutes = require('./routes/user/users');
@@ -40,6 +41,9 @@ const importBatchRoutes = require('./routes/report/importBatch');
 const permissionRoutes = require('./routes/user/permission');
 const aiChatRoutes = require('./routes/aiChat/aiChat');
 
+app.use('/api/public/evidences', publicEvidenceRoutes);
+
+// Protected routes (cần authentication)
 app.use('/api', aiChatRoutes);
 app.use('/api/user-groups', userGroupRoutes);
 app.use('/api/permissions', permissionRoutes);
@@ -56,6 +60,7 @@ const academicYearMiddleware = [
     attachCurrentAcademicYear,
     addAcademicYearFilter
 ];
+
 app.use('/api/programs', programRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/standards', standardRoutes);
@@ -73,6 +78,7 @@ app.use('/api/reports',
     reportRoutes
 );
 app.use('/api/evaluations', ...academicYearMiddleware, evaluationRoutes);
+
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'OK',
@@ -80,6 +86,7 @@ app.get('/api/health', (req, res) => {
         version: process.env.npm_package_version || '1.0.0'
     });
 });
+
 app.get('/api/context', auth, attachCurrentAcademicYear, (req, res) => {
     res.json({
         success: true,
@@ -96,6 +103,7 @@ app.get('/api/context', auth, attachCurrentAcademicYear, (req, res) => {
         }
     });
 });
+
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
     if (err.name === 'ValidationError') {
@@ -119,6 +127,7 @@ app.use((err, req, res, next) => {
         error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
+
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
