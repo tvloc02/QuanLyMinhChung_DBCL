@@ -13,7 +13,6 @@ import {
     Heading2,
     Heading3,
     Link as LinkIcon,
-    Image as ImageIcon,
     Code,
     Quote,
     Undo,
@@ -28,6 +27,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     const [linkText, setLinkText] = useState('')
     const [detectedCodes, setDetectedCodes] = useState(new Set())
 
+    // Load content when value changes
     useEffect(() => {
         if (editorRef.current && value !== editorRef.current.innerHTML) {
             editorRef.current.innerHTML = value || ''
@@ -35,6 +35,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         }
     }, [value])
 
+    // Detect evidence codes from existing links only (SCAN, NO EDIT)
     const detectExistingEvidenceCodes = () => {
         if (!editorRef.current) return
 
@@ -43,7 +44,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
         evidenceLinks.forEach(link => {
             const code = link.getAttribute('data-code')
-            if (code) {
+            if (code && /^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
                 foundCodes.add(code)
             }
         })
@@ -51,77 +52,15 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         setDetectedCodes(foundCodes)
     }
 
+    // On input: just notify parent, don't auto-wrap
     const handleInput = () => {
         if (onChange && editorRef.current) {
-            autoDetectEvidenceCodes()
-            onChange(editorRef.current.innerHTML)
+            const content = editorRef.current.innerHTML
+            onChange(content)
+
+            // Scan for existing links (ONLY, no wrapping)
+            detectExistingEvidenceCodes()
         }
-    }
-
-    const autoDetectEvidenceCodes = () => {
-        if (!editorRef.current) return
-
-        const selection = window.getSelection()
-        const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
-        const cursorPosition = range ? range.startOffset : 0
-
-        let content = editorRef.current.innerHTML
-        const foundCodes = new Set()
-
-        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
-
-        let hasChanges = false
-        content = content.replace(evidencePattern, (match, code) => {
-            if (match.includes('evidence-link')) {
-                foundCodes.add(code)
-                return match
-            }
-
-            foundCodes.add(code)
-            hasChanges = true
-            return `<a href="/public/evidences/${code}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc; cursor: pointer;">${code}</a>`
-        })
-
-        setDetectedCodes(foundCodes)
-
-        if (hasChanges) {
-            editorRef.current.innerHTML = content
-
-            try {
-                const newRange = document.createRange()
-                const textNodes = getTextNodes(editorRef.current)
-                let charCount = 0
-
-                for (let node of textNodes) {
-                    const nodeLength = node.textContent.length
-                    if (charCount + nodeLength >= cursorPosition) {
-                        newRange.setStart(node, Math.min(cursorPosition - charCount, nodeLength))
-                        newRange.collapse(true)
-                        selection.removeAllRanges()
-                        selection.addRange(newRange)
-                        break
-                    }
-                    charCount += nodeLength
-                }
-            } catch (e) {
-                // Cursor restoration failed, continue without it
-            }
-        }
-    }
-
-    const getTextNodes = (node) => {
-        const textNodes = []
-        const walker = document.createTreeWalker(
-            node,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        )
-        let currentNode
-        while (currentNode = walker.nextNode()) {
-            textNodes.push(currentNode)
-        }
-        return textNodes
     }
 
     const execCommand = (command, value = null) => {
@@ -168,19 +107,56 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     }
 
     const handleInsertEvidenceCode = (code) => {
-        const evidenceHTML = `<a href="/public/evidences/${code}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.75rem; background-color: #dbeafe; color: #1e40af; border-radius: 0.375rem; font-family: monospace; font-weight: 600; font-size: 0.875rem; text-decoration: none; border: 1px solid #7dd3fc; cursor: pointer;">${code}</a>&nbsp;`
+        if (!code || !/^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
+            console.error('Invalid evidence code:', code)
+            return
+        }
 
         if (editorRef.current) {
             editorRef.current.focus()
+
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+            const evidenceUrl = `${baseUrl}/public/evidences/${code}`
+
+            const linkHTML = `<a href="${evidenceUrl}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>&nbsp;`
+
+            document.execCommand('insertHTML', false, linkHTML)
+
             setTimeout(() => {
-                execCommand('insertHTML', evidenceHTML)
-                setDetectedCodes(prev => new Set([...prev, code]))
+                detectCodesFromContent()
+                handleInput()
             }, 0)
         }
     }
 
+    const detectCodesFromContent = () => {
+        if (!editorRef.current) return
+
+        const foundCodes = new Set()
+        const content = editorRef.current.innerHTML
+
+        // Find plain codes in text
+        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
+        let match
+        while ((match = evidencePattern.exec(content)) !== null) {
+            foundCodes.add(match[1])
+        }
+
+        // Also find codes from existing links
+        const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link, span.evidence-code')
+        evidenceLinks.forEach(link => {
+            const code = link.getAttribute('data-code') || link.textContent
+            if (code && /^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
+                foundCodes.add(code)
+            }
+        })
+
+        setDetectedCodes(foundCodes)
+    }
+
     useImperativeHandle(ref, () => ({
-        insertEvidenceCode: handleInsertEvidenceCode
+        insertEvidenceCode: handleInsertEvidenceCode,
+        getContent: () => editorRef.current?.innerHTML || ''
     }))
 
     const ToolbarButton = ({ onClick, title, children, active = false }) => (
@@ -188,7 +164,9 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             type="button"
             onClick={onClick}
             title={title}
-            className={`p-2 rounded hover:bg-gray-100 ${active ? 'bg-gray-200' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`p-2 rounded hover:bg-gray-100 transition-colors ${
+                active ? 'bg-gray-200' : ''
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={disabled}
         >
             {children}
@@ -197,6 +175,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
     return (
         <div className="border border-gray-300 rounded-lg overflow-hidden">
+            {/* TOOLBAR */}
             <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('bold')} title="Bold (Ctrl+B)">
@@ -303,6 +282,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             </div>
 
+            {/* LINK INPUT */}
             {showLinkInput && (
                 <div className="bg-blue-50 border-b border-blue-200 p-3">
                     <div className="flex gap-2 items-end">
@@ -348,10 +328,12 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
+            {/* EDITOR */}
             <div
                 ref={editorRef}
                 contentEditable={!disabled}
                 onInput={handleInput}
+                suppressContentEditableWarning={true}
                 className={`min-h-[400px] p-4 focus:outline-none ${disabled ? 'bg-gray-50' : 'bg-white'}`}
                 style={{
                     maxHeight: '600px',
@@ -360,6 +342,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 data-placeholder={placeholder || 'Nhập nội dung báo cáo...'}
             />
 
+            {/* DETECTED CODES COUNTER */}
             {detectedCodes.size > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -372,14 +355,16 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                             </span>
                         </div>
                         <div className="flex flex-wrap gap-1 max-w-md">
-                            {Array.from(detectedCodes).slice(0, 5).map((code, idx) => (
-                                <span
-                                    key={idx}
-                                    className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-mono"
-                                >
-                                    {code}
-                                </span>
-                            ))}
+                            {Array.from(detectedCodes)
+                                .slice(0, 5)
+                                .map((code, idx) => (
+                                    <span
+                                        key={idx}
+                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-mono"
+                                    >
+                                        {code}
+                                    </span>
+                                ))}
                             {detectedCodes.size > 5 && (
                                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
                                     +{detectedCodes.size - 5} khác
@@ -390,6 +375,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
+            {/* STYLES */}
             <style jsx>{`
                 [contenteditable][data-placeholder]:empty:before {
                     content: attr(data-placeholder);
@@ -427,7 +413,8 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     overflow-x: auto;
                     font-family: monospace;
                 }
-                [contenteditable] ul, [contenteditable] ol {
+                [contenteditable] ul,
+                [contenteditable] ol {
                     padding-left: 2rem;
                     margin: 0.5rem 0;
                 }
@@ -438,6 +425,27 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     color: #2563eb;
                     text-decoration: underline;
                 }
+
+                /* Evidence code in editor (pending wrap on save) */
+                span.evidence-code {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 0.25rem 0.75rem;
+                    background-color: #fef08a;
+                    color: #854d0e;
+                    border-radius: 0.375rem;
+                    font-family: monospace;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    border: 1px solid #fcd34d;
+                    cursor: pointer;
+                    white-space: nowrap;
+                }
+                span.evidence-code:hover {
+                    background-color: #fde047;
+                }
+
+                /* Evidence link (after saved) */
                 a.evidence-link {
                     display: inline-flex;
                     align-items: center;
@@ -452,6 +460,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     border: 1px solid #7dd3fc;
                     cursor: pointer;
                     transition: all 0.2s ease;
+                    white-space: nowrap;
                 }
                 a.evidence-link:hover {
                     background-color: #93c5fd;
