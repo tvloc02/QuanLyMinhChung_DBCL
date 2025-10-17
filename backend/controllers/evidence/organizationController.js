@@ -97,6 +97,14 @@ const getOrganizationById = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
+        // Validate ID
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
+
         const organization = await Organization.findOne({ _id: id, academicYearId })
             .populate('academicYearId', 'name code')
             .populate('createdBy', 'fullName email')
@@ -133,14 +141,30 @@ const createOrganization = async (req, res) => {
             contactPhone,
             address,
             country,
-            departments
+            departments = []
         } = req.body;
 
         const academicYearId = req.academicYearId;
 
+        // Validate required fields
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên tổ chức là bắt buộc'
+            });
+        }
+
+        if (!code || !code.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã tổ chức là bắt buộc'
+            });
+        }
+
+        // Check duplicate code
         const existingOrganization = await Organization.findOne({
             academicYearId,
-            code: code.toUpperCase()
+            code: code.toUpperCase().trim()
         });
 
         if (existingOrganization) {
@@ -150,28 +174,40 @@ const createOrganization = async (req, res) => {
             });
         }
 
-        // Xử lý departments
+        // Process departments - filter out temp IDs
         const processedDepts = [];
         if (departments && Array.isArray(departments)) {
-            processedDepts.push(...departments.map(dept => ({
-                _id: new mongoose.Types.ObjectId(),
-                name: dept.name?.trim() || '',
-                email: dept.email?.trim() || undefined,
-                phone: dept.phone?.trim() || undefined,
-                createdAt: new Date()
-            })));
+            for (const dept of departments) {
+                // Skip temp departments
+                if (dept._id && String(dept._id).startsWith('temp_')) {
+                    continue;
+                }
+
+                if (!dept.name || !dept.name.trim()) {
+                    continue;
+                }
+
+                processedDepts.push({
+                    _id: new mongoose.Types.ObjectId(),
+                    name: dept.name.trim(),
+                    email: dept.email ? dept.email.trim() : undefined,
+                    phone: dept.phone ? dept.phone.trim() : undefined,
+                    createdAt: new Date()
+                });
+            }
         }
 
         const organization = new Organization({
             academicYearId,
             name: name.trim(),
             code: code.toUpperCase().trim(),
-            contactEmail: contactEmail?.trim(),
-            contactPhone: contactPhone?.trim(),
-            website: website?.trim(),
-            address: address?.trim(),
-            country: country?.trim(),
+            contactEmail: contactEmail ? contactEmail.trim() : undefined,
+            contactPhone: contactPhone ? contactPhone.trim() : undefined,
+            website: website ? website.trim() : undefined,
+            address: address ? address.trim() : undefined,
+            country: country ? country.trim() : undefined,
             departments: processedDepts,
+            status: 'active',
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -180,7 +216,8 @@ const createOrganization = async (req, res) => {
 
         await organization.populate([
             { path: 'academicYearId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' }
+            { path: 'createdBy', select: 'fullName email' },
+            { path: 'updatedBy', select: 'fullName email' }
         ]);
 
         res.status(201).json({
@@ -193,7 +230,8 @@ const createOrganization = async (req, res) => {
         console.error('Create organization error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo tổ chức'
+            message: 'Lỗi hệ thống khi tạo tổ chức',
+            details: error.message
         });
     }
 };
@@ -204,6 +242,14 @@ const updateOrganization = async (req, res) => {
         const updateData = req.body;
         const academicYearId = req.academicYearId;
 
+        // Validate ID
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
+
         const organization = await Organization.findOne({ _id: id, academicYearId });
         if (!organization) {
             return res.status(404).json({
@@ -212,10 +258,11 @@ const updateOrganization = async (req, res) => {
             });
         }
 
-        if (updateData.code && updateData.code.toUpperCase() !== organization.code) {
+        // Check if code is changing and if it's already in use
+        if (updateData.code && updateData.code.toUpperCase().trim() !== organization.code) {
             const existingOrganization = await Organization.findOne({
                 academicYearId,
-                code: updateData.code.toUpperCase(),
+                code: updateData.code.toUpperCase().trim(),
                 _id: { $ne: id }
             });
             if (existingOrganization) {
@@ -224,67 +271,113 @@ const updateOrganization = async (req, res) => {
                     message: `Mã tổ chức ${updateData.code} đã tồn tại`
                 });
             }
+
+            // Check if organization is in use
+            const isInUse = await organization.isInUse();
+            if (isInUse) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Không thể thay đổi mã tổ chức đang được sử dụng'
+                });
+            }
         }
 
-        const isInUse = await organization.isInUse();
-        if (isInUse && updateData.code) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không thể thay đổi mã tổ chức đang được sử dụng'
-            });
-        }
-
+        // Update allowed fields
         const allowedFields = [
             'name',
-            'contactEmail', 'contactPhone', 'status', 'website', 'address', 'country'
+            'contactEmail',
+            'contactPhone',
+            'status',
+            'website',
+            'address',
+            'country'
         ];
 
         allowedFields.forEach(field => {
-            if (updateData[field] !== undefined) {
-                organization[field] = updateData[field];
+            if (updateData[field] !== undefined && updateData[field] !== null) {
+                organization[field] = String(updateData[field]).trim();
             }
         });
 
         if (updateData.code) {
-            organization.code = updateData.code.toUpperCase();
+            organization.code = updateData.code.toUpperCase().trim();
         }
 
-        // Update departments nếu được gửi kèm
-        if (updateData.departments && Array.isArray(updateData.departments)) {
+        // Handle departments update - IMPORTANT: REPLACE not merge
+        if (updateData.departments !== undefined && Array.isArray(updateData.departments)) {
             const newDepts = [];
 
             for (const dept of updateData.departments) {
-                // Nếu có _id và không phải temp_* thì giữ lại, không thì tạo ID mới
-                if (dept._id && !String(dept._id).startsWith('temp_')) {
-                    // Tìm department cũ để giữ lại createdAt
-                    const existingDept = organization.departments.find(d => String(d._id) === String(dept._id));
-                    newDepts.push({
-                        _id: dept._id,
-                        name: dept.name?.trim() || '',
-                        email: dept.email?.trim() || undefined,
-                        phone: dept.phone?.trim() || undefined,
-                        createdAt: existingDept?.createdAt || new Date()
+                // Skip temp departments (những cái mới thêm trong frontend chưa lưu)
+                if (dept._id && String(dept._id).startsWith('temp_')) {
+                    continue;
+                }
+
+                if (!dept.name || !dept.name.trim()) {
+                    continue;
+                }
+
+                // Validate email
+                if (dept.email && !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(dept.email.trim())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Email phòng ban "${dept.name}" không hợp lệ: ${dept.email}`
                     });
+                }
+
+                // Validate phone
+                if (dept.phone && !/^[\d\s\-\+\(\)]+$/.test(dept.phone.trim())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Số điện thoại phòng ban "${dept.name}" không hợp lệ: ${dept.phone}`
+                    });
+                }
+
+                // If it has an _id, check if it's valid ObjectId
+                if (dept._id) {
+                    if (mongoose.Types.ObjectId.isValid(dept._id)) {
+                        // Existing department
+                        newDepts.push({
+                            _id: new mongoose.Types.ObjectId(dept._id),
+                            name: dept.name.trim(),
+                            email: dept.email ? dept.email.trim() : undefined,
+                            phone: dept.phone ? dept.phone.trim() : undefined,
+                            createdAt: new Date()
+                        });
+                    } else {
+                        // Invalid ID format, treat as new
+                        newDepts.push({
+                            _id: new mongoose.Types.ObjectId(),
+                            name: dept.name.trim(),
+                            email: dept.email ? dept.email.trim() : undefined,
+                            phone: dept.phone ? dept.phone.trim() : undefined,
+                            createdAt: new Date()
+                        });
+                    }
                 } else {
-                    // Tạo department mới
+                    // New department (no _id)
                     newDepts.push({
                         _id: new mongoose.Types.ObjectId(),
-                        name: dept.name?.trim() || '',
-                        email: dept.email?.trim() || undefined,
-                        phone: dept.phone?.trim() || undefined,
+                        name: dept.name.trim(),
+                        email: dept.email ? dept.email.trim() : undefined,
+                        phone: dept.phone ? dept.phone.trim() : undefined,
                         createdAt: new Date()
                     });
                 }
             }
+
+            console.log(`📝 Updating departments: ${organization.departments.length} → ${newDepts.length}`);
             organization.departments = newDepts;
         }
 
         organization.updatedBy = req.user.id;
+        organization.updatedAt = new Date();
         await organization.save();
 
         await organization.populate([
             { path: 'academicYearId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+            { path: 'updatedBy', select: 'fullName email' },
+            { path: 'createdBy', select: 'fullName email' }
         ]);
 
         res.json({
@@ -297,7 +390,8 @@ const updateOrganization = async (req, res) => {
         console.error('Update organization error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi cập nhật tổ chức'
+            message: 'Lỗi hệ thống khi cập nhật tổ chức',
+            details: error.message
         });
     }
 };
@@ -315,6 +409,13 @@ const addDepartment = async (req, res) => {
             });
         }
 
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
+
         const organization = await Organization.findOne({ _id: id, academicYearId });
         if (!organization) {
             return res.status(404).json({
@@ -323,16 +424,32 @@ const addDepartment = async (req, res) => {
             });
         }
 
+        if (email && !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email.trim())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email phòng ban không hợp lệ'
+            });
+        }
+
+        if (phone && !/^[\d\s\-\+\(\)]+$/.test(phone.trim())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Số điện thoại phòng ban không hợp lệ'
+            });
+        }
+
         const newDept = {
             _id: new mongoose.Types.ObjectId(),
             name: name.trim(),
-            email: email?.trim(),
-            phone: phone?.trim(),
+            email: email ? email.trim() : undefined,
+            phone: phone ? phone.trim() : undefined,
             createdAt: new Date()
         };
 
         organization.departments.push(newDept);
         organization.updatedBy = req.user.id;
+        organization.updatedAt = new Date();
+
         await organization.save();
 
         res.status(201).json({
@@ -345,7 +462,8 @@ const addDepartment = async (req, res) => {
         console.error('Add department error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi thêm phòng ban'
+            message: 'Lỗi hệ thống khi thêm phòng ban',
+            details: error.message
         });
     }
 };
@@ -355,6 +473,21 @@ const updateDepartment = async (req, res) => {
         const { id, deptId } = req.params;
         const { name, email, phone } = req.body;
         const academicYearId = req.academicYearId;
+
+        // Validate IDs
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(deptId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID phòng ban không hợp lệ'
+            });
+        }
 
         const organization = await Organization.findOne({ _id: id, academicYearId });
         if (!organization) {
@@ -372,11 +505,41 @@ const updateDepartment = async (req, res) => {
             });
         }
 
-        if (name) dept.name = name.trim();
-        if (email !== undefined) dept.email = email ? email.trim() : undefined;
-        if (phone !== undefined) dept.phone = phone ? phone.trim() : undefined;
+        // Validate and update
+        if (name && name.trim()) {
+            dept.name = name.trim();
+        }
+
+        if (email !== undefined) {
+            if (email && email.trim()) {
+                if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email.trim())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Email phòng ban không hợp lệ'
+                    });
+                }
+                dept.email = email.trim();
+            } else {
+                dept.email = undefined;
+            }
+        }
+
+        if (phone !== undefined) {
+            if (phone && phone.trim()) {
+                if (!/^[\d\s\-\+\(\)]+$/.test(phone.trim())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Số điện thoại phòng ban không hợp lệ'
+                    });
+                }
+                dept.phone = phone.trim();
+            } else {
+                dept.phone = undefined;
+            }
+        }
 
         organization.updatedBy = req.user.id;
+        organization.updatedAt = new Date();
         await organization.save();
 
         res.json({
@@ -389,7 +552,8 @@ const updateDepartment = async (req, res) => {
         console.error('Update department error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi cập nhật phòng ban'
+            message: 'Lỗi hệ thống khi cập nhật phòng ban',
+            details: error.message
         });
     }
 };
@@ -398,6 +562,21 @@ const deleteDepartment = async (req, res) => {
     try {
         const { id, deptId } = req.params;
         const academicYearId = req.academicYearId;
+
+        // Validate IDs
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(deptId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID phòng ban không hợp lệ'
+            });
+        }
 
         const organization = await Organization.findOne({ _id: id, academicYearId });
         if (!organization) {
@@ -409,6 +588,7 @@ const deleteDepartment = async (req, res) => {
 
         organization.departments.id(deptId).deleteOne();
         organization.updatedBy = req.user.id;
+        organization.updatedAt = new Date();
         await organization.save();
 
         res.json({
@@ -420,7 +600,8 @@ const deleteDepartment = async (req, res) => {
         console.error('Delete department error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi xóa phòng ban'
+            message: 'Lỗi hệ thống khi xóa phòng ban',
+            details: error.message
         });
     }
 };
@@ -429,6 +610,14 @@ const deleteOrganization = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+
+        // Validate ID
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID tổ chức không hợp lệ'
+            });
+        }
 
         const organization = await Organization.findOne({ _id: id, academicYearId });
         if (!organization) {
@@ -457,7 +646,8 @@ const deleteOrganization = async (req, res) => {
         console.error('Delete organization error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi xóa tổ chức'
+            message: 'Lỗi hệ thống khi xóa tổ chức',
+            details: error.message
         });
     }
 };
@@ -466,8 +656,16 @@ const getOrganizationStatistics = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
 
+        // Validate academicYearId
+        if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Năm học không hợp lệ'
+            });
+        }
+
         const stats = await Organization.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            { $match: { academicYearId: new mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',
@@ -493,7 +691,8 @@ const getOrganizationStatistics = async (req, res) => {
         console.error('Get organization statistics error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê tổ chức'
+            message: 'Lỗi hệ thống khi lấy thống kê tổ chức',
+            details: error.message
         });
     }
 };
