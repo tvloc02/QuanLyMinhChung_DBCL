@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 try:
-    bot = ChatBot(data_file="/model/training_data.json")
+    bot = ChatBot(data_file="/chatbot/model/training_data.json")
     logging.info("Chatbot initialized successfully")
 except Exception as e:
     logging.error(f"Failed to initialize chatbot: {str(e)}")
