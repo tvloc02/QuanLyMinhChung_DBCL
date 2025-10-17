@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function PublicReportView() {
     const router = useRouter()
