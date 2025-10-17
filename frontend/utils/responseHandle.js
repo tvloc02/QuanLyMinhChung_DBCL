@@ -1,4 +1,4 @@
-import { handleError, parseError } from './errorHandler'
+import { handleError, parseError } from './errorHandle'
 import toast from 'react-hot-toast'
 
 /**
