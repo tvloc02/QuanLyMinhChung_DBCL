@@ -1,9 +1,23 @@
-import {useEffect, useState} from 'react'
-import {useRouter} from 'next/router'
-import {useAuth} from '../../contexts/AuthContext'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import api, {apiMethods} from '../../services/api'
-import {AlertCircle, ArrowLeft, FileText, Loader2, Plus, Save, Search, Trash2, Users, X} from 'lucide-react'
+import api, { apiMethods } from '../../services/api'
+import {
+    Plus,
+    Trash2,
+    Save,
+    ArrowLeft,
+    FileText,
+    Search,
+    AlertCircle,
+    Calendar,
+    Users,
+    X,
+    Loader2,
+    ChevronDown,
+    ChevronRight
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function AssignReviewersPage() {
@@ -16,7 +30,7 @@ export default function AssignReviewersPage() {
     const [reports, setReports] = useState([])
     const [experts, setExperts] = useState([])
     const [assignments, setAssignments] = useState({})
-    // State này chứa Set các ID chuyên gia đang hoạt động cho từng reportId
+    const [existingAssignments, setExistingAssignments] = useState({})
     const [existingActiveExperts, setExistingActiveExperts] = useState({})
 
     const [showExpertSearch, setShowExpertSearch] = useState(null)
@@ -29,6 +43,7 @@ export default function AssignReviewersPage() {
         hasNext: false,
         hasPrev: false
     })
+    const [expandedReports, setExpandedReports] = useState({})
 
     const breadcrumbItems = [
         { name: 'Báo cáo', path: '/reports' },
@@ -47,7 +62,6 @@ export default function AssignReviewersPage() {
         }
     }, [router.isReady, reportIds, user])
 
-    // Logic lọc chuyên gia trong modal tìm kiếm
     useEffect(() => {
         if (!showExpertSearch) {
             setFilteredExperts([])
@@ -57,21 +71,16 @@ export default function AssignReviewersPage() {
         const { reportId, assignmentIdx } = showExpertSearch
         const currentAssignment = assignments[reportId]?.[assignmentIdx]
 
-        // 1. Lấy ID chuyên gia đã được chọn trong assignment hiện tại
         const alreadySelectedIds = new Set(currentAssignment?.selectedExperts?.map(e => e._id) || [])
-        // 2. Lấy ID chuyên gia đã được phân quyền (đang active/pending) cho báo cáo này
         const existingActiveIds = existingActiveExperts[reportId] || new Set()
 
         const expertsToExclude = new Set([...alreadySelectedIds, ...existingActiveIds])
 
-        // Lọc theo search term
         const term = searchTerm.toLowerCase().trim()
 
         const filtered = experts.filter(expert => {
-            // Loại trừ chuyên gia đã được phân quyền hoặc đã được chọn trong form
             if (expertsToExclude.has(expert._id)) return false
 
-            // Lọc theo search term nếu có
             if (term) {
                 return (
                     expert.fullName?.toLowerCase().includes(term) ||
@@ -79,7 +88,6 @@ export default function AssignReviewersPage() {
                     expert.department?.toLowerCase().includes(term)
                 )
             }
-            // Nếu không có search term, hiển thị tất cả chuyên gia hợp lệ
             return true
         })
 
@@ -114,8 +122,6 @@ export default function AssignReviewersPage() {
             }
 
             await fetchExperts(1)
-
-            // GỌI HÀM LẤY DANH SÁCH CHUYÊN GIA ĐÃ PHÂN QUYỀN
             await fetchExistingAssignments(validReports)
 
         } catch (error) {
@@ -127,7 +133,6 @@ export default function AssignReviewersPage() {
         }
     }
 
-    // SỬA ĐỔI: Đảm bảo trích xuất assignments từ response.data.data.assignments
     const fetchExistingAssignments = async (reportsList) => {
         try {
             const assignmentPromises = reportsList.map(report =>
@@ -135,42 +140,49 @@ export default function AssignReviewersPage() {
                     reportId: report._id,
                     limit: 100
                 }).catch(err => {
-                    console.warn(`Cannot fetch assignments for report ${report._id}:`, err.message);
-                    return null;
+                    console.warn(`Cannot fetch assignments for report ${report._id}:`, err.message)
+                    return null
                 })
-            );
+            )
 
-            const assignmentResponses = await Promise.all(assignmentPromises);
+            const assignmentResponses = await Promise.all(assignmentPromises)
 
-            const activeExpertsMap = {};
+            const activeExpertsMap = {}
+            const existingMap = {}
 
             assignmentResponses.forEach((res, index) => {
+                const reportId = reportsList[index]._id
+
                 if (!res || !res.data) {
-                    activeExpertsMap[reportsList[index]._id] = new Set();
-                    return;
+                    activeExpertsMap[reportId] = new Set()
+                    existingMap[reportId] = []
+                    return
                 }
 
-                const reportId = reportsList[index]._id;
+                const assignmentsData = res.data?.data?.assignments || []
 
-                // Trích xuất đúng từ response structure
-                const assignmentsData = res.data?.data?.assignments || [];
+                const activeAssignments = assignmentsData.filter(a =>
+                    a.status && ['pending', 'accepted', 'in_progress'].includes(a.status)
+                )
 
-                activeExpertsMap[reportId] = new Set(
-                    assignmentsData
-                        .filter(a => a.status && ['pending', 'accepted', 'in_progress'].includes(a.status))
+                const expertIds = new Set(
+                    activeAssignments
                         .map(a => a.expertId?._id || a.expertId)
                         .filter(Boolean)
-                );
-            });
+                )
 
-            setExistingActiveExperts(activeExpertsMap);
+                activeExpertsMap[reportId] = expertIds
+                existingMap[reportId] = activeAssignments
+            })
+
+            setExistingActiveExperts(activeExpertsMap)
+            setExistingAssignments(existingMap)
 
         } catch (error) {
-            console.error('Error fetching existing assignments:', error);
+            console.error('Error fetching existing assignments:', error)
         }
-    };
+    }
 
-    // GIỮ NGUYÊN LOGIC CŨ CỦA BẠN CHO fetchExperts
     const fetchExperts = async (page = pagination.current) => {
         try {
             setLoading(true)
@@ -347,7 +359,13 @@ export default function AssignReviewersPage() {
             }
 
             if (successCount > 0) {
-                setTimeout(() => router.push('/reports/reports'), 1500)
+                await fetchExistingAssignments(reports)
+                setAssignments(Object.fromEntries(
+                    reports.map(r => [r._id, []])
+                ))
+                setTimeout(() => {
+                    toast.success('Làm mới danh sách phân quyền')
+                }, 500)
             }
 
         } catch (error) {
@@ -365,14 +383,18 @@ export default function AssignReviewersPage() {
         )
     }
 
+    const getTotalExistingAssignments = () => {
+        return Object.values(existingAssignments).reduce((sum, arr) => sum + (arr?.length || 0), 0)
+    }
+
     const getPriorityColor = (priority) => {
         const colors = {
-            low: 'text-gray-600 bg-gray-100',
-            normal: 'text-blue-600 bg-blue-100',
-            high: 'text-orange-600 bg-orange-100',
-            urgent: 'text-red-600 bg-red-100'
+            low: 'text-gray-600 bg-gray-100 border-gray-300',
+            normal: 'text-blue-600 bg-blue-100 border-blue-300',
+            high: 'text-orange-600 bg-orange-100 border-orange-300',
+            urgent: 'text-red-600 bg-red-100 border-red-300'
         }
-        return colors[priority] || 'text-gray-600 bg-gray-100'
+        return colors[priority] || 'text-gray-600 bg-gray-100 border-gray-300'
     }
 
     const getPriorityLabel = (priority) => {
@@ -412,16 +434,16 @@ export default function AssignReviewersPage() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                <div className="flex items-center space-x-4 mb-6">
-                    <button
-                        onClick={() => router.back()}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                        <ArrowLeft className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Phân quyền đánh giá</h1>
-                        <p className="text-gray-600 mt-1">Giao báo cáo cho chuyên gia đánh giá</p>
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <Users className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">Phân quyền đánh giá</h1>
+                            <p className="text-blue-100">Giao báo cáo cho chuyên gia đánh giá</p>
+                        </div>
                     </div>
                 </div>
 
@@ -431,172 +453,231 @@ export default function AssignReviewersPage() {
                     </div>
                 ) : (
                     reports.map((report) => (
-                        <div key={report._id} className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-b border-gray-200">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-gray-900">{report.title}</h2>
-                                        <div className="flex items-center space-x-3 mt-2 flex-wrap gap-2">
-                                            <span className="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                                                {report.code}
-                                            </span>
-                                            <span className="text-sm text-gray-600">
-                                                {report.typeText || report.type}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-gray-600">Người tạo</p>
-                                        <p className="text-sm font-semibold text-gray-900">
-                                            {report.createdBy?.fullName || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="px-6 py-4">
-                                <div className="mb-4">
-                                    <p className="text-sm font-semibold text-gray-900 mb-3">
-                                        Phân quyền ({assignments[report._id]?.length || 0})
-                                    </p>
-
-                                    {assignments[report._id]?.length === 0 ? (
-                                        <div className="bg-gray-50 rounded-lg p-6 text-center border-2 border-dashed border-gray-300">
-                                            <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                            <p className="text-gray-600 text-sm">Chưa có phân quyền</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {assignments[report._id].map((assignment, idx) => (
-                                                <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                                    <div className="flex items-start justify-between mb-4">
-                                                        <div className="flex-1">
-                                                            <p className="text-sm font-semibold text-gray-700 mb-3">
-                                                                Phân quyền #{idx + 1}
-                                                            </p>
-
-                                                            <div className="mb-3">
-                                                                <p className="text-xs font-semibold text-gray-600 mb-2">
-                                                                    Chuyên gia <span className="text-red-500">*</span>
-                                                                </p>
-
-                                                                {assignment.selectedExperts.length === 0 ? (
-                                                                    <div className="text-center py-3 border-2 border-dashed border-gray-300 rounded-lg bg-white">
-                                                                        <p className="text-gray-500 text-xs">Chưa chọn chuyên gia</p>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="space-y-2">
-                                                                        {assignment.selectedExperts.map(expert => (
-                                                                            <div
-                                                                                key={expert._id}
-                                                                                className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200"
-                                                                            >
-                                                                                <div className="flex-1 min-w-0">
-                                                                                    <p className="text-sm font-semibold text-gray-900 truncate">
-                                                                                        {expert.fullName}
-                                                                                    </p>
-                                                                                    <p className="text-xs text-gray-600 truncate">
-                                                                                        {expert.email}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <button
-                                                                                    onClick={() => removeExpertFromAssignment(report._id, idx, expert._id)}
-                                                                                    className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                                                                                >
-                                                                                    <X className="h-4 w-4" />
-                                                                                </button>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-
-                                                                <button
-                                                                    onClick={() => openExpertSearch(report._id, idx)}
-                                                                    className="w-full mt-2 px-4 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center text-sm"
-                                                                >
-                                                                    <Search className="h-4 w-4 mr-2" />
-                                                                    {assignment.selectedExperts.length === 0 ? 'Tìm kiếm chuyên gia' : 'Thêm chuyên gia khác'}
-                                                                </button>
-                                                            </div>
-
-                                                            <div className="mb-3">
-                                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                                                    Hạn chót <span className="text-red-500">*</span>
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    value={assignment.deadline}
-                                                                    onChange={(e) => handleAssignmentChange(report._id, idx, 'deadline', e.target.value)}
-                                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                                                />
-                                                            </div>
-
-                                                            <div className="mb-3">
-                                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                                                    Ưu tiên
-                                                                </label>
-                                                                <select
-                                                                    value={assignment.priority}
-                                                                    onChange={(e) => handleAssignmentChange(report._id, idx, 'priority', e.target.value)}
-                                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                                                >
-                                                                    <option value="low">Thấp</option>
-                                                                    <option value="normal">Bình thường</option>
-                                                                    <option value="high">Cao</option>
-                                                                    <option value="urgent">Khẩn cấp</option>
-                                                                </select>
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                                                    Ghi chú
-                                                                </label>
-                                                                <textarea
-                                                                    value={assignment.assignmentNote}
-                                                                    onChange={(e) => handleAssignmentChange(report._id, idx, 'assignmentNote', e.target.value)}
-                                                                    placeholder="Ghi chú cho chuyên gia..."
-                                                                    rows={2}
-                                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <button
-                                                            onClick={() => handleRemoveAssignment(report._id, idx)}
-                                                            className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
+                        <div key={report._id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                            {/* Report Header */}
+                            <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-b-2 border-blue-200">
                                 <button
-                                    onClick={() => handleAddAssignment(report._id)}
-                                    className="w-full mt-4 px-4 py-3 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center"
+                                    onClick={() => setExpandedReports(prev => ({
+                                        ...prev,
+                                        [report._id]: !prev[report._id]
+                                    }))}
+                                    className="w-full text-left flex items-start justify-between hover:bg-blue-100 p-3 rounded-lg transition-colors"
                                 >
-                                    <Plus className="h-5 w-5 mr-2" />
-                                    Thêm phân quyền
+                                    <div className="flex items-start gap-3 flex-1">
+                                        {expandedReports[report._id] ? (
+                                            <ChevronDown className="h-5 w-5 text-blue-600 flex-shrink-0 mt-1" />
+                                        ) : (
+                                            <ChevronRight className="h-5 w-5 text-gray-500 flex-shrink-0 mt-1" />
+                                        )}
+                                        <div className="flex-1">
+                                            <h2 className="text-xl font-bold text-gray-900">{report.title}</h2>
+                                            <div className="flex items-center space-x-3 mt-2 flex-wrap gap-2">
+                                                <span className="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded border border-blue-300">
+                                                    {report.code}
+                                                </span>
+                                                <span className="text-sm text-gray-600">
+                                                    {report.typeText || report.type}
+                                                </span>
+                                                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                                                    Người tạo: {report.createdBy?.fullName || 'N/A'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </button>
                             </div>
+
+                            {expandedReports[report._id] && (
+                                <div className="px-6 py-4">
+                                    {/* Existing Assignments */}
+                                    {existingAssignments[report._id]?.length > 0 && (
+                                        <div className="mb-6">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="w-1 h-6 bg-green-500 rounded-full"></div>
+                                                <p className="text-sm font-bold text-gray-900">
+                                                    Phân quyền hiện tại ({existingAssignments[report._id]?.length || 0})
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2 bg-green-50 rounded-xl p-4 border border-green-200">
+                                                {existingAssignments[report._id]?.map((assignment, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-lg border border-green-300">
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-gray-900">
+                                                                {assignment.expertId?.fullName || 'N/A'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-600">
+                                                                {assignment.expertId?.email}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className={`text-xs px-2 py-1 rounded border ${getPriorityColor(assignment.priority)}`}>
+                                                                    {getPriorityLabel(assignment.priority)}
+                                                                </span>
+                                                                <span className="text-xs text-gray-600">
+                                                                    Hạn: {new Date(assignment.deadline).toLocaleDateString('vi-VN')}
+                                                                </span>
+                                                                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold">
+                                                                    {assignment.status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* New Assignments Form */}
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+                                            <p className="text-sm font-bold text-gray-900">
+                                                Phân quyền mới ({assignments[report._id]?.length || 0})
+                                            </p>
+                                        </div>
+
+                                        {assignments[report._id]?.length === 0 ? (
+                                            <div className="bg-blue-50 rounded-lg p-6 text-center border-2 border-dashed border-blue-300">
+                                                <FileText className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                                                <p className="text-blue-600 text-sm">Chưa có phân quyền mới</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {assignments[report._id].map((assignment, idx) => (
+                                                    <div key={idx} className="bg-gradient-to-br from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4">
+                                                        <div className="flex items-start justify-between mb-4">
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-bold text-gray-900 mb-3">
+                                                                    Phân quyền #{idx + 1}
+                                                                </p>
+
+                                                                {/* Experts Selection */}
+                                                                <div className="mb-3">
+                                                                    <p className="text-xs font-semibold text-gray-700 mb-2">
+                                                                        Chuyên gia <span className="text-red-500">*</span>
+                                                                    </p>
+
+                                                                    {assignment.selectedExperts.length === 0 ? (
+                                                                        <div className="text-center py-3 border-2 border-dashed border-blue-300 rounded-lg bg-white">
+                                                                            <p className="text-gray-500 text-xs">Chưa chọn chuyên gia</p>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="space-y-2">
+                                                                            {assignment.selectedExperts.map(expert => (
+                                                                                <div
+                                                                                    key={expert._id}
+                                                                                    className="flex items-center justify-between bg-white p-3 rounded-lg border-2 border-blue-300 hover:border-blue-400 transition-colors"
+                                                                                >
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                                                                            {expert.fullName}
+                                                                                        </p>
+                                                                                        <p className="text-xs text-gray-600 truncate">
+                                                                                            {expert.email}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                    <button
+                                                                                        onClick={() => removeExpertFromAssignment(report._id, idx, expert._id)}
+                                                                                        className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                                                                                    >
+                                                                                        <X className="h-4 w-4" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+
+                                                                    <button
+                                                                        onClick={() => openExpertSearch(report._id, idx)}
+                                                                        className="w-full mt-2 px-4 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center text-sm"
+                                                                    >
+                                                                        <Search className="h-4 w-4 mr-2" />
+                                                                        {assignment.selectedExperts.length === 0 ? 'Tìm kiếm chuyên gia' : 'Thêm chuyên gia khác'}
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* Deadline */}
+                                                                <div className="mb-3">
+                                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                                        Hạn chót <span className="text-red-500">*</span>
+                                                                    </label>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={assignment.deadline}
+                                                                        onChange={(e) => handleAssignmentChange(report._id, idx, 'deadline', e.target.value)}
+                                                                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                    />
+                                                                </div>
+
+                                                                {/* Priority */}
+                                                                <div className="mb-3">
+                                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                                        Ưu tiên
+                                                                    </label>
+                                                                    <select
+                                                                        value={assignment.priority}
+                                                                        onChange={(e) => handleAssignmentChange(report._id, idx, 'priority', e.target.value)}
+                                                                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                    >
+                                                                        <option value="low">Thấp</option>
+                                                                        <option value="normal">Bình thường</option>
+                                                                        <option value="high">Cao</option>
+                                                                        <option value="urgent">Khẩn cấp</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                {/* Note */}
+                                                                <div>
+                                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                                        Ghi chú
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={assignment.assignmentNote}
+                                                                        onChange={(e) => handleAssignmentChange(report._id, idx, 'assignmentNote', e.target.value)}
+                                                                        placeholder="Ghi chú cho chuyên gia..."
+                                                                        rows={2}
+                                                                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => handleRemoveAssignment(report._id, idx)}
+                                                                className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg flex-shrink-0 transition-colors"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleAddAssignment(report._id)}
+                                        className="w-full mt-4 px-4 py-3 border-2 border-dashed border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center text-sm"
+                                    >
+                                        <Plus className="h-5 w-5 mr-2" />
+                                        Thêm phân quyền mới
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))
                 )}
 
+                {/* Expert Search Modal */}
                 {showExpertSearch && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 flex-shrink-0">
                                 <h3 className="text-lg font-bold text-gray-900">Tìm kiếm chuyên gia</h3>
-                                <button onClick={closeExpertSearch} className="p-1 hover:bg-gray-100 rounded-lg">
+                                <button onClick={closeExpertSearch} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
                                     <X className="h-5 w-5 text-gray-600" />
                                 </button>
                             </div>
 
-                            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="p-4 border-b-2 border-gray-200 flex-shrink-0">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                     <input
@@ -605,11 +686,11 @@ export default function AssignReviewersPage() {
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         autoFocus
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">
-                                    {filteredExperts.length} chuyên gia
+                                    {filteredExperts.length} chuyên gia có sẵn
                                 </p>
                             </div>
 
@@ -636,7 +717,7 @@ export default function AssignReviewersPage() {
                                             <button
                                                 key={expert._id}
                                                 onClick={() => addExpertToAssignment(expert)}
-                                                className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-400 transition-colors"
+                                                className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all"
                                             >
                                                 <p className="text-sm font-semibold text-gray-900">
                                                     {expert.fullName}
@@ -651,33 +732,32 @@ export default function AssignReviewersPage() {
                                 )}
                             </div>
 
-                            {/* PHÂN TRANG */}
                             {pagination.pages > 1 && (
-                                <div className="p-3 border-t border-gray-200 flex items-center justify-between">
+                                <div className="p-3 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-between">
                                     <button
                                         onClick={() => fetchExperts(pagination.current - 1)}
                                         disabled={!pagination.hasPrev}
-                                        className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded disabled:opacity-50"
+                                        className="px-3 py-1 text-sm text-gray-700 bg-white border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors font-semibold"
                                     >
-                                        Trang trước
+                                        Trước
                                     </button>
-                                    <span className="text-sm text-gray-600">
+                                    <span className="text-sm text-gray-600 font-semibold">
                                         Trang {pagination.current} / {pagination.pages}
                                     </span>
                                     <button
                                         onClick={() => fetchExperts(pagination.current + 1)}
                                         disabled={!pagination.hasNext}
-                                        className="px-3 py-1 text-sm text-gray-700 bg-gray-100 rounded disabled:opacity-50"
+                                        className="px-3 py-1 text-sm text-gray-700 bg-white border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors font-semibold"
                                     >
-                                        Trang sau
+                                        Sau
                                     </button>
                                 </div>
                             )}
 
-                            <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end flex-shrink-0">
+                            <div className="p-4 border-t-2 border-gray-200 bg-gradient-to-r from-blue-50 to-sky-50 flex justify-end flex-shrink-0">
                                 <button
                                     onClick={closeExpertSearch}
-                                    className="px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 font-semibold text-sm"
+                                    className="px-6 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 font-semibold text-sm transition-colors"
                                 >
                                     Đóng
                                 </button>
@@ -686,15 +766,16 @@ export default function AssignReviewersPage() {
                     </div>
                 )}
 
-                <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-6 py-4 flex items-center justify-between rounded-lg shadow-lg">
+                {/* Bottom Action Bar */}
+                <div className="sticky bottom-0 bg-gradient-to-r from-blue-500 to-blue-400 rounded-2xl shadow-xl p-6 flex items-center justify-between text-white">
                     <div className="flex items-center space-x-4">
-                        <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                        <AlertCircle className="h-6 w-6 flex-shrink-0" />
                         <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                                Tổng phân quyền: <span className="text-lg text-blue-600">{getTotalAssignments()}</span>
+                            <p className="text-sm font-semibold">
+                                Phân quyền hiện tại: <span className="text-lg text-blue-900">{getTotalExistingAssignments()}</span> | Mới: <span className="text-lg text-blue-100">{getTotalAssignments()}</span>
                             </p>
-                            <p className="text-xs text-gray-600">
-                                {getTotalAssignments() === 0 ? 'Thêm phân quyền để tiếp tục' : 'Kiểm tra trước khi lưu'}
+                            <p className="text-xs text-blue-100">
+                                {getTotalAssignments() === 0 ? 'Thêm phân quyền mới để tiếp tục' : 'Kiểm tra trước khi lưu'}
                             </p>
                         </div>
                     </div>
@@ -702,14 +783,14 @@ export default function AssignReviewersPage() {
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={() => router.back()}
-                            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-sm"
+                            className="px-6 py-3 border-2 border-white rounded-lg hover:bg-white hover:text-blue-600 transition-all font-semibold text-sm"
                         >
                             Hủy
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={saving || getTotalAssignments() === 0}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:shadow-lg transition-all font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                         >
                             {saving ? (
                                 <>
