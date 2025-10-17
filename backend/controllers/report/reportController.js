@@ -49,7 +49,7 @@ const getReports = async (req, res) => {
                 $or: [
                     { title: { $regex: search, $options: 'i' } },
                     { code: { $regex: search, $options: 'i' } },
-                    { summary: { $regex: search, 'i': 'i' } }
+                    { summary: { $regex: search, $options: 'i' } }
                 ]
             });
         }
@@ -505,51 +505,36 @@ const downloadReport = async (req, res) => {
             });
         }
 
-        const ReportModel = mongoose.model('Report');
-        const reportWithEvidences = await ReportModel.findById(id)
-            .select('linkedEvidences')
-            .populate('linkedEvidences.evidenceId', 'code name');
+        let linkedEvidencesHtml = '';
+        if (report.linkedEvidences && report.linkedEvidences.length > 0) {
+            linkedEvidencesHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan</h2><ul>';
 
-        let evidenceLinksHtml = '';
-        if (reportWithEvidences?.linkedEvidences?.length) {
-            evidenceLinksHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan (Links)</h2><ul>';
+            const baseUrl = process.env.CLIENT_URL;
 
-            const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-
-            reportWithEvidences.linkedEvidences.forEach(linkItem => {
-                const evidence = linkItem.evidenceId;
-                if (evidence) {
+            report.linkedEvidences.forEach(linkItem => {
+                if (linkItem.evidenceId) {
+                    const evidence = linkItem.evidenceId;
                     const evidenceUrl = `${baseUrl}/public/evidences/${evidence.code}`;
-                    // SỬA ĐỔI: Đơn giản hóa thẻ <a> để Word nhận diện
-                    evidenceLinksHtml += `
-                        <li>
-                            <strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>
-                            ${linkItem.contextText ? ` (Ngữ cảnh: ${linkItem.contextText})` : ''}
-                        </li>`;
+                    linkedEvidencesHtml += `<li><strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>`;
+
+                    if (linkItem.contextText) {
+                        linkedEvidencesHtml += ` (Ngữ cảnh: ${linkItem.contextText})`;
+                    }
+
+                    linkedEvidencesHtml += '</li>';
                 }
             });
-            evidenceLinksHtml += '</ul>';
+
+            linkedEvidencesHtml += '</ul>';
         }
 
         let finalContent = report.content || '';
-        const evidenceCodePattern = /\b([A-Y]\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
-
-        finalContent = finalContent.replace(evidenceCodePattern, (match) => {
-            const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-            const evidenceUrl = `${baseUrl}/public/evidences/${match}`;
-
-            // SỬA ĐỔI: Đơn giản hóa thẻ <a> để Word nhận diện
-            return `<a href="${evidenceUrl}" target="_blank">${match}</a>`;
-        });
-
-        finalContent = finalContent + evidenceLinksHtml;
+        finalContent = finalContent + linkedEvidencesHtml;
 
         const filename = `${report.code}-${report.title}.${format}`;
-
-        const safeEncodedFilename = encodeURIComponent(filename).replace(/[!'()*]/g, function(c) {
+        const safeEncodedFilename = encodeURIComponent(filename).replace(/[!'()*]/g, (c) => {
             return '%' + c.charCodeAt(0).toString(16).toUpperCase();
         });
-
 
         if (format === 'html') {
             const htmlResponse = `
@@ -558,11 +543,79 @@ const downloadReport = async (req, res) => {
                 <head>
                     <meta charset="UTF-8">
                     <title>${escapeHtml(report.title)}</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-                        a { color: #1e40af; text-decoration: underline; }
-                        h1, h2, h3, h4 { color: #000; margin-top: 1em; margin-bottom: 0.5em; }
-                        strong { font-weight: bold; }
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 40px;
+                            line-height: 1.6;
+                            color: #333;
+                        }
+                        h1, h2, h3, h4, h5, h6 {
+                            color: #1a202c;
+                            margin-top: 1.5em;
+                            margin-bottom: 0.5em;
+                        }
+                        a {
+                            color: #2563eb;
+                            text-decoration: none;
+                            border-bottom: 1px solid #2563eb;
+                        }
+                        a:hover {
+                            text-decoration: underline;
+                        }
+                        a.evidence-link {
+                            display: inline-flex;
+                            align-items: center;
+                            padding: 0.25rem 0.75rem;
+                            background-color: #dbeafe;
+                            color: #1e40af;
+                            border-radius: 0.375rem;
+                            font-family: monospace;
+                            font-weight: 600;
+                            font-size: 0.9em;
+                            border: 1px solid #7dd3fc;
+                            text-decoration: none;
+                            margin: 0 2px;
+                        }
+                        a.evidence-link:hover {
+                            background-color: #93c5fd;
+                        }
+                        ul, ol {
+                            margin: 1em 0;
+                            padding-left: 2em;
+                        }
+                        li {
+                            margin: 0.5em 0;
+                        }
+                        blockquote {
+                            border-left: 4px solid #e5e7eb;
+                            padding-left: 1em;
+                            margin: 1em 0;
+                            color: #6b7280;
+                            font-style: italic;
+                        }
+                        pre {
+                            background-color: #f3f4f6;
+                            padding: 1em;
+                            border-radius: 0.375rem;
+                            overflow-x: auto;
+                            font-family: monospace;
+                        }
+                        table {
+                            border-collapse: collapse;
+                            width: 100%;
+                            margin: 1em 0;
+                        }
+                        th, td {
+                            border: 1px solid #e5e7eb;
+                            padding: 0.75em;
+                            text-align: left;
+                        }
+                        th {
+                            background-color: #f3f4f6;
+                            font-weight: bold;
+                        }
                     </style>
                 </head>
                 <body>
@@ -573,31 +626,30 @@ const downloadReport = async (req, res) => {
 
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeEncodedFilename}`);
-
             res.send(htmlResponse);
 
             report.incrementDownload().catch(err => {
-                console.error('ASYNCHRONOUS INCREMENT DOWNLOAD FAILED:', err);
+                console.error('Increment download count failed:', err);
             });
 
         } else if (format === 'pdf') {
             return res.status(400).json({
                 success: false,
-                message: 'Định dạng PDF chưa được hỗ trợ/triển khai'
+                message: 'Định dạng PDF chưa được hỗ trợ'
             });
         } else {
             return res.status(400).json({
                 success: false,
-                message: 'Định dạng tải về không được hỗ trợ'
+                message: 'Định dạng không được hỗ trợ'
             });
         }
 
     } catch (error) {
-        console.error('Download report error (CRASH):', error);
+        console.error('Download report error:', error);
         if (!res.headersSent) {
             res.status(500).json({
                 success: false,
-                message: 'Lỗi hệ thống khi tải báo cáo'
+                message: error.message || 'Lỗi hệ thống khi tải báo cáo'
             });
         }
     }
@@ -1132,36 +1184,140 @@ const resolveReportComment = async (req, res) => {
     }
 };
 
-// FIX: Chuyển sang function để tránh SyntaxError: Identifier has already been declared
 function processEvidenceLinksInContent(content) {
-    if (!content) return '';
+    if (!content) return ''
 
-    const evidenceCodePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+    const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000'
 
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    content = normalizeExistingLinks(content, baseUrl)
 
-    return content.replace(evidenceCodePattern, (match) => {
-        const url = `${baseUrl}/public/evidences/${match}`;
-        // Loại bỏ style inline quá phức tạp, giữ lại class và thuộc tính cần thiết cho frontend
-        return `<a href="${url}" class="evidence-link" data-code="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
-    });
+    return content
 }
 
-const extractEvidenceCodes = (content) => {
-    if (!content) return [];
+function normalizeExistingLinks(content, baseUrl) {
+    const pattern = /<a[^>]*class="evidence-link"[^>]*data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*>.*?<\/a>/gi
 
-    const evidenceCodePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
-    const codes = [];
+    content = content.replace(pattern, (match, code) => {
+        const url = `${baseUrl}/public/evidences/${code}`
+        return `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`
+    })
+
+    return content
+}
+
+function cleanDuplicateLinks(content) {
+    content = content.replace(
+        />"[^<]*"?\s*class="evidence-link"\s+data-code="/g,
+        '>data-code="'
+    );
+
+    content = content.replace(
+        /class="evidence-link"[^>]*class="evidence-link"/g,
+        'class="evidence-link"'
+    );
+
+    content = content.replace(
+        /data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*data-code="[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}"/g,
+        'data-code="$1"'
+    );
+
+    content = content.replace(
+        /target="_blank"[^>]*target="_blank"/g,
+        'target="_blank"'
+    );
+
+    content = content.replace(
+        /([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})>"[^<]*">(?=.*rel="noopener")/g,
+        '$1">'
+    );
+
+    content = content.replace(
+        /(<a[^>]*>)([^<]*?)(?:"[^<]*class="evidence-link"[^<]*)*([^<]*?)<\/a>/g,
+        (match, openTag, textBefore, textAfter) => {
+            const fullText = textBefore + textAfter;
+            const codeMatch = fullText.match(/([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})/);
+            if (codeMatch) {
+                return `${openTag}${codeMatch[1]}</a>`;
+            }
+            return match;
+        }
+    );
+
+    return content;
+}
+
+
+function wrapPlainCodes(content, baseUrl) {
+    const evidenceRegex = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+
+    let processedContent = '';
+    let lastIndex = 0;
     let match;
 
-    while ((match = evidenceCodePattern.exec(content)) !== null) {
-        if (!codes.includes(match[1])) {
-            codes.push(match[1]);
+    while ((match = evidenceRegex.exec(content)) !== null) {
+        const code = match[1];
+        const startIndex = match.index;
+        const endIndex = startIndex + code.length;
+
+        const lookbackLength = 200;
+        const lookaheadLength = 200;
+
+        const beforeText = content.substring(
+            Math.max(0, startIndex - lookbackLength),
+            startIndex
+        );
+        const afterText = content.substring(
+            endIndex,
+            Math.min(content.length, endIndex + lookaheadLength)
+        );
+
+        const isWrapped =
+            beforeText.includes('<a') &&
+            beforeText.includes('class="evidence-link"') &&
+            beforeText.includes(`data-code="${code}"`) &&
+            afterText.includes('</a>');
+
+        if (isWrapped) {
+            processedContent += content.substring(lastIndex, endIndex);
+            lastIndex = endIndex;
+            continue;
         }
+
+        processedContent += content.substring(lastIndex, startIndex);
+        const url = `${baseUrl}/public/evidences/${code}`;
+        processedContent += `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`;
+
+        lastIndex = endIndex;
     }
 
-    return codes;
-};
+    processedContent += content.substring(lastIndex);
+    return processedContent;
+}
+
+function validateHTML(html) {
+    const errors = [];
+
+    const openCount = (html.match(/<a/g) || []).length;
+    const closeCount = (html.match(/<\/a>/g) || []).length;
+    if (openCount !== closeCount) {
+        errors.push(`Unclosed <a> tags: ${openCount} open, ${closeCount} closed`);
+    }
+
+    const duplicatePattern = /class="evidence-link"[^>]*class="evidence-link"/g;
+    if (duplicatePattern.test(html)) {
+        errors.push('Found duplicate class="evidence-link" in same tag');
+    }
+
+    const corruptedPattern = /evidence-link"[^>]*"[^>]*class="evidence-link"/g;
+    if (corruptedPattern.test(html)) {
+        errors.push('Found corrupted link structure with mixed attributes');
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors: errors
+    };
+}
 
 function escapeHtml(text) {
     if (!text) return '';
@@ -1173,26 +1329,6 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-function formatDateVN(date) {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString('vi-VN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function getReportTypeLabel(type) {
-    const labels = {
-        'criteria_analysis': 'Phân tích tiêu chí',
-        'standard_analysis': 'Phân tích tiêu chuẩn',
-        'comprehensive_report': 'Báo cáo tổng hợp'
-    };
-    return labels[type] || type;
 }
 
 module.exports = {
@@ -1215,5 +1351,8 @@ module.exports = {
     addReportComment,
     resolveReportComment,
     processEvidenceLinksInContent,
-    extractEvidenceCodes
+    cleanDuplicateLinks,
+    normalizeExistingLinks,
+    wrapPlainCodes,
+    validateHTML
 };
