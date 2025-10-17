@@ -237,7 +237,7 @@ export default function ExpertAssignmentsPage() {
     }
 
     return (
-        <Layout title="Phân quyền đánh giá" breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header Stats */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
