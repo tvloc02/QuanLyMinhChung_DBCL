@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Mail, Phone, Eye } from 'lucide-react'
+import { Building2, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Mail, Phone, Eye, ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
@@ -17,6 +17,7 @@ export default function OrganizationsList() {
     const [showImportModal, setShowImportModal] = useState(false)
     const [showOrgModal, setShowOrgModal] = useState(false)
     const [selectedOrg, setSelectedOrg] = useState(null)
+    const [expandedOrgId, setExpandedOrgId] = useState(null)
 
     useEffect(() => {
         loadOrganizations()
@@ -120,6 +121,7 @@ export default function OrganizationsList() {
                 'Tên tổ chức': org.name,
                 'Email': org.contactEmail || '',
                 'Điện thoại': org.contactPhone || '',
+                'Số phòng ban': org.departments?.length || 0,
                 'Trạng thái': getStatusLabel(org.status),
                 'Người tạo': org.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(org.createdAt)
@@ -134,6 +136,7 @@ export default function OrganizationsList() {
                 { wch: 40 },
                 { wch: 25 },
                 { wch: 15 },
+                { wch: 12 },
                 { wch: 12 },
                 { wch: 25 },
                 { wch: 12 }
@@ -204,13 +207,11 @@ export default function OrganizationsList() {
         }
     }
 
-    // Hàm giả lập xem chi tiết
     const handleViewDetail = (org) => {
         setSelectedOrg({ ...org, isViewMode: true })
         setShowOrgModal(true)
     }
 
-    // Hàm mở modal chỉnh sửa
     const handleEdit = (org) => {
         setSelectedOrg(org)
         setShowOrgModal(true)
@@ -232,6 +233,10 @@ export default function OrganizationsList() {
             suspended: 'bg-yellow-100 text-yellow-700 border border-yellow-300'
         }
         return colors[status] || 'bg-gray-100 text-gray-700'
+    }
+
+    const toggleExpandOrg = (orgId) => {
+        setExpandedOrgId(expandedOrgId === orgId ? null : orgId)
     }
 
     return (
@@ -329,9 +334,11 @@ export default function OrganizationsList() {
                     <table className="w-full border-collapse">
                         <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-8"></th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tổ chức</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-20">Phòng ban</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Liên hệ</th>
                             <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
@@ -340,7 +347,7 @@ export default function OrganizationsList() {
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="8" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -349,7 +356,7 @@ export default function OrganizationsList() {
                             </tr>
                         ) : organizations.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-16 text-center">
+                                <td colSpan="8" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <Building2 className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -359,14 +366,32 @@ export default function OrganizationsList() {
                             </tr>
                         ) : (
                             organizations.map((org, index) => (
-                                <tr key={org._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                <tbody key={org._id}>
+                                <tr className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-3 py-4 text-center border-r border-gray-200">
+                                        <button
+                                            onClick={() => toggleExpandOrg(org._id)}
+                                            className="p-1 hover:bg-gray-200 rounded transition-all"
+                                            title={org.departments?.length ? 'Hiển thị phòng ban' : 'Không có phòng ban'}
+                                        >
+                                            {org.departments?.length ? (
+                                                expandedOrgId === org._id ? (
+                                                    <ChevronUp size={18} className="text-blue-600" />
+                                                ) : (
+                                                    <ChevronDown size={18} className="text-gray-600" />
+                                                )
+                                            ) : (
+                                                <span className="text-xs text-gray-400">-</span>
+                                            )}
+                                        </button>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                                        <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
-                                            {org.code}
-                                        </span>
+                                            <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
+                                                {org.code}
+                                            </span>
                                     </td>
                                     <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{org.name}</div>
@@ -376,10 +401,15 @@ export default function OrganizationsList() {
                                             </div>
                                         )}
                                     </td>
+                                    <td className="px-6 py-4 border-r border-gray-200 text-center">
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-300">
+                                                {org.departments?.length || 0}
+                                            </span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                                        <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(org.status)}`}>
-                                            {getStatusLabel(org.status)}
-                                        </span>
+                                            <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(org.status)}`}>
+                                                {getStatusLabel(org.status)}
+                                            </span>
                                     </td>
                                     <td className="px-6 py-4 border-r border-gray-200">
                                         {org.contactEmail && (
@@ -397,7 +427,6 @@ export default function OrganizationsList() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
-                                            {/* ActionButton cho Xem chi tiết */}
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -405,7 +434,6 @@ export default function OrganizationsList() {
                                                 onClick={() => handleViewDetail(org)}
                                                 title="Xem chi tiết tổ chức"
                                             />
-                                            {/* ActionButton cho Chỉnh sửa */}
                                             <ActionButton
                                                 icon={Edit2}
                                                 variant="edit"
@@ -413,7 +441,6 @@ export default function OrganizationsList() {
                                                 onClick={() => handleEdit(org)}
                                                 title="Chỉnh sửa tổ chức"
                                             />
-                                            {/* ActionButton cho Xóa */}
                                             <ActionButton
                                                 icon={Trash2}
                                                 variant="delete"
@@ -424,6 +451,39 @@ export default function OrganizationsList() {
                                         </div>
                                     </td>
                                 </tr>
+
+                                {/* Expanded Row - Departments */}
+                                {expandedOrgId === org._id && org.departments?.length > 0 && (
+                                    <tr className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200">
+                                        <td colSpan="8" className="px-6 py-4">
+                                            <div className="ml-4">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                                    Danh sách phòng ban ({org.departments.length})
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {org.departments.map((dept) => (
+                                                        <div key={dept._id} className="bg-white border border-indigo-200 rounded-lg p-3">
+                                                            <p className="text-sm font-semibold text-gray-900 mb-1">{dept.name}</p>
+                                                            {dept.email && (
+                                                                <div className="flex items-center text-xs text-gray-600 mb-1">
+                                                                    <Mail className="w-3 h-3 mr-1" />
+                                                                    {dept.email}
+                                                                </div>
+                                                            )}
+                                                            {dept.phone && (
+                                                                <div className="flex items-center text-xs text-gray-600">
+                                                                    <Phone className="w-3 h-3 mr-1" />
+                                                                    {dept.phone}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                                </tbody>
                             ))
                         )}
                         </tbody>
