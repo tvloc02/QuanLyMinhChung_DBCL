@@ -1,51 +1,52 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { ArrowLeft, Loader2, AlertCircle, FileText, Download, ExternalLink } from 'lucide-react'
-import { apiMethods } from '../../../services/api'
+import {
+    ArrowLeft,
+    Loader2,
+    AlertCircle,
+    FileText,
+    Download,
+    ExternalLink,
+    Eye,
+    Clock
+} from 'lucide-react'
+import axios from 'axios'
 
-export default function PublicEvidenceView() {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+export default function PublicReportView() {
     const router = useRouter()
-    const [evidence, setEvidence] = useState(null)
+    const [report, setReport] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [downloading, setDownloading] = useState(false)
 
     useEffect(() => {
-        // ✅ Kiểm tra router ready trước
         if (!router.isReady) return
 
         const { code } = router.query
-
-        // ✅ Handle code là array hoặc string
         const codeValue = Array.isArray(code) ? code[0] : code
 
         if (codeValue && typeof codeValue === 'string' && codeValue.trim() !== '') {
-            fetchEvidence(codeValue)
+            fetchReport(codeValue)
         }
     }, [router.isReady, router.query])
 
-    const fetchEvidence = async (code) => {
+    const fetchReport = async (code) => {
         try {
             setLoading(true)
             setError(null)
 
-            console.log('Fetching evidence with code:', code)
-
-            // ✅ Dùng apiMethods.publicEvidence
-            const response = await apiMethods.publicEvidence.getByCode(code)
-
-            console.log('Response:', response.data)
+            const response = await axios.get(`${API_BASE_URL}/public/reports/${code}`)
 
             if (response.data.success) {
-                setEvidence(response.data.data)
+                setReport(response.data.data)
             } else {
-                setError(response.data.message || 'Không thể tải minh chứng')
+                setError(response.data.message || 'Không thể tải báo cáo')
             }
         } catch (err) {
-            console.error('Fetch evidence error:', err)
-            console.error('Error response:', err.response?.data)
-            console.error('Error status:', err.response?.status)
-
-            setError(err.response?.data?.message || 'Lỗi khi tải minh chứng')
+            console.error('Fetch report error:', err)
+            setError(err.response?.data?.message || 'Lỗi khi tải báo cáo')
         } finally {
             setLoading(false)
         }
@@ -60,12 +61,13 @@ export default function PublicEvidenceView() {
         })
     }
 
-    const formatFileSize = (bytes) => {
-        if (!bytes) return '0 B'
-        const k = 1024
-        const sizes = ['B', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+    const getTypeLabel = (type) => {
+        const labels = {
+            criteria_analysis: 'Phân tích tiêu chí',
+            standard_analysis: 'Phân tích tiêu chuẩn',
+            comprehensive_report: 'Báo cáo tổng hợp'
+        }
+        return labels[type] || type
     }
 
     if (loading) {
@@ -73,13 +75,13 @@ export default function PublicEvidenceView() {
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
                 <div className="text-center">
                     <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600 font-medium">Đang tải minh chứng...</p>
+                    <p className="text-gray-600 font-medium">Đang tải báo cáo...</p>
                 </div>
             </div>
         )
     }
 
-    if (error || !evidence) {
+    if (error || !report) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full">
@@ -87,7 +89,7 @@ export default function PublicEvidenceView() {
                         <AlertCircle className="w-6 h-6 text-red-600" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">Lỗi</h1>
-                    <p className="text-center text-gray-600 mb-6">{error || 'Không tìm thấy minh chứng'}</p>
+                    <p className="text-center text-gray-600 mb-6">{error || 'Không tìm thấy báo cáo'}</p>
                     <button
                         onClick={() => router.back()}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all font-medium"
@@ -112,149 +114,141 @@ export default function PublicEvidenceView() {
                 </button>
 
                 <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+                    {/* Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-white">
                         <div className="flex items-start gap-4">
                             <div className="p-3 bg-white bg-opacity-20 rounded-lg">
                                 <FileText className="w-8 h-8" />
                             </div>
                             <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     <span className="text-sm font-mono font-semibold bg-white bg-opacity-20 px-3 py-1 rounded-lg">
-                                        {evidence.code}
+                                        {report.code}
                                     </span>
                                     <span className="text-xs font-semibold bg-white bg-opacity-20 px-2 py-1 rounded">
-                                        {evidence.status === 'approved' && 'Đã duyệt'}
-                                        {evidence.status === 'completed' && 'Hoàn thành'}
-                                        {evidence.status === 'in_progress' && 'Đang thực hiện'}
-                                        {evidence.status === 'new' && 'Mới'}
+                                        {getTypeLabel(report.type)}
                                     </span>
                                 </div>
-                                <h1 className="text-3xl font-bold mb-2">{evidence.name}</h1>
-                                {evidence.description && (
-                                    <p className="text-blue-100">{evidence.description}</p>
+                                <h1 className="text-3xl font-bold mb-2">{report.title}</h1>
+                                {report.summary && (
+                                    <p className="text-blue-100">{report.summary}</p>
                                 )}
                             </div>
                         </div>
                     </div>
 
                     <div className="p-8 space-y-8">
+                        {/* Info Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {evidence.standardId && (
+                            {report.createdBy && (
                                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chuẩn</p>
-                                    <p className="text-lg font-bold text-gray-900">
-                                        {evidence.standardId.code} - {evidence.standardId.name}
-                                    </p>
-                                </div>
-                            )}
-
-                            {evidence.criteriaId && (
-                                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
-                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chí</p>
-                                    <p className="text-lg font-bold text-gray-900">
-                                        {evidence.criteriaId.code} - {evidence.criteriaId.name}
-                                    </p>
-                                </div>
-                            )}
-
-                            {evidence.createdBy && (
-                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
                                     <p className="text-sm font-semibold text-gray-600 mb-2">Người tạo</p>
-                                    <p className="text-lg font-bold text-gray-900">{evidence.createdBy.fullName}</p>
-                                    <p className="text-sm text-gray-600 mt-1">{evidence.createdBy.email}</p>
+                                    <p className="text-lg font-bold text-gray-900">{report.createdBy.fullName}</p>
+                                    <p className="text-sm text-gray-600 mt-1">{report.createdBy.email}</p>
                                 </div>
                             )}
 
-                            {evidence.createdAt && (
+                            {report.createdAt && (
                                 <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
                                     <p className="text-sm font-semibold text-gray-600 mb-2">Ngày tạo</p>
-                                    <p className="text-lg font-bold text-gray-900">{formatDate(evidence.createdAt)}</p>
+                                    <p className="text-lg font-bold text-gray-900">{formatDate(report.createdAt)}</p>
+                                </div>
+                            )}
+
+                            {report.standardId && (
+                                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chuẩn</p>
+                                    <p className="text-lg font-bold text-gray-900">
+                                        {report.standardId.code} - {report.standardId.name}
+                                    </p>
+                                </div>
+                            )}
+
+                            {report.criteriaId && (
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                                    <p className="text-sm font-semibold text-gray-600 mb-2">Tiêu chí</p>
+                                    <p className="text-lg font-bold text-gray-900">
+                                        {report.criteriaId.code} - {report.criteriaId.name}
+                                    </p>
                                 </div>
                             )}
                         </div>
 
-                        {(evidence.documentNumber || evidence.issueDate || evidence.issuingAgency) && (
-                            <div className="border-t pt-8">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4">Thông tin tài liệu</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {evidence.documentNumber && (
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-600 mb-1">Số hiệu văn bản</p>
-                                            <p className="text-gray-900">{evidence.documentNumber}</p>
-                                        </div>
-                                    )}
-                                    {evidence.issueDate && (
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-600 mb-1">Ngày phát hành</p>
-                                            <p className="text-gray-900">{formatDate(evidence.issueDate)}</p>
-                                        </div>
-                                    )}
-                                    {evidence.issuingAgency && (
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-600 mb-1">Cơ quan phát hành</p>
-                                            <p className="text-gray-900">{evidence.issuingAgency}</p>
-                                        </div>
-                                    )}
-                                    {evidence.effectiveDate && (
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-600 mb-1">Ngày có hiệu lực</p>
-                                            <p className="text-gray-900">{formatDate(evidence.effectiveDate)}</p>
-                                        </div>
-                                    )}
+                        {/* Stats */}
+                        {report.metadata && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-6 bg-gray-50 rounded-xl border border-gray-200">
+                                <div className="text-center">
+                                    <Eye className="w-5 h-5 text-blue-600 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-600">Lượt xem</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {report.metadata.viewCount || 0}
+                                    </p>
+                                </div>
+                                <div className="text-center">
+                                    <Download className="w-5 h-5 text-green-600 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-600">Lượt tải</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {report.metadata.downloadCount || 0}
+                                    </p>
+                                </div>
+                                <div className="text-center">
+                                    <Clock className="w-5 h-5 text-orange-600 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-600">Cập nhật</p>
+                                    <p className="text-sm font-bold text-gray-900">
+                                        {formatDate(report.updatedAt)}
+                                    </p>
                                 </div>
                             </div>
                         )}
 
-                        {evidence.content && (
+                        {/* Keywords */}
+                        {report.keywords && report.keywords.length > 0 && (
                             <div className="border-t pt-8">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4">Nội dung</h2>
-                                <div className="prose max-w-none bg-gray-50 rounded-xl p-6 border border-gray-200">
-                                    <div dangerouslySetInnerHTML={{ __html: evidence.content }} />
-                                </div>
-                            </div>
-                        )}
-
-                        {evidence.notes && (
-                            <div className="border-t pt-8 bg-blue-50 rounded-xl p-6 border border-blue-200">
-                                <h3 className="font-semibold text-gray-900 mb-2">Ghi chú</h3>
-                                <p className="text-gray-700">{evidence.notes}</p>
-                            </div>
-                        )}
-
-                        {evidence.tags && evidence.tags.length > 0 && (
-                            <div className="border-t pt-8">
-                                <h3 className="font-semibold text-gray-900 mb-3">Nhãn</h3>
+                                <h3 className="font-semibold text-gray-900 mb-3">Từ khóa</h3>
                                 <div className="flex flex-wrap gap-2">
-                                    {evidence.tags.map((tag, idx) => (
+                                    {report.keywords.map((keyword, idx) => (
                                         <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                                            {tag}
+                                            {keyword}
                                         </span>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {evidence.files && evidence.files.length > 0 && (
+                        {/* Content */}
+                        {report.content && (
                             <div className="border-t pt-8">
-                                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                                    Tài liệu đính kèm ({evidence.files.length})
-                                </h2>
+                                <h2 className="text-2xl font-bold text-gray-900 mb-4">Nội dung</h2>
+                                <div className="prose max-w-none bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                    <div dangerouslySetInnerHTML={{ __html: report.content }} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Linked Evidences */}
+                        {report.linkedEvidences && report.linkedEvidences.length > 0 && (
+                            <div className="border-t pt-8">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-4">Minh chứng liên quan</h2>
                                 <div className="space-y-3">
-                                    {evidence.files.map((file, idx) => (
+                                    {report.linkedEvidences.map((link, idx) => (
                                         <a
                                             key={idx}
-                                            href={`${process.env.NEXT_PUBLIC_API_URL}/api/files/${file._id}/download`}
+                                            href={`/public/evidences/${link.evidenceId.code}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all group"
                                         >
                                             <div className="flex items-center gap-3 flex-1">
-                                                <Download className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
+                                                <FileText className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
                                                 <div>
                                                     <p className="font-medium text-gray-900 group-hover:text-blue-600">
-                                                        {file.originalName || 'Tải xuống'}
+                                                        {link.evidenceId.code} - {link.evidenceId.name}
                                                     </p>
-                                                    <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                                                    {link.contextText && (
+                                                        <p className="text-sm text-gray-500">
+                                                            Ngữ cảnh: {link.contextText}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-blue-600" />
@@ -263,17 +257,11 @@ export default function PublicEvidenceView() {
                                 </div>
                             </div>
                         )}
-
-                        {(!evidence.files || evidence.files.length === 0) && (
-                            <div className="border-t pt-8">
-                                <p className="text-center text-gray-500 py-8">Không có tài liệu đính kèm</p>
-                            </div>
-                        )}
                     </div>
                 </div>
 
                 <div className="mt-8 text-center text-sm text-gray-600">
-                    <p>Cập nhật lần cuối: {formatDate(evidence.updatedAt)}</p>
+                    <p>© {new Date().getFullYear()} - Hệ thống quản lý minh chứng</p>
                 </div>
             </div>
         </div>
