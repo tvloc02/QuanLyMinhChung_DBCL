@@ -34,7 +34,6 @@ export default function ReportDetail() {
     const [comments, setComments] = useState([])
     const [newComment, setNewComment] = useState('')
     const [addingComment, setAddingComment] = useState(false)
-    const [downloadingHtml, setDownloadingHtml] = useState(false)
 
     const breadcrumbItems = [
         { name: 'Trang chủ', href: '/' },
@@ -42,12 +41,14 @@ export default function ReportDetail() {
         { name: report?.title || 'Chi tiết báo cáo' }
     ]
 
+    // Chuyển hướng nếu chưa đăng nhập
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
         }
     }, [user, isLoading, router])
 
+    // Fetch dữ liệu chính khi ID và User sẵn sàng
     useEffect(() => {
         if (router.isReady && id && user) {
             setLoading(true)
@@ -85,7 +86,8 @@ export default function ReportDetail() {
             const data = response.data?.data || response.data || []
             setEvidences(Array.isArray(data) ? data : [])
         } catch (error) {
-            console.error('Fetch evidences error:', error)
+            console.error('Fetch evidences error:', error.response?.status, error.message)
+            // Nếu 404 hoặc 501 (chưa implement) thì không toast
             setEvidences([])
         }
     }
@@ -96,45 +98,49 @@ export default function ReportDetail() {
             const data = response.data?.data || response.data || []
             setVersions(Array.isArray(data) ? data : [])
         } catch (error) {
-            console.error('Fetch versions error:', error)
+            console.error('Fetch versions error:', error.response?.status, error.message)
+            // Nếu 404 hoặc 501 (chưa implement) thì không toast
             setVersions([])
         }
     }
 
-    const handleDownloadHtml = async () => {
+    const handleDownload = async (format = 'html') => {
         if (!id) return toast.error('ID báo cáo không hợp lệ')
+        if (!report?.code) return toast.error('Mã báo cáo không hợp lệ')
 
         try {
-            setDownloadingHtml(true)
-            const response = await apiMethods.reports.download(id, 'html')
+            console.log('Downloading report:', id, format)
+            const response = await apiMethods.reports.download(id, format)
 
+            // response.data là arraybuffer từ axios
             let blob
             if (response.data instanceof Blob) {
                 blob = response.data
             } else if (response.data instanceof ArrayBuffer) {
                 blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
             } else {
+                // Fallback: convert string to blob
                 blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
             }
 
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.setAttribute('download', `${report.code}.html`)
+            link.setAttribute('download', `${report.code}.${format}`)
             document.body.appendChild(link)
             link.click()
 
+            // Cleanup
             setTimeout(() => {
                 document.body.removeChild(link)
                 window.URL.revokeObjectURL(url)
             }, 100)
 
-            toast.success('Tải xuống thành công - File HTML chứa các liên kết công khai')
+            toast.success('Tải xuống thành công')
         } catch (error) {
             console.error('Download error:', error)
+            console.error('Error response:', error.response)
             toast.error(error.response?.data?.message || 'Lỗi khi tải xuống')
-        } finally {
-            setDownloadingHtml(false)
         }
     }
 
@@ -173,6 +179,11 @@ export default function ReportDetail() {
         }
     }
 
+    const handleViewEvidence = (evidenceId) => {
+        // Chuyển hướng đến trang chi tiết minh chứng
+        router.push(`/evidences/${evidenceId}`)
+    }
+
     const getStatusColor = (status) => {
         const colors = {
             draft: 'bg-gray-100 text-gray-800 border-gray-200',
@@ -202,11 +213,6 @@ export default function ReportDetail() {
         return labels[type] || type
     }
 
-    const getPublicLink = () => {
-        if (!report?.code) return null
-        return `${typeof window !== 'undefined' ? window.location.origin : ''}/public/reports/${report.code}`
-    }
-
     if (isLoading || loading) {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>
@@ -221,8 +227,6 @@ export default function ReportDetail() {
     if (!user || !report) {
         return null
     }
-
-    const publicLink = getPublicLink()
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
@@ -255,21 +259,11 @@ export default function ReportDetail() {
                                 Chỉnh sửa
                             </button>
                             <button
-                                onClick={handleDownloadHtml}
-                                disabled={downloadingHtml}
-                                className="inline-flex items-center px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all disabled:opacity-50"
+                                onClick={() => handleDownload('html')}
+                                className="inline-flex items-center px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
                             >
-                                {downloadingHtml ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Đang tải...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Tải HTML
-                                    </>
-                                )}
+                                <Download className="h-4 w-4 mr-2" />
+                                Tải xuống
                             </button>
                         </div>
                     </div>
@@ -298,21 +292,6 @@ export default function ReportDetail() {
                                 )}
                             </div>
                         </div>
-
-                        {/* Public Link Info - Hiển thị khi published */}
-                        {report.status === 'published' && publicLink && (
-                            <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                                <p className="text-sm font-semibold text-green-900 mb-2">
-                                    🔗 Liên kết công khai (có thể chia sẻ):
-                                </p>
-                                <p className="text-sm text-green-800 break-all font-mono">
-                                    {publicLink}
-                                </p>
-                                <p className="text-xs text-green-700 mt-2">
-                                    💡 Khi bạn tải file HTML về, nó sẽ chứa link này để người khác có thể xem báo cáo công khai.
-                                </p>
-                            </div>
-                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
                             <div className="flex items-center space-x-3">
@@ -469,6 +448,13 @@ export default function ReportDetail() {
                                                         </p>
                                                     )}
                                                 </div>
+                                                <button
+                                                    onClick={() => handleViewEvidence(evidence.evidenceId?._id)}
+                                                    className="ml-3 inline-flex items-center px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-all"
+                                                >
+                                                    Xem chi tiết
+                                                    <ExternalLink className="h-4 w-4 ml-1" />
+                                                </button>
                                             </div>
                                         </div>
                                     ))
