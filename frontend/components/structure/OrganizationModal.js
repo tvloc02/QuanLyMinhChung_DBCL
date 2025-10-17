@@ -82,19 +82,44 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
         try {
             setLoading(true)
 
-            if (editingDeptId) {
-                // Update existing department
-                await apiMethods.organizations.updateDepartment(organization._id, editingDeptId, deptFormData)
-                setDepartments(prev =>
-                    prev.map(d => d._id === editingDeptId ? { ...d, ...deptFormData } : d)
-                )
-                toast.success('Cập nhật phòng ban thành công')
-                setEditingDeptId(null)
+            if (organization?._id) {
+                // Organization đã tồn tại - gọi API
+                if (editingDeptId) {
+                    // Update existing department
+                    await apiMethods.organizations.updateDepartment(organization._id, editingDeptId, deptFormData)
+                    setDepartments(prev =>
+                        prev.map(d => d._id === editingDeptId ? { ...d, ...deptFormData } : d)
+                    )
+                    toast.success('Cập nhật phòng ban thành công')
+                    setEditingDeptId(null)
+                } else {
+                    // Add new department
+                    const response = await apiMethods.organizations.addDepartment(organization._id, deptFormData)
+                    setDepartments(prev => [...prev, response.data.data])
+                    toast.success('Thêm phòng ban thành công')
+                }
             } else {
-                // Add new department
-                const response = await apiMethods.organizations.addDepartment(organization._id, deptFormData)
-                setDepartments(prev => [...prev, response.data.data])
-                toast.success('Thêm phòng ban thành công')
+                // Tạo mới - thêm vào state local
+                const newDept = {
+                    _id: `temp_${Date.now()}`,
+                    name: deptFormData.name,
+                    email: deptFormData.email,
+                    phone: deptFormData.phone,
+                    createdAt: new Date()
+                }
+
+                if (editingDeptId) {
+                    // Edit department in new org
+                    setDepartments(prev =>
+                        prev.map(d => d._id === editingDeptId ? { ...d, ...deptFormData } : d)
+                    )
+                    toast.success('Cập nhật phòng ban thành công')
+                    setEditingDeptId(null)
+                } else {
+                    // Add new department to new org
+                    setDepartments(prev => [...prev, newDept])
+                    toast.success('Thêm phòng ban thành công')
+                }
             }
 
             setDeptFormData({ name: '', email: '', phone: '' })
@@ -121,7 +146,13 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
 
         try {
             setLoading(true)
-            await apiMethods.organizations.deleteDepartment(organization._id, deptId)
+
+            if (organization?._id) {
+                // Delete từ server nếu organization đã tồn tại
+                await apiMethods.organizations.deleteDepartment(organization._id, deptId)
+            }
+
+            // Delete từ state local
             setDepartments(prev => prev.filter(d => d._id !== deptId))
             toast.success('Xóa phòng ban thành công')
         } catch (error) {
@@ -176,16 +207,26 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
         try {
             setLoading(true)
 
+            // Lọc departments để chỉ lấy các trường cần thiết
+            const processedDepts = departments.map(dept => ({
+                ...(dept._id && !dept._id.startsWith('temp_') && { _id: dept._id }),
+                name: dept.name,
+                email: dept.email || undefined,
+                phone: dept.phone || undefined
+            }))
+
             const submitData = {
                 ...formData,
                 code: formData.code.toUpperCase(),
-                departments
+                departments: processedDepts
             }
 
             if (organization && !organization.isViewMode) {
+                // Update organization
                 await apiMethods.organizations.update(organization._id, submitData)
                 toast.success('Cập nhật tổ chức thành công')
             } else {
+                // Create new organization
                 await apiMethods.organizations.create(submitData)
                 toast.success('Tạo tổ chức thành công')
             }
@@ -226,7 +267,7 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
+                <form onSubmit={handleSubmit} id="organization-form" className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Mã tổ chức */}
                         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
@@ -378,8 +419,8 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                         )}
                     </div>
 
-                    {/* Departments Section */}
-                    {!isViewMode && organization && (
+                    {/* Departments Section - FIX: Hiển thị cả khi tạo mới */}
+                    {!isViewMode && (
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <label className="text-sm font-semibold text-gray-800">
@@ -387,9 +428,13 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                                 </label>
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        if (showDeptForm) {
+                                            handleCancelDeptForm()
+                                        }
                                         setShowDeptForm(!showDeptForm)
-                                        handleCancelDeptForm()
                                     }}
                                     className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium"
                                 >
@@ -529,7 +574,8 @@ export default function OrganizationModal({ organization, onClose, onSuccess }) 
                     </button>
                     {!isViewMode && (
                         <button
-                            onClick={handleSubmit}
+                            type="submit"
+                            form="organization-form"
                             disabled={loading}
                             className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
                         >

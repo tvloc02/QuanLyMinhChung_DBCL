@@ -150,13 +150,28 @@ const createOrganization = async (req, res) => {
             });
         }
 
+        // Xử lý departments
+        const processedDepts = [];
+        if (departments && Array.isArray(departments)) {
+            processedDepts.push(...departments.map(dept => ({
+                _id: new mongoose.Types.ObjectId(),
+                name: dept.name?.trim() || '',
+                email: dept.email?.trim() || undefined,
+                phone: dept.phone?.trim() || undefined,
+                createdAt: new Date()
+            })));
+        }
+
         const organization = new Organization({
             academicYearId,
             name: name.trim(),
             code: code.toUpperCase().trim(),
             contactEmail: contactEmail?.trim(),
             contactPhone: contactPhone?.trim(),
-            departments: departments || [],
+            website: website?.trim(),
+            address: address?.trim(),
+            country: country?.trim(),
+            departments: processedDepts,
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -221,7 +236,7 @@ const updateOrganization = async (req, res) => {
 
         const allowedFields = [
             'name',
-            'contactEmail', 'contactPhone', 'status', 'departments'
+            'contactEmail', 'contactPhone', 'status', 'website', 'address', 'country'
         ];
 
         allowedFields.forEach(field => {
@@ -232,6 +247,36 @@ const updateOrganization = async (req, res) => {
 
         if (updateData.code) {
             organization.code = updateData.code.toUpperCase();
+        }
+
+        // Update departments nếu được gửi kèm
+        if (updateData.departments && Array.isArray(updateData.departments)) {
+            const newDepts = [];
+
+            for (const dept of updateData.departments) {
+                // Nếu có _id và không phải temp_* thì giữ lại, không thì tạo ID mới
+                if (dept._id && !String(dept._id).startsWith('temp_')) {
+                    // Tìm department cũ để giữ lại createdAt
+                    const existingDept = organization.departments.find(d => String(d._id) === String(dept._id));
+                    newDepts.push({
+                        _id: dept._id,
+                        name: dept.name?.trim() || '',
+                        email: dept.email?.trim() || undefined,
+                        phone: dept.phone?.trim() || undefined,
+                        createdAt: existingDept?.createdAt || new Date()
+                    });
+                } else {
+                    // Tạo department mới
+                    newDepts.push({
+                        _id: new mongoose.Types.ObjectId(),
+                        name: dept.name?.trim() || '',
+                        email: dept.email?.trim() || undefined,
+                        phone: dept.phone?.trim() || undefined,
+                        createdAt: new Date()
+                    });
+                }
+            }
+            organization.departments = newDepts;
         }
 
         organization.updatedBy = req.user.id;
@@ -328,8 +373,8 @@ const updateDepartment = async (req, res) => {
         }
 
         if (name) dept.name = name.trim();
-        if (email) dept.email = email.trim();
-        if (phone) dept.phone = phone.trim();
+        if (email !== undefined) dept.email = email ? email.trim() : undefined;
+        if (phone !== undefined) dept.phone = phone ? phone.trim() : undefined;
 
         organization.updatedBy = req.user.id;
         await organization.save();
