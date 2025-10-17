@@ -100,7 +100,6 @@ router.put('/:id',
 );
 
 router.post('/:id/departments',
-    requireAdmin,
     [
         param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
         ...departmentValidation
@@ -110,7 +109,6 @@ router.post('/:id/departments',
 );
 
 router.put('/:id/departments/:deptId',
-    requireAdmin,
     [
         param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
         param('deptId').isMongoId().withMessage('ID phòng ban không hợp lệ'),
@@ -121,7 +119,6 @@ router.put('/:id/departments/:deptId',
 );
 
 router.delete('/:id/departments/:deptId',
-    requireAdmin,
     [
         param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
         param('deptId').isMongoId().withMessage('ID phòng ban không hợp lệ')
