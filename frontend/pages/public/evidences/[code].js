@@ -6,13 +6,14 @@ import {
     AlertCircle,
     FileText,
     Download,
-    ExternalLink,
     Eye,
     Clock
 } from 'lucide-react'
-import axios from 'axios'
+// Import apiMethods thay vì axios
+import { apiMethods } from '../../../services/api'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+// Không cần API_BASE_URL nữa vì apiMethods đã xử lý nó
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function PublicEvidenceView() {
     const router = useRouter()
@@ -37,10 +38,9 @@ export default function PublicEvidenceView() {
             setError(null)
 
             console.log('Fetching evidence with code:', code)
-            console.log('API URL:', `${API_BASE_URL}/public/evidences/${code}`)
 
-            // ✅ FIX: Gọi đúng endpoint /public/evidences (không phải /public/reports)
-            const response = await axios.get(`${API_BASE_URL}/public/evidences/${code}`)
+            // ✅ FIX: Sử dụng apiMethods để gọi Public API
+            const response = await apiMethods.publicEvidence.getByCode(code)
 
             if (response.data.success) {
                 setEvidence(response.data.data)
@@ -51,7 +51,6 @@ export default function PublicEvidenceView() {
             console.error('Fetch evidence error:', err)
             console.error('Error response:', err.response?.status, err.response?.data)
 
-            // Thông báo lỗi chi tiết
             if (err.response?.status === 404) {
                 setError('Minh chứng không tồn tại hoặc chưa được xuất bản')
             } else if (err.response?.data?.message) {
@@ -218,14 +217,16 @@ export default function PublicEvidenceView() {
                         )}
 
                         {/* Files */}
-                        {evidence.files && evidence.files.length > 0 && (
+                        {evidence.attachments && evidence.attachments.length > 0 && (
                             <div className="border-t pt-8">
                                 <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                                     <FileText className="w-6 h-6 text-blue-600" />
-                                    Tệp đính kèm ({evidence.files.length})
+                                    Tệp đính kèm ({evidence.attachments.length})
                                 </h2>
                                 <div className="space-y-3">
-                                    {evidence.files.map((file, idx) => (
+                                    {/* Lưu ý: Backend publicEvidenceController.js populate field 'attachments',
+                                        cần dùng attachments ở đây. Nếu attachments là files, dùng files. */}
+                                    {evidence.attachments.map((file, idx) => (
                                         <div
                                             key={idx}
                                             className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all group"
@@ -243,8 +244,9 @@ export default function PublicEvidenceView() {
                                             </div>
                                             <button
                                                 onClick={() => {
-                                                    // ✅ FIX: Gọi download API đúng cách
-                                                    const downloadUrl = `${API_BASE_URL}/files/${file._id}/download`
+                                                    // Sử dụng publicApi/files/download
+                                                    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+                                                    const downloadUrl = `${API_BASE_URL}/api/files/download/${file._id}`
                                                     window.open(downloadUrl, '_blank')
                                                 }}
                                                 className="ml-3 inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-all"
