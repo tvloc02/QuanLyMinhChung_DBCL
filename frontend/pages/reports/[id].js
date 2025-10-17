@@ -121,7 +121,7 @@ export default function ReportDetail() {
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.setAttribute('download', `${report.code}.html`)
+            link.setAttribute('download', `${report.code}.doc`)
             document.body.appendChild(link)
             link.click()
 
