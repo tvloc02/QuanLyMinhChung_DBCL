@@ -1,47 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
-import Layout from '../../components/common/Layout'
-import { apiMethods } from '../../services/api'
-import toast from 'react-hot-toast'
+import { useAuth } from '../../../contexts/AuthContext'
+import Layout from '../../../components/common/Layout'
+import { apiMethods } from '../../../services/api'
 import {
     ArrowLeft,
-    Edit,
-    Download,
-    CheckCircle,
-    Eye,
-    FileText,
-    Calendar,
+    BookOpen,
     User,
-    MessageSquare,
-    Loader2,
-    Link as LinkIcon,
-    Clock,
-    ExternalLink,
-    RotateCcw
+    Calendar,
+    FileText,
+    CheckCircle,
+    AlertCircle,
+    TrendingUp
 } from 'lucide-react'
-import { formatDate } from '../../utils/helpers'
+import { formatDate } from '../../../utils/helpers'
+import toast from 'react-hot-toast'
 
-export default function ReportDetail() {
+export default function EvaluationDetailPage() {
+    const { user, isLoading } = useAuth()
     const router = useRouter()
     const { id } = router.query
-    const { user, isLoading } = useAuth()
 
-    const [report, setReport] = useState(null)
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState('content')
-    const [evidences, setEvidences] = useState([])
-    const [versions, setVersions] = useState([])
-    const [comments, setComments] = useState([])
-    const [newComment, setNewComment] = useState('')
-    const [addingComment, setAddingComment] = useState(false)
-    const [downloadingHtml, setDownloadingHtml] = useState(false)
-
-    const breadcrumbItems = [
-        { name: 'Trang chủ', href: '/' },
-        { name: 'Quản lý báo cáo', href: '/reports', icon: FileText },
-        { name: report?.title || 'Chi tiết báo cáo' }
-    ]
+    const [evaluation, setEvaluation] = useState(null)
+    const [statistics, setStatistics] = useState(null)
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -50,551 +32,301 @@ export default function ReportDetail() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (router.isReady && id && user) {
-            setLoading(true)
-            fetchReportDetail(id)
+        if (user && router.isReady && id) {
+            fetchEvaluation()
+            fetchStatistics()
         }
-    }, [router.isReady, id, user])
+    }, [user, id, router.isReady])
 
-    const fetchReportDetail = async (reportId) => {
+    const breadcrumbItems = [
+        { name: 'Báo cáo', path: '/reports' },
+        { name: 'Đánh giá', path: '/reports/evaluations' },
+        { name: 'Chi tiết', icon: BookOpen }
+    ]
+
+    const fetchEvaluation = async () => {
         try {
-            const response = await apiMethods.reports.getById(reportId)
-            const reportData = response.data?.data || response.data
+            setLoading(true)
+            console.log('📥 Fetching evaluation detail:', id)
 
-            if (reportData && reportData._id) {
-                setReport(reportData)
-                setComments(reportData.reviewerComments || [])
+            const response = await apiMethods.evaluations.getById(id)
+            const evalData = response.data?.data || response.data
 
-                fetchEvidences(reportId)
-                fetchVersions(reportId)
-            } else {
-                toast.error('Không tìm thấy dữ liệu báo cáo')
-                router.push('/reports')
+            if (!evalData) {
+                toast.error('Không tìm thấy đánh giá')
+                router.push('/reports/evaluations')
+                return
             }
+
+            console.log('✅ Evaluation detail loaded:', evalData)
+            setEvaluation(evalData)
         } catch (error) {
-            console.error('Fetch report detail error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tải thông tin báo cáo')
-            router.push('/reports')
+            console.error('❌ Error fetching evaluation:', error)
+
+            if (error.response?.status === 403) {
+                toast.error('Bạn không có quyền xem đánh giá này')
+            } else if (error.response?.status === 404) {
+                toast.error('Không tìm thấy đánh giá')
+            } else {
+                toast.error('Lỗi tải đánh giá')
+            }
+
+            router.push('/reports/evaluations')
         } finally {
             setLoading(false)
         }
     }
 
-    const fetchEvidences = async (reportId) => {
+    const fetchStatistics = async () => {
         try {
-            const response = await apiMethods.reports.getEvidences(reportId)
-            const data = response.data?.data || response.data || []
-            setEvidences(Array.isArray(data) ? data : [])
-        } catch (error) {
-            console.error('Fetch evidences error:', error)
-            setEvidences([])
-        }
-    }
+            console.log('📥 Fetching statistics for role:', user?.role)
+            let statsRes
 
-    const fetchVersions = async (reportId) => {
-        try {
-            const response = await apiMethods.reports.getVersions(reportId)
-            const data = response.data?.data || response.data || []
-            setVersions(Array.isArray(data) ? data : [])
-        } catch (error) {
-            console.error('Fetch versions error:', error)
-            setVersions([])
-        }
-    }
-
-    const handleDownloadHtml = async () => {
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
-
-        try {
-            setDownloadingHtml(true)
-            const response = await apiMethods.reports.download(id, 'html')
-
-            let blob
-            if (response.data instanceof Blob) {
-                blob = response.data
-            } else if (response.data instanceof ArrayBuffer) {
-                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
-            } else {
-                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
+            if (user?.role === 'expert') {
+                // ✅ SỬA: Gọi getEvaluatorStats(evaluatorId) thay vì getStats()
+                statsRes = await apiMethods.evaluations.getEvaluatorStats(user.id)
+                console.log('✅ Expert stats:', statsRes.data?.data)
+            } else if (user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'manager') {
+                // ✅ SỬA: Gọi getSystemStats() (không có tham số)
+                statsRes = await apiMethods.evaluations.getSystemStats()
+                console.log('✅ System stats:', statsRes.data?.data)
             }
 
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `${report.code}.doc`)
-            document.body.appendChild(link)
-            link.click()
-
-            setTimeout(() => {
-                document.body.removeChild(link)
-                window.URL.revokeObjectURL(url)
-            }, 100)
-
-            toast.success('Tải xuống thành công - File HTML chứa các liên kết công khai')
+            if (statsRes?.data?.data) {
+                setStatistics(statsRes.data.data)
+            }
         } catch (error) {
-            console.error('Download error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tải xuống')
-        } finally {
-            setDownloadingHtml(false)
+            console.error('❌ Error fetching statistics:', error)
+            // Không show toast để không làm gián đoạn
         }
     }
 
-    const handlePublish = async () => {
-        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
-
-        try {
-            await apiMethods.reports.publish(id)
-            toast.success('Xuất bản báo cáo thành công')
-            fetchReportDetail(id)
-        } catch (error) {
-            console.error('Publish error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản')
+    const getRatingColor = (rating) => {
+        const colors = {
+            excellent: 'bg-green-100 text-green-800 border-green-300',
+            good: 'bg-blue-100 text-blue-800 border-blue-300',
+            satisfactory: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            needs_improvement: 'bg-orange-100 text-orange-800 border-orange-300',
+            poor: 'bg-red-100 text-red-800 border-red-300'
         }
+        return colors[rating] || 'bg-gray-100 text-gray-800 border-gray-300'
     }
 
-    const handleUnpublish = async () => {
-        if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này?')) return
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
-
-        try {
-            await apiMethods.reports.unpublish(id)
-            toast.success('Thu hồi xuất bản báo cáo thành công')
-            fetchReportDetail(id)
-        } catch (error) {
-            console.error('Unpublish error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi xuất bản')
+    const getRatingText = (rating) => {
+        const ratingMap = {
+            excellent: 'Xuất sắc',
+            good: 'Tốt',
+            satisfactory: 'Đạt yêu cầu',
+            needs_improvement: 'Cần cải thiện',
+            poor: 'Kém'
         }
-    }
-
-    const handleAddComment = async () => {
-        if (!newComment.trim()) {
-            toast.error('Vui lòng nhập nội dung nhận xét')
-            return
-        }
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
-
-        try {
-            setAddingComment(true)
-            await apiMethods.reports.addComment(id, newComment.trim())
-            toast.success('Thêm nhận xét thành công')
-            setNewComment('')
-            fetchReportDetail(id)
-        } catch (error) {
-            console.error('Add comment error:', error)
-            toast.error('Lỗi khi thêm nhận xét')
-        } finally {
-            setAddingComment(false)
-        }
+        return ratingMap[rating] || rating
     }
 
     const getStatusColor = (status) => {
         const colors = {
-            draft: 'bg-gray-100 text-gray-800 border-gray-200',
-            under_review: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            published: 'bg-green-100 text-green-800 border-green-200',
-            archived: 'bg-blue-100 text-blue-800 border-blue-200'
+            draft: 'bg-gray-100 text-gray-800',
+            submitted: 'bg-blue-100 text-blue-800',
+            supervised: 'bg-purple-100 text-purple-800',
+            final: 'bg-green-100 text-green-800'
         }
-        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+        return colors[status] || 'bg-gray-100 text-gray-800'
     }
 
-    const getStatusLabel = (status) => {
-        const labels = {
+    const getStatusText = (status) => {
+        const statusMap = {
             draft: 'Bản nháp',
-            under_review: 'Đang xem xét',
-            published: 'Đã xuất bản',
-            archived: 'Lưu trữ'
+            submitted: 'Đã nộp',
+            supervised: 'Đã giám sát',
+            final: 'Hoàn tất'
         }
-        return labels[status] || status
-    }
-
-    const getTypeLabel = (type) => {
-        const labels = {
-            criteria_analysis: 'Phân tích tiêu chí',
-            standard_analysis: 'Phân tích tiêu chuẩn',
-            comprehensive_report: 'Báo cáo tổng hợp'
-        }
-        return labels[type] || type
-    }
-
-    const getPublicLink = () => {
-        if (!report?.code) return null
-        return `${typeof window !== 'undefined' ? window.location.origin : ''}/public/reports/${report.code}`
+        return statusMap[status] || status
     }
 
     if (isLoading || loading) {
         return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
-                <div className="flex flex-col justify-center items-center py-20">
-                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                    <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        )
+    }
+
+    if (!evaluation) {
+        return (
+            <Layout breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 className="text-red-800 font-semibold">Lỗi</h3>
+                    <p className="text-red-600">Không thể tải đánh giá</p>
                 </div>
             </Layout>
         )
     }
 
-    if (!user || !report) {
-        return null
-    }
-
-    const publicLink = getPublicLink()
-
     return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
+        <Layout title='Chi tiết đánh giá' breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex items-start justify-between mb-4">
-                        <button
-                            onClick={() => router.push('/reports')}
-                            className="inline-flex items-center text-gray-600 hover:text-gray-900 font-medium"
-                        >
-                            <ArrowLeft className="h-5 w-5 mr-2" />
-                            Quay lại
-                        </button>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
+                    >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Quay lại
+                    </button>
+
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                                {evaluation.reportId?.title}
+                            </h1>
+                            <p className="text-gray-600">{evaluation.reportId?.code}</p>
+                        </div>
                         <div className="flex gap-2">
-                            {report.status === 'draft' && (
-                                <button
-                                    onClick={handlePublish}
-                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    <CheckCircle className="h-4 w-4 mr-2" />
-                                    Xuất bản
-                                </button>
-                            )}
-                            {report.status === 'published' && (
-                                <button
-                                    onClick={handleUnpublish}
-                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    <RotateCcw className="h-4 w-4 mr-2" />
-                                    Thu hồi
-                                </button>
-                            )}
-                            <button
-                                onClick={() => router.push(`/reports/${id}/edit`)}
-                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                            >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Chỉnh sửa
-                            </button>
-                            <button
-                                onClick={handleDownloadHtml}
-                                disabled={downloadingHtml}
-                                className="inline-flex items-center px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all disabled:opacity-50"
-                            >
-                                {downloadingHtml ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Đang tải...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Tải báo cáo
-                                    </>
-                                )}
-                            </button>
+                            <span className={`px-4 py-2 rounded-lg font-semibold text-sm border ${getStatusColor(evaluation.status)}`}>
+                                {getStatusText(evaluation.status)}
+                            </span>
+                            <span className={`px-4 py-2 rounded-lg font-semibold text-sm border ${getRatingColor(evaluation.rating)}`}>
+                                {getRatingText(evaluation.rating)}
+                            </span>
                         </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
-                                        {report.code}
-                                    </span>
-                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(report.status)}`}>
-                                        {getStatusLabel(report.status)}
-                                    </span>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                        {getTypeLabel(report.type)}
-                                    </span>
-                                </div>
-                                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                    {report.title}
-                                </h1>
-                                {report.summary && (
-                                    <p className="text-gray-600 text-lg">
-                                        {report.summary}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-blue-50 rounded-lg">
-                                    <User className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Người tạo</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.createdBy?.fullName || 'N/A'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-green-50 rounded-lg">
-                                    <Calendar className="h-5 w-5 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Ngày tạo</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {formatDate(report.createdAt)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-purple-50 rounded-lg">
-                                    <Eye className="h-5 w-5 text-purple-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Lượt xem</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.metadata?.viewCount || 0}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-orange-50 rounded-lg">
-                                    <Download className="h-5 w-5 text-orange-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Lượt tải</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.metadata?.downloadCount || 0}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {report.keywords && report.keywords.length > 0 && (
-                            <div className="pt-4 border-t border-gray-200">
-                                <p className="text-sm font-medium text-gray-700 mb-2">Từ khóa:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {report.keywords.map((keyword, index) => (
-                                        <span
-                                            key={index}
-                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-                                        >
-                                            {keyword}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="border-b border-gray-200">
-                        <div className="flex space-x-1 p-2">
-                            <button
-                                onClick={() => setActiveTab('content')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'content'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <FileText className="h-4 w-4 inline mr-2" />
-                                Nội dung
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('evidences')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'evidences'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <LinkIcon className="h-4 w-4 inline mr-2" />
-                                Minh chứng ({evidences.length})
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('versions')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'versions'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <Clock className="h-4 w-4 inline mr-2" />
-                                Phiên bản ({versions.length})
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('comments')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'comments'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <MessageSquare className="h-4 w-4 inline mr-2" />
-                                Nhận xét ({comments.length})
-                            </button>
+                {/* Evaluation Score */}
+                {evaluation.averageScore !== undefined && (
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-blue-600 uppercase font-semibold mb-1">Điểm đánh giá trung bình</p>
+                                <p className="text-4xl font-bold text-blue-900">{evaluation.averageScore}/10</p>
+                            </div>
+                            <TrendingUp className="h-12 w-12 text-blue-600 opacity-30" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Evaluator Info */}
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-start gap-3">
+                            <User className="h-5 w-5 text-gray-400 mt-1" />
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Chuyên gia đánh giá</p>
+                                <p className="font-semibold text-gray-900">{evaluation.evaluatorId?.fullName}</p>
+                                <p className="text-sm text-gray-600">{evaluation.evaluatorId?.email}</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="p-6">
-                        {activeTab === 'content' && (
-                            <div className="prose max-w-none">
-                                <div dangerouslySetInnerHTML={{ __html: report.content }} />
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-start gap-3">
+                            <Calendar className="h-5 w-5 text-gray-400 mt-1" />
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Ngày nộp</p>
+                                <p className="font-semibold text-gray-900">
+                                    {evaluation.submittedAt ? formatDate(evaluation.submittedAt) : 'Chưa nộp'}
+                                </p>
                             </div>
-                        )}
+                        </div>
+                    </div>
+                </div>
 
-                        {activeTab === 'evidences' && (
-                            <div className="space-y-4">
-                                {evidences.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <LinkIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">Chưa có minh chứng nào được liên kết</p>
-                                    </div>
-                                ) : (
-                                    evidences.map((evidence, index) => (
-                                        <div
-                                            key={index}
-                                            className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                                            {evidence.evidenceId?.code || 'N/A'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm font-medium text-gray-900 mb-1">
-                                                        {evidence.evidenceId?.name || 'Tên minh chứng'}
-                                                    </p>
-                                                    {evidence.contextText && (
-                                                        <p className="text-xs text-gray-500 italic">
-                                                            Ngữ cảnh: {evidence.contextText}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
+                {/* Overall Comment */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Nhận xét tổng thể
+                    </h2>
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        {evaluation.overallComment}
+                    </p>
+                </div>
 
-                        {activeTab === 'versions' && (
-                            <div className="space-y-4">
-                                {versions.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">Chưa có phiên bản nào</p>
-                                    </div>
-                                ) : (
-                                    versions.map((version, index) => (
-                                        <div
-                                            key={index}
-                                            className="p-4 border border-gray-200 rounded-xl"
-                                        >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-semibold text-gray-900">
-                                                        Phiên bản {version.version}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">
-                                                        {formatDate(version.changedAt)}
-                                                    </span>
-                                                </div>
-                                                <span className="text-xs text-gray-600">
-                                                    {version.changedBy?.fullName}
-                                                </span>
-                                            </div>
-                                            {version.changeNote && (
-                                                <p className="text-sm text-gray-600">
-                                                    {version.changeNote}
-                                                </p>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
+                {/* Evidence Assessment */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Đánh giá minh chứng</h2>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Tính đầy đủ</p>
+                            <p className="text-lg font-bold text-gray-900">
+                                {evaluation.evidenceAssessment?.adequacy === 'insufficient' ? 'Không đủ' :
+                                    evaluation.evidenceAssessment?.adequacy === 'adequate' ? 'Đủ' : 'Toàn diện'}
+                            </p>
+                        </div>
 
-                        {activeTab === 'comments' && (
-                            <div className="space-y-6">
-                                <div className="bg-gray-50 rounded-xl p-4">
-                                    <textarea
-                                        value={newComment}
-                                        onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder="Nhập nhận xét của bạn..."
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                        rows="4"
-                                    />
-                                    <div className="flex justify-end mt-3">
-                                        <button
-                                            onClick={handleAddComment}
-                                            disabled={addingComment || !newComment.trim()}
-                                            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50"
-                                        >
-                                            {addingComment ? (
-                                                <>
-                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    Đang thêm...
-                                                </>
-                                            ) : (
-                                                'Thêm nhận xét'
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Tính liên quan</p>
+                            <p className="text-lg font-bold text-gray-900">
+                                {evaluation.evidenceAssessment?.relevance === 'poor' ? 'Kém' :
+                                    evaluation.evidenceAssessment?.relevance === 'fair' ? 'Trung bình' :
+                                        evaluation.evidenceAssessment?.relevance === 'good' ? 'Tốt' : 'Xuất sắc'}
+                            </p>
+                        </div>
 
-                                <div className="space-y-4">
-                                    {comments.length === 0 ? (
-                                        <div className="text-center py-12">
-                                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                            <p className="text-gray-500">Chưa có nhận xét nào</p>
-                                        </div>
-                                    ) : (
-                                        comments.map((comment, index) => (
-                                            <div
-                                                key={index}
-                                                className="p-4 border border-gray-200 rounded-xl"
-                                            >
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-                                                            {comment.reviewerId?.fullName?.charAt(0) || 'U'}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-900">
-                                                                {comment.reviewerId?.fullName || 'Unknown'}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">
-                                                                {formatDate(comment.commentedAt)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
-                                                        {comment.reviewerType}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-700 ml-13">
-                                                    {comment.comment}
-                                                </p>
-                                                {comment.section && (
-                                                    <p className="text-xs text-gray-500 mt-2 ml-13">
-                                                        Phần: {comment.section}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
+                        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Chất lượng</p>
+                            <p className="text-lg font-bold text-gray-900">
+                                {evaluation.evidenceAssessment?.quality === 'poor' ? 'Kém' :
+                                    evaluation.evidenceAssessment?.quality === 'fair' ? 'Trung bình' :
+                                        evaluation.evidenceAssessment?.quality === 'good' ? 'Tốt' : 'Xuất sắc'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Supervisor Guidance */}
+                {evaluation.supervisorGuidance?.comments && (
+                    <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6">
+                        <h2 className="text-xl font-bold text-purple-900 mb-4 flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5" />
+                            Hướng dẫn từ giám sát
+                        </h2>
+                        <p className="text-purple-900 whitespace-pre-wrap">
+                            {evaluation.supervisorGuidance.comments}
+                        </p>
+                        {evaluation.supervisorGuidance.guidedBy && (
+                            <p className="text-sm text-purple-600 mt-3">
+                                - {evaluation.supervisorGuidance.guidedBy?.fullName}
+                                {evaluation.supervisorGuidance.guidedAt && ` (${formatDate(evaluation.supervisorGuidance.guidedAt)})`}
+                            </p>
                         )}
                     </div>
+                )}
+
+                {/* Statistics */}
+                {statistics && user?.role === 'expert' && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Thống kê của tôi</h2>
+                        <div className="grid grid-cols-4 gap-4">
+                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <p className="text-xs text-blue-600 uppercase font-semibold">Tổng cộng</p>
+                                <p className="text-3xl font-bold text-blue-900 mt-2">{statistics.total || 0}</p>
+                            </div>
+                            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                                <p className="text-xs text-yellow-600 uppercase font-semibold">Bản nháp</p>
+                                <p className="text-3xl font-bold text-yellow-900 mt-2">{statistics.draft || 0}</p>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <p className="text-xs text-blue-600 uppercase font-semibold">Đã nộp</p>
+                                <p className="text-3xl font-bold text-blue-900 mt-2">{statistics.submitted || 0}</p>
+                            </div>
+                            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <p className="text-xs text-green-600 uppercase font-semibold">Hoàn tất</p>
+                                <p className="text-3xl font-bold text-green-900 mt-2">{statistics.final || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Back Button */}
+                <div className="flex justify-end">
+                    <button
+                        onClick={() => router.back()}
+                        className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                    >
+                        Đóng
+                    </button>
                 </div>
             </div>
         </Layout>
