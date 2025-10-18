@@ -1,3 +1,5 @@
+// evaluations.js (Đã sửa lỗi TypeError)
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../../components/common/Layout'
@@ -144,7 +146,8 @@ export default function EvaluationsPage() {
             let statsRes
 
             if (user.role === 'expert') {
-                statsRes = await apiMethods.evaluations.getStats(`/stats/evaluator/${user.id}`)
+                // SỬA LỖI: Gọi đúng phương thức getEvaluatorStats
+                statsRes = await apiMethods.evaluations.getEvaluatorStats(user.id)
             } else if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'manager') {
                 statsRes = await apiMethods.evaluations.getSystemStats()
             }
@@ -210,8 +213,8 @@ export default function EvaluationsPage() {
     }
 
     const handleEditEvaluation = (evaluationId) => {
-             router.push(`/reports/evaluations/${evaluationId}/edit`)
-         }
+        router.push(`/reports/evaluations/${evaluationId}/edit`)
+    }
 
     const handleSearch = (e) => {
         e.preventDefault()
