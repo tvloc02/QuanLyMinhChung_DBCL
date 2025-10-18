@@ -1,4 +1,4 @@
-// edit.js (Đã sửa lỗi cú pháp 'cconst')
+// pages\reports\evaluations\[id]\edit.js (Full code đã sửa)
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
@@ -55,7 +55,6 @@ export default function EditEvaluationPage() {
         { name: 'Chỉnh sửa', icon: BookOpen }
     ]
 
-    // Sửa lỗi: Loại bỏ ký tự 'c' thừa ở 'cconst'
     const fetchEvaluation = async () => {
         try {
             setLoading(true)
@@ -72,16 +71,20 @@ export default function EditEvaluationPage() {
             }
 
             // ----------------------------------------------------
-            // ✅ BỔ SUNG KIỂM TRA QUYỀN SỬA TRÊN FRONTEND
-            // Expert chỉ được SỬA (ở trang /edit) bản nháp của mình
+            // ✅ KIỂM TRA QUYỀN CHỈNH SỬA (EDIT) TRÊN FRONTEND
+            // Expert chỉ được SỬA (ở trang /edit) bản nháp của chính mình
             // Dù backend đã chặn 403 cho quyền VIEW/EDIT, kiểm tra này giúp chuyển hướng mượt mà hơn.
             // ----------------------------------------------------
             if (user.role === 'expert') {
-                const isMyEvaluation = evalData.evaluatorId._id.toString() === user.id.toString()
+                // Đảm bảo evaluatorId được populate, sử dụng fallback nếu chưa populate
+                const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId;
+                const isMyEvaluation = evaluatorId && evaluatorId.toString() === user.id.toString();
 
+                // Expert chỉ được SỬA (trang /edit) bản nháp của chính mình
                 if (!isMyEvaluation || evalData.status !== 'draft') {
-                    console.log('❌ Evaluation cannot be edited. Redirecting.')
+                    console.log(`❌ Expert is forbidden to edit status: ${evalData.status}, isMyEval: ${isMyEvaluation}`)
                     toast.error('Chỉ có thể chỉnh sửa bản nháp của bạn.')
+                    // Chuyển hướng sang trang xem chi tiết
                     router.replace(`/reports/evaluations/${id}`)
                     return
                 }
@@ -100,16 +103,17 @@ export default function EditEvaluationPage() {
                     relevance: '',
                     quality: ''
                 },
-                criteriaScores: evalData.criteriaScores || []
+                criteriaScores: evalData.criteriaScores || [] // Load criteria scores
             })
+
         } catch (error) {
             console.error('❌ Error fetching evaluation:', error)
             console.error('Status:', error.response?.status)
             console.error('Message:', error.response?.data?.message)
 
             if (error.response?.status === 403) {
-                console.log('❌ Access denied - không có quyền xem đánh giá này')
-                toast.error('Bạn không có quyền truy cập trang này')
+                console.log('❌ Access denied (403) - Bạn không có quyền xem/sửa đánh giá này')
+                toast.error('Bạn không có quyền truy cập trang này.')
             } else if (error.response?.status === 404) {
                 console.log('❌ Evaluation not found')
                 toast.error('Không tìm thấy đánh giá')
@@ -117,6 +121,7 @@ export default function EditEvaluationPage() {
                 toast.error('Lỗi tải đánh giá')
             }
 
+            // Chuyển hướng về trang danh sách nếu không tải được
             router.replace('/reports/evaluations')
         } finally {
             setLoading(false)
@@ -149,8 +154,7 @@ export default function EditEvaluationPage() {
                     adequacy: formData.evidenceAssessment.adequacy,
                     relevance: formData.evidenceAssessment.relevance,
                     quality: formData.evidenceAssessment.quality
-                },
-                // criteriaScores không cần gửi khi update (vì nó thường được cập nhật tự động hoặc ở component khác)
+                }
             }
 
             console.log('📤 Saving evaluation data (Draft):', submitData)
@@ -186,6 +190,8 @@ export default function EditEvaluationPage() {
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
             // Bước 1: Lưu lần cuối trước khi nộp để đảm bảo dữ liệu mới nhất
+            // Gọi handleSave() để thực hiện update trước khi submit
+            // Lưu ý: Nếu handleSave thất bại, nó sẽ ném lỗi và dừng ở đây.
             await handleSave()
 
             // Bước 2: Gọi API nộp (submit)
