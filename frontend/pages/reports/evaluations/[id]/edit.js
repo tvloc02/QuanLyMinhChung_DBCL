@@ -1,5 +1,3 @@
-// pages\reports\evaluations\[id]\edit.js (Full code đã sửa)
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../../../contexts/AuthContext'
@@ -33,7 +31,6 @@ export default function EditEvaluationPage() {
             relevance: '',
             quality: ''
         },
-        // Thêm trường criteriaScores để đảm bảo form data đầy đủ
         criteriaScores: []
     })
 
@@ -70,21 +67,13 @@ export default function EditEvaluationPage() {
                 return
             }
 
-            // ----------------------------------------------------
-            // ✅ KIỂM TRA QUYỀN CHỈNH SỬA (EDIT) TRÊN FRONTEND
-            // Expert chỉ được SỬA (ở trang /edit) bản nháp của chính mình
-            // Dù backend đã chặn 403 cho quyền VIEW/EDIT, kiểm tra này giúp chuyển hướng mượt mà hơn.
-            // ----------------------------------------------------
             if (user.role === 'expert') {
-                // Đảm bảo evaluatorId được populate, sử dụng fallback nếu chưa populate
                 const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId;
                 const isMyEvaluation = evaluatorId && evaluatorId.toString() === user.id.toString();
 
-                // Expert chỉ được SỬA (trang /edit) bản nháp của chính mình
                 if (!isMyEvaluation || evalData.status !== 'draft') {
                     console.log(`❌ Expert is forbidden to edit status: ${evalData.status}, isMyEval: ${isMyEvaluation}`)
                     toast.error('Chỉ có thể chỉnh sửa bản nháp của bạn.')
-                    // Chuyển hướng sang trang xem chi tiết
                     router.replace(`/reports/evaluations/${id}`)
                     return
                 }
@@ -94,7 +83,6 @@ export default function EditEvaluationPage() {
             setEvaluation(evalData)
             setReport(evalData.reportId)
 
-            // Set form data từ evaluation
             setFormData({
                 overallComment: evalData.overallComment || '',
                 rating: evalData.rating || '',
@@ -103,7 +91,7 @@ export default function EditEvaluationPage() {
                     relevance: '',
                     quality: ''
                 },
-                criteriaScores: evalData.criteriaScores || [] // Load criteria scores
+                criteriaScores: evalData.criteriaScores || []
             })
 
         } catch (error) {
@@ -121,7 +109,6 @@ export default function EditEvaluationPage() {
                 toast.error('Lỗi tải đánh giá')
             }
 
-            // Chuyển hướng về trang danh sách nếu không tải được
             router.replace('/reports/evaluations')
         } finally {
             setLoading(false)
@@ -135,10 +122,14 @@ export default function EditEvaluationPage() {
             formData.evidenceAssessment.adequacy &&
             formData.evidenceAssessment.relevance &&
             formData.evidenceAssessment.quality
+            // Kiểm tra tối thiểu về điểm tiêu chí (nếu cần, nhưng thường được quản lý ở component riêng)
+            // && formData.criteriaScores?.every(c => c.score !== undefined && c.score !== null)
         )
     }
 
     const handleSave = async () => {
+        // Có thể cho phép lưu nháp ngay cả khi chưa đủ form validation chính,
+        // nhưng sẽ dùng isFormValid để chặn nộp. Giữ lại validation hiện tại cho UI/UX tốt hơn.
         if (!isFormValid()) {
             toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc')
             return
@@ -155,15 +146,14 @@ export default function EditEvaluationPage() {
                     relevance: formData.evidenceAssessment.relevance,
                     quality: formData.evidenceAssessment.quality
                 }
+                // criteriaScores: formData.criteriaScores // Gửi nếu cần cập nhật điểm
             }
 
             console.log('📤 Saving evaluation data (Draft):', submitData)
 
-            // Dùng update để lưu bản nháp
             await apiMethods.evaluations.update(evaluation._id, submitData)
             toast.success('Đánh giá đã được lưu')
 
-            // Refresh
             setTimeout(() => {
                 fetchEvaluation()
             }, 500)
@@ -181,6 +171,13 @@ export default function EditEvaluationPage() {
             return
         }
 
+        // Cần kiểm tra điểm tiêu chí trước khi nộp
+        if (formData.criteriaScores.some(c => c.score === undefined || c.score === null)) {
+            toast.error('Vui lòng nhập đầy đủ điểm cho các tiêu chí đánh giá.');
+            return
+        }
+
+
         if (!window.confirm('Xác nhận nộp đánh giá? Sau khi nộp sẽ không thể chỉnh sửa.')) {
             return
         }
@@ -189,12 +186,9 @@ export default function EditEvaluationPage() {
             setSubmitting(true)
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
-            // Bước 1: Lưu lần cuối trước khi nộp để đảm bảo dữ liệu mới nhất
-            // Gọi handleSave() để thực hiện update trước khi submit
-            // Lưu ý: Nếu handleSave thất bại, nó sẽ ném lỗi và dừng ở đây.
+            // Lưu lần cuối trước khi nộp
             await handleSave()
 
-            // Bước 2: Gọi API nộp (submit)
             await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Đánh giá đã được nộp')
             router.push('/reports/evaluations')
@@ -236,9 +230,7 @@ export default function EditEvaluationPage() {
         )
     }
 
-    // Kiểm tra cuối cùng trước khi render cho expert: nếu không phải draft, expert không nên thấy trang này
     if (user.role === 'expert' && evaluation.status !== 'draft') {
-        // Lỗi này đáng lẽ đã được bắt ở fetchEvaluation và chuyển hướng
         return (
             <Layout breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -261,7 +253,6 @@ export default function EditEvaluationPage() {
     return (
         <Layout title='Chỉnh sửa đánh giá' breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <button
                         onClick={() => router.back()}
@@ -279,7 +270,6 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
-                {/* Status */}
                 {evaluation?.status && (
                     <div className={`p-4 rounded-lg border ${
                         evaluation.status === 'draft'
@@ -296,7 +286,6 @@ export default function EditEvaluationPage() {
                     </div>
                 )}
 
-                {/* Notification nếu có Hướng dẫn giám sát */}
                 {evaluation.supervisorGuidance?.comments && (
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                         <h3 className="text-orange-800 font-semibold flex items-center gap-2">
@@ -311,7 +300,6 @@ export default function EditEvaluationPage() {
                 )}
 
 
-                {/* Rating Selection - REQUIRED */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Xếp loại đánh giá</h2>
@@ -343,7 +331,6 @@ export default function EditEvaluationPage() {
                     )}
                 </div>
 
-                {/* Overall Comment - REQUIRED */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Nhận xét tổng thể</h2>
@@ -372,7 +359,6 @@ export default function EditEvaluationPage() {
                     )}
                 </div>
 
-                {/* Evidence Assessment - REQUIRED */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Đánh giá minh chứng</h2>
@@ -380,7 +366,6 @@ export default function EditEvaluationPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
-                        {/* Adequacy */}
                         <div>
                             <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Tính đầy đủ
@@ -406,7 +391,6 @@ export default function EditEvaluationPage() {
                             )}
                         </div>
 
-                        {/* Relevance */}
                         <div>
                             <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Tính liên quan
@@ -433,7 +417,6 @@ export default function EditEvaluationPage() {
                             )}
                         </div>
 
-                        {/* Quality */}
                         <div>
                             <label className="block text-sm font-medium text-gray-900 mb-2">
                                 Chất lượng
@@ -462,7 +445,6 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
-                {/* Form Status */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm text-blue-800">
                         <span className={isFormValid() ? 'text-green-600' : 'text-red-600'}>
@@ -475,7 +457,6 @@ export default function EditEvaluationPage() {
                     </p>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-lg shadow-lg">
                     <button
                         onClick={() => router.back()}
