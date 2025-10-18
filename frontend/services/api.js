@@ -2,7 +2,6 @@ import axios from 'axios'
 import { getLocalStorage, removeLocalStorage } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
-// API instance với authentication (cho protected routes)
 export const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
     timeout: 30000,
@@ -11,7 +10,6 @@ export const api = axios.create({
     }
 })
 
-// API instance công khai (cho public routes - không cần token)
 export const publicApi = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
     timeout: 30000,
@@ -64,7 +62,6 @@ api.interceptors.response.use(
     }
 )
 
-// Public API không cần error handling đặc biệt
 publicApi.interceptors.response.use(
     (response) => {
         return response
@@ -295,7 +292,6 @@ export const apiMethods = {
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
     },
 
-    // ✅ FIXED: Corrected API endpoints for assignments
     assignments: {
         getAll: (params) => api.get('/api/assignments', { params }),
         getById: (id) => api.get(`/api/assignments/${id}`),
@@ -326,6 +322,7 @@ export const apiMethods = {
         getEvaluatorStats: (evaluatorId) => api.get(`/api/evaluations/stats/evaluator/${evaluatorId}`),
         getSystemStats: () => api.get('/api/evaluations/stats/system'),
         getAverageScoreByReport: (reportId) => api.get(`/api/evaluations/stats/report/${reportId}`),
+        delete: (id) => api.delete(`/api/evaluations/${id}`),
     },
 
     notifications: {
@@ -378,7 +375,6 @@ export const apiMethods = {
         removeMembers: (id, userIds) => api.delete(`/api/user-groups/${id}/members`, { data: { userIds } })
     },
 
-    // ✅ Public API methods (không cần authentication)
     publicEvidence: {
         getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
         getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)
