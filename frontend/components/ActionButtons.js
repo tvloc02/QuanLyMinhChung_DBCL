@@ -20,7 +20,11 @@ import {
     Search,
     Filter,
     Check,
-    X
+    X,
+    CheckCircle,
+    AlertCircle,
+    BookOpen,
+    Play
 } from 'lucide-react';
 
 const ActionButton = ({
@@ -30,152 +34,143 @@ const ActionButton = ({
                           variant = 'primary',
                           size = 'md',
                           disabled = false,
-                          title // Thêm prop title
+                          title
                       }) => {
     const buttonTitle = title || label;
 
+    // All buttons BLUE ONLY - Locked color, no permission to change
     const variants = {
         view: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        add: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         edit: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         delete: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         primary: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         secondary: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         success: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         warning: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
+        },
+        danger: {
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
+            icon: 'text-blue-600',
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
         purple: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         },
-        pink: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+        add: {
+            bg: 'bg-blue-50 hover:bg-blue-100',
+            border: 'border border-blue-200',
             icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        lock: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
+            shadow: 'shadow-sm hover:shadow-md',
+            ring: 'focus:ring-blue-400'
         }
     };
 
     const sizes = {
         sm: {
-            button: 'w-10 h-10',
-            icon: 16,
+            button: 'w-9 h-9 p-1.5',
+            icon: 18,
             text: 'text-xs'
         },
         md: {
-            button: 'w-12 h-12',
+            button: 'w-10 h-10 p-2',
             icon: 20,
             text: 'text-sm'
         },
         lg: {
-            button: 'w-14 h-14',
+            button: 'w-12 h-12 p-2.5',
             icon: 24,
             text: 'text-base'
         }
     };
 
-    const currentVariant = variants[variant];
-    const currentSize = sizes[size];
+    const currentVariant = variants[variant] || variants.primary;
+    const currentSize = sizes[size] || sizes.md;
 
     return (
-        <div className="flex flex-col items-center gap-2">
-            <button
-                onClick={onClick}
-                disabled={disabled}
-                title={buttonTitle}
-                className={`
-          ${currentSize.button}
-          ${currentVariant.bg}
-          ${currentVariant.hover}
-          ${currentVariant.shadow}
-          rounded-xl
-          shadow-lg
-          flex items-center justify-center
-          transition-all duration-300
-          transform hover:scale-110 hover:shadow-xl
-          active:scale-95
-          focus:outline-none focus:ring-4 ${currentVariant.ring}
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-          relative
-          group
-        `}
-            >
-                <div className={`
-          absolute inset-0 rounded-xl 
-          bg-white/40 
-          opacity-0 group-hover:opacity-100 
-          transition-opacity duration-300
-        `} />
-                <Icon
-                    size={currentSize.icon}
-                    className={`${currentVariant.icon} relative z-10 drop-shadow-sm`}
-                    strokeWidth={2.5}
-                />
-            </button>
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            title={buttonTitle}
+            className={`
+                ${currentSize.button}
+                ${currentVariant.bg}
+                ${currentVariant.border}
+                ${currentVariant.shadow}
+                rounded-lg
+                flex items-center justify-center
+                transition-all duration-200
+                transform hover:scale-105
+                active:scale-95
+                focus:outline-none focus:ring-2 ${currentVariant.ring}
+                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                group relative
+            `}
+        >
+            <Icon
+                size={currentSize.icon}
+                className={`${currentVariant.icon} transition-all duration-200`}
+                strokeWidth={2}
+            />
             {label && (
-                <span className={`${currentSize.text} font-medium text-gray-700 text-center`}>
-          {label}
-        </span>
+                <span className={`
+                    ${currentSize.text}
+                    font-medium
+                    text-gray-700
+                    group-hover:text-gray-900
+                    hidden xl:inline ml-2
+                    transition-colors duration-200
+                `}>
+                    {label}
+                </span>
             )}
-        </div>
+        </button>
     );
 };
 
