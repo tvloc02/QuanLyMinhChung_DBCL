@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Evaluation = require('../../models/report/Evaluation');
 const Assignment = require('../../models/report/Assignment');
 const Report = require('../../models/report/Report');
-const User = require('../../models/User/User'); // Giả định import User
 
 const getEvaluations = async (req, res) => {
     try {
@@ -98,8 +97,6 @@ const getEvaluationById = async (req, res) => {
             });
         }
 
-        // ✅ FIX LỖI 403: Đảm bảo quyền xem/sửa (canView) được kiểm tra đúng cách.
-        // Đây là điểm cốt lõi của lỗi 403: người dùng không vượt qua được canView trong model.
         if (!evaluation.canView(currentUserId, currentUserRole)) {
             console.warn(`403: User ${currentUserId} (${currentUserRole}) tried to view evaluation ${id}.`);
             return res.status(403).json({
@@ -156,7 +153,7 @@ const createEvaluation = async (req, res) => {
         if (!['accepted', 'in_progress'].includes(assignment.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Phân quyền chưa được chấp nhận'
+                message: 'Phân quyền chưa được chấp nhận hoặc đã hoàn thành/hủy'
             });
         }
 
@@ -166,21 +163,24 @@ const createEvaluation = async (req, res) => {
         });
 
         if (existingEvaluation) {
-            return res.status(400).json({
+            return res.status(409).json({
                 success: false,
-                message: 'Đánh giá cho phân quyền này đã tồn tại'
+                message: 'Đánh giá cho phân quyền này đã tồn tại',
+                data: {
+                    existingEvaluationId: existingEvaluation._id,
+                    status: existingEvaluation.status
+                }
             });
         }
 
-        // ✅ TẠO EVALUATION VỚI DEFAULT VALUES - overallComment có giá trị mặc định
         const evaluation = new Evaluation({
             academicYearId,
             assignmentId,
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
-            criteriaScores: assignment.evaluationCriteria || [], // Sử dụng criteria từ Assignment
+            criteriaScores: assignment.evaluationCriteria || [],
             rating: 'satisfactory',
-            overallComment: '', // Giờ cho phép rỗng, sẽ validate khi submit
+            overallComment: '',
             evidenceAssessment: {
                 adequacy: 'adequate',
                 relevance: 'fair',
@@ -188,12 +188,10 @@ const createEvaluation = async (req, res) => {
             }
         });
 
-        // BẮT BUỘC: Tính toán điểm lần đầu
         evaluation.calculateScores();
 
         await evaluation.save();
 
-        // Update assignment status
         if (assignment.status === 'accepted') {
             await assignment.start();
         }
@@ -211,6 +209,13 @@ const createEvaluation = async (req, res) => {
 
     } catch (error) {
         console.error('Create evaluation error:', error);
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi khi tạo đánh giá'
@@ -234,16 +239,13 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
-        // ✅ FIX: Sử dụng canEdit để kiểm tra quyền chuyên gia được sửa bản nháp
         if (!evaluation.canEdit(req.user.id, req.user.role)) {
-            console.warn(`403: User ${req.user.id} (${req.user.role}) tried to update evaluation ${id} (status: ${evaluation.status}).`);
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền cập nhật đánh giá này'
+                message: 'Không có quyền cập nhật đánh giá này. Chỉ có thể sửa bản nháp của bạn.'
             });
         }
 
-        // ✅ CHỈ UPDATE CÁC FIELDS CÓ TRONG updateData
         if (updateData.overallComment !== undefined) {
             evaluation.overallComment = updateData.overallComment;
         }
@@ -257,13 +259,9 @@ const updateEvaluation = async (req, res) => {
         }
 
         if (updateData.criteriaScores !== undefined) {
-            // Cho phép cập nhật điểm tiêu chí
             evaluation.criteriaScores = updateData.criteriaScores;
-            evaluation.calculateScores(); // Tính lại điểm sau khi cập nhật tiêu chí
+            evaluation.calculateScores();
         }
-
-        // ✅ KHÔNG VALIDATE YÊU CẦU KHI UPDATE (chỉ lưu draft)
-        // Validation bắt buộc sẽ ở hàm submitEvaluation
 
         evaluation.addHistory('updated', req.user.id);
         await evaluation.save();
@@ -312,7 +310,6 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
-        // ✅ CHECK REQUIRED BEFORE SUBMIT - KIỂM TRA TẤT CẢ FIELDS
         if (!evaluation.overallComment || evaluation.overallComment.trim() === '') {
             return res.status(400).json({
                 success: false,
@@ -348,7 +345,6 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem đã có điểm cho tiêu chí nào chưa
         if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0 || evaluation.criteriaScores.some(c => c.score === undefined || c.score === null)) {
             return res.status(400).json({
                 success: false,
@@ -356,16 +352,13 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
-
         await evaluation.submit();
 
-        // Update assignment
         const assignment = await Assignment.findById(evaluation.assignmentId);
         if (assignment) {
             await assignment.complete(evaluation._id);
         }
 
-        // Update report
         const report = await Report.findById(evaluation.reportId);
         if (report) {
             const averageScore = await Evaluation.getAverageScoreByReport(evaluation.reportId);
@@ -506,7 +499,6 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
-        // Chỉ cho phép auto save các trường liên quan đến nội dung
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
             'strengths', 'improvementAreas', 'recommendations', 'criteriaScores'
@@ -518,11 +510,9 @@ const autoSaveEvaluation = async (req, res) => {
             }
         });
 
-        // Nếu có thay đổi điểm tiêu chí, cần tính lại điểm
         if (updateData.criteriaScores !== undefined) {
             evaluation.calculateScores();
         }
-
 
         await evaluation.autoSave();
 
@@ -602,11 +592,57 @@ const getAverageScoreByReport = async (req, res) => {
     }
 };
 
+const deleteEvaluation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
+        if (!evaluation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy đánh giá'
+            });
+        }
+
+        if (req.user.role !== 'admin' &&
+            (evaluation.evaluatorId.toString() !== req.user.id.toString() || evaluation.status !== 'draft')
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn chỉ có quyền xóa bản nháp của chính mình'
+            });
+        }
+
+        const assignment = await Assignment.findById(evaluation.assignmentId);
+        if (assignment && assignment.status !== 'cancelled' && assignment.status !== 'pending') {
+            assignment.status = 'accepted';
+            assignment.evaluationId = undefined;
+            await assignment.save();
+        }
+
+        await Evaluation.findByIdAndDelete(id);
+
+        res.json({
+            success: true,
+            message: 'Đã xóa đánh giá thành công'
+        });
+
+    } catch (error) {
+        console.error('Delete evaluation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa đánh giá'
+        });
+    }
+};
+
 module.exports = {
     getEvaluations,
     getEvaluationById,
     createEvaluation,
     updateEvaluation,
+    deleteEvaluation,
     submitEvaluation,
     superviseEvaluation,
     finalizeEvaluation,
