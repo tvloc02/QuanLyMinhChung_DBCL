@@ -267,19 +267,12 @@ export default function ExpertAssignmentsPage() {
         const evaluationStatus = assignment.evaluationId?.status
 
         if (evaluationId) {
-            // ✅ Kiểm tra status của evaluation
             if (evaluationStatus === 'draft') {
-                // Nếu là bản nháp → vào trang chỉnh sửa
-                console.log('📝 Opening draft evaluation for edit:', evaluationId)
                 router.push(`/reports/evaluations/${evaluationId}/edit`)
             } else {
-                // Nếu đã submit/supervised/final → vào trang xem chi tiết
-                console.log('👁️ Opening submitted evaluation for view:', evaluationId)
                 router.push(`/reports/evaluations/${evaluationId}`)
             }
         } else {
-            // Chưa có evaluation → tạo mới
-            console.log('✨ Creating new evaluation for assignment:', assignment._id)
             router.push(`/reports/evaluations/new?assignmentId=${assignment._id}`)
         }
     }
@@ -341,6 +334,21 @@ export default function ExpertAssignmentsPage() {
         } catch (error) {
             console.error('Error deleting assignment:', error)
             const message = error.response?.data?.message || 'Lỗi khi xóa phân quyền'
+            toast.error(message)
+        }
+    }
+
+    const handleDeleteEvaluation = async (evaluationId, assignmentId) => {
+        if (!confirm('Bạn chắc chắn muốn xóa bản nháp đánh giá này? Hành động này sẽ cho phép bạn tạo lại đánh giá mới.')) return
+
+        try {
+            await apiMethods.evaluations.delete(evaluationId)
+            toast.success('Đã xóa bản nháp đánh giá thành công')
+            fetchAssignments()
+            fetchStatistics()
+        } catch (error) {
+            console.error('Error deleting evaluation:', error)
+            const message = error.response?.data?.message || 'Lỗi khi xóa đánh giá. Chỉ có thể xóa bản nháp của bạn.'
             toast.error(message)
         }
     }
@@ -633,7 +641,7 @@ export default function ExpertAssignmentsPage() {
                                                 </td>
                                                 <td className="px-6 py-3">
                                                     <div className="flex items-center justify-center gap-2 flex-wrap">
-                                                        {/* XEM CHI TIẾT */}
+
                                                         <ActionButton
                                                             icon={Eye}
                                                             variant="view"
@@ -642,7 +650,7 @@ export default function ExpertAssignmentsPage() {
                                                             title="Xem chi tiết"
                                                         />
 
-                                                        {/* CHẤP NHẬN - Chỉ hiển thị khi pending, mờ khi ko có chức năng */}
+
                                                         <ActionButton
                                                             icon={Check}
                                                             variant="success"
@@ -652,7 +660,7 @@ export default function ExpertAssignmentsPage() {
                                                             title={assignment.status === 'pending' ? 'Chấp nhận phân quyền' : 'Chỉ chấp nhận khi chờ phản hồi'}
                                                         />
 
-                                                        {/* TỪ CHỐI - Chỉ hiển thị khi pending, mờ khi ko có chức năng */}
+
                                                         <ActionButton
                                                             icon={XCircle}
                                                             variant="delete"
@@ -667,7 +675,7 @@ export default function ExpertAssignmentsPage() {
                                                             title={assignment.status === 'pending' ? 'Từ chối phân quyền' : 'Chỉ từ chối khi chờ phản hồi'}
                                                         />
 
-                                                        {/* BẮT ĐẦU ĐÁNH GIÁ - Chỉ hiển thị khi accepted, in_progress, overdue, mờ khi ko có chức năng */}
+
                                                         <ActionButton
                                                             icon={Play}
                                                             variant="primary"
@@ -681,7 +689,17 @@ export default function ExpertAssignmentsPage() {
                                                             title={['accepted', 'in_progress', 'overdue'].includes(assignment.status) ? (assignment.evaluationId ? 'Tiếp tục đánh giá' : 'Bắt đầu đánh giá') : 'Chỉ đánh giá khi đã chấp nhận'}
                                                         />
 
-                                                        {/* XÓA - Hiển thị với tất cả trạng thái */}
+                                                        {assignment.evaluationId && assignment.evaluationId.status === 'draft' && (
+                                                            <ActionButton
+                                                                icon={Trash2}
+                                                                variant="delete"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteEvaluation(assignment.evaluationId._id, assignment._id)}
+                                                                title="Xóa bản nháp đánh giá"
+                                                            />
+                                                        )}
+
+
                                                         <ActionButton
                                                             icon={Trash2}
                                                             variant="delete"
@@ -707,7 +725,7 @@ export default function ExpertAssignmentsPage() {
                                                 <strong className="text-blue-600">{pagination.total}</strong> kết quả
                                             </p>
                                             <div className="flex items-center gap-1">
-                                                {/* Nút Trước */}
+
                                                 <button
                                                     onClick={() => handlePageChange(pagination.current - 1)}
                                                     disabled={!pagination.hasPrev}
@@ -716,7 +734,7 @@ export default function ExpertAssignmentsPage() {
                                                     Trước
                                                 </button>
 
-                                                {/* Số trang */}
+
                                                 {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
                                                     let pageNum;
                                                     if (pagination.pages <= 7) {
@@ -744,7 +762,7 @@ export default function ExpertAssignmentsPage() {
                                                     );
                                                 })}
 
-                                                {/* Nút Sau */}
+
                                                 <button
                                                     onClick={() => handlePageChange(pagination.current + 1)}
                                                     disabled={!pagination.hasNext}
