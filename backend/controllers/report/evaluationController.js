@@ -222,6 +222,8 @@ const updateEvaluation = async (req, res) => {
         const updateData = req.body;
         const academicYearId = req.academicYearId;
 
+        console.log('📥 Update evaluation request:', { id, updateData });
+
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
         if (!evaluation) {
             return res.status(404).json({
@@ -237,9 +239,18 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
+        // ✅ Accept all updateable fields
         const allowedFields = [
-            'criteriaScores', 'overallComment', 'strengths', 'improvementAreas',
-            'recommendations', 'evidenceAssessment'
+            'criteriaScores',
+            'overallComment',
+            'rating',
+            'totalScore',
+            'maxTotalScore',
+            'averageScore',
+            'strengths',
+            'improvementAreas',
+            'recommendations',
+            'evidenceAssessment'
         ];
 
         const oldData = {};
@@ -250,9 +261,47 @@ const updateEvaluation = async (req, res) => {
             }
         });
 
+        // ✅ Validate required fields
+        if (!evaluation.overallComment || evaluation.overallComment.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Nhận xét tổng thể là bắt buộc'
+            });
+        }
+
+        if (!evaluation.rating) {
+            return res.status(400).json({
+                success: false,
+                message: 'Xếp loại đánh giá là bắt buộc'
+            });
+        }
+
+        if (!evaluation.evidenceAssessment?.adequacy) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đánh giá tính đầy đủ minh chứng là bắt buộc'
+            });
+        }
+
+        if (!evaluation.evidenceAssessment?.relevance) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đánh giá tính liên quan minh chứng là bắt buộc'
+            });
+        }
+
+        if (!evaluation.evidenceAssessment?.quality) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đánh giá chất lượng minh chứng là bắt buộc'
+            });
+        }
+
         evaluation.addHistory('updated', req.user.id, oldData);
 
         await evaluation.save();
+
+        console.log('✅ Evaluation updated successfully');
 
         res.json({
             success: true,
@@ -261,10 +310,10 @@ const updateEvaluation = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Update evaluation error:', error);
+        console.error('❌ Update evaluation error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi cập nhật đánh giá'
+            message: error.message || 'Lỗi hệ thống khi cập nhật đánh giá'
         });
     }
 };
@@ -273,6 +322,8 @@ const submitEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+
+        console.log('📥 Submit evaluation request:', { id });
 
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
         if (!evaluation) {
@@ -292,16 +343,47 @@ const submitEvaluation = async (req, res) => {
         if (evaluation.status !== 'draft') {
             return res.status(400).json({
                 success: false,
-                message: 'Đánh giá đã được nộp trước đó'
+                message: `Đánh giá hiện ở trạng thái "${evaluation.status}", không thể nộp`
             });
         }
 
-        // Kiểm tra tính hoàn thiện
-        if (!evaluation.isComplete) {
-            return res.status(400).json({
-                success: false,
-                message: 'Đánh giá chưa hoàn thiện, vui lòng điền đầy đủ thông tin'
-            });
+        // ✅ Kiểm tra tính hoàn thiện
+        const requiredFields = [
+            { field: 'overallComment', message: 'Nhận xét tổng thể' },
+            { field: 'rating', message: 'Xếp loại đánh giá' },
+            {
+                field: 'evidenceAssessment.adequacy',
+                message: 'Đánh giá tính đầy đủ minh chứng',
+                check: (val) => val && val.adequacy
+            },
+            {
+                field: 'evidenceAssessment.relevance',
+                message: 'Đánh giá tính liên quan minh chứng',
+                check: (val) => val && val.relevance
+            },
+            {
+                field: 'evidenceAssessment.quality',
+                message: 'Đánh giá chất lượng minh chứng',
+                check: (val) => val && val.quality
+            }
+        ];
+
+        for (const required of requiredFields) {
+            if (required.check) {
+                if (!required.check(evaluation[required.field.split('.')[0]])) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `${required.message} là bắt buộc`
+                    });
+                }
+            } else {
+                if (!evaluation[required.field]) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `${required.message} là bắt buộc`
+                    });
+                }
+            }
         }
 
         await evaluation.submit();
@@ -323,6 +405,8 @@ const submitEvaluation = async (req, res) => {
             await report.save();
         }
 
+        console.log('✅ Evaluation submitted successfully');
+
         res.json({
             success: true,
             message: 'Nộp đánh giá thành công',
@@ -330,10 +414,10 @@ const submitEvaluation = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Submit evaluation error:', error);
+        console.error('❌ Submit evaluation error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi nộp đánh giá'
+            message: error.message || 'Lỗi hệ thống khi nộp đánh giá'
         });
     }
 };
