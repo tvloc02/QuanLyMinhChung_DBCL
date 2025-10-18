@@ -562,7 +562,6 @@ const getExpertWorkload = async (req, res) => {
     }
 };
 
-// ✅ FIX: Proper stats filtering for experts
 const getAssignmentStats = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
@@ -573,50 +572,27 @@ const getAssignmentStats = async (req, res) => {
             expertId = req.user.id;
         }
 
-        let matchQuery = {
-            academicYearId: mongoose.Types.ObjectId(academicYearId)
-        };
-
+        // Tạo filters object cho hàm static
+        const filters = {};
         if (expertId) {
-            matchQuery.expertId = mongoose.Types.ObjectId(expertId);
+            filters.expertId = expertId;
         }
 
-        const stats = await Assignment.aggregate([
-            { $match: matchQuery },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: 1 },
-                    pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-                    accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
-                    inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
-                    completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-                    overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
-                    cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
-                }
-            }
-        ]);
-
-        const defaultStats = {
-            total: 0,
-            pending: 0,
-            accepted: 0,
-            inProgress: 0,
-            completed: 0,
-            overdue: 0,
-            cancelled: 0
-        };
+        // Gọi phương thức static đã được bảo vệ khỏi lỗi CastError
+        const stats = await Assignment.getAssignmentStats(academicYearId, filters);
 
         res.json({
             success: true,
-            data: stats[0] || defaultStats
+            data: stats
         });
 
     } catch (error) {
-        console.error('Get assignment stats error:', error);
+        console.error('Get assignment stats error (Final Check):', error);
+
+        // Bất kỳ lỗi nào không được xử lý trong model (như kết nối DB, v.v.)
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê phân quyền'
+            message: 'Lỗi hệ thống khi lấy thống kê phân quyền. Vui lòng kiểm tra logs server.'
         });
     }
 };
