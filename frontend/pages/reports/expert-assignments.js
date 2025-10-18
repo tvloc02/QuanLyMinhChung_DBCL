@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
+import { ActionButton } from '../../components/ActionButtons'
 import {
     FileText,
     Search,
@@ -11,67 +12,40 @@ import {
     Eye,
     BookOpen,
     BarChart3,
-    Calendar,
     AlertCircle,
     Users,
-    Clock,
     CheckCircle,
-    Download,
     Play,
     X,
     RefreshCw,
     Loader2,
-    ChevronDown,
     ChevronRight,
-    Send,
-    RotateCcw,
+    Plus,
     Trash2
 } from 'lucide-react'
-import { formatDate, formatDatetime } from '../../utils/helpers'
+import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
 const getStatusColor = (status) => {
     const colors = {
-        pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-        accepted: 'bg-blue-100 text-blue-800 border-blue-200',
-        in_progress: 'bg-purple-100 text-purple-800 border-purple-200',
-        completed: 'bg-green-100 text-green-800 border-green-200',
-        overdue: 'bg-red-100 text-red-800 border-red-200',
-        cancelled: 'bg-gray-100 text-gray-800 border-gray-200'
+        pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+        accepted: 'bg-blue-100 text-blue-800 border-blue-300',
+        in_progress: 'bg-purple-100 text-purple-800 border-purple-300',
+        completed: 'bg-green-100 text-green-800 border-green-300',
+        overdue: 'bg-red-100 text-red-800 border-red-300',
+        cancelled: 'bg-gray-100 text-gray-800 border-gray-300'
     }
-    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
 }
 
 const getPriorityColor = (priority) => {
     const colors = {
-        low: 'bg-gray-100 text-gray-800',
-        normal: 'bg-blue-100 text-blue-800',
-        high: 'bg-orange-100 text-orange-800',
-        urgent: 'bg-red-100 text-red-800'
+        low: 'bg-gray-50 text-gray-700 border-gray-300',
+        normal: 'bg-blue-50 text-blue-700 border-blue-300',
+        high: 'bg-orange-50 text-orange-700 border-orange-300',
+        urgent: 'bg-red-50 text-red-700 border-red-300'
     }
-    return colors[priority] || 'bg-gray-100 text-gray-800'
-}
-
-const getRatingColor = (rating) => {
-    const colors = {
-        excellent: 'bg-green-100 text-green-800',
-        good: 'bg-blue-100 text-blue-800',
-        satisfactory: 'bg-yellow-100 text-yellow-800',
-        needs_improvement: 'bg-orange-100 text-orange-800',
-        poor: 'bg-red-100 text-red-800'
-    }
-    return colors[rating] || 'bg-gray-100 text-gray-800'
-}
-
-const getRatingText = (rating) => {
-    const ratingMap = {
-        excellent: 'Xuất sắc',
-        good: 'Tốt',
-        satisfactory: 'Đạt yêu cầu',
-        needs_improvement: 'Cần cải thiện',
-        poor: 'Kém'
-    }
-    return ratingMap[rating] || rating
+    return colors[priority] || 'bg-gray-50 text-gray-700 border-gray-300'
 }
 
 const getStatusLabel = (status) => {
@@ -96,6 +70,17 @@ const getPriorityLabel = (priority) => {
     return labels[priority] || priority
 }
 
+const getRatingText = (rating) => {
+    const ratingMap = {
+        excellent: 'Xuất sắc',
+        good: 'Tốt',
+        satisfactory: 'Đạt yêu cầu',
+        needs_improvement: 'Cần cải thiện',
+        poor: 'Kém'
+    }
+    return ratingMap[rating] || rating
+}
+
 export default function ExpertAssignmentsPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
@@ -116,7 +101,6 @@ export default function ExpertAssignmentsPage() {
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [rejectingId, setRejectingId] = useState(null)
     const [showFilters, setShowFilters] = useState(false)
-    const [expandedRows, setExpandedRows] = useState({})
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -166,7 +150,6 @@ export default function ExpertAssignmentsPage() {
             setStatistics(statsRes.data?.data)
         } catch (error) {
             console.error('Error fetching statistics:', error)
-            // Set default stats nếu lỗi
             setStatistics({
                 total: 0,
                 pending: 0,
@@ -242,13 +225,6 @@ export default function ExpertAssignmentsPage() {
         setShowDetailModal(true)
     }
 
-    const toggleExpandRow = (id) => {
-        setExpandedRows(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }))
-    }
-
     const daysUntilDeadline = (deadline) => {
         const now = new Date()
         const deadlineDate = new Date(deadline)
@@ -259,10 +235,10 @@ export default function ExpertAssignmentsPage() {
 
     const getDeadlineStatus = (deadline) => {
         const days = daysUntilDeadline(deadline)
-        if (days < 0) return { class: 'text-red-600', text: 'Quá hạn' }
-        if (days === 0) return { class: 'text-red-500', text: 'Hôm nay' }
-        if (days <= 3) return { class: 'text-orange-600', text: `${days} ngày nữa` }
-        return { class: 'text-green-600', text: `${days} ngày nữa` }
+        if (days < 0) return { class: 'text-red-600 font-semibold', text: 'Quá hạn' }
+        if (days === 0) return { class: 'text-red-500 font-semibold', text: 'Hôm nay' }
+        if (days <= 3) return { class: 'text-orange-600 font-semibold', text: `${days} ngày` }
+        return { class: 'text-green-600', text: `${days} ngày` }
     }
 
     const clearFilters = () => {
@@ -304,7 +280,7 @@ export default function ExpertAssignmentsPage() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header Stats */}
+                {/* ========== HEADER STATS SECTION - SEPARATED ========== */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center space-x-4 mb-6">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -318,32 +294,32 @@ export default function ExpertAssignmentsPage() {
 
                     {statistics && (
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-blue-100 text-sm mb-1">Tổng phân quyền</p>
-                                <p className="text-3xl font-bold">{statistics.total || 0}</p>
+                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
+                                <p className="text-blue-100 text-sm mb-2 font-semibold">Tổng phân quyền</p>
+                                <p className="text-4xl font-bold">{statistics.total || 0}</p>
                             </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-blue-100 text-sm mb-1">Chờ phản hồi</p>
-                                <p className="text-3xl font-bold">{statistics.pending || 0}</p>
+                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
+                                <p className="text-blue-100 text-sm mb-2 font-semibold">Chờ phản hồi</p>
+                                <p className="text-4xl font-bold text-yellow-300">{statistics.pending || 0}</p>
                             </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-blue-100 text-sm mb-1">Đang đánh giá</p>
-                                <p className="text-3xl font-bold">{(statistics.accepted || 0) + (statistics.inProgress || 0)}</p>
+                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
+                                <p className="text-blue-100 text-sm mb-2 font-semibold">Đang đánh giá</p>
+                                <p className="text-4xl font-bold text-purple-300">{(statistics.accepted || 0) + (statistics.inProgress || 0)}</p>
                             </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-blue-100 text-sm mb-1">Hoàn thành</p>
-                                <p className="text-3xl font-bold">{statistics.completed || 0}</p>
+                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
+                                <p className="text-blue-100 text-sm mb-2 font-semibold">Hoàn thành</p>
+                                <p className="text-4xl font-bold text-green-300">{statistics.completed || 0}</p>
                             </div>
-                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4">
-                                <p className="text-blue-100 text-sm mb-1">Quá hạn</p>
-                                <p className="text-3xl font-bold text-red-200">{statistics.overdue || 0}</p>
+                            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-30">
+                                <p className="text-blue-100 text-sm mb-2 font-semibold">Quá hạn</p>
+                                <p className="text-4xl font-bold text-orange-300">{statistics.overdue || 0}</p>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* Search & Filters */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                {/* ========== SEARCH & FILTER SECTION ========== */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
                             <form onSubmit={handleSearch} className="relative">
@@ -353,7 +329,7 @@ export default function ExpertAssignmentsPage() {
                                     placeholder="Tìm kiếm theo mã/tên báo cáo..."
                                     value={filters.search}
                                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                 />
                             </form>
                         </div>
@@ -363,7 +339,7 @@ export default function ExpertAssignmentsPage() {
                                 className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
                                     showFilters || hasActiveFilters
                                         ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        : 'bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200'
                                 }`}
                             >
                                 <Filter className="h-5 w-5 mr-2" />
@@ -377,7 +353,7 @@ export default function ExpertAssignmentsPage() {
                             <button
                                 onClick={fetchAssignments}
                                 disabled={loading}
-                                className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-semibold"
+                                className="inline-flex items-center px-4 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-100 disabled:opacity-50 transition-all font-semibold"
                             >
                                 <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                                 Làm mới
@@ -386,15 +362,15 @@ export default function ExpertAssignmentsPage() {
                     </div>
 
                     {showFilters && (
-                        <div className="mt-6 pt-6 border-t border-gray-200">
+                        <div className="mt-6 pt-6 border-t border-gray-300">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-sm font-bold text-gray-900">Lọc nâng cao</h3>
                                 {hasActiveFilters && (
                                     <button
                                         onClick={clearFilters}
-                                        className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+                                        className="text-sm text-blue-600 hover:text-blue-700 font-semibold underline"
                                     >
-                                        Xóa tất cả bộ lọc
+                                        ✕ Xóa tất cả
                                     </button>
                                 )}
                             </div>
@@ -406,7 +382,7 @@ export default function ExpertAssignmentsPage() {
                                     <select
                                         value={filters.status}
                                         onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
-                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
                                         <option value="">Tất cả trạng thái</option>
                                         <option value="pending">Chờ phản hồi</option>
@@ -424,7 +400,7 @@ export default function ExpertAssignmentsPage() {
                                     <select
                                         value={filters.priority}
                                         onChange={(e) => setFilters({ ...filters, priority: e.target.value, page: 1 })}
-                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
                                         <option value="">Tất cả ưu tiên</option>
                                         <option value="low">Thấp</option>
@@ -447,19 +423,21 @@ export default function ExpertAssignmentsPage() {
                     )}
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50">
+                {/* ========== TABLE SECTION - SEPARATED ========== */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b-2 border-blue-300">
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-bold text-gray-900">
                                 Danh sách phân quyền
                                 <span className="ml-2 text-sm font-semibold text-blue-600">
-                                    ({pagination?.total || 0} kết quả)
+                                    ({pagination?.total || 0} phân quyền)
                                 </span>
                             </h2>
                         </div>
                     </div>
 
+                    {/* Content */}
                     {loading ? (
                         <div className="flex justify-center items-center py-16">
                             <div className="text-center">
@@ -494,150 +472,151 @@ export default function ExpertAssignmentsPage() {
                         <>
                             <div className="overflow-x-auto">
                                 <table className="w-full border-collapse">
-                                    <thead className="bg-gradient-to-r from-blue-50 to-blue-50">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Mã BC
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 min-w-[240px]">
-                                            Tiêu đề báo cáo
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Người giao
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Hạn chót
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Ưu tiên
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Trạng thái
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Điểm
-                                        </th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200">
-                                            Thao tác
-                                        </th>
+                                    <thead>
+                                    <tr className="bg-gray-100 border-b-2 border-gray-300">
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 w-12">STT</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 w-20">Mã BC</th>
+                                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 min-w-[240px]">Tiêu đề báo cáo</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 min-w-[150px]">Người giao</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 min-w-[120px]">Hạn chót</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 w-28">Ưu tiên</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 w-32">Trạng thái</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-300 w-24">Điểm</th>
+                                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Thao tác</th>
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white">
-                                    {assignments.map((assignment) => (
+                                    {assignments.map((assignment, index) => (
                                         <tr
                                             key={assignment._id}
-                                            className="hover:bg-gray-50 transition-colors border-b border-gray-200"
+                                            className="hover:bg-blue-50 transition-colors border-b border-gray-300"
                                         >
-                                            <td className="px-6 py-4">
-                                                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 whitespace-nowrap">
+                                            {/* STT - Số thứ tự */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300 font-semibold text-gray-700">
+                                                {((pagination.current - 1) * filters.limit) + index + 1}
+                                            </td>
+
+                                            {/* Mã BC */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                                                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-300">
                                                         {assignment.reportId?.code}
                                                     </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="max-w-xs">
+
+                                            {/* Tiêu đề - Căn lề trái */}
+                                            <td className="px-6 py-3 border-r border-gray-300 text-left">
+                                                <div>
                                                     <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={assignment.reportId?.title}>
                                                         {assignment.reportId?.title}
                                                     </p>
                                                     <p className="text-xs text-gray-500 mt-1">
-                                                        {assignment.reportId?.type === 'criteria_analysis' && 'Phân tích tiêu chí'}
-                                                        {assignment.reportId?.type === 'standard_analysis' && 'Phân tích tiêu chuẩn'}
-                                                        {assignment.reportId?.type === 'comprehensive_report' && 'Báo cáo tổng hợp'}
+                                                        {assignment.reportId?.type === 'criteria_analysis' && '📋 Phân tích tiêu chí'}
+                                                        {assignment.reportId?.type === 'standard_analysis' && '📊 Phân tích tiêu chuẩn'}
+                                                        {assignment.reportId?.type === 'comprehensive_report' && '📑 Báo cáo tổng hợp'}
                                                     </p>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-sm">
-                                                <div className="flex items-center space-x-1">
+
+                                            {/* Người giao - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                                                <div className="flex items-center justify-center space-x-1">
                                                     <Users className="h-4 w-4 text-gray-400" />
-                                                    <span className="text-gray-900 font-medium">{assignment.assignedBy?.fullName}</span>
+                                                    <span className="text-sm text-gray-900 font-medium">{assignment.assignedBy?.fullName}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                        <span className={`text-sm font-semibold ${getDeadlineStatus(assignment.deadline).class}`}>
-                                                            {getDeadlineStatus(assignment.deadline).text}
-                                                        </span>
-                                                    <span className="text-xs text-gray-500 mt-1">
-                                                            {formatDate(assignment.deadline)}
-                                                        </span>
+
+                                            {/* Hạn chót - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                                                <div>
+                                                    <p className={`text-sm font-semibold ${getDeadlineStatus(assignment.deadline).class}`}>
+                                                        {getDeadlineStatus(assignment.deadline).text}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        {formatDate(assignment.deadline)}
+                                                    </p>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getPriorityColor(assignment.priority)}`}>
+
+                                            {/* Ưu tiên - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
+                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(assignment.priority)}`}>
                                                         {getPriorityLabel(assignment.priority)}
                                                     </span>
                                             </td>
-                                            <td className="px-6 py-4">
+
+                                            {/* Trạng thái - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
                                                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(assignment.status)}`}>
                                                         {getStatusLabel(assignment.status)}
                                                     </span>
                                             </td>
-                                            <td className="px-6 py-4">
+
+                                            {/* Điểm - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center border-r border-gray-300">
                                                 {assignment.evaluationId?.averageScore ? (
-                                                    <div className="flex flex-col">
-                                                            <span className={`font-semibold text-sm inline-flex px-2 py-1 rounded ${getRatingColor(assignment.evaluationId.rating)}`}>
-                                                                {assignment.evaluationId.averageScore}/10
-                                                            </span>
-                                                        <span className="text-xs text-gray-500 mt-1">
-                                                                {getRatingText(assignment.evaluationId.rating)}
-                                                            </span>
+                                                    <div>
+                                                        <p className="font-bold text-blue-700 text-sm">
+                                                            {assignment.evaluationId.averageScore}/10
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {getRatingText(assignment.evaluationId.rating)}
+                                                        </p>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-500 text-sm">--</span>
+                                                    <span className="text-gray-400 text-sm">--</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end space-x-2">
+
+                                            {/* Thao tác - Căn lề giữa */}
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex items-center justify-center gap-1 flex-wrap">
                                                     {assignment.status === 'pending' && (
                                                         <>
-                                                            <button
+                                                            <ActionButton
+                                                                icon={CheckCircle}
                                                                 onClick={() => handleAccept(assignment._id)}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                                title="Chấp nhận"
-                                                            >
-                                                                <CheckCircle className="h-4 w-4" />
-                                                            </button>
-                                                            <button
+                                                                variant="success"
+                                                                size="sm"
+                                                                title="Chấp nhận phân quyền"
+                                                            />
+                                                            <ActionButton
+                                                                icon={X}
                                                                 onClick={() => {
                                                                     setRejectingId(assignment._id)
                                                                     setShowRejectModal(true)
                                                                 }}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Từ chối"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </button>
+                                                                variant="danger"
+                                                                size="sm"
+                                                                title="Từ chối phân quyền"
+                                                            />
                                                         </>
                                                     )}
 
                                                     {['accepted', 'in_progress', 'overdue'].includes(assignment.status) && (
-                                                        <button
+                                                        <ActionButton
+                                                            icon={assignment.evaluationId ? BookOpen : Play}
                                                             onClick={() => handleStartEvaluation(assignment)}
-                                                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                                            variant="purple"
+                                                            size="sm"
                                                             title={assignment.evaluationId ? 'Tiếp tục đánh giá' : 'Bắt đầu đánh giá'}
-                                                        >
-                                                            {assignment.evaluationId ? (
-                                                                <BookOpen className="h-4 w-4" />
-                                                            ) : (
-                                                                <Play className="h-4 w-4" />
-                                                            )}
-                                                        </button>
+                                                        />
                                                     )}
 
-                                                    <button
+                                                    <ActionButton
+                                                        icon={Eye}
                                                         onClick={() => handleViewReport(assignment.reportId._id)}
-                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        variant="view"
+                                                        size="sm"
                                                         title="Xem báo cáo"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </button>
+                                                    />
 
-                                                    <button
+                                                    <ActionButton
+                                                        icon={ChevronRight}
                                                         onClick={() => handleShowDetail(assignment)}
-                                                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                                                        variant="secondary"
+                                                        size="sm"
                                                         title="Xem chi tiết"
-                                                    >
-                                                        <ChevronRight className="h-4 w-4" />
-                                                    </button>
+                                                    />
                                                 </div>
                                             </td>
                                         </tr>
@@ -648,20 +627,31 @@ export default function ExpertAssignmentsPage() {
 
                             {/* Pagination */}
                             {pagination && pagination.pages > 1 && (
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-50 px-6 py-4 border-t-2 border-blue-200">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm text-gray-700">
-                                            Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                            <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                            <strong className="text-blue-600">{pagination.total}</strong> kết quả
-                                        </p>
+                                <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-t-2 border-gray-300">
+                                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                                        <div className="text-sm text-gray-700 font-semibold">
+                                            Trang <span className="text-blue-600">{pagination.current}</span> / <span className="text-blue-600">{pagination.pages}</span>
+                                            {' | '}
+                                            Hiển thị <span className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</span>
+                                            {' - '}
+                                            <span className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</span>
+                                            {' / Tổng '}
+                                            <span className="text-blue-600">{pagination.total}</span>
+                                        </div>
                                         <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handlePageChange(1)}
+                                                disabled={!pagination.hasPrev}
+                                                className="px-3 py-2 text-sm border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+                                            >
+                                                «
+                                            </button>
                                             <button
                                                 onClick={() => handlePageChange(pagination.current - 1)}
                                                 disabled={!pagination.hasPrev}
-                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
+                                                className="px-3 py-2 text-sm border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
                                             >
-                                                Trước
+                                                ‹ Trước
                                             </button>
                                             {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
                                                 let pageNum;
@@ -679,10 +669,10 @@ export default function ExpertAssignmentsPage() {
                                                     <button
                                                         key={pageNum}
                                                         onClick={() => handlePageChange(pageNum)}
-                                                        className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
+                                                        className={`px-3 py-2 text-sm rounded-lg transition-all font-semibold ${
                                                             pagination.current === pageNum
-                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
-                                                                : 'border-2 border-blue-200 hover:bg-white text-gray-700'
+                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-2 border-blue-600'
+                                                                : 'border-2 border-gray-300 hover:bg-white text-gray-700'
                                                         }`}
                                                     >
                                                         {pageNum}
@@ -692,9 +682,16 @@ export default function ExpertAssignmentsPage() {
                                             <button
                                                 onClick={() => handlePageChange(pagination.current + 1)}
                                                 disabled={!pagination.hasNext}
-                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
+                                                className="px-3 py-2 text-sm border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
                                             >
-                                                Sau
+                                                Sau ›
+                                            </button>
+                                            <button
+                                                onClick={() => handlePageChange(pagination.pages)}
+                                                disabled={!pagination.hasNext}
+                                                className="px-3 py-2 text-sm border-2 border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
+                                            >
+                                                »
                                             </button>
                                         </div>
                                     </div>
@@ -705,7 +702,7 @@ export default function ExpertAssignmentsPage() {
                 </div>
             </div>
 
-            {/* Detail Modal */}
+            {/* ========== DETAIL MODAL ========== */}
             {showDetailModal && selectedAssignment && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
@@ -741,13 +738,13 @@ export default function ExpertAssignmentsPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Ưu tiên</p>
-                                    <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${getPriorityColor(selectedAssignment.priority)}`}>
+                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(selectedAssignment.priority)}`}>
                                         {getPriorityLabel(selectedAssignment.priority)}
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Trạng thái</p>
-                                    <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(selectedAssignment.status)}`}>
+                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(selectedAssignment.status)}`}>
                                         {getStatusLabel(selectedAssignment.status)}
                                     </span>
                                 </div>
@@ -756,33 +753,33 @@ export default function ExpertAssignmentsPage() {
                             {selectedAssignment.assignmentNote && (
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Ghi chú phân công</p>
-                                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg text-sm">
+                                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg text-sm border border-gray-300">
                                         {selectedAssignment.assignmentNote}
                                     </p>
                                 </div>
                             )}
 
                             {selectedAssignment.evaluationId?.averageScore && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                    <p className="text-xs text-blue-600 uppercase font-semibold mb-2">Kết quả đánh giá</p>
+                                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                                    <p className="text-xs text-blue-600 uppercase font-semibold mb-3">Kết quả đánh giá</p>
                                     <div className="grid grid-cols-3 gap-4">
-                                        <div>
-                                            <p className="text-2xl font-bold text-blue-600">
+                                        <div className="text-center">
+                                            <p className="text-3xl font-bold text-blue-600">
                                                 {selectedAssignment.evaluationId.averageScore}
                                             </p>
-                                            <p className="text-xs text-gray-600">Điểm trung bình</p>
+                                            <p className="text-xs text-gray-600 mt-1">Điểm trung bình</p>
                                         </div>
-                                        <div>
-                                            <p className={`text-xs font-medium px-2 py-1 rounded inline-block ${getRatingColor(selectedAssignment.evaluationId.rating)}`}>
+                                        <div className="text-center">
+                                            <p className="text-xs font-semibold text-gray-700 mb-1">Xếp loại</p>
+                                            <p className="text-xs font-bold text-gray-900">
                                                 {getRatingText(selectedAssignment.evaluationId.rating)}
                                             </p>
-                                            <p className="text-xs text-gray-600 mt-1">Xếp loại</p>
                                         </div>
-                                        <div>
-                                            <p className={`text-xs font-medium px-2 py-1 rounded inline-block ${getStatusColor(selectedAssignment.evaluationId.status)}`}>
+                                        <div className="text-center">
+                                            <p className="text-xs font-semibold text-gray-700 mb-1">Tình trạng</p>
+                                            <p className="text-xs font-bold text-gray-900">
                                                 {getStatusLabel(selectedAssignment.evaluationId.status)}
                                             </p>
-                                            <p className="text-xs text-gray-600 mt-1">Tình trạng</p>
                                         </div>
                                     </div>
                                 </div>
@@ -792,7 +789,7 @@ export default function ExpertAssignmentsPage() {
                         <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                             <button
                                 onClick={() => setShowDetailModal(false)}
-                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                                className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
                             >
                                 Đóng
                             </button>
@@ -812,11 +809,11 @@ export default function ExpertAssignmentsPage() {
                 </div>
             )}
 
-            {/* Reject Modal */}
+            {/* ========== REJECT MODAL ========== */}
             {showRejectModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                        <div className="bg-red-50 px-6 py-4 border-b border-red-200">
+                        <div className="bg-red-50 px-6 py-4 border-b-2 border-red-300">
                             <h2 className="text-lg font-bold text-red-900">Từ chối phân quyền</h2>
                             <p className="text-sm text-red-700 mt-1">Vui lòng nhập lý do từ chối</p>
                         </div>
@@ -828,9 +825,9 @@ export default function ExpertAssignmentsPage() {
                                 placeholder="Nhập lý do từ chối..."
                                 maxLength={500}
                                 rows={4}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                             />
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 text-right">
                                 {rejectReason.length}/500 ký tự
                             </p>
                         </div>
@@ -842,7 +839,7 @@ export default function ExpertAssignmentsPage() {
                                     setRejectReason('')
                                     setRejectingId(null)
                                 }}
-                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                                className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
                             >
                                 Hủy
                             </button>
