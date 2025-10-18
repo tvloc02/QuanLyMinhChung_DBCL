@@ -1,9 +1,8 @@
 const User = require('../../models/User/User');
-const Organization = require('../../models/Evidence/Organization');
 const UserGroup = require('../../models/User/UserGroup');
 const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
-const emailService = require('../../services/emailService');
+const emailService = require('../../services/emailService'); // ✅ THÊM IMPORT
 
 const getUsers = async (req, res) => {
     try {
@@ -129,10 +128,10 @@ const createUser = async (req, res) => {
             phoneNumber,
             roles,
             department,
-            position,
-            organizationDepartmentId
+            position
         } = req.body;
 
+        // Validate roles
         let userRoles = roles || ['expert'];
         if (!Array.isArray(userRoles)) {
             userRoles = [userRoles];
@@ -155,6 +154,7 @@ const createUser = async (req, res) => {
             });
         }
 
+        // Lưu email đầy đủ
         const cleanEmail = email.toLowerCase().trim();
 
         const existingUser = await User.findOne({
@@ -168,19 +168,7 @@ const createUser = async (req, res) => {
             });
         }
 
-        if (organizationDepartmentId) {
-            const org = await Organization.findOne({
-                'departments._id': organizationDepartmentId
-            });
-
-            if (!org) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Phòng ban không tồn tại'
-                });
-            }
-        }
-
+        // Tạo password từ email đầy đủ
         const defaultPassword = User.generateDefaultPassword(cleanEmail);
 
         const user = new User({
@@ -193,7 +181,6 @@ const createUser = async (req, res) => {
             status: 'active',
             department: department?.trim(),
             position: position?.trim(),
-            organizationDepartmentId: organizationDepartmentId || undefined,
             mustChangePassword: true,
             createdBy: req.user.id,
             updatedBy: req.user.id
@@ -215,9 +202,12 @@ const createUser = async (req, res) => {
                 }
             });
 
+        // ✅ THÊM MỚI: Gửi email chào mừng
         try {
+            // Tạo email đầy đủ để gửi
             let emailToSend = cleanEmail;
 
+            // Nếu là username đơn giản (không có @), thêm @cmc.edu.vn
             if (!emailToSend.includes('@')) {
                 emailToSend = `${emailToSend}@cmc.edu.vn`;
             }
@@ -235,8 +225,11 @@ const createUser = async (req, res) => {
 
             console.log(`✅ Welcome email sent successfully to: ${emailToSend}`);
         } catch (emailError) {
+            // Không làm fail request nếu email lỗi, chỉ log
             console.error('⚠️ Failed to send welcome email:', emailError.message);
+            console.error('Stack:', emailError.stack);
 
+            // Log vào activity log
             await ActivityLog.logError(req.user.id, 'email_send', emailError, {
                 targetType: 'User',
                 targetId: user._id,
@@ -279,6 +272,7 @@ const updateUser = async (req, res) => {
             });
         }
 
+        // Validate roles nếu có
         if (updateData.roles) {
             let userRoles = updateData.roles;
             if (!Array.isArray(userRoles)) {
@@ -306,29 +300,15 @@ const updateUser = async (req, res) => {
             updateData.role = userRoles[0];
         }
 
-        if (updateData.organizationDepartmentId) {
-            const org = await Organization.findOne({
-                'departments._id': updateData.organizationDepartmentId
-            });
-
-            if (!org) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Phòng ban không tồn tại'
-                });
-            }
-        }
-
         const oldData = {
             fullName: user.fullName,
             roles: user.roles,
             department: user.department,
             position: user.position,
-            phoneNumber: user.phoneNumber,
-            organizationDepartmentId: user.organizationDepartmentId
+            phoneNumber: user.phoneNumber
         };
 
-        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'department', 'position', 'organizationDepartmentId'];
+        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'department', 'position'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -353,8 +333,7 @@ const updateUser = async (req, res) => {
                     roles: user.roles,
                     department: user.department,
                     position: user.position,
-                    phoneNumber: user.phoneNumber,
-                    organizationDepartmentId: user.organizationDepartmentId
+                    phoneNumber: user.phoneNumber
                 }
             });
 
@@ -578,6 +557,7 @@ const resetUserPassword = async (req, res) => {
                 targetName: user.fullName
             });
 
+        // ✅ THÊM MỚI: Gửi email thông báo reset password (tùy chọn)
         try {
             let emailToSend = user.email;
             if (!emailToSend.includes('@')) {
