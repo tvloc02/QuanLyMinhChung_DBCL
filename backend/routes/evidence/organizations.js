@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+//const { setAcademicYearContext } = require('../middleware/academicYear');
 const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
@@ -11,14 +12,15 @@ const {
     createOrganization,
     updateOrganization,
     deleteOrganization,
-    getOrganizationStatistics,
-    addDepartment,
-    updateDepartment,
-    deleteDepartment
+    getOrganizationStatistics
 } = require('../../controllers/evidence/organizationController');
+
+// Apply academic year context to all routes
+//router.use(auth, setAcademicYearContext);
 
 router.use(auth, attachCurrentAcademicYear);
 
+// Validation rules
 const createOrganizationValidation = [
     body('name')
         .notEmpty()
@@ -45,26 +47,11 @@ const createOrganizationValidation = [
 const updateOrganizationValidation = [
     param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
     ...createOrganizationValidation.filter(rule =>
-        !rule.builder.fields.includes('code')
+        !rule.builder.fields.includes('code') // Không cho phép thay đổi mã
     )
 ];
 
-const departmentValidation = [
-    body('name')
-        .notEmpty()
-        .withMessage('Tên phòng ban là bắt buộc')
-        .isLength({ max: 150 })
-        .withMessage('Tên phòng ban không được quá 150 ký tự'),
-    body('email')
-        .optional()
-        .isEmail()
-        .withMessage('Email phòng ban không hợp lệ'),
-    body('phone')
-        .optional()
-        .matches(/^[\d\s\-\+\(\)]+$/)
-        .withMessage('Số điện thoại phòng ban không hợp lệ')
-];
-
+// Routes
 router.get('/statistics',
     requireManager,
     getOrganizationStatistics
@@ -97,34 +84,6 @@ router.put('/:id',
     updateOrganizationValidation,
     validation,
     updateOrganization
-);
-
-router.post('/:id/departments',
-    [
-        param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
-        ...departmentValidation
-    ],
-    validation,
-    addDepartment
-);
-
-router.put('/:id/departments/:deptId',
-    [
-        param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
-        param('deptId').isMongoId().withMessage('ID phòng ban không hợp lệ'),
-        ...departmentValidation
-    ],
-    validation,
-    updateDepartment
-);
-
-router.delete('/:id/departments/:deptId',
-    [
-        param('id').isMongoId().withMessage('ID tổ chức không hợp lệ'),
-        param('deptId').isMongoId().withMessage('ID phòng ban không hợp lệ')
-    ],
-    validation,
-    deleteDepartment
 );
 
 router.delete('/:id',
