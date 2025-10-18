@@ -51,40 +51,6 @@ const organizationSchema = new mongoose.Schema({
         }
     },
 
-    departments: [{
-        _id: mongoose.Schema.Types.ObjectId,
-        name: {
-            type: String,
-            required: [true, 'Tên phòng ban là bắt buộc'],
-            trim: true,
-            maxlength: [150, 'Tên phòng ban không được quá 150 ký tự']
-        },
-        email: {
-            type: String,
-            validate: {
-                validator: function(email) {
-                    if (!email) return true;
-                    return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email);
-                },
-                message: 'Email phòng ban không hợp lệ'
-            }
-        },
-        phone: {
-            type: String,
-            validate: {
-                validator: function(phone) {
-                    if (!phone) return true;
-                    return /^[\d\s\-\+\(\)]+$/.test(phone);
-                },
-                message: 'Số điện thoại phòng ban không hợp lệ'
-            }
-        },
-        createdAt: {
-            type: Date,
-            default: Date.now
-        }
-    }],
-
     status: {
         type: String,
         enum: ['active', 'inactive', 'suspended'],
@@ -136,14 +102,6 @@ organizationSchema.index({ academicYearId: 1, status: 1 });
 organizationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
-    }
-    // Tạo ID cho departments nếu chưa có
-    if (this.departments) {
-        this.departments.forEach(dept => {
-            if (!dept._id) {
-                dept._id = new mongoose.Types.ObjectId();
-            }
-        });
     }
     next();
 });
