@@ -75,7 +75,7 @@ const evaluationSchema = new mongoose.Schema({
 
     overallComment: {
         type: String,
-        required: [true, 'Bình luận tổng thể là bắt buộc'],
+        default: '',
         maxlength: [5000, 'Bình luận tổng thể không được quá 5000 ký tự']
     },
 
