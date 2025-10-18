@@ -140,7 +140,7 @@ export default function ExpertAssignmentsPage() {
 
     const handleAccept = async (assignmentId) => {
         try {
-            await apiMethods.assignments.accept(assignmentId, { responseNote: 'Tôi chấp nhận phân quyền này' })
+            await apiMethods.assignments.accept(assignmentId, { responseNote: '' })
             toast.success('Đã chấp nhận phân quyền')
             fetchAssignments()
             fetchStatistics()
