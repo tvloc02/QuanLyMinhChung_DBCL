@@ -257,12 +257,30 @@ export default function ExpertAssignmentsPage() {
         setShowRejectModal(true)
     }
 
-    const handleStartEvaluation = async (assignment) => {
-        try {
-            router.push(`/evaluations/create?assignmentId=${assignment._id}`)
-        } catch (error) {
-            console.error('Error starting evaluation:', error)
-            toast.error('Lỗi khi bắt đầu đánh giá')
+    const handleStartEvaluation = (assignment) => {
+        if (!['accepted', 'in_progress', 'overdue'].includes(assignment.status)) {
+            toast.error('Phân quyền chưa được chấp nhận')
+            return
+        }
+
+        const evaluationId = assignment.evaluationId?._id
+        const evaluationStatus = assignment.evaluationId?.status
+
+        if (evaluationId) {
+            // ✅ Kiểm tra status của evaluation
+            if (evaluationStatus === 'draft') {
+                // Nếu là bản nháp → vào trang chỉnh sửa
+                console.log('📝 Opening draft evaluation for edit:', evaluationId)
+                router.push(`/reports/evaluations/${evaluationId}/edit`)
+            } else {
+                // Nếu đã submit/supervised/final → vào trang xem chi tiết
+                console.log('👁️ Opening submitted evaluation for view:', evaluationId)
+                router.push(`/reports/evaluations/${evaluationId}`)
+            }
+        } else {
+            // Chưa có evaluation → tạo mới
+            console.log('✨ Creating new evaluation for assignment:', assignment._id)
+            router.push(`/reports/evaluations/new?assignmentId=${assignment._id}`)
         }
     }
 
@@ -369,7 +387,7 @@ export default function ExpertAssignmentsPage() {
 
     return (
         <Layout breadcrumbItems={breadcrumbItems}>
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+            <div className="min-h-screen bg-gradient-to-br p-6">
                 <div className="max-w-7xl mx-auto space-y-6">
                     {/* ========== HEADER ========== */}
                     <div className="flex items-center justify-between">
@@ -394,7 +412,7 @@ export default function ExpertAssignmentsPage() {
                     {/* ========== STATISTICS ========== */}
                     {statistics && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4 border-blue-500">
+                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">Tổng phân quyền</p>
@@ -404,7 +422,7 @@ export default function ExpertAssignmentsPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4 border-yellow-500">
+                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">Chờ phản hồi</p>
@@ -414,7 +432,7 @@ export default function ExpertAssignmentsPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4 border-purple-500">
+                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">Đang đánh giá</p>
@@ -424,7 +442,7 @@ export default function ExpertAssignmentsPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4 border-green-500">
+                            <div className="bg-white rounded-xl shadow-md p-4 border-l-4">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-semibold">Hoàn thành</p>
@@ -437,7 +455,7 @@ export default function ExpertAssignmentsPage() {
                     )}
 
                     {/* ========== FILTERS ========== */}
-                    <div className="bg-white rounded-xl shadow-md p-4 border-t-4 border-blue-400">
+                    <div className="bg-white rounded-xl shadow-md p-4 border-t-4">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Filter className="w-5 h-5 text-blue-600" />
@@ -538,7 +556,7 @@ export default function ExpertAssignmentsPage() {
                     )}
 
                     {/* ========== TABLE ========== */}
-                    <div className="bg-white rounded-xl shadow-md border-t-4 border-blue-400 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-md border-t-4 overflow-hidden">
                         {loading ? (
                             <div className="flex items-center justify-center h-64">
                                 <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -563,9 +581,8 @@ export default function ExpertAssignmentsPage() {
                                                 />
                                             </th>
                                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">STT</th>
-                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Tiêu đề báo cáo</th>
-                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Loại</th>
-                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Tiêu chuẩn</th>
+                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Mã BC</th>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Tên báo cáo</th>
                                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Người giao</th>
                                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Hạn chót</th>
                                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-200">Ưu tiên</th>
@@ -587,17 +604,11 @@ export default function ExpertAssignmentsPage() {
                                                 <td className="px-4 py-3 text-center border-r border-gray-200 font-bold text-gray-900">
                                                     {((pagination?.current - 1) * filters.limit) + index + 1}
                                                 </td>
+                                                <td className="px-4 py-3 text-center border-r border-gray-200 text-sm">
+                                                    <span className="text-blue-600 font-semibold">{assignment.reportId?.code || 'N/A'}</span>
+                                                </td>
                                                 <td className="px-4 py-3 border-r border-gray-200 text-sm">
-                                                    <div>
-                                                        <p className="font-bold text-blue-700">{assignment.reportId?.title || 'N/A'}</p>
-                                                        <p className="text-xs text-gray-500 mt-1">{assignment.reportId?.code || 'N/A'}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
-                                                    {assignment.reportId?.type || 'N/A'}
-                                                </td>
-                                                <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
-                                                    N/A
+                                                    <p className="font-semibold text-gray-900">{assignment.reportId?.title || 'N/A'}</p>
                                                 </td>
                                                 <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
                                                     {assignment.assignedBy?.fullName || 'N/A'}
@@ -631,41 +642,44 @@ export default function ExpertAssignmentsPage() {
                                                             title="Xem chi tiết"
                                                         />
 
-                                                        {/* CHẤP NHẬN - Chỉ hiển thị khi pending */}
-                                                        {assignment.status === 'pending' && (
-                                                            <ActionButton
-                                                                icon={Check}
-                                                                variant="success"
-                                                                size="sm"
-                                                                onClick={() => handleAccept(assignment._id)}
-                                                                title="Chấp nhận phân quyền"
-                                                            />
-                                                        )}
+                                                        {/* CHẤP NHẬN - Chỉ hiển thị khi pending, mờ khi ko có chức năng */}
+                                                        <ActionButton
+                                                            icon={Check}
+                                                            variant="success"
+                                                            size="sm"
+                                                            disabled={assignment.status !== 'pending'}
+                                                            onClick={() => handleAccept(assignment._id)}
+                                                            title={assignment.status === 'pending' ? 'Chấp nhận phân quyền' : 'Chỉ chấp nhận khi chờ phản hồi'}
+                                                        />
 
-                                                        {/* TỪ CHỐI - Chỉ hiển thị khi pending */}
-                                                        {assignment.status === 'pending' && (
-                                                            <ActionButton
-                                                                icon={XCircle}
-                                                                variant="delete"
-                                                                size="sm"
-                                                                onClick={() => {
+                                                        {/* TỪ CHỐI - Chỉ hiển thị khi pending, mờ khi ko có chức năng */}
+                                                        <ActionButton
+                                                            icon={XCircle}
+                                                            variant="delete"
+                                                            size="sm"
+                                                            disabled={assignment.status !== 'pending'}
+                                                            onClick={() => {
+                                                                if (assignment.status === 'pending') {
                                                                     setRejectingIds([assignment._id])
                                                                     setShowRejectModal(true)
-                                                                }}
-                                                                title="Từ chối phân quyền"
-                                                            />
-                                                        )}
+                                                                }
+                                                            }}
+                                                            title={assignment.status === 'pending' ? 'Từ chối phân quyền' : 'Chỉ từ chối khi chờ phản hồi'}
+                                                        />
 
-                                                        {/* BẮT ĐẦU ĐÁNH GIÁ - Chỉ hiển thị khi accepted, in_progress, overdue */}
-                                                        {['accepted', 'in_progress', 'overdue'].includes(assignment.status) && (
-                                                            <ActionButton
-                                                                icon={Play}
-                                                                variant="primary"
-                                                                size="sm"
-                                                                onClick={() => handleStartEvaluation(assignment)}
-                                                                title={assignment.evaluationId ? 'Tiếp tục đánh giá' : 'Bắt đầu đánh giá'}
-                                                            />
-                                                        )}
+                                                        {/* BẮT ĐẦU ĐÁNH GIÁ - Chỉ hiển thị khi accepted, in_progress, overdue, mờ khi ko có chức năng */}
+                                                        <ActionButton
+                                                            icon={Play}
+                                                            variant="primary"
+                                                            size="sm"
+                                                            disabled={!['accepted', 'in_progress', 'overdue'].includes(assignment.status)}
+                                                            onClick={() => {
+                                                                if (['accepted', 'in_progress', 'overdue'].includes(assignment.status)) {
+                                                                    handleStartEvaluation(assignment)
+                                                                }
+                                                            }}
+                                                            title={['accepted', 'in_progress', 'overdue'].includes(assignment.status) ? (assignment.evaluationId ? 'Tiếp tục đánh giá' : 'Bắt đầu đánh giá') : 'Chỉ đánh giá khi đã chấp nhận'}
+                                                        />
 
                                                         {/* XÓA - Hiển thị với tất cả trạng thái */}
                                                         <ActionButton
