@@ -17,17 +17,6 @@ import {
 import { formatDate } from '../../../utils/helpers'
 import toast from 'react-hot-toast'
 
-const getRatingColor = (rating) => {
-    const colors = {
-        excellent: 'text-green-600',
-        good: 'text-blue-600',
-        satisfactory: 'text-yellow-600',
-        needs_improvement: 'text-orange-600',
-        poor: 'text-red-600'
-    }
-    return colors[rating] || 'text-gray-600'
-}
-
 export default function EvaluationFormPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
@@ -41,12 +30,11 @@ export default function EvaluationFormPage() {
     const [report, setReport] = useState(null)
     const [progress, setProgress] = useState(0)
 
+    // ✅ FIXED: Only send required fields to backend
     const [formData, setFormData] = useState({
         criteriaScores: [],
         overallComment: '',
-        strengths: [],
-        improvementAreas: [],
-        recommendations: [],
+        rating: 'satisfactory',
         evidenceAssessment: {
             adequacy: 'adequate',
             relevance: 'fair',
@@ -87,9 +75,7 @@ export default function EvaluationFormPage() {
             setFormData({
                 criteriaScores: data.criteriaScores || [],
                 overallComment: data.overallComment || '',
-                strengths: data.strengths || [],
-                improvementAreas: data.improvementAreas || [],
-                recommendations: data.recommendations || [],
+                rating: data.rating || 'satisfactory',
                 evidenceAssessment: data.evidenceAssessment || {
                     adequacy: 'adequate',
                     relevance: 'fair',
@@ -142,13 +128,10 @@ export default function EvaluationFormPage() {
         if (!currentEval) return
 
         let completed = 0
-        let total = 5
+        let total = 2
 
         if (currentEval.overallComment) completed++
-        if (currentEval.rating) completed++
-        if (currentEval.evidenceAssessment?.adequacy) completed++
-        if (currentEval.evidenceAssessment?.relevance) completed++
-        if (currentEval.evidenceAssessment?.quality) completed++
+        if (currentEval.rating && currentEval.rating !== 'satisfactory') completed++
 
         setProgress(Math.round((completed / total) * 100))
     }
@@ -159,79 +142,18 @@ export default function EvaluationFormPage() {
         setFormData({ ...formData, criteriaScores: updated })
     }
 
-    const handleAddStrength = () => {
-        setFormData({
-            ...formData,
-            strengths: [...formData.strengths, { point: '', evidenceReference: '' }]
-        })
-    }
-
-    const handleRemoveStrength = (index) => {
-        setFormData({
-            ...formData,
-            strengths: formData.strengths.filter((_, i) => i !== index)
-        })
-    }
-
-    const handleStrengthChange = (index, field, value) => {
-        const updated = [...formData.strengths]
-        updated[index] = { ...updated[index], [field]: value }
-        setFormData({ ...formData, strengths: updated })
-    }
-
-    const handleAddImprovement = () => {
-        setFormData({
-            ...formData,
-            improvementAreas: [...formData.improvementAreas, { area: '', recommendation: '', priority: 'medium' }]
-        })
-    }
-
-    const handleRemoveImprovement = (index) => {
-        setFormData({
-            ...formData,
-            improvementAreas: formData.improvementAreas.filter((_, i) => i !== index)
-        })
-    }
-
-    const handleImprovementChange = (index, field, value) => {
-        const updated = [...formData.improvementAreas]
-        updated[index] = { ...updated[index], [field]: value }
-        setFormData({ ...formData, improvementAreas: updated })
-    }
-
-    const handleAddRecommendation = () => {
-        setFormData({
-            ...formData,
-            recommendations: [...formData.recommendations, { recommendation: '', type: 'short_term', priority: 'medium' }]
-        })
-    }
-
-    const handleRemoveRecommendation = (index) => {
-        setFormData({
-            ...formData,
-            recommendations: formData.recommendations.filter((_, i) => i !== index)
-        })
-    }
-
-    const handleRecommendationChange = (index, field, value) => {
-        const updated = [...formData.recommendations]
-        updated[index] = { ...updated[index], [field]: value }
-        setFormData({ ...formData, recommendations: updated })
-    }
-
-    const handleAutoSave = async () => {
-        try {
-            await apiMethods.evaluations.autoSave(id, formData)
-            // Silently auto-save
-        } catch (error) {
-            console.error('Auto-save error:', error)
-        }
-    }
-
     const handleSave = async () => {
         try {
             setSaving(true)
-            await apiMethods.evaluations.update(id, formData)
+            // ✅ FIXED: Only send required fields
+            const submitData = {
+                criteriaScores: formData.criteriaScores,
+                overallComment: formData.overallComment,
+                rating: formData.rating,
+                evidenceAssessment: formData.evidenceAssessment
+            }
+
+            await apiMethods.evaluations.update(id, submitData)
             toast.success('Đánh giá đã được lưu')
             fetchEvaluation()
         } catch (error) {
@@ -318,44 +240,74 @@ export default function EvaluationFormPage() {
                 </div>
 
                 {/* Criteria Scores */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Điểm theo tiêu chí</h2>
+                {formData.criteriaScores.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Điểm theo tiêu chí</h2>
 
-                    <div className="space-y-4">
-                        {formData.criteriaScores.map((criteria, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-gray-900">{criteria.criteriaName}</h3>
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            Trọng số: {(criteria.weight * 100).toFixed(0)}% | Điểm tối đa: {criteria.maxScore}
-                                        </p>
+                        <div className="space-y-4">
+                            {formData.criteriaScores.map((criteria, idx) => (
+                                <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                            <h3 className="font-semibold text-gray-900">{criteria.criteriaName}</h3>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                Trọng số: {(criteria.weight * 100).toFixed(0)}% | Điểm tối đa: {criteria.maxScore}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max={criteria.maxScore}
+                                                step="0.5"
+                                                value={criteria.score}
+                                                onChange={(e) => handleCriteriaScoreChange(idx, 'score', parseFloat(e.target.value) || 0)}
+                                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <span className="text-gray-600">/ {criteria.maxScore}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max={criteria.maxScore}
-                                            value={criteria.score}
-                                            onChange={(e) => handleCriteriaScoreChange(idx, 'score', parseFloat(e.target.value))}
-                                            className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        <span className="text-gray-600">/ {criteria.maxScore}</span>
-                                    </div>
+
+                                    <textarea
+                                        value={criteria.comment}
+                                        onChange={(e) => handleCriteriaScoreChange(idx, 'comment', e.target.value)}
+                                        placeholder="Bình luận cho tiêu chí này..."
+                                        maxLength={2000}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {criteria.comment?.length || 0}/2000 ký tự
+                                    </p>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-                                <textarea
-                                    value={criteria.comment}
-                                    onChange={(e) => handleCriteriaScoreChange(idx, 'comment', e.target.value)}
-                                    placeholder="Bình luận cho tiêu chí này..."
-                                    maxLength={2000}
-                                    rows={2}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    {criteria.comment?.length || 0}/2000 ký tự
-                                </p>
-                            </div>
+                {/* Rating Selection */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Xếp loại đánh giá</h2>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        {[
+                            { value: 'poor', label: 'Kém', color: 'red' },
+                            { value: 'needs_improvement', label: 'Cần cải thiện', color: 'orange' },
+                            { value: 'satisfactory', label: 'Đạt yêu cầu', color: 'yellow' },
+                            { value: 'good', label: 'Tốt', color: 'blue' },
+                            { value: 'excellent', label: 'Xuất sắc', color: 'green' }
+                        ].map((option) => (
+                            <button
+                                key={option.value}
+                                onClick={() => setFormData({ ...formData, rating: option.value })}
+                                className={`p-3 rounded-lg border-2 transition-all ${
+                                    formData.rating === option.value
+                                        ? `border-${option.color}-500 bg-${option.color}-50`
+                                        : 'border-gray-300 hover:border-gray-400'
+                                }`}
+                            >
+                                <p className="font-medium text-sm text-gray-900">{option.label}</p>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -366,7 +318,10 @@ export default function EvaluationFormPage() {
 
                     <textarea
                         value={formData.overallComment}
-                        onChange={(e) => setFormData({ ...formData, overallComment: e.target.value })}
+                        onChange={(e) => {
+                            setFormData({ ...formData, overallComment: e.target.value })
+                            calculateProgress()
+                        }}
                         placeholder="Nhập nhận xét tổng thể về báo cáo..."
                         maxLength={5000}
                         rows={5}
@@ -449,161 +404,6 @@ export default function EvaluationFormPage() {
                     </div>
                 </div>
 
-                {/* Strengths */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">Điểm mạnh</h2>
-                        <button
-                            onClick={handleAddStrength}
-                            className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Thêm
-                        </button>
-                    </div>
-
-                    <div className="space-y-3">
-                        {formData.strengths.map((strength, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
-                                <div className="flex-1 space-y-2">
-                                    <input
-                                        type="text"
-                                        value={strength.point}
-                                        onChange={(e) => handleStrengthChange(idx, 'point', e.target.value)}
-                                        placeholder="Mô tả điểm mạnh..."
-                                        maxLength={500}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={strength.evidenceReference}
-                                        onChange={(e) => handleStrengthChange(idx, 'evidenceReference', e.target.value)}
-                                        placeholder="Tham chiếu minh chứng..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleRemoveStrength(idx)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Improvement Areas */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">Cần cải thiện</h2>
-                        <button
-                            onClick={handleAddImprovement}
-                            className="flex items-center px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                        >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Thêm
-                        </button>
-                    </div>
-
-                    <div className="space-y-3">
-                        {formData.improvementAreas.map((area, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
-                                <div className="flex-1 space-y-2">
-                                    <input
-                                        type="text"
-                                        value={area.area}
-                                        onChange={(e) => handleImprovementChange(idx, 'area', e.target.value)}
-                                        placeholder="Mô tả lĩnh vực cần cải thiện..."
-                                        maxLength={500}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <textarea
-                                        value={area.recommendation}
-                                        onChange={(e) => handleImprovementChange(idx, 'recommendation', e.target.value)}
-                                        placeholder="Khuyến nghị..."
-                                        maxLength={1000}
-                                        rows={2}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                    />
-                                    <select
-                                        value={area.priority}
-                                        onChange={(e) => handleImprovementChange(idx, 'priority', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="low">Ưu tiên thấp</option>
-                                        <option value="medium">Ưu tiên trung bình</option>
-                                        <option value="high">Ưu tiên cao</option>
-                                    </select>
-                                </div>
-                                <button
-                                    onClick={() => handleRemoveImprovement(idx)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-gray-900">Khuyến nghị</h2>
-                        <button
-                            onClick={handleAddRecommendation}
-                            className="flex items-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                        >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Thêm
-                        </button>
-                    </div>
-
-                    <div className="space-y-3">
-                        {formData.recommendations.map((rec, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-lg p-4 flex gap-3">
-                                <div className="flex-1 space-y-2">
-                                    <textarea
-                                        value={rec.recommendation}
-                                        onChange={(e) => handleRecommendationChange(idx, 'recommendation', e.target.value)}
-                                        placeholder="Nội dung khuyến nghị..."
-                                        maxLength={1000}
-                                        rows={2}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                    />
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <select
-                                            value={rec.type}
-                                            onChange={(e) => handleRecommendationChange(idx, 'type', e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="immediate">Ngay lập tức</option>
-                                            <option value="short_term">Ngắn hạn</option>
-                                            <option value="long_term">Dài hạn</option>
-                                        </select>
-                                        <select
-                                            value={rec.priority}
-                                            onChange={(e) => handleRecommendationChange(idx, 'priority', e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="low">Ưu tiên thấp</option>
-                                            <option value="medium">Ưu tiên trung bình</option>
-                                            <option value="high">Ưu tiên cao</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleRemoveRecommendation(idx)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-lg shadow-lg">
                     <button
@@ -622,7 +422,7 @@ export default function EvaluationFormPage() {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={submitting || progress < 100}
+                        disabled={submitting || !formData.overallComment.trim()}
                         className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                     >
                         <Send className="h-4 w-4 mr-2" />
