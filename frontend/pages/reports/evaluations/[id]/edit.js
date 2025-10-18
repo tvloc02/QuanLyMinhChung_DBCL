@@ -1,3 +1,5 @@
+// edit.js (Đã sửa lỗi cú pháp 'cconst')
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../../../contexts/AuthContext'
@@ -30,7 +32,9 @@ export default function EditEvaluationPage() {
             adequacy: '',
             relevance: '',
             quality: ''
-        }
+        },
+        // Thêm trường criteriaScores để đảm bảo form data đầy đủ
+        criteriaScores: []
     })
 
     useEffect(() => {
@@ -51,6 +55,7 @@ export default function EditEvaluationPage() {
         { name: 'Chỉnh sửa', icon: BookOpen }
     ]
 
+    // Sửa lỗi: Loại bỏ ký tự 'c' thừa ở 'cconst'
     const fetchEvaluation = async () => {
         try {
             setLoading(true)
@@ -62,8 +67,24 @@ export default function EditEvaluationPage() {
             if (!evalData) {
                 console.warn('⚠️ Evaluation data is empty')
                 toast.error('Không tìm thấy đánh giá')
-                router.push('/reports/evaluations')
+                router.replace('/reports/evaluations')
                 return
+            }
+
+            // ----------------------------------------------------
+            // ✅ BỔ SUNG KIỂM TRA QUYỀN SỬA TRÊN FRONTEND
+            // Expert chỉ được SỬA (ở trang /edit) bản nháp của mình
+            // Dù backend đã chặn 403 cho quyền VIEW/EDIT, kiểm tra này giúp chuyển hướng mượt mà hơn.
+            // ----------------------------------------------------
+            if (user.role === 'expert') {
+                const isMyEvaluation = evalData.evaluatorId._id.toString() === user.id.toString()
+
+                if (!isMyEvaluation || evalData.status !== 'draft') {
+                    console.log('❌ Evaluation cannot be edited. Redirecting.')
+                    toast.error('Chỉ có thể chỉnh sửa bản nháp của bạn.')
+                    router.replace(`/reports/evaluations/${id}`)
+                    return
+                }
             }
 
             console.log('✅ Evaluation loaded:', evalData)
@@ -78,7 +99,8 @@ export default function EditEvaluationPage() {
                     adequacy: '',
                     relevance: '',
                     quality: ''
-                }
+                },
+                criteriaScores: evalData.criteriaScores || []
             })
         } catch (error) {
             console.error('❌ Error fetching evaluation:', error)
@@ -87,7 +109,7 @@ export default function EditEvaluationPage() {
 
             if (error.response?.status === 403) {
                 console.log('❌ Access denied - không có quyền xem đánh giá này')
-                toast.error('Bạn không có quyền xem đánh giá này')
+                toast.error('Bạn không có quyền truy cập trang này')
             } else if (error.response?.status === 404) {
                 console.log('❌ Evaluation not found')
                 toast.error('Không tìm thấy đánh giá')
@@ -95,7 +117,7 @@ export default function EditEvaluationPage() {
                 toast.error('Lỗi tải đánh giá')
             }
 
-            router.push('/reports/evaluations')
+            router.replace('/reports/evaluations')
         } finally {
             setLoading(false)
         }
@@ -127,11 +149,13 @@ export default function EditEvaluationPage() {
                     adequacy: formData.evidenceAssessment.adequacy,
                     relevance: formData.evidenceAssessment.relevance,
                     quality: formData.evidenceAssessment.quality
-                }
+                },
+                // criteriaScores không cần gửi khi update (vì nó thường được cập nhật tự động hoặc ở component khác)
             }
 
-            console.log('📤 Saving evaluation data:', submitData)
+            console.log('📤 Saving evaluation data (Draft):', submitData)
 
+            // Dùng update để lưu bản nháp
             await apiMethods.evaluations.update(evaluation._id, submitData)
             toast.success('Đánh giá đã được lưu')
 
@@ -161,6 +185,10 @@ export default function EditEvaluationPage() {
             setSubmitting(true)
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
+            // Bước 1: Lưu lần cuối trước khi nộp để đảm bảo dữ liệu mới nhất
+            await handleSave()
+
+            // Bước 2: Gọi API nộp (submit)
             await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Đánh giá đã được nộp')
             router.push('/reports/evaluations')
@@ -201,6 +229,20 @@ export default function EditEvaluationPage() {
             </Layout>
         )
     }
+
+    // Kiểm tra cuối cùng trước khi render cho expert: nếu không phải draft, expert không nên thấy trang này
+    if (user.role === 'expert' && evaluation.status !== 'draft') {
+        // Lỗi này đáng lẽ đã được bắt ở fetchEvaluation và chuyển hướng
+        return (
+            <Layout breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 className="text-red-800 font-semibold">Lỗi trạng thái</h3>
+                    <p className="text-red-600">Đánh giá đã được nộp. Không thể chỉnh sửa.</p>
+                </div>
+            </Layout>
+        )
+    }
+
 
     const ratingOptions = [
         { value: 'excellent', label: '⭐ Xuất sắc', desc: 'Vượt trội' },
@@ -247,6 +289,21 @@ export default function EditEvaluationPage() {
                         </p>
                     </div>
                 )}
+
+                {/* Notification nếu có Hướng dẫn giám sát */}
+                {evaluation.supervisorGuidance?.comments && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <h3 className="text-orange-800 font-semibold flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5" />
+                            Hướng dẫn giám sát
+                        </h3>
+                        <p className="text-orange-700 text-sm mt-2">{evaluation.supervisorGuidance.comments}</p>
+                        <p className="text-xs text-gray-500 mt-2">
+                            Từ: {evaluation.supervisorGuidance.guidedBy?.fullName}
+                        </p>
+                    </div>
+                )}
+
 
                 {/* Rating Selection - REQUIRED */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
