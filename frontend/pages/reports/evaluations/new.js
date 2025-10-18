@@ -86,14 +86,70 @@ export default function EvaluationFormPage() {
     const createNewEvaluation = async () => {
         try {
             setLoading(true)
-            const assignmentRes = await apiMethods.assignments.getById(assignmentId)
-            const assignmentData = assignmentRes.data?.data || assignmentRes.data
+
+            // ✅ Step 1: Lấy thông tin assignment
+            console.log('📥 Fetching assignment:', assignmentId)
+            let assignmentData
+            try {
+                const assignmentRes = await apiMethods.assignments.getById(assignmentId)
+                assignmentData = assignmentRes.data?.data || assignmentRes.data
+                console.log('✅ Assignment fetched:', assignmentData)
+            } catch (assignmentError) {
+                console.error('❌ Assignment fetch error:', assignmentError)
+                toast.error('Không thể tải thông tin phân quyền. ID không hợp lệ hoặc không tồn tại.')
+                router.push('/reports/expert-assignments')
+                return
+            }
+
+            if (!assignmentData) {
+                toast.error('Không tìm thấy thông tin phân quyền')
+                router.push('/reports/expert-assignments')
+                return
+            }
 
             setReport(assignmentData.reportId)
 
-            // ✅ Tạo evaluation mới
-            const createRes = await apiMethods.evaluations.create({ assignmentId })
-            const newEvaluation = createRes.data?.data || createRes.data
+            // ✅ Step 2: Tạo evaluation mới
+            console.log('📤 Creating evaluation for assignmentId:', assignmentId)
+            let newEvaluation
+            try {
+                const createRes = await apiMethods.evaluations.create({ assignmentId })
+                newEvaluation = createRes.data?.data || createRes.data
+                console.log('✅ Evaluation created:', newEvaluation)
+            } catch (createError) {
+                console.error('❌ Create evaluation error:', createError)
+                const errorMsg = createError.response?.data?.message || 'Lỗi tạo đánh giá'
+                toast.error(errorMsg)
+
+                // Nếu lỗi là "đánh giá đã tồn tại", hãy thử tìm evaluation cũ
+                if (errorMsg.includes('đã tồn tại')) {
+                    console.log('📥 Evaluation already exists, trying to fetch...')
+                    try {
+                        const listRes = await apiMethods.evaluations.getAll({
+                            assignmentId,
+                            limit: 1
+                        })
+                        const evaluations = listRes.data?.data?.evaluations || []
+                        if (evaluations.length > 0) {
+                            const existingEval = evaluations[0]
+                            console.log('✅ Found existing evaluation:', existingEval._id)
+                            router.push(`/reports/evaluations/${existingEval._id}`)
+                            return
+                        }
+                    } catch (fetchError) {
+                        console.error('Error fetching existing evaluation:', fetchError)
+                    }
+                }
+
+                router.push('/reports/expert-assignments')
+                return
+            }
+
+            if (!newEvaluation) {
+                toast.error('Không thể tạo đánh giá - dữ liệu trống')
+                router.push('/reports/expert-assignments')
+                return
+            }
 
             setEvaluation(newEvaluation)
             setFormData({
@@ -106,8 +162,8 @@ export default function EvaluationFormPage() {
                 }
             })
         } catch (error) {
-            console.error('Error creating evaluation:', error)
-            toast.error(error.response?.data?.message || 'Lỗi tạo đánh giá')
+            console.error('❌ Unexpected error creating evaluation:', error)
+            toast.error('Lỗi khi tạo đánh giá')
             router.push('/reports/expert-assignments')
         } finally {
             setLoading(false)
