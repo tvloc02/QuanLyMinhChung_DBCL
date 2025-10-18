@@ -92,7 +92,7 @@ const getAssignments = async (req, res) => {
                 .populate('reportId', 'title type code')
                 .populate('expertId', 'fullName email')
                 .populate('assignedBy', 'fullName email')
-                .populate('evaluationId', 'averageScore status')
+                .populate('evaluationId', 'averageScore status rating')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -562,10 +562,16 @@ const getExpertWorkload = async (req, res) => {
     }
 };
 
+// ✅ FIX: Proper stats filtering for experts
 const getAssignmentStats = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
-        const { expertId } = req.query;
+        let { expertId } = req.query;
+
+        // Nếu là expert, chỉ xem stats của chính mình
+        if (req.user.role === 'expert') {
+            expertId = req.user.id;
+        }
 
         let matchQuery = {
             academicYearId: mongoose.Types.ObjectId(academicYearId)
@@ -592,8 +598,13 @@ const getAssignmentStats = async (req, res) => {
         ]);
 
         const defaultStats = {
-            total: 0, pending: 0, accepted: 0, inProgress: 0,
-            completed: 0, overdue: 0, cancelled: 0
+            total: 0,
+            pending: 0,
+            accepted: 0,
+            inProgress: 0,
+            completed: 0,
+            overdue: 0,
+            cancelled: 0
         };
 
         res.json({
@@ -834,22 +845,6 @@ const bulkCreateAssignments = async (req, res) => {
         }
 
         await Promise.all(notifications);
-
-        // Log activity
-        await ActivityLog.logCriticalAction(
-            req.user.id,
-            'assignment_bulk_create',
-            `Tạo ${newAssignments.length} phân công đánh giá hàng loạt`,
-            {
-                severity: 'high',
-                metadata: {
-                    totalCreated: newAssignments.length,
-                    totalSkipped: skipped.length,
-                    reports: reportIds.length,
-                    experts: expertIds.length
-                }
-            }
-        );
 
         res.status(201).json({
             success: true,
