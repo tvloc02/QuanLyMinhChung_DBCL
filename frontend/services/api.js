@@ -295,22 +295,22 @@ export const apiMethods = {
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
     },
 
+    // ✅ FIXED: Corrected API endpoints for assignments
     assignments: {
         getAll: (params) => api.get('/api/assignments', { params }),
         getById: (id) => api.get(`/api/assignments/${id}`),
         create: (data) => api.post('/api/assignments', data),
         update: (id, data) => api.put(`/api/assignments/${id}`, data),
         delete: (id) => api.delete(`/api/assignments/${id}`),
-        getExpertWorkload: (expertId) => api.get(`/api/assignments/expert-workload/${expertId}`),
+        getExpertWorkload: (expertId) => api.get('/api/assignments/expert-workload', { params: { expertId } }),
         getStats: () => api.get('/api/assignments/stats'),
-        accept: (id) => api.post(`/api/assignments/${id}/accept`),
-        reject: (id, responseNote) => api.post(`/api/assignments/${id}/reject`, { responseNote }),
-        cancel: (id, responseNote) => api.post(`/api/assignments/${id}/cancel`, { responseNote }),
+        accept: (id, data = {}) => api.post(`/api/assignments/${id}/accept`, data),
+        reject: (id, data = {}) => api.post(`/api/assignments/${id}/reject`, data),
+        cancel: (id, data = {}) => api.post(`/api/assignments/${id}/cancel`, data),
         getWorkload: (expertId) =>
             api.get('/api/assignments/expert-workload', { params: { expertId } }),
-        getUpcomingDeadlines: (academicYearId, days) =>
+        getUpcomingDeadlines: (days = 7) =>
             api.get('/api/assignments/upcoming-deadlines', { params: { days } }),
-
         bulkCreate: (data) => api.post('/api/assignments/bulk-create', data)
     },
 
@@ -318,31 +318,31 @@ export const apiMethods = {
         getAll: (params) => api.get('/api/evaluations', { params }),
         getById: (id) => api.get(`/api/evaluations/${id}`),
         create: (data) => api.post('/api/evaluations', data),
-        update: (id, data) => api.put('/api/evaluations/${id}', data),
-        submit: (id) => api.post('/api/evaluations/${id}/submit'),
-        review: (id, data) => api.post('/api/evaluations/${id}/review', data),
-        finalize: (id, data) => api.post('/api/evaluations/${id}/finalize', data),
-        autoSave: (id, data) => api.put('/api/evaluations/${id}/autosave', data),
-        getEvaluatorStats: (evaluatorId) => api.get('/api/evaluations/evaluator-stats/${evaluatorId}'),
-        getSystemStats: () => api.get('/api/evaluations/system-stats'),
-        getAverageScoreByReport: (reportId) => api.get('/api/evaluations/average-score/${reportId}'),
+        update: (id, data) => api.put(`/api/evaluations/${id}`, data),
+        submit: (id) => api.post(`/api/evaluations/${id}/submit`),
+        supervise: (id, data) => api.post(`/api/evaluations/${id}/supervise`, data),
+        finalize: (id) => api.post(`/api/evaluations/${id}/finalize`),
+        autoSave: (id, data) => api.put(`/api/evaluations/${id}/auto-save`, data),
+        getEvaluatorStats: (evaluatorId) => api.get(`/api/evaluations/stats/evaluator/${evaluatorId}`),
+        getSystemStats: () => api.get('/api/evaluations/stats/system'),
+        getAverageScoreByReport: (reportId) => api.get(`/api/evaluations/stats/report/${reportId}`),
     },
 
     notifications: {
         getAll: (params) => api.get('/api/notifications', { params }),
-        getById: (id) => api.get('/api/notifications/${id}'),
-        markAsRead: (id) => api.post('/api/notifications/${id}/read'),
+        getById: (id) => api.get(`/api/notifications/${id}`),
+        markAsRead: (id) => api.post(`/api/notifications/${id}/read`),
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
-        delete: (id) => api.delete('/api/notifications/${id}'),
+        delete: (id) => api.delete(`/api/notifications/${id}`),
         getUnreadCount: () => api.get('/api/notifications/unread-count'),
         getStats: () => api.get('/api/notifications/stats')
     },
 
     activityLogs: {
         getAll: (params) => api.get('/activity-logs', { params }),
-        getUserActivity: (userId, params) => api.get('/activity-logs/user/${userId}', { params }),
+        getUserActivity: (userId, params) => api.get(`/activity-logs/user/${userId}`, { params }),
         getAuditTrail: (targetType, targetId) =>
-            api.get('/activity-logs/audit/${targetType}/${targetId}'),
+            api.get(`/activity-logs/audit/${targetType}/${targetId}`),
         getStats: (params) => api.get('/activity-logs/stats', { params })
     },
 
@@ -356,26 +356,26 @@ export const apiMethods = {
     permissions: {
         getAll: (params) => api.get('/api/permissions', { params }),
         getByModule: () => api.get('/api/permissions/by-module'),
-        getById: (id) => api.get('/api/permissions/${id}'),
+        getById: (id) => api.get(`/api/permissions/${id}`),
         create: (data) => api.post('/api/permissions', data),
-        update: (id, data) => api.put('/api/permissions/${id}', data),
-        delete: (id) => api.delete('/api/permissions/${id}'),
+        update: (id, data) => api.put(`/api/permissions/${id}`, data),
+        delete: (id) => api.delete(`/api/permissions/${id}`),
         seed: () => api.post('/api/permissions/seed')
     },
 
     userGroups: {
         getAll: (params) => api.get('/api/user-groups', { params }),
-        getById: (id) => api.get('/api/user-groups/${id}'),
+        getById: (id) => api.get(`/api/user-groups/${id}`),
         create: (data) => api.post('/api/user-groups', data),
-        update: (id, data) => api.put('/api/user-groups/${id}', data),
-        delete: (id) => api.delete('/api/user-groups/${id}'),
+        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
+        delete: (id) => api.delete(`/api/user-groups/${id}`),
         seed: () => api.post('/api/user-groups/seed'),
 
-        addPermissions: (id, permissionIds) => api.post('/api/user-groups/${id}/permissions', { permissionIds }),
-        removePermissions: (id, permissionIds) => api.delete('/api/user-groups/${id}/permissions', { data: { permissionIds } }),
+        addPermissions: (id, permissionIds) => api.post(`/api/user-groups/${id}/permissions`, { permissionIds }),
+        removePermissions: (id, permissionIds) => api.delete(`/api/user-groups/${id}/permissions`, { data: { permissionIds } }),
 
-        addMembers: (id, userIds) => api.post('/api/user-groups/${id}/members', { userIds }),
-        removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
+        addMembers: (id, userIds) => api.post(`/api/user-groups/${id}/members`, { userIds }),
+        removeMembers: (id, userIds) => api.delete(`/api/user-groups/${id}/members`, { data: { userIds } })
     },
 
     // ✅ Public API methods (không cần authentication)
