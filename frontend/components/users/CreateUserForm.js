@@ -1,21 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
     ArrowLeft, Save, User, Mail, Phone, Briefcase, Building,
     Shield, AlertCircle, Check, Eye, EyeOff, X, UserPlus
 } from 'lucide-react'
-import api, { apiMethods } from '../../services/api'
+import api from '../../services/api'
 
 export default function CreateUserForm() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [loadingOrgs, setLoadingOrgs] = useState(true)
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
-    const [organizations, setOrganizations] = useState([])
-    const [selectedOrgId, setSelectedOrgId] = useState('')
-    const [departments, setDepartments] = useState([])
 
     const [formData, setFormData] = useState({
         email: '',
@@ -24,7 +20,6 @@ export default function CreateUserForm() {
         roles: ['expert'],
         department: '',
         position: '',
-        organizationDepartmentId: '',
         academicYearAccess: [],
         programAccess: [],
         organizationAccess: [],
@@ -61,51 +56,13 @@ export default function CreateUserForm() {
         }
     ]
 
-    useEffect(() => {
-        loadOrganizations()
-    }, [])
-
-    const loadOrganizations = async () => {
-        try {
-            setLoadingOrgs(true)
-            const response = await apiMethods.organizations.getAll({ limit: 100, status: 'active' })
-            setOrganizations(response.data.data.organizations || [])
-        } catch (error) {
-            console.error('Error loading organizations:', error)
-        } finally {
-            setLoadingOrgs(false)
-        }
-    }
-
-    const handleOrganizationChange = (e) => {
-        const orgId = e.target.value
-        setSelectedOrgId(orgId)
-
-        if (orgId) {
-            const org = organizations.find(o => o._id === orgId)
-            if (org && org.departments) {
-                setDepartments(org.departments)
-            } else {
-                setDepartments([])
-            }
-        } else {
-            setDepartments([])
-        }
-
-        // Reset department selection
-        setFormData(prev => ({
-            ...prev,
-            organizationDepartmentId: '',
-            department: ''
-        }))
-    }
-
     const handleInputChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({
             ...prev,
             [name]: value
         }))
+        // Clear error when user types
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
         }
@@ -140,6 +97,7 @@ export default function CreateUserForm() {
             }
         }
 
+        // Full name validation
         if (!formData.fullName.trim()) {
             newErrors.fullName = 'Họ và tên là bắt buộc'
         } else if (formData.fullName.trim().length < 2) {
@@ -148,18 +106,22 @@ export default function CreateUserForm() {
             newErrors.fullName = 'Họ và tên không được quá 100 ký tự'
         }
 
+        // Phone validation
         if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
             newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)'
         }
 
+        // Department validation
         if (formData.department && formData.department.length > 100) {
             newErrors.department = 'Phòng ban không được quá 100 ký tự'
         }
 
+        // Position validation
         if (formData.position && formData.position.length > 100) {
             newErrors.position = 'Chức vụ không được quá 100 ký tự'
         }
 
+        // Roles validation
         if (!formData.roles || formData.roles.length === 0) {
             newErrors.roles = 'Phải chọn ít nhất một vai trò'
         }
@@ -184,14 +146,11 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            const submitData = {
-                ...formData,
-                organizationDepartmentId: formData.organizationDepartmentId || undefined
-            }
+            // Log data trước khi gửi để debug
+            console.log('Sending data:', formData)
 
-            console.log('Sending data:', submitData)
-
-            const response = await api.post('/api/users', submitData)
+            // Gọi API với đúng endpoint
+            const response = await api.post('/api/users', formData)
 
             console.log('Response:', response.data)
 
@@ -202,12 +161,14 @@ export default function CreateUserForm() {
                     text: 'Tạo người dùng thành công!'
                 })
 
+                // Scroll to top to see the password
                 window.scrollTo({ top: 0, behavior: 'smooth' })
             }
         } catch (error) {
             console.error('Create user error:', error)
             console.error('Error response:', error.response?.data)
 
+            // Hiển thị lỗi chi tiết hơn
             const errorMessage = error.response?.data?.message || 'Lỗi khi tạo người dùng'
             const validationErrors = error.response?.data?.errors
 
@@ -216,6 +177,7 @@ export default function CreateUserForm() {
                 text: errorMessage
             })
 
+            // Nếu có validation errors từ backend, hiển thị lên form
             if (validationErrors && Array.isArray(validationErrors)) {
                 const backendErrors = {}
                 validationErrors.forEach(err => {
@@ -244,15 +206,12 @@ export default function CreateUserForm() {
             roles: ['expert'],
             department: '',
             position: '',
-            organizationDepartmentId: '',
             academicYearAccess: [],
             programAccess: [],
             organizationAccess: [],
             standardAccess: [],
             criteriaAccess: []
         })
-        setSelectedOrgId('')
-        setDepartments([])
         setGeneratedPassword('')
         setErrors({})
         setMessage({ type: '', text: '' })
@@ -261,6 +220,7 @@ export default function CreateUserForm() {
 
     return (
         <div className="space-y-6">
+            {/* Message Alert */}
             {message.text && (
                 <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                     message.type === 'success'
@@ -289,6 +249,7 @@ export default function CreateUserForm() {
                                 {message.text}
                             </p>
 
+                            {/* Show generated password */}
                             {message.type === 'success' && generatedPassword && (
                                 <div className="mt-4 p-4 bg-white border-2 border-green-300 rounded-xl">
                                     <p className="text-sm font-semibold text-green-900 mb-2">
@@ -319,6 +280,7 @@ export default function CreateUserForm() {
                         </button>
                     </div>
 
+                    {/* Action buttons after success */}
                     {message.type === 'success' && (
                         <div className="mt-4 flex gap-3 justify-end">
                             <button
@@ -338,6 +300,7 @@ export default function CreateUserForm() {
                 </div>
             )}
 
+            {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -359,6 +322,7 @@ export default function CreateUserForm() {
                 </div>
             </div>
 
+            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Information */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -372,6 +336,7 @@ export default function CreateUserForm() {
                     </div>
 
                     <div className="p-6 space-y-6">
+                        {/* Email */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Mail className="w-4 h-4 text-indigo-600" />
@@ -393,8 +358,11 @@ export default function CreateUserForm() {
                                     {errors.email}
                                 </p>
                             )}
+                            <p className="mt-2 text-xs text-gray-500">
+                            </p>
                         </div>
 
+                        {/* Full Name */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <User className="w-4 h-4 text-indigo-600" />
@@ -418,6 +386,7 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
+                        {/* Phone Number */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Phone className="w-4 h-4 text-indigo-600" />
@@ -442,61 +411,11 @@ export default function CreateUserForm() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Organization Selector */}
+                            {/* Department */}
                             <div>
                                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                     <Building className="w-4 h-4 text-indigo-600" />
-                                    <span>Tổ chức</span>
-                                </label>
-                                <select
-                                    value={selectedOrgId}
-                                    onChange={handleOrganizationChange}
-                                    disabled={loadingOrgs}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                >
-                                    <option value="">-- Chọn tổ chức --</option>
-                                    {organizations.map(org => (
-                                        <option key={org._id} value={org._id}>
-                                            {org.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Department Selector */}
-                            <div>
-                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Briefcase className="w-4 h-4 text-indigo-600" />
                                     <span>Phòng ban</span>
-                                </label>
-                                <select
-                                    value={formData.organizationDepartmentId}
-                                    onChange={(e) => {
-                                        const deptId = e.target.value
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            organizationDepartmentId: deptId
-                                        }))
-                                    }}
-                                    disabled={!selectedOrgId || departments.length === 0}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:bg-gray-100"
-                                >
-                                    <option value="">-- Chọn phòng ban --</option>
-                                    {departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>
-                                            {dept.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Department (Text) */}
-                            <div>
-                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Building className="w-4 h-4 text-indigo-600" />
-                                    <span>Phòng ban (Tự nhập)</span>
                                 </label>
                                 <input
                                     type="text"
