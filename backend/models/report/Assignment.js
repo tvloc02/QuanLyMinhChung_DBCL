@@ -326,48 +326,37 @@ assignmentSchema.statics.getExpertWorkload = async function(expertId, academicYe
 };
 
 assignmentSchema.statics.getAssignmentStats = async function(academicYearId, filters = {}) {
-    // SỬA LỖI CHÍNH: Đảm bảo academicYearId được chuyển thành ObjectId
     if (!academicYearId) {
-        // Trả về thống kê mặc định nếu không có năm học
         return {
             total: 0, pending: 0, accepted: 0, inProgress: 0,
             completed: 0, overdue: 0, cancelled: 0
         };
     }
 
-    // Khai báo matchStage
     let matchStage = { };
 
     try {
-        // Luôn chuyển academicYearId thành ObjectId
         matchStage.academicYearId = mongoose.Types.ObjectId(academicYearId);
     } catch (e) {
-        console.error("Invalid academicYearId:", academicYearId, e);
-        // Trả về thống kê mặc định nếu ID không hợp lệ
         return {
             total: 0, pending: 0, accepted: 0, inProgress: 0,
             completed: 0, overdue: 0, cancelled: 0
         };
     }
 
-
-    // Chuyển đổi các trường ID khác nếu chúng tồn tại
     if (filters.assignedBy) {
         try {
             matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
-        } catch (e) { /* Bỏ qua trường này nếu ID không hợp lệ */ }
+        } catch (e) { /* silent fail */ }
     }
 
     if (filters.expertId) {
         try {
             matchStage.expertId = mongoose.Types.ObjectId(filters.expertId);
-        } catch (e) { /* Bỏ qua trường này nếu ID không hợp lệ */ }
+        } catch (e) { /* silent fail */ }
     }
 
     if (filters.status) matchStage.status = filters.status;
-
-    // Nếu matchStage chỉ chứa academicYearId không hợp lệ (đã bị catch và return),
-    // chúng ta sẽ chạy aggregate với matchStage đã được xác định.
 
     const stats = await this.aggregate([
         { $match: matchStage },
