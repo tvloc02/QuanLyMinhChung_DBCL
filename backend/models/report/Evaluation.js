@@ -384,24 +384,16 @@ evaluationSchema.methods.addHistory = function(action, userId, changes = {}, not
 
 evaluationSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
+    return userRole === 'expert' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
 
-    if (this.evaluatorId.toString() === userId.toString() && this.status === 'draft') {
-        return true;
-    }
-
-    return false;
 };
 
 evaluationSchema.methods.canView = function(userId, userRole) {
     if (userRole === 'admin') return true;
-
     if (this.evaluatorId.toString() === userId.toString()) return true;
-
     if (userRole === 'supervisor') return true;
+    return userRole === 'manager' && this.status !== 'draft';
 
-    if (userRole === 'manager' && this.status !== 'draft') return true;
-
-    return false;
 };
 
 evaluationSchema.methods.autoSave = function() {
