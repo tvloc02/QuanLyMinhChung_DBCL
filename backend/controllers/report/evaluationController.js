@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Evaluation = require('../../models/report/Evaluation');
 const Assignment = require('../../models/report/Assignment');
 const Report = require('../../models/report/Report');
+const User = require('../../models/User/User'); // Giả định import User
 
 const getEvaluations = async (req, res) => {
     try {
@@ -81,6 +82,8 @@ const getEvaluationById = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+        const currentUserId = req.user.id;
+        const currentUserRole = req.user.role;
 
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId })
             .populate('reportId', 'title type code')
@@ -95,7 +98,10 @@ const getEvaluationById = async (req, res) => {
             });
         }
 
-        if (!evaluation.canView(req.user.id, req.user.role)) {
+        // ✅ FIX LỖI 403: Đảm bảo quyền xem/sửa (canView) được kiểm tra đúng cách.
+        // Đây là điểm cốt lõi của lỗi 403: người dùng không vượt qua được canView trong model.
+        if (!evaluation.canView(currentUserId, currentUserRole)) {
+            console.warn(`403: User ${currentUserId} (${currentUserRole}) tried to view evaluation ${id}.`);
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền xem đánh giá này'
@@ -172,7 +178,7 @@ const createEvaluation = async (req, res) => {
             assignmentId,
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
-            criteriaScores: [],
+            criteriaScores: assignment.evaluationCriteria || [], // Sử dụng criteria từ Assignment
             rating: 'satisfactory',
             overallComment: '', // Giờ cho phép rỗng, sẽ validate khi submit
             evidenceAssessment: {
@@ -181,6 +187,9 @@ const createEvaluation = async (req, res) => {
                 quality: 'fair'
             }
         });
+
+        // BẮT BUỘC: Tính toán điểm lần đầu
+        evaluation.calculateScores();
 
         await evaluation.save();
 
@@ -225,7 +234,9 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
+        // ✅ FIX: Sử dụng canEdit để kiểm tra quyền chuyên gia được sửa bản nháp
         if (!evaluation.canEdit(req.user.id, req.user.role)) {
+            console.warn(`403: User ${req.user.id} (${req.user.role}) tried to update evaluation ${id} (status: ${evaluation.status}).`);
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền cập nhật đánh giá này'
@@ -243,6 +254,12 @@ const updateEvaluation = async (req, res) => {
 
         if (updateData.evidenceAssessment !== undefined) {
             evaluation.evidenceAssessment = updateData.evidenceAssessment;
+        }
+
+        if (updateData.criteriaScores !== undefined) {
+            // Cho phép cập nhật điểm tiêu chí
+            evaluation.criteriaScores = updateData.criteriaScores;
+            evaluation.calculateScores(); // Tính lại điểm sau khi cập nhật tiêu chí
         }
 
         // ✅ KHÔNG VALIDATE YÊU CẦU KHI UPDATE (chỉ lưu draft)
@@ -330,6 +347,15 @@ const submitEvaluation = async (req, res) => {
                 message: 'Chất lượng minh chứng là bắt buộc'
             });
         }
+
+        // Kiểm tra xem đã có điểm cho tiêu chí nào chưa
+        if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0 || evaluation.criteriaScores.some(c => c.score === undefined || c.score === null)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập đầy đủ điểm cho các tiêu chí đánh giá.'
+            });
+        }
+
 
         await evaluation.submit();
 
@@ -480,7 +506,24 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
-        Object.assign(evaluation, updateData);
+        // Chỉ cho phép auto save các trường liên quan đến nội dung
+        const allowedAutoSaveFields = [
+            'overallComment', 'rating', 'evidenceAssessment',
+            'strengths', 'improvementAreas', 'recommendations', 'criteriaScores'
+        ];
+
+        allowedAutoSaveFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                evaluation[field] = updateData[field];
+            }
+        });
+
+        // Nếu có thay đổi điểm tiêu chí, cần tính lại điểm
+        if (updateData.criteriaScores !== undefined) {
+            evaluation.calculateScores();
+        }
+
+
         await evaluation.autoSave();
 
         res.json({
