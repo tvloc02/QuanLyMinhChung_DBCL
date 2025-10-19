@@ -5,24 +5,19 @@ import Layout from '../../components/common/Layout'
 import api, { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {
-    FileText,
     Save,
     Send,
     Loader2,
     ArrowLeft,
     AlertCircle,
     CheckCircle,
-    Edit,
-    Trash2,
     Plus,
-    Eye,
-    RefreshCw,
     Calendar,
-    User,
     Award,
     MessageSquare,
     Zap,
-    PenTool
+    PenTool,
+    Trash2
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -78,17 +73,14 @@ export default function EvaluationForm() {
         try {
             setLoading(true)
 
-            // Fetch assignment
             const assignmentRes = await apiMethods.assignments.getById(assignmentId)
             const assignmentData = assignmentRes.data?.data
             setAssignment(assignmentData)
 
-            // Fetch report
             const reportRes = await apiMethods.reports.getById(reportId)
             const reportData = reportRes.data?.data
             setReport(reportData)
 
-            // Initialize criteria scores from assignment
             if (assignmentData?.evaluationCriteria?.length > 0) {
                 const criteriaScores = assignmentData.evaluationCriteria.map(c => ({
                     criteriaName: c.name || '',
@@ -103,7 +95,6 @@ export default function EvaluationForm() {
                 }))
             }
 
-            // Check if evaluation already exists
             try {
                 const evaluationsRes = await apiMethods.evaluations.getAll({
                     assignmentId,
@@ -228,20 +219,23 @@ export default function EvaluationForm() {
             errors.push('Nhận xét tổng thể là bắt buộc')
         }
 
-        if (!formData.rating) {
-            errors.push('Xếp loại đánh giá là bắt buộc')
+        const validRatings = ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor']
+        if (!formData.rating || !validRatings.includes(formData.rating)) {
+            errors.push('Xếp loại đánh giá là bắt buộc và phải hợp lệ')
         }
 
-        if (!formData.evidenceAssessment?.adequacy) {
-            errors.push('Tính đầy đủ minh chứng là bắt buộc')
+        const validAdequacy = ['insufficient', 'adequate', 'comprehensive']
+        if (!formData.evidenceAssessment?.adequacy || !validAdequacy.includes(formData.evidenceAssessment.adequacy)) {
+            errors.push('Tính đầy đủ minh chứng là bắt buộc và phải hợp lệ')
         }
 
-        if (!formData.evidenceAssessment?.relevance) {
-            errors.push('Tính liên quan minh chứng là bắt buộc')
+        const validRelevanceQuality = ['poor', 'fair', 'good', 'excellent']
+        if (!formData.evidenceAssessment?.relevance || !validRelevanceQuality.includes(formData.evidenceAssessment.relevance)) {
+            errors.push('Tính liên quan minh chứng là bắt buộc và phải hợp lệ')
         }
 
-        if (!formData.evidenceAssessment?.quality) {
-            errors.push('Chất lượng minh chứng là bắt buộc')
+        if (!formData.evidenceAssessment?.quality || !validRelevanceQuality.includes(formData.evidenceAssessment.quality)) {
+            errors.push('Chất lượng minh chứng là bắt buộc và phải hợp lệ')
         }
 
         if (!formData.criteriaScores || formData.criteriaScores.length === 0) {
@@ -251,11 +245,14 @@ export default function EvaluationForm() {
                 if (!c.criteriaName || c.criteriaName.trim() === '') {
                     errors.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`)
                 }
+
                 if (c.score === undefined || c.score === null || c.score === '') {
                     errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`)
                 }
-                if (typeof c.score === 'number' && (c.score < 0 || c.score > (c.maxScore || 10))) {
-                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${c.maxScore || 10}`)
+
+                const maxScore = c.maxScore || 10;
+                if (typeof c.score === 'number' && (c.score < 0 || c.score > maxScore)) {
+                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${maxScore}`)
                 }
             })
         }
@@ -265,6 +262,22 @@ export default function EvaluationForm() {
     }
 
     const handleSubmit = async () => {
+        if (!evaluation) {
+            try {
+                setLoading(true)
+                const evalRes = await apiMethods.evaluations.create({ assignmentId })
+                setEvaluation(evalRes.data?.data)
+                toast.success('Tạo đánh giá thành công')
+            } catch (error) {
+                console.error('Create evaluation error:', error)
+                toast.error('Lỗi khi tạo đánh giá')
+                setLoading(false)
+                return
+            } finally {
+                setLoading(false)
+            }
+        }
+
         if (!validateForm()) {
             toast.error('Vui lòng kiểm tra các lỗi validation')
             return
@@ -272,26 +285,23 @@ export default function EvaluationForm() {
 
         try {
             setSubmitting(true)
-            if (!evaluation) {
-                // Create new evaluation
-                const evalRes = await apiMethods.evaluations.create({ assignmentId })
-                setEvaluation(evalRes.data?.data)
-                toast.success('Tạo đánh giá thành công')
-            }
 
-            // Update evaluation
-            if (evaluation) {
-                await apiMethods.evaluations.update(evaluation._id, formData)
-                toast.success('Cập nhật đánh giá thành công')
-            }
+            await apiMethods.evaluations.update(evaluation._id, formData)
+            toast('Đang cập nhật và nộp...', { icon: '🔄' });
 
-            // Submit evaluation
             await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Nộp đánh giá thành công')
             setTimeout(() => router.push('/reports/my-evaluations'), 1500)
         } catch (error) {
             console.error('Submit error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
+            const errorMessage = error.response?.data?.message || 'Lỗi khi nộp đánh giá';
+
+            if (error.response?.data?.errors?.length > 0) {
+                toast.error(`${errorMessage}: ${error.response.data.errors.join(', ')}`, { duration: 6000 });
+            } else {
+                toast.error(errorMessage)
+            }
+
         } finally {
             setSubmitting(false)
         }
@@ -303,30 +313,31 @@ export default function EvaluationForm() {
                 setLoading(true)
                 const evalRes = await apiMethods.evaluations.create({ assignmentId })
                 setEvaluation(evalRes.data?.data)
-                toast.success('Tạo đánh giá thành công')
+                toast.success('Tạo bản nháp thành công')
             } catch (error) {
                 console.error('Create evaluation error:', error)
-                toast.error('Lỗi khi tạo đánh giá')
+                toast.error('Lỗi khi tạo bản nháp')
             } finally {
                 setLoading(false)
             }
-            return
+        } else {
+            await handleAutoSave()
         }
-
-        await handleAutoSave()
     }
 
     const getProgress = () => {
         let completed = 0
-        let total = 5
+        const total = 5
 
-        if (formData.overallComment) completed++
+        if (formData.overallComment && formData.overallComment.trim()) completed++
         if (formData.rating) completed++
         if (formData.evidenceAssessment?.adequacy) completed++
         if (formData.evidenceAssessment?.relevance) completed++
         if (formData.evidenceAssessment?.quality) completed++
 
-        return Math.round((completed / total) * 100)
+        const baseProgress = Math.round((completed / total) * 100)
+
+        return Math.min(baseProgress, 100)
     }
 
     if (isLoading || loading) {
@@ -356,7 +367,6 @@ export default function EvaluationForm() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6 max-w-6xl mx-auto">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-4">
@@ -379,7 +389,6 @@ export default function EvaluationForm() {
                     </div>
                 </div>
 
-                {/* Progress & Info */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
                         <p className="text-gray-600 text-sm font-semibold mb-2">Mã báo cáo</p>
@@ -403,7 +412,6 @@ export default function EvaluationForm() {
                     </div>
                 </div>
 
-                {/* Validation Errors */}
                 {validationErrors.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-xl">
                         <h3 className="text-red-800 font-bold mb-3 flex items-center">
@@ -420,13 +428,11 @@ export default function EvaluationForm() {
                     </div>
                 )}
 
-                {/* Form Sections */}
                 <div className="space-y-6">
-                    {/* Overall Comment */}
                     <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
                         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                             <MessageSquare className="h-6 w-6 mr-2 text-blue-600" />
-                            Nhận xét tổng thể
+                            Nhận xét tổng thể <span className="text-red-500 ml-1">*</span>
                         </h2>
                         <textarea
                             value={formData.overallComment}
@@ -440,12 +446,11 @@ export default function EvaluationForm() {
                         </p>
                     </div>
 
-                    {/* Rating & Evidence Assessment */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
                             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                                 <Award className="h-6 w-6 mr-2 text-green-600" />
-                                Xếp loại đánh giá
+                                Xếp loại đánh giá <span className="text-red-500 ml-1">*</span>
                             </h2>
                             <div className="space-y-3">
                                 {[
@@ -482,7 +487,7 @@ export default function EvaluationForm() {
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tính đầy đủ
+                                        Tính đầy đủ <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={formData.evidenceAssessment?.adequacy || ''}
@@ -501,7 +506,7 @@ export default function EvaluationForm() {
 
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tính liên quan
+                                        Tính liên quan <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={formData.evidenceAssessment?.relevance || ''}
@@ -521,7 +526,7 @@ export default function EvaluationForm() {
 
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Chất lượng
+                                        Chất lượng <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={formData.evidenceAssessment?.quality || ''}
@@ -542,9 +547,8 @@ export default function EvaluationForm() {
                         </div>
                     </div>
 
-                    {/* Criteria Scores */}
                     <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Điểm theo tiêu chí</h2>
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Điểm theo tiêu chí <span className="text-red-500 ml-1">*</span></h2>
                         <div className="space-y-6">
                             {formData.criteriaScores.map((criteria, idx) => (
                                 <div key={idx} className="p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
@@ -574,21 +578,22 @@ export default function EvaluationForm() {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Điểm <span className="text-red-500">*</span>
+                                                Điểm <span className="text-red-500">*</span> (Max: {criteria.maxScore || 10})
                                             </label>
                                             <input
                                                 type="number"
                                                 value={criteria.score}
                                                 onChange={(e) => handleCriteriaChange(idx, 'score', e.target.value)}
                                                 min="0"
-                                                max={criteria.maxScore}
+                                                max={criteria.maxScore || 10}
+                                                step="0.01"
                                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Bình luận
+                                            Bình luận (Tùy chọn)
                                         </label>
                                         <textarea
                                             value={criteria.comment}
@@ -603,11 +608,10 @@ export default function EvaluationForm() {
                         </div>
                     </div>
 
-                    {/* Strengths */}
                     <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-green-200">
                         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                             <CheckCircle className="h-6 w-6 mr-2 text-green-600" />
-                            Điểm mạnh
+                            Điểm mạnh (Tùy chọn)
                         </h2>
                         <div className="space-y-3 mb-4">
                             {formData.strengths.map((strength, idx) => (
@@ -641,11 +645,10 @@ export default function EvaluationForm() {
                         </div>
                     </div>
 
-                    {/* Improvement Areas */}
                     <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-orange-200">
                         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                             <Zap className="h-6 w-6 mr-2 text-orange-600" />
-                            Điểm cần cải thiện
+                            Điểm cần cải thiện (Tùy chọn)
                         </h2>
                         <div className="space-y-3 mb-4">
                             {formData.improvementAreas.map((area, idx) => (
@@ -690,11 +693,10 @@ export default function EvaluationForm() {
                         </div>
                     </div>
 
-                    {/* Recommendations */}
                     <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-purple-200">
                         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                             <MessageSquare className="h-6 w-6 mr-2 text-purple-600" />
-                            Khuyến nghị
+                            Khuyến nghị (Tùy chọn)
                         </h2>
                         <div className="space-y-3 mb-4">
                             {formData.recommendations.map((rec, idx) => (
@@ -704,10 +706,10 @@ export default function EvaluationForm() {
                                             <span className="text-gray-900 font-semibold">{rec.recommendation}</span>
                                             <div className="flex gap-2 mt-1">
                                                 <span className="text-xs px-2 py-1 bg-purple-200 text-purple-800 rounded">
-                                                    {rec.type}
+                                                    {rec.type === 'immediate' ? 'Ngay lập tức' : rec.type === 'short_term' ? 'Ngắn hạn' : 'Dài hạn'}
                                                 </span>
                                                 <span className="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded">
-                                                    {rec.priority}
+                                                    {rec.priority === 'low' ? 'Thấp' : rec.priority === 'medium' ? 'Trung bình' : 'Cao'}
                                                 </span>
                                             </div>
                                         </div>
@@ -760,7 +762,6 @@ export default function EvaluationForm() {
                     </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="sticky bottom-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-2xl p-6 flex items-center justify-between text-white">
                     <div className="flex items-center space-x-2">
                         <AlertCircle className="h-6 w-6" />
