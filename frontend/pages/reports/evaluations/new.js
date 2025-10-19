@@ -119,10 +119,21 @@ export default function EvaluationFormPage() {
                 console.log('✅ Evaluation created:', newEvaluation)
             } catch (createError) {
                 console.error('❌ Create evaluation error:', createError)
-                const errorMsg = createError.response?.data?.message || createError.message || 'Lỗi tạo đánh giá'
 
-                if (errorMsg.includes('đã tồn tại')) {
-                    console.log('📥 Evaluation already exists, trying to fetch...')
+                // 🛠️ Xử lý lỗi 409 Conflict: Đánh giá đã tồn tại
+                if (createError.response && createError.response.status === 409) {
+                    console.log('📥 Evaluation already exists (409 Conflict), redirecting to existing evaluation.')
+
+                    const existingEvalId = createError.response.data?.data?.existingEvaluationId
+
+                    if (existingEvalId) {
+                        console.log('✅ Found existing evaluation ID in 409 response:', existingEvalId)
+                        toast.error('Đánh giá đã tồn tại. Chuyển hướng đến bản nháp.')
+                        router.push(`/reports/evaluations/${existingEvalId}`)
+                        return
+                    }
+
+                    // Fallback: Nếu không có ID trong response 409, thử fetch list
                     try {
                         const listRes = await apiMethods.evaluations.getAll({
                             assignmentId: assignmentId,
@@ -131,7 +142,8 @@ export default function EvaluationFormPage() {
                         const evaluations = listRes.data?.data?.evaluations || []
                         if (evaluations.length > 0) {
                             const existingEval = evaluations[0]
-                            console.log('✅ Found existing evaluation:', existingEval._id)
+                            console.log('✅ Found existing evaluation via list fetch:', existingEval._id)
+                            toast.error('Đánh giá đã tồn tại. Chuyển hướng đến bản nháp.')
                             router.push(`/reports/evaluations/${existingEval._id}`)
                             return
                         }
@@ -140,6 +152,7 @@ export default function EvaluationFormPage() {
                     }
                 }
 
+                const errorMsg = createError.response?.data?.message || createError.message || 'Lỗi tạo đánh giá'
                 toast.error(errorMsg)
                 router.push('/reports/expert-assignments')
                 return
