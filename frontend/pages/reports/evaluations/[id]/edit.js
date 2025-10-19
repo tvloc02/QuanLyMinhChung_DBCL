@@ -75,6 +75,9 @@ export default function EditEvaluationPage() {
             console.log('👤 Evaluator ID:', evalData.evaluatorId)
             console.log('👤 Current user ID:', user.id)
 
+            const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId
+
+            // 1. Kiểm tra quyền chỉnh sửa: Phải là bản nháp và là người tạo
             if (evalData.status !== 'draft') {
                 console.log(`❌ Cannot edit - status is ${evalData.status}, only draft can be edited`)
                 toast.error('Chỉ có thể chỉnh sửa bản nháp. Đánh giá này đã được nộp/giám sát.')
@@ -82,13 +85,13 @@ export default function EditEvaluationPage() {
                 return
             }
 
-            const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId
             if (evaluatorId.toString() !== user.id.toString()) {
                 console.log(`❌ Not the evaluator - ${evaluatorId} vs ${user.id}`)
                 toast.error('Chỉ chuyên gia tạo đánh giá mới có thể chỉnh sửa.')
                 router.replace(`/reports/evaluations/${id}`)
                 return
             }
+            // ----------------------------------------------------
 
             setEvaluation(evalData)
             setReport(evalData.reportId)
@@ -108,20 +111,28 @@ export default function EditEvaluationPage() {
 
         } catch (error) {
             console.error('❌ Error fetching evaluation:', error)
-            console.error('Status:', error.response?.status)
-            console.error('Message:', error.response?.data?.message)
 
-            if (error.response?.status === 403) {
+            // 🚀 Cải thiện xử lý lỗi 403 và 404
+            const status = error.response?.status;
+            const message = error.response?.data?.message;
+
+            if (status === 403) {
                 console.log('❌ Access denied (403)')
-                toast.error('Bạn không có quyền truy cập trang này.')
-            } else if (error.response?.status === 404) {
+                toast.error(message || 'Bạn không có quyền truy cập hoặc chỉnh sửa đánh giá này.')
+            } else if (status === 404) {
                 console.log('❌ Evaluation not found')
                 toast.error('Không tìm thấy đánh giá')
             } else {
                 toast.error('Lỗi tải đánh giá')
             }
 
-            router.replace('/reports/evaluations')
+            // Chuyển hướng người dùng về trang danh sách đánh giá hoặc trang chi tiết nếu có ID
+            if (id) {
+                router.replace(`/reports/evaluations/${id}`)
+            } else {
+                router.replace('/reports/evaluations')
+            }
+
         } finally {
             setLoading(false)
         }
