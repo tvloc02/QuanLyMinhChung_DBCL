@@ -8,7 +8,9 @@ import {
     Send,
     ArrowLeft,
     BookOpen,
-    AlertCircle
+    AlertCircle,
+    CheckCircle,
+    XCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -22,6 +24,7 @@ export default function EditEvaluationPage() {
     const [submitting, setSubmitting] = useState(false)
     const [evaluation, setEvaluation] = useState(null)
     const [report, setReport] = useState(null)
+    const [validationErrors, setValidationErrors] = useState([])
 
     const [formData, setFormData] = useState({
         overallComment: '',
@@ -94,6 +97,8 @@ export default function EditEvaluationPage() {
                 criteriaScores: evalData.criteriaScores || []
             })
 
+            validateForm(evalData)
+
         } catch (error) {
             console.error('❌ Error fetching evaluation:', error)
             console.error('Status:', error.response?.status)
@@ -115,24 +120,64 @@ export default function EditEvaluationPage() {
         }
     }
 
+    // ✅ Hàm validate form toàn bộ
+    const validateForm = (data = formData) => {
+        const errors = [];
+
+        // 1. Kiểm tra Nhận xét tổng thể
+        if (!data.overallComment || data.overallComment.trim() === '') {
+            errors.push('Nhận xét tổng thể là bắt buộc');
+        }
+
+        // 2. Kiểm tra Xếp loại
+        if (!data.rating) {
+            errors.push('Xếp loại đánh giá là bắt buộc');
+        }
+
+        // 3. Kiểm tra Đánh giá minh chứng
+        if (!data.evidenceAssessment.adequacy) {
+            errors.push('Tính đầy đủ minh chứng là bắt buộc');
+        }
+        if (!data.evidenceAssessment.relevance) {
+            errors.push('Tính liên quan minh chứng là bắt buộc');
+        }
+        if (!data.evidenceAssessment.quality) {
+            errors.push('Chất lượng minh chứng là bắt buộc');
+        }
+
+        // 4. Kiểm tra Điểm tiêu chí
+        if (!data.criteriaScores || data.criteriaScores.length === 0) {
+            errors.push('Phải có ít nhất một tiêu chí đánh giá');
+        } else {
+            data.criteriaScores.forEach((criteria, idx) => {
+                if (criteria.score === undefined || criteria.score === null || criteria.score === '') {
+                    errors.push(`Tiêu chí ${idx + 1} (${criteria.criteriaName}): chưa có điểm`);
+                }
+                if (typeof criteria.score === 'number' && (criteria.score < 0 || criteria.score > (criteria.maxScore || 10))) {
+                    errors.push(`Tiêu chí ${idx + 1} (${criteria.criteriaName}): điểm phải từ 0 đến ${criteria.maxScore || 10}`);
+                }
+            });
+        }
+
+        setValidationErrors(errors);
+        return errors.length === 0;
+    }
+
     const isFormValid = () => {
-        return (
-            formData.overallComment.trim() &&
-            formData.rating &&
-            formData.evidenceAssessment.adequacy &&
-            formData.evidenceAssessment.relevance &&
-            formData.evidenceAssessment.quality
-            // Kiểm tra tối thiểu về điểm tiêu chí (nếu cần, nhưng thường được quản lý ở component riêng)
-            // && formData.criteriaScores?.every(c => c.score !== undefined && c.score !== null)
-        )
+        return validateForm(formData);
+    }
+
+    const handleUpdateCriteriaScore = (index, score) => {
+        const updatedScores = [...formData.criteriaScores];
+        updatedScores[index].score = score === '' ? undefined : parseFloat(score);
+        setFormData({ ...formData, criteriaScores: updatedScores });
+        validateForm({ ...formData, criteriaScores: updatedScores });
     }
 
     const handleSave = async () => {
-        // Có thể cho phép lưu nháp ngay cả khi chưa đủ form validation chính,
-        // nhưng sẽ dùng isFormValid để chặn nộp. Giữ lại validation hiện tại cho UI/UX tốt hơn.
         if (!isFormValid()) {
-            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc')
-            return
+            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc');
+            return;
         }
 
         try {
@@ -145,8 +190,8 @@ export default function EditEvaluationPage() {
                     adequacy: formData.evidenceAssessment.adequacy,
                     relevance: formData.evidenceAssessment.relevance,
                     quality: formData.evidenceAssessment.quality
-                }
-                // criteriaScores: formData.criteriaScores // Gửi nếu cần cập nhật điểm
+                },
+                criteriaScores: formData.criteriaScores
             }
 
             console.log('📤 Saving evaluation data (Draft):', submitData)
@@ -167,16 +212,9 @@ export default function EditEvaluationPage() {
 
     const handleSubmit = async () => {
         if (!isFormValid()) {
-            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc')
-            return
+            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc');
+            return;
         }
-
-        // Cần kiểm tra điểm tiêu chí trước khi nộp
-        if (formData.criteriaScores.some(c => c.score === undefined || c.score === null)) {
-            toast.error('Vui lòng nhập đầy đủ điểm cho các tiêu chí đánh giá.');
-            return
-        }
-
 
         if (!window.confirm('Xác nhận nộp đánh giá? Sau khi nộp sẽ không thể chỉnh sửa.')) {
             return
@@ -187,18 +225,62 @@ export default function EditEvaluationPage() {
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
             // Lưu lần cuối trước khi nộp
-            await handleSave()
+            const submitData = {
+                overallComment: formData.overallComment.trim(),
+                rating: formData.rating,
+                evidenceAssessment: {
+                    adequacy: formData.evidenceAssessment.adequacy,
+                    relevance: formData.evidenceAssessment.relevance,
+                    quality: formData.evidenceAssessment.quality
+                },
+                criteriaScores: formData.criteriaScores
+            }
 
+            await apiMethods.evaluations.update(evaluation._id, submitData)
             await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Đánh giá đã được nộp')
             router.push('/reports/evaluations')
         } catch (error) {
             console.error('Error submitting:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
+
+            // Hiển thị lỗi validation chi tiết từ backend
+            if (error.response?.data?.errors) {
+                const errorMessages = error.response.data.errors.join('\n');
+                toast.error(`Lỗi: ${errorMessages}`);
+            } else {
+                toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
+            }
         } finally {
             setSubmitting(false)
         }
     }
+
+    const getValidationStatus = () => {
+        return {
+            overallComment: formData.overallComment && formData.overallComment.trim() !== '',
+            rating: !!formData.rating,
+            evidenceAssessment: {
+                adequacy: !!formData.evidenceAssessment.adequacy,
+                relevance: !!formData.evidenceAssessment.relevance,
+                quality: !!formData.evidenceAssessment.quality
+            },
+            criteriaScores: formData.criteriaScores &&
+                formData.criteriaScores.length > 0 &&
+                formData.criteriaScores.every(c => c.score !== undefined && c.score !== null && c.score !== '')
+        }
+    }
+
+    const status = getValidationStatus()
+    const completedCount = (
+        (status.overallComment ? 1 : 0) +
+        (status.rating ? 1 : 0) +
+        (status.evidenceAssessment.adequacy ? 1 : 0) +
+        (status.evidenceAssessment.relevance ? 1 : 0) +
+        (status.evidenceAssessment.quality ? 1 : 0) +
+        (status.criteriaScores ? 1 : 0)
+    )
+    const totalRequired = 6
+    const progressPercent = Math.round((completedCount / totalRequired) * 100)
 
     if (isLoading || loading) {
         return (
@@ -240,7 +322,6 @@ export default function EditEvaluationPage() {
             </Layout>
         )
     }
-
 
     const ratingOptions = [
         { value: 'excellent', label: '⭐ Xuất sắc', desc: 'Vượt trội' },
@@ -299,18 +380,99 @@ export default function EditEvaluationPage() {
                     </div>
                 )}
 
+                {/* ✅ Progress Bar */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Tiến độ hoàn thành</h3>
+
+                    <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-gray-700">Đã hoàn thành: {completedCount}/{totalRequired}</span>
+                            <span className="text-2xl font-bold text-blue-600">{progressPercent}%</span>
+                        </div>
+                        <div className="w-full bg-gray-300 rounded-full h-3">
+                            <div
+                                className={`h-3 rounded-full transition-all ${
+                                    progressPercent === 100
+                                        ? 'bg-green-500'
+                                        : progressPercent >= 50
+                                            ? 'bg-yellow-500'
+                                            : 'bg-red-500'
+                                }`}
+                                style={{ width: `${progressPercent}%` }}
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
+                            status.overallComment
+                                ? 'bg-green-50 border-green-300 text-green-700'
+                                : 'bg-red-50 border-red-300 text-red-700'
+                        }`}>
+                            {status.overallComment ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            Nhận xét
+                        </div>
+                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
+                            status.rating
+                                ? 'bg-green-50 border-green-300 text-green-700'
+                                : 'bg-red-50 border-red-300 text-red-700'
+                        }`}>
+                            {status.rating ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            Xếp loại
+                        </div>
+                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
+                            (status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality)
+                                ? 'bg-green-50 border-green-300 text-green-700'
+                                : 'bg-red-50 border-red-300 text-red-700'
+                        }`}>
+                            {(status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality) ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            Minh chứng
+                        </div>
+                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
+                            status.criteriaScores
+                                ? 'bg-green-50 border-green-300 text-green-700'
+                                : 'bg-red-50 border-red-300 text-red-700'
+                        }`}>
+                            {status.criteriaScores ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            Tiêu chí
+                        </div>
+                    </div>
+
+                    {/* Hiển thị lỗi validation */}
+                    {validationErrors.length > 0 && (
+                        <div className="mt-4 p-4 bg-red-50 border border-red-300 rounded-lg">
+                            <h4 className="text-red-800 font-semibold mb-2 flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5" />
+                                Lỗi cần sửa:
+                            </h4>
+                            <ul className="space-y-1">
+                                {validationErrors.map((error, idx) => (
+                                    <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
+                                        <span className="mt-0.5">•</span>
+                                        <span>{error}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Xếp loại đánh giá</h2>
-                        <span className="text-red-600 text-sm font-semibold">*Bắt buộc</span>
+                        <span className={`text-sm font-semibold ${status.rating ? 'text-green-600' : 'text-red-600'}`}>
+                            {status.rating ? '✅ Đã chọn' : '❌ Bắt buộc'}
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                         {ratingOptions.map((option) => (
                             <button
                                 key={option.value}
-                                onClick={() => setFormData({ ...formData, rating: option.value })}
+                                onClick={() => {
+                                    setFormData({ ...formData, rating: option.value });
+                                    validateForm({ ...formData, rating: option.value });
+                                }}
                                 className={`p-4 rounded-lg border-2 transition-all text-center ${
                                     formData.rating === option.value
                                         ? 'border-blue-600 bg-blue-50'
@@ -322,24 +484,22 @@ export default function EditEvaluationPage() {
                             </button>
                         ))}
                     </div>
-
-                    {!formData.rating && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
-                            <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                            <p className="text-sm text-red-700">Vui lòng chọn xếp loại</p>
-                        </div>
-                    )}
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Nhận xét tổng thể</h2>
-                        <span className="text-red-600 text-sm font-semibold">*Bắt buộc</span>
+                        <span className={`text-sm font-semibold ${status.overallComment ? 'text-green-600' : 'text-red-600'}`}>
+                            {status.overallComment ? '✅ Đã điền' : '❌ Bắt buộc'}
+                        </span>
                     </div>
 
                     <textarea
                         value={formData.overallComment}
-                        onChange={(e) => setFormData({ ...formData, overallComment: e.target.value })}
+                        onChange={(e) => {
+                            setFormData({ ...formData, overallComment: e.target.value });
+                            validateForm({ ...formData, overallComment: e.target.value });
+                        }}
                         placeholder="Nhập nhận xét tổng thể về báo cáo..."
                         maxLength={5000}
                         rows={6}
@@ -350,19 +510,20 @@ export default function EditEvaluationPage() {
                             {formData.overallComment.length}/5000 ký tự
                         </p>
                     </div>
-
-                    {!formData.overallComment.trim() && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
-                            <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                            <p className="text-sm text-red-700">Nhận xét tổng thể là bắt buộc</p>
-                        </div>
-                    )}
                 </div>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Đánh giá minh chứng</h2>
-                        <span className="text-red-600 text-sm font-semibold">*Bắt buộc</span>
+                        <span className={`text-sm font-semibold ${
+                            (status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality)
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                        }`}>
+                            {(status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality)
+                                ? '✅ Đã chọn'
+                                : '❌ Bắt buộc'}
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
@@ -372,13 +533,13 @@ export default function EditEvaluationPage() {
                             </label>
                             <select
                                 value={formData.evidenceAssessment.adequacy}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    evidenceAssessment: {
-                                        ...formData.evidenceAssessment,
-                                        adequacy: e.target.value
-                                    }
-                                })}
+                                onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    const updated = { ...formData };
+                                    updated.evidenceAssessment.adequacy = newValue;
+                                    setFormData(updated);
+                                    validateForm(updated);
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">-- Chọn --</option>
@@ -386,9 +547,6 @@ export default function EditEvaluationPage() {
                                 <option value="adequate">Đủ</option>
                                 <option value="comprehensive">Toàn diện</option>
                             </select>
-                            {!formData.evidenceAssessment.adequacy && (
-                                <p className="text-xs text-red-600 mt-1">Bắt buộc</p>
-                            )}
                         </div>
 
                         <div>
@@ -397,13 +555,13 @@ export default function EditEvaluationPage() {
                             </label>
                             <select
                                 value={formData.evidenceAssessment.relevance}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    evidenceAssessment: {
-                                        ...formData.evidenceAssessment,
-                                        relevance: e.target.value
-                                    }
-                                })}
+                                onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    const updated = { ...formData };
+                                    updated.evidenceAssessment.relevance = newValue;
+                                    setFormData(updated);
+                                    validateForm(updated);
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">-- Chọn --</option>
@@ -412,9 +570,6 @@ export default function EditEvaluationPage() {
                                 <option value="good">Tốt</option>
                                 <option value="excellent">Xuất sắc</option>
                             </select>
-                            {!formData.evidenceAssessment.relevance && (
-                                <p className="text-xs text-red-600 mt-1">Bắt buộc</p>
-                            )}
                         </div>
 
                         <div>
@@ -423,13 +578,13 @@ export default function EditEvaluationPage() {
                             </label>
                             <select
                                 value={formData.evidenceAssessment.quality}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    evidenceAssessment: {
-                                        ...formData.evidenceAssessment,
-                                        quality: e.target.value
-                                    }
-                                })}
+                                onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    const updated = { ...formData };
+                                    updated.evidenceAssessment.quality = newValue;
+                                    setFormData(updated);
+                                    validateForm(updated);
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">-- Chọn --</option>
@@ -438,23 +593,63 @@ export default function EditEvaluationPage() {
                                 <option value="good">Tốt</option>
                                 <option value="excellent">Xuất sắc</option>
                             </select>
-                            {!formData.evidenceAssessment.quality && (
-                                <p className="text-xs text-red-600 mt-1">Bắt buộc</p>
-                            )}
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                        <span className={isFormValid() ? 'text-green-600' : 'text-red-600'}>
-                            {isFormValid() ? '✅' : '❌'}
+                {/* ✅ Điểm tiêu chí */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Điểm tiêu chí đánh giá</h2>
+                        <span className={`text-sm font-semibold ${status.criteriaScores ? 'text-green-600' : 'text-red-600'}`}>
+                            {status.criteriaScores ? '✅ Đầy đủ' : '❌ Bắt buộc'}
                         </span>
-                        {' '}
-                        {isFormValid()
-                            ? 'Đủ thông tin để lưu/nộp'
-                            : 'Chưa đầy đủ thông tin bắt buộc'}
-                    </p>
+                    </div>
+
+                    {formData.criteriaScores && formData.criteriaScores.length > 0 ? (
+                        <div className="space-y-4">
+                            {formData.criteriaScores.map((criteria, idx) => (
+                                <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                                    <div className="grid grid-cols-3 gap-4 items-start">
+                                        <div className="col-span-2">
+                                            <p className="text-sm font-semibold text-gray-900">{idx + 1}. {criteria.criteriaName}</p>
+                                            {criteria.description && (
+                                                <p className="text-xs text-gray-600 mt-1">{criteria.description}</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                                Điểm (0-{criteria.maxScore || 10})
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max={criteria.maxScore || 10}
+                                                step="0.5"
+                                                value={criteria.score || ''}
+                                                onChange={(e) => handleUpdateCriteriaScore(idx, e.target.value)}
+                                                placeholder="Nhập điểm"
+                                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                                    (criteria.score !== undefined && criteria.score !== null && criteria.score !== '')
+                                                        ? 'border-green-300 focus:ring-green-500 bg-green-50'
+                                                        : 'border-red-300 focus:ring-red-500 bg-red-50'
+                                                }`}
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {criteria.score !== undefined && criteria.score !== null && criteria.score !== ''
+                                                    ? `✅ ${criteria.score}/${criteria.maxScore || 10}`
+                                                    : '❌ Chưa điền'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-6 text-gray-500">
+                            Không có tiêu chí đánh giá
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-lg shadow-lg">
