@@ -45,6 +45,19 @@ export default function UserProfile() {
     const [errors, setErrors] = useState({})
     const [successMessage, setSuccessMessage] = useState('')
 
+    // ✅ HÀM GIÚP ĐỊNH DẠNG EMAIL ĐÚNG
+    const formatEmail = (email) => {
+        if (!email) return 'Chưa cập nhật'
+
+        // Nếu email đã có @, trả về nguyên dạng
+        if (email.includes('@')) {
+            return email
+        }
+
+        // Nếu chỉ là username, thêm @cmc.edu.vn
+        return `${email}@cmc.edu.vn`
+    }
+
     useEffect(() => {
         fetchUserProfile()
     }, [])
@@ -162,39 +175,9 @@ export default function UserProfile() {
         }
     }
 
-    const getRoleBadge = (role) => {
-        const roleConfig = {
-            admin: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Quản trị viên' },
-            manager: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Cán bộ quản lý' },
-            expert: { bg: 'bg-green-100', text: 'text-green-800', label: 'Chuyên gia đánh giá' },
-            advisor: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Tư vấn/Giám sát' }
-        }
-        const config = roleConfig[role] || roleConfig.expert
-        return (
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        {config.label}
-      </span>
-        )
-    }
-
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            active: { bg: 'bg-green-100', text: 'text-green-800', label: 'Đang hoạt động' },
-            inactive: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Không hoạt động' },
-            suspended: { bg: 'bg-red-100', text: 'text-red-800', label: 'Tạm ngưng' },
-            pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Chờ xử lý' }
-        }
-        const config = statusConfig[status] || statusConfig.active
-        return (
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
-        {config.label}
-      </span>
-        )
-    }
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Chưa có thông tin'
-        return new Date(dateString).toLocaleDateString('vi-VN', {
+    const formatDate = (date) => {
+        if (!date) return 'Chưa cập nhật'
+        return new Date(date).toLocaleDateString('vi-VN', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -205,7 +188,7 @@ export default function UserProfile() {
 
     if (loading) {
         return (
-            <Layout title="Thông tin cá nhân" breadcrumbItems={breadcrumbItems}>
+            <Layout breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center min-h-screen">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
@@ -214,26 +197,27 @@ export default function UserProfile() {
     }
 
     return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
+        <Layout breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-
-                {/* Header với gradient */}
+                {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-20 h-20 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center border-2 border-white border-opacity-30">
-                <span className="text-3xl font-bold text-white">
-                  {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-6">
+                            <div className="w-20 h-20 bg-white bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white border-opacity-30">
+                                <User className="w-10 h-10" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold mb-1">{user?.fullName || 'Người dùng'}</h1>
-                                <p className="text-indigo-100">
-                                    {user?.position || 'Chức vụ'} {user?.department && `• ${user.department}`}
-                                </p>
-                                <div className="mt-2 flex items-center space-x-2">
-                                    {getRoleBadge(user?.role)}
-                                    {getStatusBadge(user?.status)}
+                                <h1 className="text-3xl font-bold mb-2">{user?.fullName || 'Người dùng'}</h1>
+                                <div className="flex items-center space-x-4 text-indigo-100">
+                                    <div className="flex items-center">
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        <span>{formatEmail(user?.email)}</span>
+                                    </div>
+                                    <span>•</span>
+                                    <div className="flex items-center">
+                                        <Shield className="w-4 h-4 mr-2" />
+                                        <span>{user?.role || 'Người dùng'}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -309,7 +293,7 @@ export default function UserProfile() {
                                         </button>
                                         <button
                                             onClick={handleProfileUpdate}
-                                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm hover:shadow-lg transition-all"
+                                            className="inline-flex items-center px-3 py-1.5 bg-indigo-600 rounded-lg text-sm text-white hover:bg-indigo-700 transition-all"
                                         >
                                             <Save className="h-4 w-4 mr-1" />
                                             Lưu
@@ -344,7 +328,8 @@ export default function UserProfile() {
                                             Email
                                         </dt>
                                         <dd>
-                                            <p className="text-sm text-gray-900 font-medium">{user?.email}@cmc.edu.vn</p>
+                                            {/* ✅ FIXED: Sử dụng hàm formatEmail để hiển thị đúng */}
+                                            <p className="text-sm text-gray-900 font-medium">{formatEmail(user?.email)}</p>
                                         </dd>
                                     </div>
 
@@ -420,82 +405,97 @@ export default function UserProfile() {
                                             })
                                             setErrors({})
                                         }}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        className="text-gray-400 hover:text-gray-600"
                                     >
                                         <X className="h-5 w-5" />
                                     </button>
                                 </div>
-                                <div className="p-6">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Mật khẩu hiện tại
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type={showOldPassword ? "text" : "password"}
-                                                    value={passwordForm.currentPassword}
-                                                    onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowOldPassword(!showOldPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                >
-                                                    {showOldPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                </button>
-                                            </div>
+                                <div className="p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Mật khẩu hiện tại
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showOldPassword ? 'text' : 'password'}
+                                                value={passwordForm.currentPassword}
+                                                onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                placeholder="Nhập mật khẩu hiện tại"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowOldPassword(!showOldPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            >
+                                                {showOldPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                            </button>
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Mật khẩu mới
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type={showNewPassword ? "text" : "password"}
-                                                    value={passwordForm.newPassword}
-                                                    onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                >
-                                                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                </button>
-                                            </div>
-                                            <p className="mt-1 text-xs text-gray-500">Tối thiểu 6 ký tự</p>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Mật khẩu mới
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showNewPassword ? 'text' : 'password'}
+                                                value={passwordForm.newPassword}
+                                                onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                placeholder="Nhập mật khẩu mới"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            >
+                                                {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                            </button>
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Xác nhận mật khẩu mới
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type={showConfirmPassword ? "text" : "password"}
-                                                    value={passwordForm.confirmPassword}
-                                                    onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                >
-                                                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                </button>
-                                            </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Xác nhận mật khẩu mới
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                value={passwordForm.confirmPassword}
+                                                onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                placeholder="Xác nhận mật khẩu mới"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                            >
+                                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                            </button>
                                         </div>
+                                    </div>
 
+                                    <div className="flex space-x-3 pt-4">
+                                        <button
+                                            onClick={() => {
+                                                setIsChangingPassword(false)
+                                                setPasswordForm({
+                                                    currentPassword: '',
+                                                    newPassword: '',
+                                                    confirmPassword: ''
+                                                })
+                                            }}
+                                            className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-all font-medium"
+                                        >
+                                            Hủy
+                                        </button>
                                         <button
                                             onClick={handlePasswordChange}
-                                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-lg hover:shadow-lg transition-all font-medium"
+                                            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium"
                                         >
-                                            Đổi mật khẩu
+                                            Cập nhật mật khẩu
                                         </button>
                                     </div>
                                 </div>
@@ -513,30 +513,30 @@ export default function UserProfile() {
                             <div className="p-6">
                                 <div className="space-y-4">
                                     {[
-                                        { key: 'email', label: 'Thông báo qua Email' },
-                                        { key: 'inApp', label: 'Thông báo trong ứng dụng' },
-                                        { key: 'assignment', label: 'Thông báo phân công' },
-                                        { key: 'evaluation', label: 'Thông báo đánh giá' },
-                                        { key: 'deadline', label: 'Nhắc nhở hạn chót' }
-                                    ].map(({ key, label }) => (
-                                        <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                            <span className="text-sm text-gray-700 font-medium">{label}</span>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={profileForm.notificationSettings[key]}
-                                                    onChange={(e) => setProfileForm({
-                                                        ...profileForm,
-                                                        notificationSettings: {
-                                                            ...profileForm.notificationSettings,
-                                                            [key]: e.target.checked
-                                                        }
-                                                    })}
-                                                    disabled={!isEditingProfile}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        { key: 'email', label: 'Thông báo qua email', icon: '📧' },
+                                        { key: 'inApp', label: 'Thông báo trong ứng dụng', icon: '🔔' },
+                                        { key: 'assignment', label: 'Phân công công việc', icon: '📋' },
+                                        { key: 'evaluation', label: 'Kết quả đánh giá', icon: '⭐' },
+                                        { key: 'deadline', label: 'Nhắc nhở thời hạn', icon: '⏰' }
+                                    ].map((item) => (
+                                        <div key={item.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                            <label className="flex items-center cursor-pointer flex-1">
+                                                <span className="text-lg mr-3">{item.icon}</span>
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
                                             </label>
+                                            <input
+                                                type="checkbox"
+                                                checked={profileForm.notificationSettings?.[item.key] ?? false}
+                                                onChange={(e) => setProfileForm({
+                                                    ...profileForm,
+                                                    notificationSettings: {
+                                                        ...profileForm.notificationSettings,
+                                                        [item.key]: e.target.checked
+                                                    }
+                                                })}
+                                                disabled={!isEditingProfile}
+                                                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                                            />
                                         </div>
                                     ))}
                                 </div>
