@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../../contexts/AuthContext'
-import Layout from '../../../components/common/Layout'
-import { apiMethods } from '../../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
+import Layout from '../../components/common/Layout'
+import { apiMethods } from '../../services/api'
 import {
     ArrowLeft,
     BookOpen,
@@ -13,7 +13,7 @@ import {
     AlertCircle,
     TrendingUp
 } from 'lucide-react'
-import { formatDate } from '../../../utils/helpers'
+import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
 export default function EvaluationDetailPage() {
