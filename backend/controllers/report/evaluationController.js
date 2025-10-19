@@ -124,6 +124,8 @@ const createEvaluation = async (req, res) => {
         const { assignmentId } = req.body;
         const academicYearId = req.academicYearId;
 
+        console.log('📥 Creating evaluation for assignmentId:', assignmentId);
+
         if (!assignmentId) {
             return res.status(400).json({
                 success: false,
@@ -137,11 +139,14 @@ const createEvaluation = async (req, res) => {
         }).populate('reportId');
 
         if (!assignment) {
+            console.error('❌ Assignment not found:', assignmentId);
             return res.status(400).json({
                 success: false,
                 message: 'Phân quyền không tồn tại'
             });
         }
+
+        console.log('✅ Assignment found:', assignment.status);
 
         if (assignment.expertId.toString() !== req.user.id.toString()) {
             return res.status(403).json({
@@ -150,10 +155,10 @@ const createEvaluation = async (req, res) => {
             });
         }
 
-        if (!['accepted', 'in_progress'].includes(assignment.status)) {
+        if (!['pending', 'accepted', 'in_progress'].includes(assignment.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Phân quyền chưa được chấp nhận hoặc đã hoàn thành/hủy'
+                message: `Phân quyền không thể được đánh giá. Trạng thái hiện tại: ${assignment.status}`
             });
         }
 
@@ -163,6 +168,7 @@ const createEvaluation = async (req, res) => {
         });
 
         if (existingEvaluation) {
+            console.log('⚠️ Evaluation already exists:', existingEvaluation._id);
             return res.status(409).json({
                 success: false,
                 message: 'Đánh giá cho phân quyền này đã tồn tại',
@@ -179,27 +185,33 @@ const createEvaluation = async (req, res) => {
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
             criteriaScores: assignment.evaluationCriteria || [],
-            rating: 'satisfactory',
+            rating: '',
             overallComment: '',
             evidenceAssessment: {
-                adequacy: 'adequate',
-                relevance: 'fair',
-                quality: 'fair'
-            }
+                adequacy: '',
+                relevance: '',
+                quality: ''
+            },
+            status: 'draft'
         });
-
-        evaluation.calculateScores();
 
         await evaluation.save();
 
-        if (assignment.status === 'accepted') {
-            await assignment.start();
+        if (assignment.status === 'pending') {
+            assignment.status = 'accepted';
+        } else if (assignment.status === 'accepted') {
+            assignment.status = 'in_progress';
         }
+        assignment.evaluationId = evaluation._id;
+        await assignment.save();
 
         await evaluation.populate([
             { path: 'reportId', select: 'title type code' },
-            { path: 'evaluatorId', select: 'fullName email' }
+            { path: 'evaluatorId', select: 'fullName email' },
+            { path: 'assignmentId', select: 'deadline priority' }
         ]);
+
+        console.log('✅ Evaluation created:', evaluation._id);
 
         res.status(201).json({
             success: true,
@@ -208,7 +220,7 @@ const createEvaluation = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Create evaluation error:', error);
+        console.error('❌ Create evaluation error:', error);
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -263,6 +275,18 @@ const updateEvaluation = async (req, res) => {
             evaluation.calculateScores();
         }
 
+        if (updateData.strengths !== undefined) {
+            evaluation.strengths = updateData.strengths;
+        }
+
+        if (updateData.improvementAreas !== undefined) {
+            evaluation.improvementAreas = updateData.improvementAreas;
+        }
+
+        if (updateData.recommendations !== undefined) {
+            evaluation.recommendations = updateData.recommendations;
+        }
+
         evaluation.addHistory('updated', req.user.id);
         await evaluation.save();
 
@@ -310,37 +334,31 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
-        // ✅ Validation đầy đủ - bắt buộc tất cả trường
         const validationErrors = [];
 
-        // 1. Kiểm tra Nhận xét tổng thể
         if (!evaluation.overallComment || evaluation.overallComment.trim() === '') {
             validationErrors.push('Nhận xét tổng thể là bắt buộc');
         }
 
-        // 2. Kiểm tra Xếp loại
         if (!evaluation.rating || !['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor'].includes(evaluation.rating)) {
-            validationErrors.push('Xếp loại đánh giá là bắt buộc (excellent, good, satisfactory, needs_improvement, hoặc poor)');
+            validationErrors.push('Xếp loại đánh giá là bắt buộc');
         }
 
-        // 3. Kiểm tra Đánh giá minh chứng - 3 phần bắt buộc
         if (!evaluation.evidenceAssessment?.adequacy || !['insufficient', 'adequate', 'comprehensive'].includes(evaluation.evidenceAssessment.adequacy)) {
-            validationErrors.push('Tính đầy đủ minh chứng là bắt buộc (insufficient, adequate, hoặc comprehensive)');
+            validationErrors.push('Tính đầy đủ minh chứng là bắt buộc');
         }
 
         if (!evaluation.evidenceAssessment?.relevance || !['poor', 'fair', 'good', 'excellent'].includes(evaluation.evidenceAssessment.relevance)) {
-            validationErrors.push('Tính liên quan minh chứng là bắt buộc (poor, fair, good, hoặc excellent)');
+            validationErrors.push('Tính liên quan minh chứng là bắt buộc');
         }
 
         if (!evaluation.evidenceAssessment?.quality || !['poor', 'fair', 'good', 'excellent'].includes(evaluation.evidenceAssessment.quality)) {
-            validationErrors.push('Chất lượng minh chứng là bắt buộc (poor, fair, good, hoặc excellent)');
+            validationErrors.push('Chất lượng minh chứng là bắt buộc');
         }
 
-        // 4. Kiểm tra Điểm tiêu chí - tất cả phải có điểm
         if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0) {
             validationErrors.push('Phải có ít nhất một tiêu chí đánh giá');
         } else {
-            // Kiểm tra từng tiêu chí có điểm không
             const invalidCriteria = [];
             evaluation.criteriaScores.forEach((c, idx) => {
                 if (!c.criteriaName || c.criteriaName.trim() === '') {
@@ -359,7 +377,6 @@ const submitEvaluation = async (req, res) => {
             }
         }
 
-        // Trả về tất cả lỗi nếu có
         if (validationErrors.length > 0) {
             return res.status(400).json({
                 success: false,
@@ -378,7 +395,6 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
-        // ✅ Tất cả validation đã pass, tiến hành submit
         await evaluation.submit();
 
         const assignment = await Assignment.findById(evaluation.assignmentId);
