@@ -240,6 +240,9 @@ const updateEvaluation = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
+        const currentUserId = req.user.id;
+        const currentUserRole = req.user.role;
+
 
         console.log('📥 Update evaluation:', { id, updateData });
 
@@ -251,12 +254,24 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
-        if (!evaluation.canEdit(req.user.id, req.user.role)) {
+        // 🚀 KIỂM TRA QUYỀN VÀ TRẠNG THÁI
+        if (!evaluation.canEdit(currentUserId, currentUserRole)) {
+            let errorMessage = 'Không có quyền cập nhật đánh giá này.';
+
+            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId.toString()) {
+                if (evaluation.status !== 'draft') {
+                    errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá này đang ở trạng thái: ${evaluation.status}.`;
+                }
+            } else if (currentUserRole === 'expert') {
+                errorMessage = 'Bạn chỉ có quyền chỉnh sửa đánh giá do bạn tạo.';
+            }
+
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền cập nhật đánh giá này. Chỉ có thể sửa bản nháp của bạn.'
+                message: errorMessage
             });
         }
+        // ------------------------------------
 
         if (updateData.overallComment !== undefined) {
             evaluation.overallComment = updateData.overallComment;
@@ -526,6 +541,9 @@ const autoSaveEvaluation = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
+        const currentUserId = req.user.id;
+        const currentUserRole = req.user.role;
+
 
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
         if (!evaluation) {
@@ -535,12 +553,25 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
-        if (!evaluation.canEdit(req.user.id, req.user.role)) {
+        // 🚀 KIỂM TRA QUYỀN VÀ TRẠNG THÁI
+        if (!evaluation.canEdit(currentUserId, currentUserRole)) {
+            let errorMessage = 'Không có quyền cập nhật đánh giá này.';
+
+            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId.toString()) {
+                if (evaluation.status !== 'draft') {
+                    errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá này đang ở trạng thái: ${evaluation.status}.`;
+                }
+            } else if (currentUserRole === 'expert') {
+                errorMessage = 'Bạn chỉ có quyền chỉnh sửa đánh giá do bạn tạo.';
+            }
+
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền cập nhật'
+                message: errorMessage
             });
         }
+        // ------------------------------------
+
 
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
