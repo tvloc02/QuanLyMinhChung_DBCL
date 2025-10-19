@@ -12,7 +12,6 @@ import {
     AlertCircle,
     CheckCircle,
     Plus,
-    Calendar,
     Award,
     MessageSquare,
     Zap,
@@ -46,7 +45,6 @@ export default function EvaluationForm() {
             relevance: '',
             quality: ''
         },
-        criteriaScores: [],
         strengths: [],
         improvementAreas: [],
         recommendations: []
@@ -81,20 +79,6 @@ export default function EvaluationForm() {
             const reportData = reportRes.data?.data
             setReport(reportData)
 
-            if (assignmentData?.evaluationCriteria?.length > 0) {
-                const criteriaScores = assignmentData.evaluationCriteria.map(c => ({
-                    criteriaName: c.name || '',
-                    maxScore: c.maxScore || 10,
-                    score: 0,
-                    weight: c.weight || 1,
-                    comment: ''
-                }))
-                setFormData(prev => ({
-                    ...prev,
-                    criteriaScores
-                }))
-            }
-
             try {
                 const evaluationsRes = await apiMethods.evaluations.getAll({
                     assignmentId,
@@ -108,7 +92,6 @@ export default function EvaluationForm() {
                         overallComment: existingEval.overallComment || '',
                         rating: existingEval.rating || '',
                         evidenceAssessment: existingEval.evidenceAssessment || prev.evidenceAssessment,
-                        criteriaScores: existingEval.criteriaScores || prev.criteriaScores,
                         strengths: existingEval.strengths || [],
                         improvementAreas: existingEval.improvementAreas || [],
                         recommendations: existingEval.recommendations || []
@@ -124,17 +107,6 @@ export default function EvaluationForm() {
         } finally {
             setLoading(false)
         }
-    }
-
-    const handleCriteriaChange = (index, field, value) => {
-        setFormData(prev => {
-            const updated = { ...prev }
-            updated.criteriaScores[index] = {
-                ...updated.criteriaScores[index],
-                [field]: field === 'score' ? parseFloat(value) || 0 : value
-            }
-            return updated
-        })
     }
 
     const handleAutoSave = async () => {
@@ -238,23 +210,6 @@ export default function EvaluationForm() {
             errors.push('Chất lượng minh chứng là bắt buộc và phải hợp lệ')
         }
 
-        if (formData.criteriaScores && formData.criteriaScores.length > 0) {
-            formData.criteriaScores.forEach((c, idx) => {
-                if (!c.criteriaName || c.criteriaName.trim() === '') {
-                    errors.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`)
-                }
-
-                if (c.score === undefined || c.score === null || c.score === '') {
-                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`)
-                }
-
-                const maxScore = c.maxScore || 10;
-                if (typeof c.score === 'number' && (c.score < 0 || c.score > maxScore)) {
-                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${maxScore}`)
-                }
-            })
-        }
-
         setValidationErrors(errors)
         return errors.length === 0
     }
@@ -289,7 +244,7 @@ export default function EvaluationForm() {
 
             await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Nộp đánh giá thành công')
-            setTimeout(() => router.push('/reports/my-evaluations'), 1500)
+            setTimeout(() => router.push('/evaluations/my-evaluations'), 1500)
         } catch (error) {
             console.error('Submit error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi khi nộp đánh giá';
@@ -542,67 +497,6 @@ export default function EvaluationForm() {
                                     </select>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Điểm theo tiêu chí <span className="text-red-500 ml-1">*</span></h2>
-                        <div className="space-y-6">
-                            {formData.criteriaScores.map((criteria, idx) => (
-                                <div key={idx} className="p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Tiêu chí
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={criteria.criteriaName}
-                                                onChange={(e) => handleCriteriaChange(idx, 'criteriaName', e.target.value)}
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                disabled
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Điểm tối đa
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={criteria.maxScore}
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-100"
-                                                disabled
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Điểm <span className="text-red-500">*</span> (Max: {criteria.maxScore || 10})
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={criteria.score}
-                                                onChange={(e) => handleCriteriaChange(idx, 'score', e.target.value)}
-                                                min="0"
-                                                max={criteria.maxScore || 10}
-                                                step="0.01"
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Bình luận (Tùy chọn)
-                                        </label>
-                                        <textarea
-                                            value={criteria.comment}
-                                            onChange={(e) => handleCriteriaChange(idx, 'comment', e.target.value)}
-                                            placeholder="Bình luận chi tiết về tiêu chí này..."
-                                            rows={2}
-                                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
 
