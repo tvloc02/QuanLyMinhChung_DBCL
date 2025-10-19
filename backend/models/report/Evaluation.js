@@ -69,8 +69,8 @@ const evaluationSchema = new mongoose.Schema({
 
     rating: {
         type: String,
-        enum: ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor'],
-        required: [true, 'Phân loại đánh giá là bắt buộc']
+        enum: ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor', ''],
+        default: ''
     },
 
     overallComment: {
@@ -126,18 +126,18 @@ const evaluationSchema = new mongoose.Schema({
     evidenceAssessment: {
         adequacy: {
             type: String,
-            enum: ['insufficient', 'adequate', 'comprehensive'],
-            required: [true, 'Đánh giá tính đầy đủ minh chứng là bắt buộc']
+            enum: ['insufficient', 'adequate', 'comprehensive', ''],
+            default: ''
         },
         relevance: {
             type: String,
-            enum: ['poor', 'fair', 'good', 'excellent'],
-            required: [true, 'Đánh giá tính liên quan minh chứng là bắt buộc']
+            enum: ['poor', 'fair', 'good', 'excellent', ''],
+            default: ''
         },
         quality: {
             type: String,
-            enum: ['poor', 'fair', 'good', 'excellent'],
-            required: [true, 'Đánh giá chất lượng minh chứng là bắt buộc']
+            enum: ['poor', 'fair', 'good', 'excellent', ''],
+            default: ''
         }
     },
 
