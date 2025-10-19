@@ -70,19 +70,26 @@ export default function EditEvaluationPage() {
                 return
             }
 
-            if (user.role === 'expert') {
-                const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId;
-                const isMyEvaluation = evaluatorId && evaluatorId.toString() === user.id.toString();
+            console.log('✅ Evaluation loaded:', evalData)
+            console.log('📊 Evaluation status:', evalData.status)
+            console.log('👤 Evaluator ID:', evalData.evaluatorId)
+            console.log('👤 Current user ID:', user.id)
 
-                if (!isMyEvaluation || evalData.status !== 'draft') {
-                    console.log(`❌ Expert is forbidden to edit status: ${evalData.status}, isMyEval: ${isMyEvaluation}`)
-                    toast.error('Chỉ có thể chỉnh sửa bản nháp của bạn.')
-                    router.replace(`/reports/evaluations/${id}`)
-                    return
-                }
+            if (evalData.status !== 'draft') {
+                console.log(`❌ Cannot edit - status is ${evalData.status}, only draft can be edited`)
+                toast.error('Chỉ có thể chỉnh sửa bản nháp. Đánh giá này đã được nộp/giám sát.')
+                router.replace(`/reports/evaluations/${id}`)
+                return
             }
 
-            console.log('✅ Evaluation loaded:', evalData)
+            const evaluatorId = evalData.evaluatorId?._id || evalData.evaluatorId
+            if (evaluatorId.toString() !== user.id.toString()) {
+                console.log(`❌ Not the evaluator - ${evaluatorId} vs ${user.id}`)
+                toast.error('Chỉ chuyên gia tạo đánh giá mới có thể chỉnh sửa.')
+                router.replace(`/reports/evaluations/${id}`)
+                return
+            }
+
             setEvaluation(evalData)
             setReport(evalData.reportId)
 
@@ -105,7 +112,7 @@ export default function EditEvaluationPage() {
             console.error('Message:', error.response?.data?.message)
 
             if (error.response?.status === 403) {
-                console.log('❌ Access denied (403) - Bạn không có quyền xem/sửa đánh giá này')
+                console.log('❌ Access denied (403)')
                 toast.error('Bạn không có quyền truy cập trang này.')
             } else if (error.response?.status === 404) {
                 console.log('❌ Evaluation not found')
@@ -164,20 +171,27 @@ export default function EditEvaluationPage() {
     }
 
     const isFormValid = () => {
-        return validateForm(formData);
+        return validationErrors.length === 0 &&
+            formData.overallComment.trim() &&
+            formData.rating &&
+            formData.evidenceAssessment.adequacy &&
+            formData.evidenceAssessment.relevance &&
+            formData.evidenceAssessment.quality &&
+            formData.criteriaScores.length > 0 &&
+            formData.criteriaScores.every(c => c.score !== undefined && c.score !== null && c.score !== '');
     }
 
-    const handleUpdateCriteriaScore = (index, score) => {
-        const updatedScores = [...formData.criteriaScores];
-        updatedScores[index].score = score === '' ? undefined : parseFloat(score);
-        setFormData({ ...formData, criteriaScores: updatedScores });
-        validateForm({ ...formData, criteriaScores: updatedScores });
+    const handleUpdateCriteriaScore = (idx, value) => {
+        const updated = { ...formData };
+        updated.criteriaScores[idx].score = value ? parseFloat(value) : '';
+        setFormData(updated);
+        validateForm(updated);
     }
 
     const handleSave = async () => {
         if (!isFormValid()) {
-            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc');
-            return;
+            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc')
+            return
         }
 
         try {
@@ -194,7 +208,7 @@ export default function EditEvaluationPage() {
                 criteriaScores: formData.criteriaScores
             }
 
-            console.log('📤 Saving evaluation data (Draft):', submitData)
+            console.log('📤 Saving evaluation:', submitData)
 
             await apiMethods.evaluations.update(evaluation._id, submitData)
             toast.success('Đánh giá đã được lưu')
@@ -203,7 +217,7 @@ export default function EditEvaluationPage() {
                 fetchEvaluation()
             }, 500)
         } catch (error) {
-            console.error('Error saving:', error)
+            console.error('❌ Error saving:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi lưu đánh giá')
         } finally {
             setSaving(false)
@@ -212,8 +226,8 @@ export default function EditEvaluationPage() {
 
     const handleSubmit = async () => {
         if (!isFormValid()) {
-            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc');
-            return;
+            toast.error('Vui lòng điền đầy đủ tất cả thông tin bắt buộc')
+            return
         }
 
         if (!window.confirm('Xác nhận nộp đánh giá? Sau khi nộp sẽ không thể chỉnh sửa.')) {
@@ -224,29 +238,16 @@ export default function EditEvaluationPage() {
             setSubmitting(true)
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
-            // Lưu lần cuối trước khi nộp
-            const submitData = {
-                overallComment: formData.overallComment.trim(),
-                rating: formData.rating,
-                evidenceAssessment: {
-                    adequacy: formData.evidenceAssessment.adequacy,
-                    relevance: formData.evidenceAssessment.relevance,
-                    quality: formData.evidenceAssessment.quality
-                },
-                criteriaScores: formData.criteriaScores
-            }
+            const submitRes = await apiMethods.evaluations.submit(evaluation._id)
+            console.log('✅ Submit response:', submitRes)
 
-            await apiMethods.evaluations.update(evaluation._id, submitData)
-            await apiMethods.evaluations.submit(evaluation._id)
             toast.success('Đánh giá đã được nộp')
             router.push('/reports/evaluations')
         } catch (error) {
-            console.error('Error submitting:', error)
-
-            // Hiển thị lỗi validation chi tiết từ backend
-            if (error.response?.data?.errors) {
-                const errorMessages = error.response.data.errors.join('\n');
-                toast.error(`Lỗi: ${errorMessages}`);
+            console.error('❌ Error submitting:', error)
+            const errors = error.response?.data?.errors
+            if (errors && Array.isArray(errors)) {
+                toast.error(errors[0])
             } else {
                 toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
             }
@@ -254,33 +255,6 @@ export default function EditEvaluationPage() {
             setSubmitting(false)
         }
     }
-
-    const getValidationStatus = () => {
-        return {
-            overallComment: formData.overallComment && formData.overallComment.trim() !== '',
-            rating: !!formData.rating,
-            evidenceAssessment: {
-                adequacy: !!formData.evidenceAssessment.adequacy,
-                relevance: !!formData.evidenceAssessment.relevance,
-                quality: !!formData.evidenceAssessment.quality
-            },
-            criteriaScores: formData.criteriaScores &&
-                formData.criteriaScores.length > 0 &&
-                formData.criteriaScores.every(c => c.score !== undefined && c.score !== null && c.score !== '')
-        }
-    }
-
-    const status = getValidationStatus()
-    const completedCount = (
-        (status.overallComment ? 1 : 0) +
-        (status.rating ? 1 : 0) +
-        (status.evidenceAssessment.adequacy ? 1 : 0) +
-        (status.evidenceAssessment.relevance ? 1 : 0) +
-        (status.evidenceAssessment.quality ? 1 : 0) +
-        (status.criteriaScores ? 1 : 0)
-    )
-    const totalRequired = 6
-    const progressPercent = Math.round((completedCount / totalRequired) * 100)
 
     if (isLoading || loading) {
         return (
@@ -312,15 +286,16 @@ export default function EditEvaluationPage() {
         )
     }
 
-    if (user.role === 'expert' && evaluation.status !== 'draft') {
-        return (
-            <Layout breadcrumbItems={breadcrumbItems}>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h3 className="text-red-800 font-semibold">Lỗi trạng thái</h3>
-                    <p className="text-red-600">Đánh giá đã được nộp. Không thể chỉnh sửa.</p>
-                </div>
-            </Layout>
-        )
+    // Status tracking
+    const status = {
+        overallComment: !!formData.overallComment && formData.overallComment.trim() !== '',
+        rating: !!formData.rating,
+        evidenceAssessment: {
+            adequacy: !!formData.evidenceAssessment.adequacy,
+            relevance: !!formData.evidenceAssessment.relevance,
+            quality: !!formData.evidenceAssessment.quality
+        },
+        criteriaScores: formData.criteriaScores?.every(c => c.score !== undefined && c.score !== null && c.score !== '')
     }
 
     const ratingOptions = [
@@ -332,8 +307,9 @@ export default function EditEvaluationPage() {
     ]
 
     return (
-        <Layout title='Chỉnh sửa đánh giá' breadcrumbItems={breadcrumbItems}>
+        <Layout title="Chỉnh sửa đánh giá" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
+                {/* Header */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <button
                         onClick={() => router.back()}
@@ -351,112 +327,28 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
+                {/* Status */}
                 {evaluation?.status && (
-                    <div className={`p-4 rounded-lg border ${
-                        evaluation.status === 'draft'
-                            ? 'bg-blue-50 border-blue-200'
-                            : 'bg-green-50 border-green-200'
-                    }`}>
-                        <p className={`text-sm font-medium ${
-                            evaluation.status === 'draft'
-                                ? 'text-blue-800'
-                                : 'text-green-800'
-                        }`}>
-                            Trạng thái: {evaluation.status === 'draft' ? 'Bản nháp' : 'Đã nộp'}
+                    <div className="p-4 rounded-lg border bg-blue-50 border-blue-200">
+                        <p className="text-sm font-medium text-blue-800">
+                            Trạng thái: Bản nháp
                         </p>
                     </div>
                 )}
 
-                {evaluation.supervisorGuidance?.comments && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <h3 className="text-orange-800 font-semibold flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
-                            Hướng dẫn giám sát
-                        </h3>
-                        <p className="text-orange-700 text-sm mt-2">{evaluation.supervisorGuidance.comments}</p>
-                        <p className="text-xs text-gray-500 mt-2">
-                            Từ: {evaluation.supervisorGuidance.guidedBy?.fullName}
-                        </p>
+                {/* Validation Errors */}
+                {validationErrors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-red-800 mb-2">❌ Lỗi validation:</p>
+                        <ul className="space-y-1">
+                            {validationErrors.map((error, idx) => (
+                                <li key={idx} className="text-sm text-red-700">• {error}</li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
-                {/* ✅ Progress Bar */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Tiến độ hoàn thành</h3>
-
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-gray-700">Đã hoàn thành: {completedCount}/{totalRequired}</span>
-                            <span className="text-2xl font-bold text-blue-600">{progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-gray-300 rounded-full h-3">
-                            <div
-                                className={`h-3 rounded-full transition-all ${
-                                    progressPercent === 100
-                                        ? 'bg-green-500'
-                                        : progressPercent >= 50
-                                            ? 'bg-yellow-500'
-                                            : 'bg-red-500'
-                                }`}
-                                style={{ width: `${progressPercent}%` }}
-                            ></div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
-                            status.overallComment
-                                ? 'bg-green-50 border-green-300 text-green-700'
-                                : 'bg-red-50 border-red-300 text-red-700'
-                        }`}>
-                            {status.overallComment ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                            Nhận xét
-                        </div>
-                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
-                            status.rating
-                                ? 'bg-green-50 border-green-300 text-green-700'
-                                : 'bg-red-50 border-red-300 text-red-700'
-                        }`}>
-                            {status.rating ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                            Xếp loại
-                        </div>
-                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
-                            (status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality)
-                                ? 'bg-green-50 border-green-300 text-green-700'
-                                : 'bg-red-50 border-red-300 text-red-700'
-                        }`}>
-                            {(status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality) ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                            Minh chứng
-                        </div>
-                        <div className={`p-3 rounded border text-sm font-medium flex items-center gap-2 ${
-                            status.criteriaScores
-                                ? 'bg-green-50 border-green-300 text-green-700'
-                                : 'bg-red-50 border-red-300 text-red-700'
-                        }`}>
-                            {status.criteriaScores ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                            Tiêu chí
-                        </div>
-                    </div>
-
-                    {/* Hiển thị lỗi validation */}
-                    {validationErrors.length > 0 && (
-                        <div className="mt-4 p-4 bg-red-50 border border-red-300 rounded-lg">
-                            <h4 className="text-red-800 font-semibold mb-2 flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5" />
-                                Lỗi cần sửa:
-                            </h4>
-                            <ul className="space-y-1">
-                                {validationErrors.map((error, idx) => (
-                                    <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
-                                        <span className="mt-0.5">•</span>
-                                        <span>{error}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-
+                {/* Rating Selection */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Xếp loại đánh giá</h2>
@@ -470,8 +362,9 @@ export default function EditEvaluationPage() {
                             <button
                                 key={option.value}
                                 onClick={() => {
-                                    setFormData({ ...formData, rating: option.value });
-                                    validateForm({ ...formData, rating: option.value });
+                                    const updated = { ...formData, rating: option.value };
+                                    setFormData(updated);
+                                    validateForm(updated);
                                 }}
                                 className={`p-4 rounded-lg border-2 transition-all text-center ${
                                     formData.rating === option.value
@@ -486,6 +379,7 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
+                {/* Overall Comment */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Nhận xét tổng thể</h2>
@@ -497,8 +391,9 @@ export default function EditEvaluationPage() {
                     <textarea
                         value={formData.overallComment}
                         onChange={(e) => {
-                            setFormData({ ...formData, overallComment: e.target.value });
-                            validateForm({ ...formData, overallComment: e.target.value });
+                            const updated = { ...formData, overallComment: e.target.value };
+                            setFormData(updated);
+                            validateForm(updated);
                         }}
                         placeholder="Nhập nhận xét tổng thể về báo cáo..."
                         maxLength={5000}
@@ -512,11 +407,12 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
+                {/* Evidence Assessment */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Đánh giá minh chứng</h2>
                         <span className={`text-sm font-semibold ${
-                            (status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality)
+                            status.evidenceAssessment.adequacy && status.evidenceAssessment.relevance && status.evidenceAssessment.quality
                                 ? 'text-green-600'
                                 : 'text-red-600'
                         }`}>
@@ -597,7 +493,7 @@ export default function EditEvaluationPage() {
                     </div>
                 </div>
 
-                {/* ✅ Điểm tiêu chí */}
+                {/* Criteria Scores */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Điểm tiêu chí đánh giá</h2>
@@ -652,6 +548,20 @@ export default function EditEvaluationPage() {
                     )}
                 </div>
 
+                {/* Form Status */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                        <span className={isFormValid() ? 'text-green-600' : 'text-red-600'}>
+                            {isFormValid() ? '✅' : '❌'}
+                        </span>
+                        {' '}
+                        {isFormValid()
+                            ? 'Đủ thông tin để lưu/nộp'
+                            : 'Chưa đầy đủ thông tin bắt buộc'}
+                    </p>
+                </div>
+
+                {/* Actions */}
                 <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-lg shadow-lg">
                     <button
                         onClick={() => router.back()}
