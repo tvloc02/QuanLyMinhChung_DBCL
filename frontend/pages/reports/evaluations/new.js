@@ -23,7 +23,6 @@ export default function EvaluationFormPage() {
     const [evaluation, setEvaluation] = useState(null)
     const [report, setReport] = useState(null)
 
-    // ✅ ONLY REQUIRED FIELDS
     const [formData, setFormData] = useState({
         overallComment: '',
         rating: '',
@@ -62,6 +61,8 @@ export default function EvaluationFormPage() {
             const response = await apiMethods.evaluations.getById(id)
             const data = response.data?.data || response.data
 
+            console.log('✅ Evaluation fetched:', data)
+
             setEvaluation(data)
             setReport(data.reportId)
 
@@ -75,7 +76,7 @@ export default function EvaluationFormPage() {
                 }
             })
         } catch (error) {
-            console.error('Error fetching evaluation:', error)
+            console.error('❌ Error fetching evaluation:', error)
             toast.error('Lỗi tải đánh giá')
             router.push('/reports/evaluations')
         } finally {
@@ -87,7 +88,6 @@ export default function EvaluationFormPage() {
         try {
             setLoading(true)
 
-            // ✅ Step 1: Lấy thông tin assignment
             console.log('📥 Fetching assignment:', assignmentId)
             let assignmentData
             try {
@@ -96,12 +96,14 @@ export default function EvaluationFormPage() {
                 console.log('✅ Assignment fetched:', assignmentData)
             } catch (assignmentError) {
                 console.error('❌ Assignment fetch error:', assignmentError)
-                toast.error('Không thể tải thông tin phân quyền. ID không hợp lệ hoặc không tồn tại.')
+                const errMsg = assignmentError.response?.data?.message || 'Không thể tải thông tin phân quyền'
+                toast.error(errMsg)
                 router.push('/reports/expert-assignments')
                 return
             }
 
             if (!assignmentData) {
+                console.error('❌ Assignment data is empty')
                 toast.error('Không tìm thấy thông tin phân quyền')
                 router.push('/reports/expert-assignments')
                 return
@@ -109,24 +111,21 @@ export default function EvaluationFormPage() {
 
             setReport(assignmentData.reportId)
 
-            // ✅ Step 2: Tạo evaluation mới
             console.log('📤 Creating evaluation for assignmentId:', assignmentId)
             let newEvaluation
             try {
-                const createRes = await apiMethods.evaluations.create({ assignmentId })
+                const createRes = await apiMethods.evaluations.create({ assignmentId: assignmentId })
                 newEvaluation = createRes.data?.data || createRes.data
                 console.log('✅ Evaluation created:', newEvaluation)
             } catch (createError) {
                 console.error('❌ Create evaluation error:', createError)
-                const errorMsg = createError.response?.data?.message || 'Lỗi tạo đánh giá'
-                toast.error(errorMsg)
+                const errorMsg = createError.response?.data?.message || createError.message || 'Lỗi tạo đánh giá'
 
-                // Nếu lỗi là "đánh giá đã tồn tại", hãy thử tìm evaluation cũ
                 if (errorMsg.includes('đã tồn tại')) {
                     console.log('📥 Evaluation already exists, trying to fetch...')
                     try {
                         const listRes = await apiMethods.evaluations.getAll({
-                            assignmentId,
+                            assignmentId: assignmentId,
                             limit: 1
                         })
                         const evaluations = listRes.data?.data?.evaluations || []
@@ -137,15 +136,17 @@ export default function EvaluationFormPage() {
                             return
                         }
                     } catch (fetchError) {
-                        console.error('Error fetching existing evaluation:', fetchError)
+                        console.error('❌ Error fetching existing evaluation:', fetchError)
                     }
                 }
 
+                toast.error(errorMsg)
                 router.push('/reports/expert-assignments')
                 return
             }
 
-            if (!newEvaluation) {
+            if (!newEvaluation || !newEvaluation._id) {
+                console.error('❌ Evaluation data is empty or invalid')
                 toast.error('Không thể tạo đánh giá - dữ liệu trống')
                 router.push('/reports/expert-assignments')
                 return
@@ -189,7 +190,6 @@ export default function EvaluationFormPage() {
         try {
             setSaving(true)
 
-            // ✅ CHỈ GỬI CÁC FIELDS REQUIRED
             const submitData = {
                 overallComment: formData.overallComment.trim(),
                 rating: formData.rating,
@@ -205,12 +205,11 @@ export default function EvaluationFormPage() {
             await apiMethods.evaluations.update(evaluation._id, submitData)
             toast.success('Đánh giá đã được lưu')
 
-            // Refresh
             setTimeout(() => {
                 fetchEvaluation()
             }, 500)
         } catch (error) {
-            console.error('Error saving:', error)
+            console.error('❌ Error saving:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi lưu đánh giá')
         } finally {
             setSaving(false)
@@ -231,12 +230,19 @@ export default function EvaluationFormPage() {
             setSubmitting(true)
             console.log('📤 Submitting evaluation ID:', evaluation._id)
 
-            await apiMethods.evaluations.submit(evaluation._id)
+            const submitRes = await apiMethods.evaluations.submit(evaluation._id)
+            console.log('✅ Submit response:', submitRes)
+
             toast.success('Đánh giá đã được nộp')
             router.push('/reports/evaluations')
         } catch (error) {
-            console.error('Error submitting:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
+            console.error('❌ Error submitting:', error)
+            const errors = error.response?.data?.errors
+            if (errors && Array.isArray(errors)) {
+                toast.error(errors[0])
+            } else {
+                toast.error(error.response?.data?.message || 'Lỗi khi nộp đánh giá')
+            }
         } finally {
             setSubmitting(false)
         }
@@ -318,7 +324,7 @@ export default function EvaluationFormPage() {
                     </div>
                 )}
 
-                {/* Rating Selection - REQUIRED */}
+                {/* Rating Selection */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Xếp loại đánh giá</h2>
@@ -350,7 +356,7 @@ export default function EvaluationFormPage() {
                     )}
                 </div>
 
-                {/* Overall Comment - REQUIRED */}
+                {/* Overall Comment */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Nhận xét tổng thể</h2>
@@ -379,7 +385,7 @@ export default function EvaluationFormPage() {
                     )}
                 </div>
 
-                {/* Evidence Assessment - REQUIRED */}
+                {/* Evidence Assessment */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Đánh giá minh chứng</h2>
