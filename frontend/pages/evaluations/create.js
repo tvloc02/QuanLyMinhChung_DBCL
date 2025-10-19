@@ -238,9 +238,7 @@ export default function EvaluationForm() {
             errors.push('Chất lượng minh chứng là bắt buộc và phải hợp lệ')
         }
 
-        if (!formData.criteriaScores || formData.criteriaScores.length === 0) {
-            errors.push('Phải có ít nhất một tiêu chí đánh giá')
-        } else {
+        if (formData.criteriaScores && formData.criteriaScores.length > 0) {
             formData.criteriaScores.forEach((c, idx) => {
                 if (!c.criteriaName || c.criteriaName.trim() === '') {
                     errors.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`)
