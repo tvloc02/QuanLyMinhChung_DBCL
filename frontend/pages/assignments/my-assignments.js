@@ -133,7 +133,7 @@ export default function MyAssignments() {
     }
 
     const handleStartEvaluation = (assignmentId, reportId) => {
-        router.push(`/reports/evaluations/create?assignmentId=${assignmentId}&reportId=${reportId}`)
+        router.push(`/evaluations/create?assignmentId=${assignmentId}&reportId=${reportId}`)
     }
 
     const toggleExpandRow = (id) => {
