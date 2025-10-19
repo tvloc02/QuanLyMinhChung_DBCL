@@ -184,7 +184,6 @@ const createEvaluation = async (req, res) => {
             assignmentId,
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
-            criteriaScores: assignment.evaluationCriteria || [],
             rating: '',
             overallComment: '',
             evidenceAssessment: {
@@ -283,11 +282,6 @@ const updateEvaluation = async (req, res) => {
             evaluation.evidenceAssessment = updateData.evidenceAssessment;
         }
 
-        if (updateData.criteriaScores !== undefined) {
-            evaluation.criteriaScores = updateData.criteriaScores;
-            evaluation.calculateScores();
-        }
-
         if (updateData.strengths !== undefined) {
             evaluation.strengths = updateData.strengths;
         }
@@ -369,25 +363,6 @@ const submitEvaluation = async (req, res) => {
             validationErrors.push('Chất lượng minh chứng là bắt buộc');
         }
 
-        if (evaluation.criteriaScores && evaluation.criteriaScores.length > 0) {
-            const invalidCriteria = [];
-            evaluation.criteriaScores.forEach((c, idx) => {
-                if (!c.criteriaName || c.criteriaName.trim() === '') {
-                    invalidCriteria.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`);
-                }
-                if (c.score === undefined || c.score === null || c.score === '') {
-                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`);
-                }
-                if (typeof c.score === 'number' && (c.score < 0 || c.score > (c.maxScore || 10))) {
-                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${c.maxScore || 10}`);
-                }
-            });
-
-            if (invalidCriteria.length > 0) {
-                validationErrors.push(...invalidCriteria);
-            }
-        }
-
         if (validationErrors.length > 0) {
             return res.status(400).json({
                 success: false,
@@ -400,8 +375,7 @@ const submitEvaluation = async (req, res) => {
                         adequacy: evaluation.evidenceAssessment?.adequacy ? '✅' : '❌',
                         relevance: evaluation.evidenceAssessment?.relevance ? '✅' : '❌',
                         quality: evaluation.evidenceAssessment?.quality ? '✅' : '❌'
-                    },
-                    criteriaScores: evaluation.criteriaScores?.length > 0 ? '✅' : '❌'
+                    }
                 }
             });
         }
@@ -415,11 +389,7 @@ const submitEvaluation = async (req, res) => {
 
         const report = await Report.findById(evaluation.reportId);
         if (report) {
-            const averageScore = await Evaluation.getAverageScoreByReport(evaluation.reportId);
-            if (report.metadata) {
-                report.metadata.averageScore = averageScore;
-                report.metadata.evaluationCount = (report.metadata.evaluationCount || 0) + 1;
-            }
+            // Không còn AverageScore nữa
             if (!report.evaluations.map(e => e.toString()).includes(evaluation._id.toString())) {
                 report.evaluations.push(evaluation._id);
             }
@@ -568,7 +538,7 @@ const autoSaveEvaluation = async (req, res) => {
 
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
-            'strengths', 'improvementAreas', 'recommendations', 'criteriaScores'
+            'strengths', 'improvementAreas', 'recommendations'
         ];
 
         allowedAutoSaveFields.forEach(field => {
@@ -576,10 +546,6 @@ const autoSaveEvaluation = async (req, res) => {
                 evaluation[field] = updateData[field];
             }
         });
-
-        if (updateData.criteriaScores !== undefined) {
-            evaluation.calculateScores();
-        }
 
         await evaluation.autoSave();
 
@@ -643,7 +609,8 @@ const getAverageScoreByReport = async (req, res) => {
     try {
         const { reportId } = req.params;
 
-        const averageScore = await Evaluation.getAverageScoreByReport(reportId);
+        // Không còn điểm trung bình nữa
+        const averageScore = 0;
 
         res.json({
             success: true,
