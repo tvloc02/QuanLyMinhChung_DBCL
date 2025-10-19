@@ -21,6 +21,7 @@ import {
     Calendar,
     Flag,
     Mail,
+    X,
     Briefcase
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
