@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const ActivityLog = require("../system/ActivityLog");
 
 const evaluationSchema = new mongoose.Schema({
     academicYearId: {
@@ -384,6 +385,8 @@ evaluationSchema.methods.addHistory = function(action, userId, changes = {}, not
 
 evaluationSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
+
+    // 🚀 ĐÃ SỬA: Chuyên gia CHỈ có thể sửa nếu trạng thái là draft
     return userRole === 'expert' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
 
 };

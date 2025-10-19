@@ -80,7 +80,7 @@ export default function EditEvaluationPage() {
             // 1. Kiểm tra quyền chỉnh sửa: Phải là bản nháp và là người tạo
             if (evalData.status !== 'draft') {
                 console.log(`❌ Cannot edit - status is ${evalData.status}, only draft can be edited`)
-                toast.error('Chỉ có thể chỉnh sửa bản nháp. Đánh giá này đã được nộp/giám sát.')
+                toast.error(`Chỉ có thể chỉnh sửa bản nháp. Đánh giá này đang ở trạng thái: ${evalData.status}.`)
                 router.replace(`/reports/evaluations/${id}`)
                 return
             }
@@ -112,25 +112,22 @@ export default function EditEvaluationPage() {
         } catch (error) {
             console.error('❌ Error fetching evaluation:', error)
 
-            // 🚀 Cải thiện xử lý lỗi 403 và 404
+            // 🚀 Xử lý lỗi 403 và 404 (Nếu backend từ chối ngay từ getById)
             const status = error.response?.status;
             const message = error.response?.data?.message;
 
             if (status === 403) {
-                console.log('❌ Access denied (403)')
-                toast.error(message || 'Bạn không có quyền truy cập hoặc chỉnh sửa đánh giá này.')
+                console.log('❌ Access denied (403) during fetch')
+                toast.error(message || 'Bạn không có quyền xem trang chỉnh sửa này.')
+                router.replace(id ? `/reports/evaluations/${id}` : '/reports/evaluations') // Chuyển sang trang chi tiết hoặc danh sách
+                return
             } else if (status === 404) {
                 console.log('❌ Evaluation not found')
                 toast.error('Không tìm thấy đánh giá')
+                router.replace('/reports/evaluations')
+                return
             } else {
                 toast.error('Lỗi tải đánh giá')
-            }
-
-            // Chuyển hướng người dùng về trang danh sách đánh giá hoặc trang chi tiết nếu có ID
-            if (id) {
-                router.replace(`/reports/evaluations/${id}`)
-            } else {
-                router.replace('/reports/evaluations')
             }
 
         } finally {
@@ -229,7 +226,8 @@ export default function EditEvaluationPage() {
             }, 500)
         } catch (error) {
             console.error('❌ Error saving:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi lưu đánh giá')
+            const message = error.response?.data?.message || 'Lỗi khi lưu đánh giá'
+            toast.error(message)
         } finally {
             setSaving(false)
         }
