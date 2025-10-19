@@ -254,7 +254,6 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
-        // 🚀 KIỂM TRA QUYỀN VÀ TRẠNG THÁI
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
@@ -271,7 +270,6 @@ const updateEvaluation = async (req, res) => {
                 message: errorMessage
             });
         }
-        // ------------------------------------
 
         if (updateData.overallComment !== undefined) {
             evaluation.overallComment = updateData.overallComment;
@@ -371,9 +369,7 @@ const submitEvaluation = async (req, res) => {
             validationErrors.push('Chất lượng minh chứng là bắt buộc');
         }
 
-        if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0) {
-            validationErrors.push('Phải có ít nhất một tiêu chí đánh giá');
-        } else {
+        if (evaluation.criteriaScores && evaluation.criteriaScores.length > 0) {
             const invalidCriteria = [];
             evaluation.criteriaScores.forEach((c, idx) => {
                 if (!c.criteriaName || c.criteriaName.trim() === '') {
@@ -553,7 +549,6 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
-        // 🚀 KIỂM TRA QUYỀN VÀ TRẠNG THÁI
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
@@ -570,8 +565,6 @@ const autoSaveEvaluation = async (req, res) => {
                 message: errorMessage
             });
         }
-        // ------------------------------------
-
 
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
