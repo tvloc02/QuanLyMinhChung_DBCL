@@ -310,48 +310,75 @@ const submitEvaluation = async (req, res) => {
             });
         }
 
+        // ✅ Validation đầy đủ - bắt buộc tất cả trường
+        const validationErrors = [];
+
+        // 1. Kiểm tra Nhận xét tổng thể
         if (!evaluation.overallComment || evaluation.overallComment.trim() === '') {
+            validationErrors.push('Nhận xét tổng thể là bắt buộc');
+        }
+
+        // 2. Kiểm tra Xếp loại
+        if (!evaluation.rating || !['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor'].includes(evaluation.rating)) {
+            validationErrors.push('Xếp loại đánh giá là bắt buộc (excellent, good, satisfactory, needs_improvement, hoặc poor)');
+        }
+
+        // 3. Kiểm tra Đánh giá minh chứng - 3 phần bắt buộc
+        if (!evaluation.evidenceAssessment?.adequacy || !['insufficient', 'adequate', 'comprehensive'].includes(evaluation.evidenceAssessment.adequacy)) {
+            validationErrors.push('Tính đầy đủ minh chứng là bắt buộc (insufficient, adequate, hoặc comprehensive)');
+        }
+
+        if (!evaluation.evidenceAssessment?.relevance || !['poor', 'fair', 'good', 'excellent'].includes(evaluation.evidenceAssessment.relevance)) {
+            validationErrors.push('Tính liên quan minh chứng là bắt buộc (poor, fair, good, hoặc excellent)');
+        }
+
+        if (!evaluation.evidenceAssessment?.quality || !['poor', 'fair', 'good', 'excellent'].includes(evaluation.evidenceAssessment.quality)) {
+            validationErrors.push('Chất lượng minh chứng là bắt buộc (poor, fair, good, hoặc excellent)');
+        }
+
+        // 4. Kiểm tra Điểm tiêu chí - tất cả phải có điểm
+        if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0) {
+            validationErrors.push('Phải có ít nhất một tiêu chí đánh giá');
+        } else {
+            // Kiểm tra từng tiêu chí có điểm không
+            const invalidCriteria = [];
+            evaluation.criteriaScores.forEach((c, idx) => {
+                if (!c.criteriaName || c.criteriaName.trim() === '') {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`);
+                }
+                if (c.score === undefined || c.score === null || c.score === '') {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`);
+                }
+                if (typeof c.score === 'number' && (c.score < 0 || c.score > (c.maxScore || 10))) {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${c.maxScore || 10}`);
+                }
+            });
+
+            if (invalidCriteria.length > 0) {
+                validationErrors.push(...invalidCriteria);
+            }
+        }
+
+        // Trả về tất cả lỗi nếu có
+        if (validationErrors.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Nhận xét tổng thể là bắt buộc'
+                message: 'Đánh giá chưa đầy đủ. Vui lòng kiểm tra các lỗi sau:',
+                errors: validationErrors,
+                data: {
+                    overallComment: evaluation.overallComment ? '✅' : '❌',
+                    rating: evaluation.rating ? '✅' : '❌',
+                    evidenceAssessment: {
+                        adequacy: evaluation.evidenceAssessment?.adequacy ? '✅' : '❌',
+                        relevance: evaluation.evidenceAssessment?.relevance ? '✅' : '❌',
+                        quality: evaluation.evidenceAssessment?.quality ? '✅' : '❌'
+                    },
+                    criteriaScores: evaluation.criteriaScores?.length > 0 ? '✅' : '❌'
+                }
             });
         }
 
-        if (!evaluation.rating) {
-            return res.status(400).json({
-                success: false,
-                message: 'Xếp loại đánh giá là bắt buộc'
-            });
-        }
-
-        if (!evaluation.evidenceAssessment?.adequacy) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tính đầy đủ minh chứng là bắt buộc'
-            });
-        }
-
-        if (!evaluation.evidenceAssessment?.relevance) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tính liên quan minh chứng là bắt buộc'
-            });
-        }
-
-        if (!evaluation.evidenceAssessment?.quality) {
-            return res.status(400).json({
-                success: false,
-                message: 'Chất lượng minh chứng là bắt buộc'
-            });
-        }
-
-        if (!evaluation.criteriaScores || evaluation.criteriaScores.length === 0 || evaluation.criteriaScores.some(c => c.score === undefined || c.score === null)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Vui lòng nhập đầy đủ điểm cho các tiêu chí đánh giá.'
-            });
-        }
-
+        // ✅ Tất cả validation đã pass, tiến hành submit
         await evaluation.submit();
 
         const assignment = await Assignment.findById(evaluation.assignmentId);
@@ -372,7 +399,7 @@ const submitEvaluation = async (req, res) => {
             await report.save();
         }
 
-        console.log('✅ Evaluation submitted');
+        console.log('✅ Evaluation submitted successfully');
 
         res.json({
             success: true,
