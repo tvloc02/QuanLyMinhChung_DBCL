@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
     FileText, Target, BookOpen, Folder, MessageSquare,
-    Plus, Upload, Search, Download, Eye, Edit
+    Plus, Upload, Search, Download, Eye, Edit, ListTodo
 } from 'lucide-react';
 import { StatCard, QuickAction, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
@@ -27,11 +27,10 @@ const AdvisorDashboard = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
+            const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch advisor stats
-            const statsResponse = await fetch('/api/dashboard/advisor/stats', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Fetch advisor stats (dashboardController.js)
+            const statsResponse = await fetch('/api/dashboard/advisor/stats', { headers });
 
             if (statsResponse.ok) {
                 const result = await statsResponse.json();
@@ -40,10 +39,8 @@ const AdvisorDashboard = () => {
                 }
             }
 
-            // Fetch recent evidences
-            const evidencesResponse = await fetch('/api/evidences?limit=5&sortOrder=desc', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Fetch recent evidences (evidenceController.js)
+            const evidencesResponse = await fetch('/api/evidences?limit=5&sortOrder=desc', { headers });
 
             if (evidencesResponse.ok) {
                 const result = await evidencesResponse.json();
@@ -52,16 +49,20 @@ const AdvisorDashboard = () => {
                 }
             }
 
-            // Fetch evidence statistics by standard
-            const standardStatsResponse = await fetch('/api/evidences/statistics', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Fetch evidence statistics by standard (evidenceController.js)
+            const standardStatsResponse = await fetch('/api/evidences/statistics?groupBy=standard', { headers });
 
             if (standardStatsResponse.ok) {
                 const result = await standardStatsResponse.json();
                 if (result.success) {
-                    // Transform data for display
-                    const statsData = result.data.byStandard || [];
+                    // Assuming the API returns a structured object that includes total evidences for percentage calculation
+                    const totalEvidences = result.data.totalEvidences || 1;
+                    const statsData = (result.data.byStandard || [])
+                        .map(stat => ({
+                            ...stat,
+                            percentage: ((stat.count / totalEvidences) * 100).toFixed(1)
+                        }));
+
                     setStandardStats(statsData.slice(0, 4));
                 }
             }
@@ -114,7 +115,7 @@ const AdvisorDashboard = () => {
                     loading={loading}
                 />
                 <StatCard
-                    title="Tiêu chuẩn"
+                    title="Tiêu chuẩn (Có quyền)"
                     value={stats.standards}
                     icon={Target}
                     color="bg-green-500"
@@ -141,32 +142,32 @@ const AdvisorDashboard = () => {
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Thao tác nhanh</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <QuickAction
-                        title="Thêm minh chứng"
+                        title="Tạo minh chứng"
                         description="Tạo minh chứng mới"
                         icon={Plus}
                         color="bg-blue-500"
-                        href="/evidence-management/create"
+                        href="/evidences/create"
                     />
                     <QuickAction
                         title="Import Excel"
                         description="Nhập từ file Excel"
                         icon={Upload}
                         color="bg-green-500"
-                        href="/import-evidence"
+                        href="/evidences/import"
                     />
                     <QuickAction
-                        title="Tìm kiếm"
-                        description="Tìm minh chứng"
-                        icon={Search}
+                        title="Quản lý Minh chứng"
+                        description="Tìm kiếm và chỉnh sửa"
+                        icon={ListTodo}
                         color="bg-purple-500"
-                        href="/evidence-management"
+                        href="/evidences"
                     />
                     <QuickAction
-                        title="Xuất dữ liệu"
-                        description="Tải về Excel/PDF"
-                        icon={Download}
+                        title="Cây Minh chứng"
+                        description="Xem cấu trúc tổng quan"
+                        icon={Search}
                         color="bg-orange-500"
-                        href="/export-evidence"
+                        href="/evidences/tree"
                     />
                 </div>
             </div>
@@ -176,9 +177,9 @@ const AdvisorDashboard = () => {
                 {/* Recent Evidences */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Minh chứng gần đây</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Minh chứng gần đây (Phạm vi)</h3>
                         <button
-                            onClick={() => router.push('/evidence-management')}
+                            onClick={() => router.push('/evidences')}
                             className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                         >
                             Xem tất cả
@@ -192,7 +193,8 @@ const AdvisorDashboard = () => {
                             {recentEvidences.map((evidence) => (
                                 <div
                                     key={evidence._id}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                                    onClick={() => router.push(`/evidences/${evidence._id}`)}
                                 >
                                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                                         <Folder className="w-5 h-5 text-blue-600 flex-shrink-0" />
@@ -205,13 +207,13 @@ const AdvisorDashboard = () => {
                                     </div>
                                     <div className="flex items-center space-x-2 ml-2">
                                         <button
-                                            onClick={() => router.push(`/evidence-management/${evidence._id}`)}
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/evidences/${evidence._id}`)}}
                                             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                                         >
                                             <Eye className="w-4 h-4 text-gray-600" />
                                         </button>
                                         <button
-                                            onClick={() => router.push(`/evidence-management/${evidence._id}/edit`)}
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/evidences/${evidence._id}/edit`)}}
                                             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                                         >
                                             <Edit className="w-4 h-4 text-gray-600" />
@@ -224,7 +226,7 @@ const AdvisorDashboard = () => {
                         <EmptyState
                             icon={Folder}
                             title="Chưa có minh chứng"
-                            description="Hãy tạo minh chứng đầu tiên"
+                            description="Hãy tạo minh chứng đầu tiên trong phạm vi của bạn"
                         />
                     )}
                 </div>
@@ -256,7 +258,7 @@ const AdvisorDashboard = () => {
                                     <div
                                         key={stat._id || index}
                                         className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                                        onClick={() => router.push(`/evidence-management?standardId=${stat._id}`)}
+                                        onClick={() => router.push(`/evidences?standardId=${stat._id}`)}
                                     >
                                         <div className="flex items-center space-x-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colors.icon}`}>
@@ -272,8 +274,8 @@ const AdvisorDashboard = () => {
                                             </div>
                                         </div>
                                         <span className="text-sm font-semibold text-gray-900">
-                      {stat.percentage || 0}%
-                    </span>
+                                            {stat.percentage || 0}%
+                                        </span>
                                     </div>
                                 );
                             })}
