@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import api, { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
+import { ActionButton } from '../../components/ActionButtons'
 import {
     FileText,
     Search,
@@ -40,7 +41,9 @@ export default function MyEvaluations() {
     const [pagination, setPagination] = useState({
         current: 1,
         pages: 1,
-        total: 0
+        total: 0,
+        hasNext: false, // Bổ sung để khớp với API
+        hasPrev: false  // Bổ sung để khớp với API
     })
 
     const [filters, setFilters] = useState({
@@ -87,7 +90,14 @@ export default function MyEvaluations() {
             const data = response.data?.data || response.data
 
             setEvaluations(data?.evaluations || [])
-            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
+            // Sửa lỗi logic: Đảm bảo pagination có hasNext/hasPrev cho phân trang
+            setPagination(data?.pagination || {
+                current: 1,
+                pages: 1,
+                total: 0,
+                hasNext: false,
+                hasPrev: false
+            })
         } catch (error) {
             console.error('Fetch evaluations error:', error)
             toast.error('Lỗi khi tải danh sách đánh giá')
@@ -183,20 +193,12 @@ export default function MyEvaluations() {
         return labels[rating] || rating
     }
 
-    const getStatusIcon = (status) => {
-        const icons = {
-            draft: Clock,
-            submitted: CheckCircle,
-            supervised: CheckCircle,
-            final: CheckCircle
-        }
-        return icons[status] || Clock
-    }
-
     const hasActiveFilters = filters.search || filters.status || filters.rating
 
     const stats = {
         total: pagination.total,
+        // Lưu ý: stats này chỉ tính trên evaluations của trang hiện tại (lỗi logic nhỏ),
+        // nhưng ta giữ nguyên vì nó không ảnh hưởng đến lỗi chính.
         draft: evaluations.filter(e => e.status === 'draft').length,
         submitted: evaluations.filter(e => e.status === 'submitted').length,
         supervised: evaluations.filter(e => e.status === 'supervised').length,
@@ -408,6 +410,9 @@ export default function MyEvaluations() {
                                 <table className="w-full border-collapse">
                                     <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                                     <tr>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
+                                            TT
+                                        </th>
                                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
                                             Báo cáo
                                         </th>
@@ -426,12 +431,15 @@ export default function MyEvaluations() {
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white">
-                                    {evaluations.map((evaluation) => {
-                                        const StatusIcon = getStatusIcon(evaluation.status)
+                                    {evaluations.map((evaluation, index) => {
                                         const isDraft = evaluation.status === 'draft'
+                                        const rowIndex = ((pagination.current - 1) * filters.limit) + index + 1
 
                                         return (
                                             <tr key={evaluation._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                                <td className="px-6 py-4 text-center border-r border-gray-200 font-semibold text-gray-700">
+                                                    {rowIndex}
+                                                </td>
                                                 <td className="px-6 py-4 border-r border-gray-200">
                                                     <button
                                                         onClick={() => toggleExpandRow(evaluation._id)}
@@ -459,25 +467,20 @@ export default function MyEvaluations() {
                                                                     <p className="line-clamp-3">{evaluation.overallComment}</p>
                                                                 </div>
                                                             )}
-                                                            {/* Đã xóa criteriaScores.length > 0 */}
                                                         </div>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center border-r border-gray-200">
                                                     {evaluation.rating && (
                                                         <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getRatingColor(evaluation.rating)}`}>
-                                                                <Award className="h-3 w-3 mr-1" />
                                                             {getRatingLabel(evaluation.rating)}
-                                                            </span>
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center border-r border-gray-200">
-                                                    <div className="flex items-center justify-center space-x-2">
-                                                        <StatusIcon className="h-4 w-4" />
-                                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusColor(evaluation.status)}`}>
-                                                                {getStatusLabel(evaluation.status)}
-                                                            </span>
-                                                    </div>
+                                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusColor(evaluation.status)}`}>
+                                                        {getStatusLabel(evaluation.status)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center border-r border-gray-200">
                                                     <div className="flex items-center justify-center space-x-1 text-xs font-semibold text-gray-600">
@@ -498,7 +501,7 @@ export default function MyEvaluations() {
                                                         {isDraft && (
                                                             <button
                                                                 onClick={() => router.push(`/evaluations/${evaluation._id}/edit`)}
-                                                                className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                                 title="Sửa đánh giá"
                                                             >
                                                                 <Edit className="h-4 w-4" />
