@@ -1,5 +1,212 @@
 [
-  {"question": "import minh chứng", "answer": "Vào trang Import Evidence, chọn file Excel và nhấn Tải lên."},
-  {"question": "báo cáo", "answer": "Trang Báo cáo giúp xuất thống kê minh chứng ra Excel hoặc PDF."},
-  {"question": "phân quyền", "answer": "Trang Quản lý người dùng cho phép gán quyền theo tiêu chí hoặc tiêu chuẩn."}
+  {
+    "id": 1,
+    "category": "Giới thiệu hệ thống",
+    "question": "Hệ thống quản lý minh chứng là gì?",
+    "answer": "Hệ thống Quản lý Minh chứng (Evidence Management System) là nền tảng quản lý tài liệu, minh chứng và báo cáo đánh giá. Hệ thống hỗ trợ tổ chức, phân loại, và xuất báo cáo minh chứng theo tiêu chuẩn và tiêu chí.",
+    "keywords": ["hệ thống", "minh chứng", "giới thiệu", "là gì"]
+  },
+  {
+    "id": 2,
+    "category": "Bắt đầu",
+    "question": "Làm thế nào để đăng nhập hệ thống?",
+    "answer": "Truy cập trang đăng nhập, nhập email và mật khẩu của bạn. Nếu chưa có tài khoản, liên hệ quản trị viên để được cấp quyền truy cập. Sau khi đăng nhập thành công, bạn sẽ được chuyển đến trang chủ.",
+    "keywords": ["đăng nhập", "login", "tài khoản"]
+  },
+  {
+    "id": 3,
+    "category": "Quản lý minh chứng",
+    "question": "Tạo minh chứng mới như thế nào?",
+    "answer": "1. Vào trang 'Minh chứng' và nhấn nút 'Tạo minh chứng mới'\n2. Nhập thông tin bắt buộc: Tên, Chương trình, Tổ chức, Tiêu chuẩn, Tiêu chí\n3. Thêm mô tả, yêu cầu, hướng dẫn, chỉ số đánh giá (nếu cần)\n4. Nhấn 'Lưu' để tạo minh chứng với trạng thái 'Nháp'\n5. Bạn có thể chỉnh sửa hoặc xuất bản minh chứng sau đó",
+    "keywords": ["tạo", "minh chứng", "new", "mới"]
+  },
+  {
+    "id": 4,
+    "category": "Quản lý minh chứng",
+    "question": "Cách tìm kiếm minh chứng?",
+    "answer": "Sử dụng thanh tìm kiếm trên trang Minh chứng:\n- Tìm theo tên: Nhập tên minh chứng\n- Tìm theo mã: Nhập mã minh chứng (ví dụ: 01.02.03)\n- Lọc theo tiêu chuẩn, tiêu chí, trạng thái, loại\n- Sắp xếp theo tên, mã, ngày tạo\nNhấn Enter hoặc nút 'Tìm kiếm' để hiển thị kết quả",
+    "keywords": ["tìm kiếm", "search", "lọc", "filter"]
+  },
+  {
+    "id": 5,
+    "category": "Quản lý minh chứng",
+    "question": "Làm thế nào để sửa hoặc xóa minh chứng?",
+    "answer": "Để sửa minh chứng:\n1. Tìm minh chứng cần sửa\n2. Nhấn nút 'Chỉnh sửa' hoặc click vào minh chứng\n3. Cập nhật thông tin cần thiết\n4. Nhấn 'Lưu' để lưu thay đổi\n\nĐể xóa minh chứng:\n1. Chọn minh chứng không còn sử dụng\n2. Nhấn nút 'Xóa'\n3. Xác nhận lựa chọn\nLưu ý: Chỉ có thể xóa minh chứng chưa được sử dụng trong báo cáo",
+    "keywords": ["sửa", "xóa", "chỉnh sửa", "delete", "edit"]
+  },
+  {
+    "id": 6,
+    "category": "Quản lý minh chứng",
+    "question": "Tôi cần phân cấp minh chứng theo tiêu chuẩn và tiêu chí, cách làm?",
+    "answer": "Hệ thống tự động phân cấp minh chứng dựa trên:\n- Tiêu chuẩn: Mã tiêu chuẩn (01, 02, 03...)\n- Tiêu chí: Mã tiêu chí (01, 02, 03...)\n\nQuá trình tạo minh chứng:\n1. Chọn 'Tiêu chuẩn' từ danh sách\n2. Chọn 'Tiêu chí' tương ứng\n3. Hệ thống tự động gán mã minh chứng (ví dụ: TCS01.TC02.EV001)\n4. Minh chứng được phân loại tự động",
+    "keywords": ["phân cấp", "tiêu chuẩn", "tiêu chí", "hierarchy"]
+  },
+  {
+    "id": 7,
+    "category": "Upload và File",
+    "question": "Làm thế nào để upload file cho minh chứng?",
+    "answer": "1. Mở minh chứng hoặc tạo minh chứng mới\n2. Tìm phần 'Tải lên file' hoặc 'Upload'\n3. Nhấn 'Chọn file' để chọn từ máy tính\n4. Hỗ trợ các định dạng: PDF, Word, Excel, hình ảnh (JPG, PNG)\n5. Nhấn 'Tải lên' để upload\n6. Chờ quá trình hoàn thành\nLưu ý: Kích thước file tối đa là 100MB",
+    "keywords": ["upload", "file", "tải lên", "attach"]
+  },
+  {
+    "id": 8,
+    "category": "Upload và File",
+    "question": "Làm thế nào để tổ chức file thành các thư mục?",
+    "answer": "Hệ thống cho phép tạo cấu trúc thư mục:\n1. Trong phần quản lý file, nhấn nút 'Tạo thư mục'\n2. Đặt tên cho thư mục (ví dụ: 'Tài liệu 2024')\n3. Tạo các thư mục con nếu cần\n4. Upload file vào thư mục tương ứng\n5. Có thể di chuyển file giữa các thư mục bằng kéo-thả\n\nCác thư mục được lưu trữ cấu trúc cây file cho dễ quản lý",
+    "keywords": ["thư mục", "folder", "organize", "cấu trúc"]
+  },
+  {
+    "id": 9,
+    "category": "Upload và File",
+    "question": "Làm sao để tải xuống file từ minh chứng?",
+    "answer": "1. Mở minh chứng có chứa file cần tải\n2. Tìm file trong danh sách\n3. Nhấn nút 'Tải xuống' hoặc biểu tượng mũi tên xuống\n4. File sẽ được tải về máy tính của bạn\n5. Kiểm tra thư mục 'Downloads' để xem file\n\nNếu tải xuống nhiều file cùng lúc, hệ thống sẽ nén thành file ZIP",
+    "keywords": ["tải xuống", "download", "save", "lưu"]
+  },
+  {
+    "id": 10,
+    "category": "Import & Export",
+    "question": "Làm thế nào để import minh chứng từ file Excel?",
+    "answer": "1. Vào trang 'Import' hoặc 'Nhập dữ liệu'\n2. Chọn chương trình và tổ chức\n3. Nhấn nút 'Chọn file' để chọn file Excel\n4. File phải có các cột: Tên, Mã, Tiêu chuẩn, Tiêu chí, Mô tả\n5. Nhấn 'Xem trước' để kiểm tra dữ liệu\n6. Nhấn 'Import' để tải dữ liệu\n7. Hệ thống sẽ kiểm tra và báo cáo kết quả\n\nLưu ý: Hệ thống sẽ bỏ qua các dòng có mã trùng lặp hoặc dữ liệu không hợp lệ",
+    "keywords": ["import", "excel", "tải", "nhập"]
+  },
+  {
+    "id": 11,
+    "category": "Import & Export",
+    "question": "Cách export minh chứng ra file Excel?",
+    "answer": "1. Vào trang 'Báo cáo' hoặc danh sách minh chứng\n2. Chọn bộ lọc nếu muốn export dữ liệu cụ thể\n3. Nhấn nút 'Xuất' hoặc 'Export'\n4. Chọn định dạng: Excel (XLSX), PDF, hoặc CSV\n5. Chọn các cột muốn xuất (mã, tên, trạng thái, v.v.)\n6. Nhấn 'Tải xuống' để lưu file\n\nFile sẽ được lưu với tên: minh-chung_[năm_học]_[thời_gian].xlsx",
+    "keywords": ["export", "xuất", "excel", "báo cáo"]
+  },
+  {
+    "id": 12,
+    "category": "Import & Export",
+    "question": "Làm thế nào để import cây thư mục có cấu trúc?",
+    "answer": "1. Chuẩn bị file Excel với các cột: Cấp độ, Tên, Loại (Folder/File), Đường dẫn\n2. Vào trang 'Import' > 'Import Cây thư mục'\n3. Chọn file Excel chứa cấu trúc thư mục\n4. Xem trước cấu trúc trước khi import\n5. Nhấn 'Import' để tải cấu trúc\n6. Hệ thống sẽ tạo thư mục và file tương ứng\n\nCột 'Cấp độ' xác định độ sâu: 0 (Root), 1 (Level 1), 2 (Level 2), v.v.",
+    "keywords": ["import", "tree", "cây", "structure", "cấu trúc"]
+  },
+  {
+    "id": 13,
+    "category": "Tiêu chuẩn & Tiêu chí",
+    "question": "Quản lý tiêu chuẩn và tiêu chí trong hệ thống?",
+    "answer": "Tiêu chuẩn và Tiêu chí là hai cấp độ trong cấu trúc:\n\n**Tiêu chuẩn (Standards):**\n- Mã: 01, 02, 03... (2 chữ số)\n- Ví dụ: '01 - Chất lượng giáo dục'\n\n**Tiêu chí (Criteria):**\n- Mã: 01, 02, 03... (2 chữ số) trong mỗi tiêu chuẩn\n- Ví dụ: '01.01 - Thực hiện chương trình đào tạo'\n\n**Cách quản lý:**\n1. Vào trang 'Tiêu chuẩn' để xem danh sách\n2. Thêm/sửa/xóa tiêu chuẩn hoặc tiêu chí\n3. Mỗi tiêu chí phải thuộc một tiêu chuẩn",
+    "keywords": ["tiêu chuẩn", "tiêu chí", "standard", "criteria"]
+  },
+  {
+    "id": 14,
+    "category": "Báo cáo",
+    "question": "Làm thế nào để tạo báo cáo?",
+    "answer": "1. Vào trang 'Báo cáo'\n2. Nhấn nút 'Tạo báo cáo mới'\n3. Nhập thông tin: Tiêu đề, Loại (Tự động/File), Chương trình, Tổ chức\n4. Chọn Tiêu chuẩn và Tiêu chí liên quan (nếu cần)\n5. Nhập nội dung báo cáo:\n   - Sử dụng trình soạn thảo trực tuyến, hoặc\n   - Upload file Word/PDF\n6. Nhấn 'Lưu' để lưu bản nháp\n7. Nhấn 'Xuất bản' khi báo cáo hoàn chỉnh\n\nBáo cáo xuất bản sẽ được gửi cho chuyên gia đánh giá",
+    "keywords": ["báo cáo", "report", "tạo", "create"]
+  },
+  {
+    "id": 15,
+    "category": "Báo cáo",
+    "question": "Làm sao để liên kết minh chứng vào báo cáo?",
+    "answer": "Khi soạn thảo báo cáo:\n1. Nhập nội dung trong trình soạn thảo\n2. Chọn vị trí muốn liên kết minh chứng\n3. Nhấn nút 'Chèn minh chứng' hoặc 'Link Evidence'\n4. Tìm kiếm minh chứng theo mã hoặc tên\n5. Chọn minh chứng cần liên kết\n6. Nhấn 'Chèn' - mã minh chứng sẽ được thêm dưới dạng link\n7. Reader có thể click vào link để xem minh chứng\n\nCác link sẽ được hiển thị dưới dạng badge màu xanh: [EV001]",
+    "keywords": ["liên kết", "link", "minh chứng", "evidence", "reference"]
+  },
+  {
+    "id": 16,
+    "category": "Đánh giá",
+    "question": "Quy trình đánh giá báo cáo là gì?",
+    "answer": "**Quy trình đánh giá 5 bước:**\n\n1. **Tạo phân công (Assignment)**: Manager phân công báo cáo cho chuyên gia\n2. **Chuyên gia nhận phân công**: Expert xem phân công và chấp nhận/từ chối\n3. **Tạo đánh giá (Evaluation)**: Expert soạn đánh giá theo tiêu chí\n4. **Nộp đánh giá**: Expert nộp đánh giá hoàn chỉnh\n5. **Giám sát/Hoàn tất**: Supervisor xem xét và hoàn tất đánh giá\n\n**Trạng thái đánh giá:**\n- Draft: Bản nháp\n- Submitted: Đã nộp\n- Supervised: Đã giám sát\n- Finalized: Hoàn tất",
+    "keywords": ["đánh giá", "evaluation", "quy trình", "process"]
+  },
+  {
+    "id": 17,
+    "category": "Đánh giá",
+    "question": "Chuyên gia cần làm gì để tạo đánh giá?",
+    "answer": "**Các bước tạo đánh giá cho chuyên gia:**\n\n1. Vào trang 'Phân công của tôi'\n2. Chọn báo cáo cần đánh giá\n3. Nhấn nút 'Tạo đánh giá'\n4. Điền các thông tin:\n   - Xếp loại (Xuất sắc/Tốt/Đạt/Cần cải thiện)\n   - Nhận xét tổng thể\n   - Đánh giá minh chứng: Tính đầy đủ, Tính liên quan, Chất lượng\n   - Điểm mạnh, Điểm cần cải thiện\n5. Lưu bản nháp: Nhấn 'Lưu'\n6. Nộp đánh giá: Nhấn 'Nộp' khi hoàn chỉnh\n\nLưu ý: Chỉ có thể sửa đánh giá khi ở trạng thái 'Draft'",
+    "keywords": ["đánh giá", "chuyên gia", "expert", "evaluation"]
+  },
+  {
+    "id": 18,
+    "category": "Quyền và Phân quyền",
+    "question": "Các vai trò trong hệ thống là gì?",
+    "answer": "**Vai trò chính:**\n\n1. **Admin**: Quản lý toàn bộ hệ thống, tạo người dùng, thiết lập quyền\n2. **Manager/Supervisor**: Phân công báo cáo, giám sát đánh giá, xem thống kê\n3. **Expert**: Tạo đánh giá cho báo cáo\n4. **Editor/Author**: Tạo báo cáo, quản lý minh chứng\n5. **Viewer/Guest**: Xem báo cáo đã xuất bản, xem minh chứng công khai\n\n**Quyền cơ bản:**\n- Xem: Có thể xem dữ liệu\n- Tạo: Có thể tạo dữ liệu mới\n- Sửa: Có thể chỉnh sửa dữ liệu\n- Xóa: Có thể xóa dữ liệu",
+    "keywords": ["vai trò", "role", "quyền", "permission"]
+  },
+  {
+    "id": 19,
+    "category": "Quyền và Phân quyền",
+    "question": "Làm thế nào để phân quyền cho người dùng?",
+    "answer": "**Phân quyền người dùng (Admin/Manager):**\n\n1. Vào trang 'Quản lý người dùng'\n2. Chọn người dùng cần phân quyền\n3. Nhấn nút 'Chỉnh sửa quyền'\n4. Phân quyền theo cấp độ:\n   - **Toàn bộ hệ thống**: Chọn 'Tất cả'\n   - **Theo Tiêu chuẩn**: Chọn tiêu chuẩn để xem\n   - **Theo Tiêu chí**: Chọn tiêu chí để quản lý\n   - **Theo Chương trình/Tổ chức**: Giới hạn trong một chương trình\n5. Nhấn 'Lưu' để áp dụng quyền\n\nNguời dùng sẽ chỉ nhìn thấy dữ liệu trong phạm vi quyền được phân",
+    "keywords": ["phân quyền", "permission", "assign", "quyền"]
+  },
+  {
+    "id": 20,
+    "category": "Thống kê và Báo cáo",
+    "question": "Xem thống kê minh chứng như thế nào?",
+    "answer": "1. Vào trang 'Thống kê' hoặc 'Dashboard'\n2. Chọn các tiêu chí lọc:\n   - Năm học\n   - Chương trình\n   - Tổ chức\n   - Tiêu chuẩn\n3. Xem các biểu đồ:\n   - Tổng số minh chứng\n   - Phân bố theo trạng thái (Nháp/Hoạt động/Không hoạt động)\n   - Phân bố theo loại\n   - Top tiêu chuẩn có nhiều minh chứng nhất\n4. Nhấn 'Xuất báo cáo' để lưu thống kê\n\nDữ liệu được cập nhật real-time",
+    "keywords": ["thống kê", "statistics", "báo cáo", "dashboard"]
+  },
+  {
+    "id": 21,
+    "category": "Xử lý sự cố",
+    "question": "Tôi không thể tải lên file, phải làm sao?",
+    "answer": "**Kiểm tra các điểm sau:**\n\n1. **Kích thước file**: File không được vượt quá 100MB\n2. **Định dạng file**: Chỉ chấp nhận PDF, Word, Excel, hình ảnh (JPG, PNG)\n3. **Kết nối mạng**: Kiểm tra kết nối internet có ổn định\n4. **Trình duyệt**: Thử dùng trình duyệt khác (Chrome, Firefox)\n5. **Dung lượng máy chủ**: Nếu lỗi 'Storage full', liên hệ Admin\n6. **Cache trình duyệt**: Xóa cache và thử lại\n\nNếu vẫn lỗi, liên hệ hỗ trợ kỹ thuật với thông tin: tên file, kích thước, định dạng",
+    "keywords": ["lỗi", "upload", "error", "file", "không thể"]
+  },
+  {
+    "id": 22,
+    "category": "Xử lý sự cố",
+    "question": "Tôi quên mật khẩu, làm thế nào?",
+    "answer": "**Cách đặt lại mật khẩu:**\n\n1. Trên trang đăng nhập, nhấn 'Quên mật khẩu?'\n2. Nhập email của bạn\n3. Nhấn 'Gửi'\n4. Kiểm tra email - bạn sẽ nhận được link đặt lại mật khẩu\n5. Click vào link trong email\n6. Nhập mật khẩu mới (ít nhất 8 ký tự, chứa chữ số và ký tự đặc biệt)\n7. Nhấn 'Cập nhật'\n\nNếu không nhận được email:\n- Kiểm tra thư mục Spam\n- Liên hệ quản trị viên để đặt lại mật khẩu",
+    "keywords": ["quên mật khẩu", "reset password", "password"]
+  },
+  {
+    "id": 23,
+    "category": "Xử lý sự cố",
+    "question": "Không tìm thấy minh chứng hoặc báo cáo mà tôi vừa tạo?",
+    "answer": "**Kiểm tra các điểm sau:**\n\n1. **Năm học**: Xác nhận bạn đang ở năm học đúng\n2. **Bộ lọc**: Kiểm tra các bộ lọc (Trạng thái, Loại, v.v.) - có thể đã lọc mất dữ liệu\n3. **Trang**: Nếu có nhiều bản ghi, kiểm tra các trang khác\n4. **Quyền**: Xác nhận bạn có quyền xem dữ liệu đó\n5. **Làm mới**: Nhấn F5 để làm mới trang\n6. **Lịch sử**: Nếu xóa vô tình, liên hệ Admin để khôi phục\n\nNếu vẫn không tìm thấy, liên hệ hỗ trợ",
+    "keywords": ["không tìm", "lost", "mất", "không hiện"]
+  },
+  {
+    "id": 24,
+    "category": "Hỗ trợ",
+    "question": "Liên hệ hỗ trợ kỹ thuật như thế nào?",
+    "answer": "**Các cách liên hệ hỗ trợ:**\n\n1. **Email**: Gửi email tới support@evidence-system.edu.vn\n2. **Chat**: Sử dụng chatbot trên hệ thống (trang này)\n3. **Điện thoại**: Gọi 0243.345.6789 (giờ hành chính)\n4. **Phòng Support**: Phòng 101, Tòa A (Thứ 2-6, 8h-17h)\n5. **Form báo lỗi**: Nhấn nút 'Báo lỗi' trên mỗi trang\n\n**Thông tin cần cung cấp:**\n- Mô tả vấn đề chi tiết\n- Bước để tái hiện lỗi\n- Ảnh chụp màn hình (nếu có)\n- Tên đăng nhập, loại trình duyệt",
+    "keywords": ["liên hệ", "support", "hỗ trợ", "contact"]
+  },
+  {
+    "id": 25,
+    "category": "Hỗ trợ",
+    "question": "Làm thế nào để xuất báo cáo thống kê toàn bộ hệ thống?",
+    "answer": "**Xuất báo cáo toàn bộ (Admin/Manager):**\n\n1. Vào trang 'Báo cáo' hoặc 'Thống kê'\n2. Chọn 'Báo cáo tổng hợp'\n3. Chọn khoảng thời gian và bộ lọc:\n   - Năm học\n   - Chương trình\n   - Tổ chức\n   - Tiêu chuẩn\n4. Chọn loại báo cáo:\n   - Minh chứng\n   - Báo cáo\n   - Đánh giá\n   - Thống kê tổng hợp\n5. Chọn định dạng: Excel, PDF, CSV\n6. Nhấn 'Tạo báo cáo'\n7. Nhấn 'Tải xuống' khi hoàn thành\n\nBáo cáo sẽ chứa tất cả thông tin chi tiết và biểu đồ",
+    "keywords": ["báo cáo", "thống kê", "export", "tổng hợp"]
+  },
+  {
+    "id": 26,
+    "category": "Năm học",
+    "question": "Làm thế nào để chuyển sang năm học khác?",
+    "answer": "**Chuyển năm học:**\n\n1. Nhìn vào header (phía trên cùng) - bạn sẽ thấy dropdown 'Năm học'\n2. Nhấn vào dropdown để xem danh sách năm học\n3. Chọn năm học muốn xem\n4. Hệ thống sẽ tải lại tất cả dữ liệu cho năm học đó\n\n**Lưu ý:**\n- Dữ liệu của mỗi năm học là riêng biệt\n- Chỉ có thể xem dữ liệu của năm học được cấp quyền\n- Năm học hiện tại được đánh dấu bằng biểu tượng sao ⭐",
+    "keywords": ["năm học", "academic year", "chuyển", "switch"]
+  },
+  {
+    "id": 27,
+    "category": "Sao chép dữ liệu",
+    "question": "Làm thế nào để sao chép minh chứng từ năm học này sang năm học khác?",
+    "answer": "**Sao chép minh chứng (Admin/Manager):**\n\n1. Chọn minh chứng cần sao chép\n2. Nhấn nút '...' (More options) > 'Sao chép sang năm học khác'\n3. Chọn năm học đích\n4. Nhập mã mới cho minh chứng (nếu muốn)\n5. Nhấn 'Sao chép'\n6. Hệ thống sẽ tạo bản sao trong năm học mới\n\nBản sao sẽ có:\n- Cùng thông tin cơ bản (tên, mô tả)\n- Mã mới được gán\n- Trạng thái 'Nháp'\n- Năm học mới được cập nhật\n\nCác file đính kèm cần copy riêng",
+    "keywords": ["sao chép", "copy", "năm học", "duplicate"]
+  },
+  {
+    "id": 28,
+    "category": "Sao chép dữ liệu",
+    "question": "Sao chép báo cáo từ năm học này sang năm học khác?",
+    "answer": "**Sao chép báo cáo (Admin/Manager):**\n\n1. Vào trang 'Báo cáo'\n2. Chọn báo cáo cần sao chép\n3. Nhấn nút 'Sao chép'\n4. Chọn 'Sao chép sang năm học khác'\n5. Chọn năm học đích\n6. Chọn tiêu chuẩn/tiêu chí mới (nếu cần)\n7. Nhập mã báo cáo mới\n8. Nhấn 'Sao chép'\n\nBản sao sẽ:\n- Giữ nội dung báo cáo\n- Tạo mã mới\n- Được gán năm học mới\n- Có trạng thái 'Nháp'\n- Cần re-publish nếu muốn gửi đánh giá\n\nLưu ý: Các liên kết minh chứng có thể cần cập nhật",
+    "keywords": ["sao chép", "copy", "báo cáo", "report"]
+  },
+  {
+    "id": 29,
+    "category": "Ghi chú nâng cao",
+    "question": "Tôi có thể tìm kiếm nâng cao minh chứng không?",
+    "answer": "**Tìm kiếm nâng cao:**\n\n1. Vào trang 'Minh chứng'\n2. Nhấn nút 'Tìm kiếm nâng cao' hoặc 'Advanced Search'\n3. Sử dụng các bộ lọc:\n   - **Tên/Mã**: Tìm kiếm theo từ khóa\n   - **Tiêu chuẩn**: Chọn một hoặc nhiều tiêu chuẩn\n   - **Tiêu chí**: Chọn một hoặc nhiều tiêu chí\n   - **Trạng thái**: Lọc theo trạng thái (Nháp, Hoạt động, v.v.)\n   - **Loại**: Lọc theo loại minh chứng\n   - **Ngày tạo**: Chọn khoảng thời gian\n   - **Người tạo**: Lọc theo người tạo\n4. Nhấn 'Tìm kiếm' để xem kết quả\n5. Có thể sắp xếp kết quả theo cột bất kỳ",
+    "keywords": ["tìm kiếm", "advanced", "search", "nâng cao"]
+  },
+  {
+    "id": 30,
+    "category": "Ghi chú nâng cao",
+    "question": "Làm thế nào để tạo cây minh chứng hiển thị cấu trúc?",
+    "answer": "**Xem cây minh chứng:**\n\n1. Vào trang 'Minh chứng' hoặc 'Cây minh chứng'\n2. Chọn Chương trình và Tổ chức\n3. Hệ thống sẽ hiển thị cây cấu trúc:\n   ```\n   Tiêu chuẩn 01\n   ├── Tiêu chí 01\n   │   ├── Minh chứng 001\n   │   ├── Minh chứng 002\n   ├── Tiêu chí 02\n   │   ├── Minh chứng 001\n   Tiêu chuẩn 02\n   └── ...\n   ```\n4. Click để mở rộng/thu gọn các nhánh\n5. Click vào minh chứng để xem chi tiết\n6. Có thể export cây dưới dạng PDF/Excel\n\nCây minh chứng giúp visualize toàn bộ cấu trúc",
+    "keywords": ["cây", "tree", "cấu trúc", "structure", "hierarchy"]
+  }
 ]
