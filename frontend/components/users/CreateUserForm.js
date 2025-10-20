@@ -56,12 +56,6 @@ export default function CreateUserForm() {
             label: 'Chuyên gia đánh giá',
             color: 'from-green-500 to-emerald-500',
             description: 'Thực hiện đánh giá các tiêu chí'
-        },
-        {
-            value: 'expert_external',
-            label: 'Chuyên gia ngoài',
-            color: 'from-purple-500 to-violet-500',
-            description: 'Chuyên gia thuê ngoài'
         }
     ]
 
