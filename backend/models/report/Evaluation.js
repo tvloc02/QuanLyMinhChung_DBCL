@@ -303,9 +303,27 @@ evaluationSchema.methods.canEdit = function(userId, userRole) {
 };
 
 evaluationSchema.methods.canView = function(userId, userRole) {
+    // ✅ Convert sang string để so sánh chính xác
+    const userIdStr = String(userId);
+    const evaluatorIdStr = String(this.evaluatorId._id || this.evaluatorId);
+
+    console.log('🔍 [CAN VIEW CHECK]', {
+        userId: userIdStr,
+        evaluatorId: evaluatorIdStr,
+        userRole,
+        status: this.status,
+        isSameId: userIdStr === evaluatorIdStr
+    });
+
     if (userRole === 'admin') return true;
-    if (this.evaluatorId.toString() === userId.toString()) return true;
     if (userRole === 'supervisor') return true;
+
+    // ✅ Chuyên gia xem đánh giá của mình
+    if (userRole === 'expert' && userIdStr === evaluatorIdStr) {
+        return true;
+    }
+
+    // Manager xem các đánh giá đã nộp
     return userRole === 'manager' && this.status !== 'draft';
 
 };
