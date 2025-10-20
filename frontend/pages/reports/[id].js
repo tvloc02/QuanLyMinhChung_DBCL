@@ -21,6 +21,13 @@ import {
 import { formatDate } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
+// Hàm kiểm tra tính hợp lệ của MongoDB ObjectId (chuỗi 24 ký tự hex)
+const isMongoId = (id) => {
+    if (typeof id !== 'string') return false;
+    // Kiểm tra phải là chuỗi 24 ký tự hex
+    return id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
+};
+
 export default function ReportDetailPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
@@ -38,36 +45,43 @@ export default function ReportDetailPage() {
 
     useEffect(() => {
         if (user && router.isReady && id) {
-            fetchReport()
+            // ✅ ĐÃ SỬA: CHỈ gọi fetchReport nếu ID là một MongoDB ObjectId hợp lệ
+            if (isMongoId(id)) {
+                fetchReport(id);
+            } else {
+                // Nếu ID không hợp lệ (ví dụ: 'id1,id2,id3'), chặn fetch API.
+                console.warn(`[REPORT DETAIL] Invalid ID format or multiple IDs detected: ${id}. Blocking fetch.`);
+                // Ngừng hiển thị loading spinner nếu component đã sẵn sàng và ID không hợp lệ
+                if (loading) setLoading(false);
+            }
         }
-    }, [user, id, router.isReady])
+    }, [user, id, router.isReady]) // Không cần 'loading' trong dependency array vì nó có thể gây lỗi
 
     const breadcrumbItems = [
         { name: 'Báo cáo', path: '/reports' },
         { name: 'Chi tiết', icon: FileText }
     ]
 
-    const fetchReport = async () => {
+    const fetchReport = async (reportId) => {
         try {
             setLoading(true)
-            console.log('📥 Fetching report detail:', id)
+            console.log('📥 Fetching report detail:', reportId)
 
-            const response = await apiMethods.reports.getById(id)
+            // Gọi API với ID đã được xác nhận là hợp lệ
+            const response = await apiMethods.reports.getById(reportId)
             console.log('📦 Report response:', response)
 
-            // ✅ Match backend response: { success: true, data: {...} }
             const reportData = response.data?.data || response.data
 
             if (!reportData || !reportData._id) {
                 toast.error('Không tìm thấy báo cáo')
-                router.push('/reports')
+                router.push('/reports/reports')
                 return
             }
 
             console.log('✅ Report loaded:', reportData)
             setReport(reportData)
 
-            // ✅ Get evaluations if they exist
             if (reportData.evaluations && reportData.evaluations.length > 0) {
                 setEvaluations(reportData.evaluations)
             }
@@ -80,14 +94,18 @@ export default function ReportDetailPage() {
             } else if (error.response?.status === 404) {
                 toast.error('Không tìm thấy báo cáo')
             } else if (error.response?.status === 400) {
-                toast.error('ID báo cáo không hợp lệ')
+                // Lỗi 400 (Bad Request)
+                toast.error('ID báo cáo không hợp lệ hoặc lỗi API')
             } else {
                 toast.error('Lỗi tải báo cáo')
             }
 
-            setTimeout(() => {
-                router.push('/reports')
-            }, 1500)
+            // Chỉ chuyển hướng nếu lỗi là nghiêm trọng
+            if (error.response?.status !== 400) {
+                setTimeout(() => {
+                    router.push('/reports/reports')
+                }, 1500)
+            }
         } finally {
             setLoading(false)
         }
@@ -162,7 +180,8 @@ export default function ReportDetailPage() {
         return badge
     }
 
-    if (isLoading || loading) {
+    // Chỉ hiển thị loading nếu đang thực hiện fetch và ID hợp lệ
+    if (isLoading || (loading && isMongoId(id))) {
         return (
             <Layout breadcrumbItems={breadcrumbItems}>
                 <div className="flex flex-col items-center justify-center min-h-screen">
@@ -172,6 +191,24 @@ export default function ReportDetailPage() {
             </Layout>
         )
     }
+
+    // Nếu ID không hợp lệ và đã dừng loading (lỗi 400 giả định)
+    if (!report && !isMongoId(id)) {
+        return (
+            <Layout breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0" />
+                        <div>
+                            <h3 className="text-lg font-bold text-red-800">Lỗi</h3>
+                            <p className="text-red-600 text-sm">Đường dẫn không hợp lệ, ID báo cáo bị sai.</p>
+                        </div>
+                    </div>
+                </div>
+            </Layout>
+        )
+    }
+
 
     if (!report) {
         return (
