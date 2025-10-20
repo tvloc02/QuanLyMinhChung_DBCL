@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import Layout from '../common/Layout'
 import {
     Search, Plus, Edit, Trash2, AlertCircle, RefreshCw, Building,
     ChevronLeft, ChevronRight, UserPlus, Trash, X, Users
