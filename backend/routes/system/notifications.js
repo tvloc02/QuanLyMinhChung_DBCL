@@ -3,7 +3,7 @@ const router = express.Router();
 const { query, param, body } = require('express-validator');
 const { auth } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
-const { getUnreadCount } = require('../../controllers/system/notificationController');
+const { getUnreadCount } = require('../../controllers/system/notificationController'); // Đã import
 const {
     getNotifications,
     markAsRead,
@@ -14,7 +14,7 @@ const {
 
 router.use(auth);
 
-router.get('/unread-count', auth, getUnreadCount);
+router.get('/unread-count', auth, getUnreadCount); // <-- Lỗi được khắc phục tại đây
 
 router.get('/stats', getNotificationStats);
 
