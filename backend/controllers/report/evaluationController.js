@@ -81,29 +81,76 @@ const getEvaluationById = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
-        const currentUserId = req.user.id;
+        const currentUserId = req.user._id;  // ✅ Dùng _id từ mongoDB object
         const currentUserRole = req.user.role;
 
+        // 🔍 DEBUG: In ra thông tin chi tiết
+        console.log('🔍 [GET EVALUATION BY ID] Debug Info:');
+        console.log('   - Current User ID:', currentUserId?.toString());
+        console.log('   - Current User Role:', currentUserRole);
+        console.log('   - User Full Info:', {
+            _id: req.user._id,
+            email: req.user.email,
+            fullName: req.user.fullName,
+            role: req.user.role
+        });
+        console.log('   - Requested Evaluation ID:', id);
+        console.log('   - Academic Year ID:', academicYearId);
+
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId })
-            .populate('reportId', 'title type code')
-            .populate('evaluatorId', 'fullName email')
-            .populate('assignmentId', 'deadline priority')
-            .populate('supervisorGuidance.guidedBy', 'fullName email');
+            .populate({
+                path: 'reportId',
+                select: 'title type code'
+            })
+            .populate({
+                path: 'evaluatorId',
+                select: 'fullName email _id'
+            })
+            .populate({
+                path: 'assignmentId',
+                select: 'deadline priority'
+            })
+            .populate({
+                path: 'supervisorGuidance.guidedBy',
+                select: 'fullName email _id'
+            });
 
         if (!evaluation) {
+            console.log('   ❌ Evaluation not found');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy đánh giá'
             });
         }
 
-        if (!evaluation.canView(currentUserId, currentUserRole)) {
-            console.warn(`403: User ${currentUserId} (${currentUserRole}) tried to view evaluation ${id}.`);
+        // 🔍 DEBUG: In thêm thông tin đánh giá
+        console.log('   - Evaluation Evaluator ID:', evaluation.evaluatorId._id?.toString());
+        console.log('   - Evaluation Status:', evaluation.status);
+        console.log('   - Are IDs the same?:',
+            evaluation.evaluatorId._id?.toString() === currentUserId?.toString());
+
+        // ✅ FIX: Kiểm tra quyền trước khi trả về
+        const canView = evaluation.canView(currentUserId, currentUserRole);
+        console.log('   - Can View Result:', canView);
+
+        if (!canView) {
+            console.warn(`❌ 403: User ${currentUserId} (${currentUserRole}) denied access to evaluation ${id}.`);
+            console.warn('   - Reason: Failed canView check');
+            console.warn('   - Evaluator:', evaluation.evaluatorId._id);
+            console.warn('   - Status:', evaluation.status);
+
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xem đánh giá này'
+                message: 'Không có quyền xem đánh giá này',
+                debug: {
+                    reason: 'canView returned false',
+                    currentUserRole,
+                    evaluationStatus: evaluation.status
+                }
             });
         }
+
+        console.log('   ✅ Access granted - returning evaluation');
 
         res.json({
             success: true,
@@ -111,7 +158,7 @@ const getEvaluationById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get evaluation by ID error:', error);
+        console.error('❌ Get evaluation by ID error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi lấy thông tin đánh giá'
