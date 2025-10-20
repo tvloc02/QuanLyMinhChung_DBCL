@@ -3,8 +3,13 @@ const Evaluation = require('../../models/report/Evaluation');
 const Assignment = require('../../models/report/Assignment');
 const Report = require('../../models/report/Report');
 
-// Giả định mô hình User đã được import hoặc có thể truy cập qua mongoose.model('User')
+// Giả định mô hình User và Notification đã được import/khai báo
 const User = mongoose.model('User');
+const Notification = require('../../models/system/Notification');
+
+// =========================================================================
+// HÀM CONTROLLER
+// =========================================================================
 
 const getEvaluations = async (req, res) => {
     try {
@@ -18,7 +23,7 @@ const getEvaluations = async (req, res) => {
             rating,
             sortBy = 'createdAt',
             sortOrder = 'desc',
-            forSupervisionView // Flag cho trang giám sát (Manager/Supervisor)
+            forSupervisionView
         } = req.query;
 
         const academicYearId = req.academicYearId;
@@ -28,17 +33,14 @@ const getEvaluations = async (req, res) => {
 
         let query = { academicYearId };
 
-        // 1. Lọc cho Expert: Chỉ xem đánh giá của mình
         if (req.user.role === 'expert' && !forSupervisionView) {
             query.evaluatorId = req.user.id;
         }
 
-        // 2. Lọc cho Trang Giám sát (Manager/Advisor/Admin): CHỈ xem đánh giá đã nộp trở lên
         if (forSupervisionView) {
             query.status = { $ne: 'draft' };
         }
 
-        // 3. Lọc theo các tiêu chí khác
         if (status) query.status = status;
         if (evaluatorId) query.evaluatorId = evaluatorId;
         if (reportId) query.reportId = reportId;
@@ -46,7 +48,6 @@ const getEvaluations = async (req, res) => {
 
 
         if (search) {
-            // Tìm kiếm trong Report (Title, Code)
             const reportIds = await Report.find({
                 $or: [
                     { title: { $regex: search, $options: 'i' } },
@@ -54,7 +55,6 @@ const getEvaluations = async (req, res) => {
                 ]
             }).select('_id');
 
-            // Tìm kiếm trong Evaluator (Giả định có thể tìm theo tên đầy đủ)
             const expertIds = await User.find({
                 fullName: { $regex: search, $options: 'i' }
             }).select('_id');
@@ -328,14 +328,14 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền chỉnh sửa
+        // --- Logic Kiểm tra Quyền (FIX cho Expert) ---
+        // Sử dụng phương thức canEdit của Model (đã được sửa)
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
-            // ✅ Bổ sung debug rõ ràng cho lỗi 403
             if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId) {
                 if (evaluation.status !== 'draft') {
-                    // Đây là lỗi 403 phổ biến nhất: Expert cố gắng sửa bài đã nộp
+                    // Lỗi 403 phổ biến nhất: Expert cố gắng sửa bài đã nộp
                     errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá đang ở trạng thái: ${evaluation.status}.`;
                 }
             }
@@ -345,6 +345,7 @@ const updateEvaluation = async (req, res) => {
                 message: errorMessage
             });
         }
+        // --- End Logic Kiểm tra Quyền ---
 
         if (updateData.overallComment !== undefined) {
             evaluation.overallComment = updateData.overallComment;
@@ -465,12 +466,31 @@ const submitEvaluation = async (req, res) => {
 
         const report = await Report.findById(evaluation.reportId);
         if (report) {
-            // Không còn AverageScore nữa
             if (!report.evaluations.map(e => e.toString()).includes(evaluation._id.toString())) {
                 report.evaluations.push(evaluation._id);
             }
             await report.save();
         }
+
+        // TẠO THÔNG BÁO: Gửi thông báo đến người quản lý/giám sát/advisor
+        const advisoryRoles = ['admin', 'supervisor', 'manager', 'advisor'];
+        const recipients = await User.find({ role: { $in: advisoryRoles } }).select('_id');
+
+        if (recipients.length > 0) {
+            const senderId = evaluation.evaluatorId;
+
+            for (const recipient of recipients) {
+                if (recipient._id.toString() !== senderId.toString()) {
+                    await Notification.createEvaluationNotification(
+                        evaluation._id,
+                        'evaluation_submitted',
+                        recipient._id,
+                        senderId
+                    );
+                }
+            }
+        }
+
 
         console.log('✅ Evaluation submitted successfully');
 
@@ -495,7 +515,7 @@ const superviseEvaluation = async (req, res) => {
         const { comments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // ✅ ĐÃ SỬA: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
+        // CHECK: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
         if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager' && req.user.role !== 'advisor') {
             return res.status(403).json({
                 success: false,
@@ -524,6 +544,14 @@ const superviseEvaluation = async (req, res) => {
         // Chuyển trạng thái sang supervised (Đồng ý)
         await evaluation.supervise(req.user.id, comments);
 
+        // TẠO THÔNG BÁO: Gửi thông báo cho Chuyên gia rằng đánh giá đã được Giám sát/Chấp thuận
+        await Notification.createEvaluationNotification(
+            evaluation._id,
+            'evaluation_supervised',
+            evaluation.evaluatorId, // Gửi cho chuyên gia đánh giá
+            req.user.id // Người gửi là Giám sát viên/Admin
+        );
+
         res.json({
             success: true,
             message: 'Giám sát đánh giá thành công. Đánh giá đã được chấp thuận.',
@@ -545,7 +573,7 @@ const requestReEvaluation = async (req, res) => {
         const { comments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // ✅ ĐÃ SỬA: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
+        // CHECK: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
         if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager' && req.user.role !== 'advisor') {
             return res.status(403).json({
                 success: false,
@@ -604,6 +632,14 @@ const requestReEvaluation = async (req, res) => {
                 metadata: { comments }
             });
 
+        // TẠO THÔNG BÁO: Gửi thông báo cho Chuyên gia rằng đánh giá bị yêu cầu đánh giá lại
+        await Notification.createEvaluationNotification(
+            evaluation._id,
+            'evaluation_reevaluated',
+            evaluation.evaluatorId, // Gửi cho chuyên gia đánh giá
+            req.user.id // Người gửi là Giám sát viên/Admin
+        );
+
 
         res.json({
             success: true,
@@ -649,6 +685,14 @@ const finalizeEvaluation = async (req, res) => {
 
         await evaluation.finalize(req.user.id);
 
+        // TẠO THÔNG BÁO: Gửi thông báo cho Chuyên gia rằng đánh giá đã Hoàn tất
+        await Notification.createEvaluationNotification(
+            evaluation._id,
+            'evaluation_finalized',
+            evaluation.evaluatorId, // Gửi cho chuyên gia đánh giá
+            req.user.id // Người gửi là Admin/Supervisor/Advisor
+        );
+
         res.json({
             success: true,
             message: 'Hoàn tất đánh giá thành công',
@@ -669,7 +713,6 @@ const autoSaveEvaluation = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
-        // ✅ Cập nhật: Đảm bảo lấy ID dưới dạng string để so sánh an toàn trong canEdit
         const currentUserId = req.user.id.toString();
         const currentUserRole = req.user.role;
 
@@ -682,13 +725,14 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
-        // --- Logic Kiểm tra Quyền (Vẫn dựa trên canEdit trong Model) ---
+        // --- Logic Kiểm tra Quyền (FIX cho Expert) ---
+        // Sử dụng phương thức canEdit của Model (đã được sửa)
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
-            // Trả về lý do 403 rõ ràng hơn cho Expert
             if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId) {
                 if (evaluation.status !== 'draft') {
+                    // Lỗi 403 phổ biến nhất: Expert cố gắng sửa bài đã nộp
                     errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá này đang ở trạng thái: ${evaluation.status}.`;
                 }
             } else if (currentUserRole === 'expert') {
