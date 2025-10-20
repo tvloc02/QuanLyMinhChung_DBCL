@@ -1,8 +1,9 @@
 const User = require('../../models/User/User');
+const Department = require('../../models/User/Department');
 const UserGroup = require('../../models/User/UserGroup');
 const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
-const emailService = require('../../services/emailService'); // ✅ THÊM IMPORT
+const emailService = require('../../services/emailService');
 
 const getUsers = async (req, res) => {
     try {
@@ -12,7 +13,7 @@ const getUsers = async (req, res) => {
             search,
             role,
             status,
-            groupId,
+            departmentId,
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
@@ -32,13 +33,14 @@ const getUsers = async (req, res) => {
 
         if (role) query.role = role;
         if (status) query.status = status;
-        if (groupId) query.userGroups = groupId;
+        if (departmentId) query.department = departmentId;
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
         const [users, total] = await Promise.all([
             User.find(query)
+                .populate('department', 'name code')
                 .populate('userGroups', 'code name type priority')
                 .populate('academicYearAccess', 'name code')
                 .populate('programAccess', 'name code')
@@ -81,6 +83,7 @@ const getUserById = async (req, res) => {
         const { id } = req.params;
 
         const user = await User.findById(id)
+            .populate('department', 'name code')
             .populate('userGroups', 'code name type priority')
             .populate('academicYearAccess', 'name code')
             .populate('programAccess', 'name code')
@@ -128,16 +131,17 @@ const createUser = async (req, res) => {
             phoneNumber,
             roles,
             department,
-            position
+            departmentRole,
+            position,
+            isExternalExpert
         } = req.body;
 
-        // Validate roles
         let userRoles = roles || ['expert'];
         if (!Array.isArray(userRoles)) {
             userRoles = [userRoles];
         }
 
-        const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+        const validRoles = ['admin', 'manager', 'tdg', 'expert', 'expert_external'];
         const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
         if (invalidRoles.length > 0) {
@@ -154,7 +158,6 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Lưu email đầy đủ
         const cleanEmail = email.toLowerCase().trim();
 
         const existingUser = await User.findOne({
@@ -168,7 +171,19 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Tạo password từ email đầy đủ
+        // Kiểm tra phòng ban nếu không phải expert_external
+        let departmentId = null;
+        if (!isExternalExpert && department) {
+            const dept = await Department.findById(department);
+            if (!dept) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Phòng ban không tồn tại'
+                });
+            }
+            departmentId = department;
+        }
+
         const defaultPassword = User.generateDefaultPassword(cleanEmail);
 
         const user = new User({
@@ -179,14 +194,32 @@ const createUser = async (req, res) => {
             roles: userRoles,
             role: userRoles[0],
             status: 'active',
-            department: department?.trim(),
+            department: departmentId,
+            departmentRole: departmentRole || 'expert',
             position: position?.trim(),
+            isExternalExpert: isExternalExpert || false,
             mustChangePassword: true,
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
 
         await user.save();
+
+        // Thêm user vào phòng ban nếu có
+        if (departmentId) {
+            await Department.findByIdAndUpdate(
+                departmentId,
+                {
+                    $push: {
+                        members: {
+                            user: user._id,
+                            role: departmentRole || 'expert'
+                        }
+                    }
+                },
+                { new: true }
+            );
+        }
 
         const userResponse = user.toObject();
         delete userResponse.password;
@@ -198,16 +231,13 @@ const createUser = async (req, res) => {
                 targetName: user.fullName,
                 metadata: {
                     roles: user.roles,
-                    department: user.department
+                    department: departmentId,
+                    isExternalExpert: isExternalExpert
                 }
             });
 
-        // ✅ THÊM MỚI: Gửi email chào mừng
         try {
-            // Tạo email đầy đủ để gửi
             let emailToSend = cleanEmail;
-
-            // Nếu là username đơn giản (không có @), thêm @cmc.edu.vn
             if (!emailToSend.includes('@')) {
                 emailToSend = `${emailToSend}@cmc.edu.vn`;
             }
@@ -225,11 +255,9 @@ const createUser = async (req, res) => {
 
             console.log(`✅ Welcome email sent successfully to: ${emailToSend}`);
         } catch (emailError) {
-            // Không làm fail request nếu email lỗi, chỉ log
             console.error('⚠️ Failed to send welcome email:', emailError.message);
             console.error('Stack:', emailError.stack);
 
-            // Log vào activity log
             await ActivityLog.logError(req.user.id, 'email_send', emailError, {
                 targetType: 'User',
                 targetId: user._id,
@@ -272,14 +300,13 @@ const updateUser = async (req, res) => {
             });
         }
 
-        // Validate roles nếu có
         if (updateData.roles) {
             let userRoles = updateData.roles;
             if (!Array.isArray(userRoles)) {
                 userRoles = [userRoles];
             }
 
-            const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+            const validRoles = ['admin', 'manager', 'tdg', 'expert', 'expert_external'];
             const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
             if (invalidRoles.length > 0) {
@@ -300,15 +327,50 @@ const updateUser = async (req, res) => {
             updateData.role = userRoles[0];
         }
 
+        // Kiểm tra thay đổi phòng ban
+        if (updateData.department !== undefined) {
+            if (updateData.department && updateData.department !== user.department?.toString()) {
+                const dept = await Department.findById(updateData.department);
+                if (!dept) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Phòng ban không tồn tại'
+                    });
+                }
+
+                // Xóa khỏi phòng ban cũ
+                if (user.department) {
+                    await Department.findByIdAndUpdate(
+                        user.department,
+                        { $pull: { members: { user: user._id } } }
+                    );
+                }
+
+                // Thêm vào phòng ban mới
+                await Department.findByIdAndUpdate(
+                    updateData.department,
+                    {
+                        $push: {
+                            members: {
+                                user: user._id,
+                                role: updateData.departmentRole || user.departmentRole
+                            }
+                        }
+                    }
+                );
+            }
+        }
+
         const oldData = {
             fullName: user.fullName,
             roles: user.roles,
             department: user.department,
+            departmentRole: user.departmentRole,
             position: user.position,
             phoneNumber: user.phoneNumber
         };
 
-        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'department', 'position'];
+        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'position', 'department', 'departmentRole', 'isExternalExpert'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -332,6 +394,7 @@ const updateUser = async (req, res) => {
                     fullName: user.fullName,
                     roles: user.roles,
                     department: user.department,
+                    departmentRole: user.departmentRole,
                     position: user.position,
                     phoneNumber: user.phoneNumber
                 }
@@ -497,6 +560,14 @@ const deleteUser = async (req, res) => {
             });
         }
 
+        // Xóa khỏi phòng ban
+        if (user.department) {
+            await Department.findByIdAndUpdate(
+                user.department,
+                { $pull: { members: { user: user._id } } }
+            );
+        }
+
         await UserGroup.updateMany(
             { members: user._id },
             { $pull: { members: user._id } }
@@ -557,7 +628,6 @@ const resetUserPassword = async (req, res) => {
                 targetName: user.fullName
             });
 
-        // ✅ THÊM MỚI: Gửi email thông báo reset password (tùy chọn)
         try {
             let emailToSend = user.email;
             if (!emailToSend.includes('@')) {
@@ -759,11 +829,14 @@ const getUserStatistics = async (req, res) => {
                     managerUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'manager'] }, 1, 0] }
                     },
+                    tdgUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'tdg'] }, 1, 0] }
+                    },
                     expertUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'expert'] }, 1, 0] }
                     },
-                    advisorUsers: {
-                        $sum: { $cond: [{ $eq: ['$role', 'advisor'] }, 1, 0] }
+                    externalExpertUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'expert_external'] }, 1, 0] }
                     }
                 }
             }
@@ -774,8 +847,9 @@ const getUserStatistics = async (req, res) => {
             activeUsers: 0,
             adminUsers: 0,
             managerUsers: 0,
+            tdgUsers: 0,
             expertUsers: 0,
-            advisorUsers: 0
+            externalExpertUsers: 0
         };
 
         await ActivityLog.logUserAction(req.user?.id, 'user_statistics',
