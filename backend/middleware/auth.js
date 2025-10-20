@@ -215,26 +215,24 @@ const requireModulePermission = (module, action = null) => {
 
 
 const requireAdmin = (req, res, next) => {
-    // 🔍 DEBUG
     console.log('🔍 [REQUIRE ADMIN] User role:', req.user?.role);
 
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'supervisor', 'advisor'].includes(req.user.role)) {
         return res.status(403).json({
             success: false,
-            message: 'Chỉ admin mới có quyền thực hiện thao tác này'
+            message: 'Chỉ admin, supervisor hoặc advisor mới có quyền thực hiện thao tác này'
         });
     }
     next();
 };
 
 const requireManager = (req, res, next) => {
-    // 🔍 DEBUG
     console.log('🔍 [REQUIRE MANAGER] User role:', req.user?.role);
 
-    if (!['admin', 'manager'].includes(req.user.role)) {
+    if (!['admin', 'manager', 'supervisor', 'advisor'].includes(req.user.role)) { // Dòng này đã đúng
         return res.status(403).json({
             success: false,
-            message: 'Cần quyền manager trở lên để thực hiện thao tác này'
+            message: 'Cần quyền quản lý cấp cao (admin, manager, supervisor, advisor) để thực hiện thao tác này'
         });
     }
     next();
