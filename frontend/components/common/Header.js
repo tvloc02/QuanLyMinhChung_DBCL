@@ -187,7 +187,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             case 'assignment_overdue':
             case 'assignment_cancelled':
                 return notification.data?.assignmentId
-                    ? `/assignments/${notification.data.assignmentId}`
+                    ? `/assignments/my-assignments`
                     : null
 
             case 'evaluation_submitted':
@@ -199,7 +199,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             case 'report_published':
             case 'report_updated':
                 return notification.data?.reportId
-                    ? `/reports/${notification.data.reportId}`
+                    ? `/reports/my-assignments`
                     : null
 
             default:
