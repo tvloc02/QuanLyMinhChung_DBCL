@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import {
     ArrowLeft, Save, User, Mail, Phone, Briefcase, Building,
@@ -12,6 +12,7 @@ export default function CreateUserForm() {
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
+    const [departments, setDepartments] = useState([])
 
     const [formData, setFormData] = useState({
         email: '',
@@ -19,7 +20,9 @@ export default function CreateUserForm() {
         phoneNumber: '',
         roles: ['expert'],
         department: '',
+        departmentRole: 'expert',
         position: '',
+        isExternalExpert: false,
         academicYearAccess: [],
         programAccess: [],
         organizationAccess: [],
@@ -34,35 +37,60 @@ export default function CreateUserForm() {
             value: 'admin',
             label: 'Quản trị viên',
             color: 'from-red-500 to-pink-500',
-            description: 'Toàn quyền quản trị hệ thống'
+            description: 'Quản trị hệ thống'
         },
         {
             value: 'manager',
-            label: 'Cán bộ quản lý',
+            label: 'Cán bộ quản lý tự đánh giá',
             color: 'from-blue-500 to-indigo-500',
-            description: 'Quản lý và phê duyệt báo cáo'
+            description: 'Chức vụ cao nhất trong phòng ban'
+        },
+        {
+            value: 'tdg',
+            label: 'Cán bộ TĐG',
+            color: 'from-cyan-500 to-blue-500',
+            description: 'Được giao đẩy file minh chứng và báo cáo'
         },
         {
             value: 'expert',
-            label: 'Chuyên gia',
+            label: 'Chuyên gia đánh giá',
             color: 'from-green-500 to-emerald-500',
             description: 'Thực hiện đánh giá các tiêu chí'
         },
         {
-            value: 'advisor',
-            label: 'Tư vấn',
+            value: 'expert_external',
+            label: 'Chuyên gia ngoài',
             color: 'from-purple-500 to-violet-500',
-            description: 'Tư vấn và giám sát quá trình'
+            description: 'Chuyên gia thuê ngoài'
         }
     ]
 
+    useEffect(() => {
+        fetchDepartments()
+    }, [])
+
+    const fetchDepartments = async () => {
+        try {
+            const response = await api.get('/api/departments', {
+                params: {
+                    status: 'active',
+                    limit: 100
+                }
+            })
+            if (response.data.success) {
+                setDepartments(response.data.data.departments)
+            }
+        } catch (error) {
+            console.error('Error fetching departments:', error)
+        }
+    }
+
     const handleInputChange = (e) => {
-        const { name, value } = e.target
+        const { name, value, type, checked } = e.target
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: type === 'checkbox' ? checked : value
         }))
-        // Clear error when user types
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
         }
@@ -93,35 +121,24 @@ export default function CreateUserForm() {
             const usernameRegex = /^[a-zA-Z0-9]+$/
 
             if (!fullEmailRegex.test(emailInput) && !usernameRegex.test(emailInput)) {
-                newErrors.email = 'Email không hợp lệ. Nhập email đầy đủ (user@domain.com) hoặc username (vd: locvt)'
+                newErrors.email = 'Email không hợp lệ'
             }
         }
 
-        // Full name validation
         if (!formData.fullName.trim()) {
             newErrors.fullName = 'Họ và tên là bắt buộc'
         } else if (formData.fullName.trim().length < 2) {
             newErrors.fullName = 'Họ và tên phải có ít nhất 2 ký tự'
-        } else if (formData.fullName.trim().length > 100) {
-            newErrors.fullName = 'Họ và tên không được quá 100 ký tự'
         }
 
-        // Phone validation
         if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
             newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)'
         }
 
-        // Department validation
-        if (formData.department && formData.department.length > 100) {
-            newErrors.department = 'Phòng ban không được quá 100 ký tự'
+        if (!formData.isExternalExpert && !formData.department) {
+            newErrors.department = 'Phòng ban là bắt buộc nếu không phải chuyên gia ngoài'
         }
 
-        // Position validation
-        if (formData.position && formData.position.length > 100) {
-            newErrors.position = 'Chức vụ không được quá 100 ký tự'
-        }
-
-        // Roles validation
         if (!formData.roles || formData.roles.length === 0) {
             newErrors.roles = 'Phải chọn ít nhất một vai trò'
         }
@@ -146,13 +163,7 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            // Log data trước khi gửi để debug
-            console.log('Sending data:', formData)
-
-            // Gọi API với đúng endpoint
             const response = await api.post('/api/users', formData)
-
-            console.log('Response:', response.data)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
@@ -161,14 +172,11 @@ export default function CreateUserForm() {
                     text: 'Tạo người dùng thành công!'
                 })
 
-                // Scroll to top to see the password
                 window.scrollTo({ top: 0, behavior: 'smooth' })
             }
         } catch (error) {
             console.error('Create user error:', error)
-            console.error('Error response:', error.response?.data)
 
-            // Hiển thị lỗi chi tiết hơn
             const errorMessage = error.response?.data?.message || 'Lỗi khi tạo người dùng'
             const validationErrors = error.response?.data?.errors
 
@@ -177,7 +185,6 @@ export default function CreateUserForm() {
                 text: errorMessage
             })
 
-            // Nếu có validation errors từ backend, hiển thị lên form
             if (validationErrors && Array.isArray(validationErrors)) {
                 const backendErrors = {}
                 validationErrors.forEach(err => {
@@ -195,7 +202,7 @@ export default function CreateUserForm() {
     }
 
     const handleBackToList = () => {
-        router.push('/users/users')
+        router.push('/users')
     }
 
     const handleCreateAnother = () => {
@@ -205,7 +212,9 @@ export default function CreateUserForm() {
             phoneNumber: '',
             roles: ['expert'],
             department: '',
+            departmentRole: 'expert',
             position: '',
+            isExternalExpert: false,
             academicYearAccess: [],
             programAccess: [],
             organizationAccess: [],
@@ -220,7 +229,6 @@ export default function CreateUserForm() {
 
     return (
         <div className="space-y-6">
-            {/* Message Alert */}
             {message.text && (
                 <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                     message.type === 'success'
@@ -249,7 +257,6 @@ export default function CreateUserForm() {
                                 {message.text}
                             </p>
 
-                            {/* Show generated password */}
                             {message.type === 'success' && generatedPassword && (
                                 <div className="mt-4 p-4 bg-white border-2 border-green-300 rounded-xl">
                                     <p className="text-sm font-semibold text-green-900 mb-2">
@@ -266,9 +273,6 @@ export default function CreateUserForm() {
                                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
                                     </div>
-                                    <p className="text-xs text-green-700 mt-2">
-                                        ⚠️ Vui lòng lưu lại mật khẩu này. Người dùng sẽ cần thay đổi mật khẩu khi đăng nhập lần đầu.
-                                    </p>
                                 </div>
                             )}
                         </div>
@@ -280,7 +284,6 @@ export default function CreateUserForm() {
                         </button>
                     </div>
 
-                    {/* Action buttons after success */}
                     {message.type === 'success' && (
                         <div className="mt-4 flex gap-3 justify-end">
                             <button
@@ -300,7 +303,6 @@ export default function CreateUserForm() {
                 </div>
             )}
 
-            {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -322,7 +324,6 @@ export default function CreateUserForm() {
                 </div>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Information */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -336,7 +337,6 @@ export default function CreateUserForm() {
                     </div>
 
                     <div className="p-6 space-y-6">
-                        {/* Email */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Mail className="w-4 h-4 text-indigo-600" />
@@ -358,11 +358,8 @@ export default function CreateUserForm() {
                                     {errors.email}
                                 </p>
                             )}
-                            <p className="mt-2 text-xs text-gray-500">
-                            </p>
                         </div>
 
-                        {/* Full Name */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <User className="w-4 h-4 text-indigo-600" />
@@ -386,7 +383,6 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
-                        {/* Phone Number */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Phone className="w-4 h-4 text-indigo-600" />
@@ -410,23 +406,59 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Department */}
+                        <div>
+                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                <Briefcase className="w-4 h-4 text-indigo-600" />
+                                <span>Chức vụ</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="position"
+                                value={formData.position}
+                                onChange={handleInputChange}
+                                placeholder="Nhập chức vụ"
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                <Building className="w-4 h-4 text-indigo-600" />
+                                <span>Chuyên gia ngoài <span className="text-red-500">*</span></span>
+                            </label>
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    name="isExternalExpert"
+                                    checked={formData.isExternalExpert}
+                                    onChange={handleInputChange}
+                                    className="w-5 h-5 border-2 border-gray-300 rounded-lg"
+                                />
+                                <span className="text-sm text-gray-600">Là chuyên gia thuê ngoài (không cần phòng ban)</span>
+                            </div>
+                        </div>
+
+                        {!formData.isExternalExpert && (
                             <div>
                                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                     <Building className="w-4 h-4 text-indigo-600" />
-                                    <span>Phòng ban</span>
+                                    <span>Phòng ban <span className="text-red-500">*</span></span>
                                 </label>
-                                <input
-                                    type="text"
+                                <select
                                     name="department"
                                     value={formData.department}
                                     onChange={handleInputChange}
-                                    placeholder="Nhập tên phòng ban"
                                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                         errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
-                                />
+                                >
+                                    <option value="">Chọn phòng ban</option>
+                                    {departments.map(dept => (
+                                        <option key={dept._id} value={dept._id}>
+                                            {dept.name} ({dept.code})
+                                        </option>
+                                    ))}
+                                </select>
                                 {errors.department && (
                                     <p className="mt-2 text-sm text-red-600 flex items-center">
                                         <AlertCircle className="w-4 h-4 mr-1" />
@@ -434,31 +466,26 @@ export default function CreateUserForm() {
                                     </p>
                                 )}
                             </div>
+                        )}
 
-                            {/* Position */}
+                        {!formData.isExternalExpert && formData.department && (
                             <div>
                                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Briefcase className="w-4 h-4 text-indigo-600" />
-                                    <span>Chức vụ</span>
+                                    <Shield className="w-4 h-4 text-indigo-600" />
+                                    <span>Vai trò trong phòng ban</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    name="position"
-                                    value={formData.position}
+                                <select
+                                    name="departmentRole"
+                                    value={formData.departmentRole}
                                     onChange={handleInputChange}
-                                    placeholder="Nhập chức vụ"
-                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                        errors.position ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                    }`}
-                                />
-                                {errors.position && (
-                                    <p className="mt-2 text-sm text-red-600 flex items-center">
-                                        <AlertCircle className="w-4 h-4 mr-1" />
-                                        {errors.position}
-                                    </p>
-                                )}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                >
+                                    <option value="expert">Chuyên gia đánh giá</option>
+                                    <option value="tdg">Cán bộ TĐG</option>
+                                    <option value="manager">Quản lý phòng ban</option>
+                                </select>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 
@@ -473,7 +500,7 @@ export default function CreateUserForm() {
                                 <h2 className="text-xl font-bold text-gray-900">
                                     Vai trò <span className="text-red-500">*</span>
                                 </h2>
-                                <p className="text-sm text-gray-600">Chọn một hoặc nhiều vai trò cho người dùng</p>
+                                <p className="text-sm text-gray-600">Chọn vai trò hệ thống cho người dùng</p>
                             </div>
                         </div>
                     </div>
