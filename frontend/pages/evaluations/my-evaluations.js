@@ -488,7 +488,7 @@ export default function MyEvaluations() {
                                                 <td className="px-6 py-4 text-center">
                                                     <div className="flex items-center justify-center gap-2 flex-wrap">
                                                         <button
-                                                            onClick={() => router.push(`/reports/evaluations/${evaluation._id}`)}
+                                                            onClick={() => router.push(`/evaluations/${evaluation._id}`)}
                                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                             title="Xem chi tiết"
                                                         >
@@ -497,7 +497,7 @@ export default function MyEvaluations() {
 
                                                         {isDraft && (
                                                             <button
-                                                                onClick={() => router.push(`/reports/evaluations/${evaluation._id}/edit`)}
+                                                                onClick={() => router.push(`/evaluations/${evaluation._id}/edit`)}
                                                                 className="p-2 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
                                                                 title="Sửa đánh giá"
                                                             >
