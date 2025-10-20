@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
@@ -201,7 +201,8 @@ export default function ReportsManagement() {
             toast.error('Vui lòng chọn ít nhất một báo cáo')
             return
         }
-        router.push(`/reports/assign-reviewers?reportIds=${selectedItems.join(',')}`)
+        // ✅ THAO TÁC CẦN THIẾT: Dùng replace để buộc Router xử lý tuyến đường mới
+        router.replace(`/assignments/assign-reviewers?reportIds=${selectedItems.join(',')}`)
     }
 
     const handleViewDetail = (id) => {
@@ -799,7 +800,7 @@ export default function ReportsManagement() {
                                                             variant="primary"
                                                             size="sm"
                                                             disabled={!isPublished}
-                                                            onClick={() => isPublished && router.push(`/reports/assign-reviewers?reportIds=${report._id}`)}
+                                                            onClick={() => isPublished && router.push(`/assignments/assign-reviewers?reportIds=${report._id}`)}
                                                             title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
                                                         />
 
