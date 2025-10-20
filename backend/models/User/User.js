@@ -42,13 +42,12 @@ const userSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'expert', 'advisor']
+        enum: ['admin', 'manager', 'tdg', 'expert', 'expert_external']
     }],
 
-    // Giữ lại để backward compatibility
     role: {
         type: String,
-        enum: ['admin', 'manager', 'expert', 'advisor'],
+        enum: ['admin', 'manager', 'tdg', 'expert', 'expert_external'],
         default: 'expert'
     },
 
@@ -59,8 +58,19 @@ const userSchema = new mongoose.Schema({
     },
 
     department: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department'
+    },
+
+    departmentRole: {
         type: String,
-        maxlength: [100, 'Phòng ban không được quá 100 ký tự']
+        enum: ['manager', 'tdg', 'expert'],
+        default: 'expert'
+    },
+
+    isExternalExpert: {
+        type: Boolean,
+        default: false
     },
 
     position: {
@@ -162,6 +172,8 @@ userSchema.index({ roles: 1, status: 1 });
 userSchema.index({ fullName: 'text' });
 userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
+userSchema.index({ department: 1 });
+userSchema.index({ isExternalExpert: 1 });
 
 userSchema.virtual('isLocked').get(function() {
     if (this.isLockedByAdmin) {
@@ -171,7 +183,6 @@ userSchema.virtual('isLocked').get(function() {
 });
 
 userSchema.pre('validate', function(next) {
-    // Nếu roles rỗng hoặc không tồn tại, tự động set từ role
     if (!this.roles || this.roles.length === 0) {
         if (this.role) {
             this.roles = [this.role];
@@ -189,7 +200,6 @@ userSchema.pre('validate', function(next) {
 });
 
 userSchema.pre('save', async function(next) {
-    // Sync roles và role (ưu tiên roles)
     if (this.isModified('roles') && this.roles.length > 0) {
         this.role = this.roles[0];
     } else if (this.isModified('role') && this.role && this.roles.length === 0) {
@@ -324,7 +334,7 @@ userSchema.methods.incFailedLoginAttempts = function() {
     const updates = { $inc: { failedLoginAttempts: 1 } };
 
     if (this.failedLoginAttempts + 1 >= 10 && !this.isLocked) {
-        updates.$set = { lockUntil: Date.now() + 300000 }; // 5 phút
+        updates.$set = { lockUntil: Date.now() + 300000 };
     }
 
     return this.updateOne(updates);
