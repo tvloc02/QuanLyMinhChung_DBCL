@@ -18,16 +18,10 @@ export default function CreateUserForm() {
         email: '',
         fullName: '',
         phoneNumber: '',
-        roles: ['expert'],
+        role: 'expert',
         department: '',
-        departmentRole: 'expert',
         position: '',
-        isExternalExpert: false,
-        academicYearAccess: [],
-        programAccess: [],
-        organizationAccess: [],
-        standardAccess: [],
-        criteriaAccess: []
+        isExternalExpert: false
     })
 
     const [errors, setErrors] = useState({})
@@ -42,19 +36,19 @@ export default function CreateUserForm() {
         {
             value: 'manager',
             label: 'Cán bộ quản lý tự đánh giá',
-            color: 'from-blue-500 to-indigo-500',
+            color: 'from-blue-500 to-cyan-500',
             description: 'Chức vụ cao nhất trong phòng ban'
         },
         {
             value: 'tdg',
             label: 'Cán bộ TĐG',
-            color: 'from-cyan-500 to-blue-500',
+            color: 'from-sky-500 to-blue-500',
             description: 'Được giao đẩy file minh chứng và báo cáo'
         },
         {
             value: 'expert',
             label: 'Chuyên gia đánh giá',
-            color: 'from-green-500 to-emerald-500',
+            color: 'from-teal-500 to-cyan-500',
             description: 'Thực hiện đánh giá các tiêu chí'
         }
     ]
@@ -90,18 +84,14 @@ export default function CreateUserForm() {
         }
     }
 
-    const handleRoleToggle = (roleValue) => {
-        setFormData(prev => {
-            const currentRoles = prev.roles || []
-            const newRoles = currentRoles.includes(roleValue)
-                ? currentRoles.filter(r => r !== roleValue)
-                : [...currentRoles, roleValue]
-
-            return {
-                ...prev,
-                roles: newRoles.length > 0 ? newRoles : ['expert']
-            }
-        })
+    const handleRoleChange = (roleValue) => {
+        setFormData(prev => ({
+            ...prev,
+            role: roleValue
+        }))
+        if (errors.role) {
+            setErrors(prev => ({ ...prev, role: '' }))
+        }
     }
 
     const validateForm = () => {
@@ -133,8 +123,8 @@ export default function CreateUserForm() {
             newErrors.department = 'Phòng ban là bắt buộc nếu không phải chuyên gia ngoài'
         }
 
-        if (!formData.roles || formData.roles.length === 0) {
-            newErrors.roles = 'Phải chọn ít nhất một vai trò'
+        if (!formData.role) {
+            newErrors.role = 'Phải chọn một vai trò'
         }
 
         setErrors(newErrors)
@@ -157,7 +147,19 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            const response = await api.post('/api/users', formData)
+            const submitData = {
+                email: formData.email.trim(),
+                fullName: formData.fullName.trim(),
+                phoneNumber: formData.phoneNumber?.trim() || '',
+                roles: [formData.role],
+                role: formData.role,
+                departmentRole: formData.role === 'expert' ? 'expert' : formData.role,
+                position: formData.position?.trim() || '',
+                isExternalExpert: formData.isExternalExpert,
+                department: formData.department || null
+            }
+
+            const response = await api.post('/api/users', submitData)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
@@ -170,6 +172,7 @@ export default function CreateUserForm() {
             }
         } catch (error) {
             console.error('Create user error:', error)
+            console.error('Error response:', error.response?.data)
 
             const errorMessage = error.response?.data?.message || 'Lỗi khi tạo người dùng'
             const validationErrors = error.response?.data?.errors
@@ -204,16 +207,10 @@ export default function CreateUserForm() {
             email: '',
             fullName: '',
             phoneNumber: '',
-            roles: ['expert'],
+            role: 'expert',
             department: '',
-            departmentRole: 'expert',
             position: '',
-            isExternalExpert: false,
-            academicYearAccess: [],
-            programAccess: [],
-            organizationAccess: [],
-            standardAccess: [],
-            criteriaAccess: []
+            isExternalExpert: false
         })
         setGeneratedPassword('')
         setErrors({})
@@ -297,7 +294,7 @@ export default function CreateUserForm() {
                 </div>
             )}
 
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -305,7 +302,7 @@ export default function CreateUserForm() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Tạo người dùng mới</h1>
-                            <p className="text-indigo-100">Thêm người dùng mới vào hệ thống</p>
+                            <p className="text-blue-100">Thêm người dùng mới vào hệ thống</p>
                         </div>
                     </div>
                     <button
@@ -319,12 +316,11 @@ export default function CreateUserForm() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Basic Information */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
                         <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-indigo-100 rounded-lg">
-                                <User className="w-5 h-5 text-indigo-600" />
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <User className="w-5 h-5 text-blue-600" />
                             </div>
                             <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>
                         </div>
@@ -333,7 +329,7 @@ export default function CreateUserForm() {
                     <div className="p-6 space-y-6">
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Mail className="w-4 h-4 text-indigo-600" />
+                                <Mail className="w-4 h-4 text-blue-600" />
                                 <span>Email / Username <span className="text-red-500">*</span></span>
                             </label>
                             <input
@@ -342,7 +338,7 @@ export default function CreateUserForm() {
                                 value={formData.email}
                                 onChange={handleInputChange}
                                 placeholder="nguyenvana hoặc nguyenvana@example.com"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -356,7 +352,7 @@ export default function CreateUserForm() {
 
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <User className="w-4 h-4 text-indigo-600" />
+                                <User className="w-4 h-4 text-blue-600" />
                                 <span>Họ và tên <span className="text-red-500">*</span></span>
                             </label>
                             <input
@@ -365,7 +361,7 @@ export default function CreateUserForm() {
                                 value={formData.fullName}
                                 onChange={handleInputChange}
                                 placeholder="Nhập họ và tên đầy đủ"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                     errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -379,7 +375,7 @@ export default function CreateUserForm() {
 
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Phone className="w-4 h-4 text-indigo-600" />
+                                <Phone className="w-4 h-4 text-blue-600" />
                                 <span>Số điện thoại</span>
                             </label>
                             <input
@@ -388,7 +384,7 @@ export default function CreateUserForm() {
                                 value={formData.phoneNumber}
                                 onChange={handleInputChange}
                                 placeholder="0912345678"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                     errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -402,7 +398,7 @@ export default function CreateUserForm() {
 
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Briefcase className="w-4 h-4 text-indigo-600" />
+                                <Briefcase className="w-4 h-4 text-blue-600" />
                                 <span>Chức vụ</span>
                             </label>
                             <input
@@ -411,13 +407,13 @@ export default function CreateUserForm() {
                                 value={formData.position}
                                 onChange={handleInputChange}
                                 placeholder="Nhập chức vụ"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                             />
                         </div>
 
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Building className="w-4 h-4 text-indigo-600" />
+                                <Building className="w-4 h-4 text-blue-600" />
                                 <span>Chuyên gia ngoài <span className="text-red-500">*</span></span>
                             </label>
                             <div className="flex items-center space-x-3">
@@ -435,14 +431,14 @@ export default function CreateUserForm() {
                         {!formData.isExternalExpert && (
                             <div>
                                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Building className="w-4 h-4 text-indigo-600" />
+                                    <Building className="w-4 h-4 text-blue-600" />
                                     <span>Phòng ban <span className="text-red-500">*</span></span>
                                 </label>
                                 <select
                                     name="department"
                                     value={formData.department}
                                     onChange={handleInputChange}
-                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                         errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                     }`}
                                 >
@@ -461,34 +457,14 @@ export default function CreateUserForm() {
                                 )}
                             </div>
                         )}
-
-                        {!formData.isExternalExpert && formData.department && (
-                            <div>
-                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Shield className="w-4 h-4 text-indigo-600" />
-                                    <span>Vai trò trong phòng ban</span>
-                                </label>
-                                <select
-                                    name="departmentRole"
-                                    value={formData.departmentRole}
-                                    onChange={handleInputChange}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                >
-                                    <option value="expert">Chuyên gia đánh giá</option>
-                                    <option value="tdg">Cán bộ TĐG</option>
-                                    <option value="manager">Quản lý phòng ban</option>
-                                </select>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Roles */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
                         <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                                <Shield className="w-5 h-5 text-purple-600" />
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <Shield className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">
@@ -502,21 +478,22 @@ export default function CreateUserForm() {
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {roleOptions.map((role) => {
-                                const isSelected = formData.roles.includes(role.value)
+                                const isSelected = formData.role === role.value
                                 return (
-                                    <div
+                                    <button
                                         key={role.value}
-                                        onClick={() => handleRoleToggle(role.value)}
+                                        type="button"
+                                        onClick={() => handleRoleChange(role.value)}
                                         className={`relative p-5 border-2 rounded-xl cursor-pointer transition-all ${
                                             isSelected
-                                                ? 'border-indigo-500 bg-indigo-50 shadow-md'
+                                                ? 'border-blue-500 bg-blue-50 shadow-md'
                                                 : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                                         }`}
                                     >
                                         <div className="flex items-start space-x-3">
                                             <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
                                                 isSelected
-                                                    ? 'border-indigo-600 bg-indigo-600'
+                                                    ? 'border-blue-600 bg-blue-600'
                                                     : 'border-gray-300'
                                             }`}>
                                                 {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -530,20 +507,19 @@ export default function CreateUserForm() {
                                                 <p className="text-sm text-gray-600">{role.description}</p>
                                             </div>
                                         </div>
-                                    </div>
+                                    </button>
                                 )
                             })}
                         </div>
-                        {errors.roles && (
+                        {errors.role && (
                             <p className="mt-4 text-sm text-red-600 flex items-center">
                                 <AlertCircle className="w-4 h-4 mr-1" />
-                                {errors.roles}
+                                {errors.role}
                             </p>
                         )}
                     </div>
                 </div>
 
-                {/* Submit Buttons */}
                 <div className="flex items-center justify-end gap-4 pt-4">
                     <button
                         type="button"
@@ -556,7 +532,7 @@ export default function CreateUserForm() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
                         <Save className="w-5 h-5" />
                         <span>{loading ? 'Đang tạo...' : 'Tạo người dùng'}</span>
