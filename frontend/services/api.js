@@ -104,20 +104,28 @@ export const apiMethods = {
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
         getStats: () => api.get('/users/statistics'),
+        lock: (id, reason) => api.post(`/users/${id}/lock`, { reason }),
+        unlock: (id) => api.post(`/users/${id}/unlock`),
         getExperts: (params) => api.get('/users', { params: { ...params, role: 'expert' } }),
-        bulkImport: (file) => {
-            const formData = new FormData()
-            formData.append('file', file)
-            return api.post('/users/bulk-import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
-        },
         getPermissions: (id) => api.get(`/users/${id}/permissions`),
+        updatePermissions: (id, permissions) => api.put(`/users/${id}/permissions`, permissions),
         addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
         removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
         grantPermission: (id, permissionId) => api.post(`/users/${id}/permissions/grant`, { permissionId }),
         denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
         removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
+    },
+
+    departments: {
+        getAll: (params) => api.get('/departments', { params }),
+        getById: (id) => api.get(`/departments/${id}`),
+        create: (data) => api.post('/departments', data),
+        update: (id, data) => api.put(`/departments/${id}`, data),
+        delete: (id) => api.delete(`/departments/${id}`),
+        changeStatus: (id, status) => api.patch(`/departments/${id}/status`, { status }),
+        addMember: (id, userId, role) => api.post(`/departments/${id}/members`, { userId, role }),
+        removeMember: (id, userId) => api.delete(`/departments/${id}/members`, { data: { userId } }),
+        updateMemberRole: (id, userId, role) => api.patch(`/departments/${id}/members/role`, { userId, role })
     },
 
     programs: {
