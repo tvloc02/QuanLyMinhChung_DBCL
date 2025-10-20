@@ -33,7 +33,7 @@ const getEvaluations = async (req, res) => {
             query.evaluatorId = req.user.id;
         }
 
-        // 2. Lọc cho Trang Giám sát (Manager/Supervisor/Admin): CHỈ xem đánh giá đã nộp trở lên
+        // 2. Lọc cho Trang Giám sát (Manager/Advisor/Admin): CHỈ xem đánh giá đã nộp trở lên
         if (forSupervisionView) {
             query.status = { $ne: 'draft' };
         }
@@ -312,9 +312,9 @@ const createEvaluation = async (req, res) => {
 const updateEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
-        const updateData = req.body;
+        const { content, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
-        const currentUserId = req.user.id;
+        const currentUserId = req.user.id.toString(); // Chuyển đổi thành chuỗi
         const currentUserRole = req.user.role;
 
 
@@ -328,15 +328,16 @@ const updateEvaluation = async (req, res) => {
             });
         }
 
+        // Kiểm tra quyền chỉnh sửa
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
-            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId.toString()) {
+            // ✅ Bổ sung debug rõ ràng cho lỗi 403
+            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId) {
                 if (evaluation.status !== 'draft') {
-                    errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá này đang ở trạng thái: ${evaluation.status}.`;
+                    // Đây là lỗi 403 phổ biến nhất: Expert cố gắng sửa bài đã nộp
+                    errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá đang ở trạng thái: ${evaluation.status}.`;
                 }
-            } else if (currentUserRole === 'expert') {
-                errorMessage = 'Bạn chỉ có quyền chỉnh sửa đánh giá do bạn tạo.';
             }
 
             return res.status(403).json({
@@ -494,11 +495,11 @@ const superviseEvaluation = async (req, res) => {
         const { comments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Thêm vai trò 'manager'
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager') {
+        // ✅ ĐÃ SỬA: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager' && req.user.role !== 'advisor') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin/supervisor/manager có quyền'
+                message: 'Chỉ admin/supervisor/manager/advisor có quyền'
             });
         }
 
@@ -544,11 +545,11 @@ const requestReEvaluation = async (req, res) => {
         const { comments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Thêm vai trò 'manager'
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager') {
+        // ✅ ĐÃ SỬA: Cho phép 'admin', 'supervisor', 'manager' VÀ 'advisor'
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager' && req.user.role !== 'advisor') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin/supervisor/manager có quyền yêu cầu đánh giá lại'
+                message: 'Chỉ admin/supervisor/manager/advisor có quyền yêu cầu đánh giá lại'
             });
         }
 
@@ -624,11 +625,10 @@ const finalizeEvaluation = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        // ✅ ĐÃ SỬA: Cho phép cả 'admin' và 'supervisor' thực hiện hoàn tất
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'advisor') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin hoặc supervisor có quyền hoàn tất đánh giá'
+                message: 'Chỉ admin, supervisor hoặc advisor có quyền hoàn tất đánh giá'
             });
         }
 
@@ -669,7 +669,8 @@ const autoSaveEvaluation = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
-        const currentUserId = req.user.id;
+        // ✅ Cập nhật: Đảm bảo lấy ID dưới dạng string để so sánh an toàn trong canEdit
+        const currentUserId = req.user.id.toString();
         const currentUserRole = req.user.role;
 
 
@@ -681,10 +682,12 @@ const autoSaveEvaluation = async (req, res) => {
             });
         }
 
+        // --- Logic Kiểm tra Quyền (Vẫn dựa trên canEdit trong Model) ---
         if (!evaluation.canEdit(currentUserId, currentUserRole)) {
             let errorMessage = 'Không có quyền cập nhật đánh giá này.';
 
-            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId.toString()) {
+            // Trả về lý do 403 rõ ràng hơn cho Expert
+            if (currentUserRole === 'expert' && evaluation.evaluatorId.toString() === currentUserId) {
                 if (evaluation.status !== 'draft') {
                     errorMessage = `Bạn chỉ có quyền sửa bản nháp. Đánh giá này đang ở trạng thái: ${evaluation.status}.`;
                 }
@@ -697,6 +700,7 @@ const autoSaveEvaluation = async (req, res) => {
                 message: errorMessage
             });
         }
+        // --- End Logic Kiểm tra Quyền ---
 
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
