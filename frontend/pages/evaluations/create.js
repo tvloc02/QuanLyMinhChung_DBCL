@@ -86,16 +86,22 @@ export default function EvaluationForm() {
                 })
                 if (evaluationsRes.data?.data?.evaluations?.length > 0) {
                     const existingEval = evaluationsRes.data.data.evaluations[0]
-                    setEvaluation(existingEval)
-                    setFormData(prev => ({
-                        ...prev,
-                        overallComment: existingEval.overallComment || '',
-                        rating: existingEval.rating || '',
-                        evidenceAssessment: existingEval.evidenceAssessment || prev.evidenceAssessment,
-                        strengths: existingEval.strengths || [],
-                        improvementAreas: existingEval.improvementAreas || [],
-                        recommendations: existingEval.recommendations || []
-                    }))
+
+                    // ✅ FIX LỖI: CHUYỂN HƯỚNG nếu tìm thấy bài đánh giá cũ (đã tạo)
+                    if (existingEval._id) {
+                        const statusLabel = existingEval.status === 'final' ? 'Hoàn tất' : existingEval.status === 'submitted' ? 'Đã nộp' : 'Bản nháp';
+                        toast.info(`Đã tìm thấy bài đánh giá (Trạng thái: ${statusLabel}). Chuyển hướng đến trang chỉnh sửa/xem chi tiết.`, { duration: 4000 });
+
+                        // Chuyển hướng đến trang chỉnh sửa nếu là draft, hoặc trang xem chi tiết nếu đã khóa
+                        const targetPath = existingEval.status === 'draft'
+                            ? `/evaluations/${existingEval._id}/edit`
+                            : `/evaluations/${existingEval._id}`;
+
+                        router.replace(targetPath);
+                        return; // Ngăn chặn code tiếp theo chạy
+                    }
+
+                    // Logic cũ bị loại bỏ vì đã chuyển hướng
                 }
             } catch (err) {
                 console.log('No existing evaluation found, creating new one')
@@ -109,16 +115,20 @@ export default function EvaluationForm() {
         }
     }
 
-    const handleAutoSave = async () => {
-        if (!evaluation) return
+    // ✅ SỬA LỖI: Nhận ID trực tiếp (Khỏi cần evaluation._id)
+    const handleAutoSave = async (idToSave) => {
+        if (!idToSave) return
 
         try {
             setSaving(true)
-            await apiMethods.evaluations.autoSave(evaluation._id, formData)
-            toast.success('Lưu tự động thành công')
+            // Lưu ý: apiMethods.evaluations.autoSave đã bị loại bỏ theo yêu cầu của user trước đó
+            // Nhưng vì bạn muốn fix lỗi 403 liên tục, tôi sẽ giữ logic này như là cập nhật nháp
+            // Nếu bạn đã loại bỏ hàm này, hãy dùng update thay thế.
+            await apiMethods.evaluations.update(idToSave, formData)
+            toast.success('Lưu nháp thành công')
         } catch (error) {
             console.error('Auto save error:', error)
-            toast.error('Lỗi khi lưu tự động')
+            toast.error(error.response?.data?.message || 'Lỗi khi lưu nháp')
         } finally {
             setSaving(false)
         }
@@ -214,35 +224,66 @@ export default function EvaluationForm() {
         return errors.length === 0
     }
 
-    const handleSubmit = async () => {
+    // ✅ FIX LỖI: Hàm tạo/cập nhật đánh giá đồng bộ
+    const createOrUpdateEvaluation = async () => {
         if (!evaluation) {
+            setSaving(true)
             try {
-                setLoading(true)
+                // TẠO MỚI (POST /create)
                 const evalRes = await apiMethods.evaluations.create({ assignmentId })
-                setEvaluation(evalRes.data?.data)
-                toast.success('Tạo đánh giá thành công')
+                const newEval = evalRes.data?.data
+
+                setEvaluation(newEval) // Cập nhật state Evaluation
+                toast.success('Đã tạo bản nháp mới')
+
+                // ✅ Sau khi tạo, chuyển hướng ngay để URL phản ánh ID mới (tránh lỗi 403)
+                router.replace(`/evaluations/${newEval._id}/edit`);
+                return null; // Chặn luồng tiếp theo ở trang này
+
             } catch (error) {
                 console.error('Create evaluation error:', error)
-                toast.error('Lỗi khi tạo đánh giá')
-                setLoading(false)
-                return
-            } finally {
-                setLoading(false)
+                toast.error('Lỗi khi tạo bản nháp')
+                setSaving(false)
+                return null // Thất bại
+            }
+        } else {
+            setSaving(true)
+            try {
+                // CẬP NHẬT (PUT /update)
+                // Đảm bảo cập nhật lần cuối trước khi nộp
+                await apiMethods.evaluations.update(evaluation._id, formData)
+
+                toast.success('Đã cập nhật bản nháp')
+                return evaluation // Trả về đối tượng đánh giá hiện tại
+            } catch (error) {
+                console.error('Update evaluation error:', error)
+                // Lỗi 403 thường xuất hiện ở đây nếu trạng thái không phải draft
+                toast.error(error.response?.data?.message || 'Lỗi khi cập nhật')
+                setSaving(false)
+                return null // Thất bại
             }
         }
+    }
 
+
+    const handleSubmit = async () => {
         if (!validateForm()) {
             toast.error('Vui lòng kiểm tra các lỗi validation')
             return
         }
 
+        setSubmitting(true)
+
+        // 1. Tạo hoặc Cập nhật lần cuối
+        const evalToSubmit = await createOrUpdateEvaluation() // Tự động tạo nếu chưa có
+        if (!evalToSubmit) {
+            setSubmitting(false)
+            return
+        }
+
+        // 2. Nộp đánh giá (Chỉ gọi submit)
         try {
-            setSubmitting(true)
-
-            await apiMethods.evaluations.update(evaluation._id, formData)
-            toast('Đang cập nhật và nộp...', { icon: '🔄' });
-
-            await apiMethods.evaluations.submit(evaluation._id)
+            await apiMethods.evaluations.submit(evalToSubmit._id)
             toast.success('Nộp đánh giá thành công')
             setTimeout(() => router.push('/evaluations/my-evaluations'), 1500)
         } catch (error) {
@@ -254,6 +295,8 @@ export default function EvaluationForm() {
             } else {
                 toast.error(errorMessage)
             }
+            // Nếu submit lỗi, cần fetch lại dữ liệu để lấy trạng thái mới nhất
+            fetchData()
 
         } finally {
             setSubmitting(false)
@@ -261,21 +304,8 @@ export default function EvaluationForm() {
     }
 
     const handleSaveDraft = async () => {
-        if (!evaluation) {
-            try {
-                setLoading(true)
-                const evalRes = await apiMethods.evaluations.create({ assignmentId })
-                setEvaluation(evalRes.data?.data)
-                toast.success('Tạo bản nháp thành công')
-            } catch (error) {
-                console.error('Create evaluation error:', error)
-                toast.error('Lỗi khi tạo bản nháp')
-            } finally {
-                setLoading(false)
-            }
-        } else {
-            await handleAutoSave()
-        }
+        // ✅ GỌI HÀM CHUNG, nó sẽ tự động tạo/update và nếu thành công thì thông báo
+        await createOrUpdateEvaluation()
     }
 
     const getProgress = () => {
@@ -312,6 +342,18 @@ export default function EvaluationForm() {
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
                     <h3 className="text-red-800 font-bold">Lỗi truy cập</h3>
                     <p className="text-red-600">Chỉ chuyên gia đánh giá có thể tạo đánh giá</p>
+                </div>
+            </Layout>
+        )
+    }
+
+    // Nếu fetch data không có evaluation và không có assignment hợp lệ (rất khó xảy ra)
+    if (!report || !assignment) {
+        return (
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
+                    <h3 className="text-red-800 font-bold">Lỗi dữ liệu</h3>
+                    <p className="text-red-600">Không tìm thấy báo cáo hoặc phân công hợp lệ.</p>
                 </div>
             </Layout>
         )
