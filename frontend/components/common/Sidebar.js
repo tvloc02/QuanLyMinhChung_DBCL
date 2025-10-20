@@ -111,8 +111,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Tạo báo cáo mới', icon: UserPlus, path: '/reports/create' },
                 { name: 'Phân quyền', icon: UserPlus, path: '/assignments/assignments-management' },
                 { name: 'Tổng quan báo cáo', icon: ClipboardCheck, path: '/assignments/my-assignments' },
-                { name: 'Kết quả đánh giá báo cáo', icon: ClipboardCheck, path: '/evaluations/evaluations' },
+                { name: 'Kết quả đánh giá báo cáo', icon: ClipboardCheck, path: '/evaluations/supervised-reports' },
                 { name: 'Đánh giá của tôi', icon: GraduationCap, path: '/evaluations/my-evaluations' },
+                { name: 'Phê duyệt báo cáo', icon: GraduationCap, path: '/evaluations/final-approvals' },
             ]
         },
         {
