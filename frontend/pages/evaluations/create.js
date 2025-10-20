@@ -319,7 +319,7 @@ export default function EvaluationForm() {
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="space-y-6 max-w-6xl mx-auto">
+            <div className="space-y-6 max-w-8xl mx-auto">
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-4">
