@@ -129,7 +129,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Cán bộ quản lý', icon: UserCheck, path: '/users/managers' },
                 { name: 'Nhóm người dùng', icon: Users, path: '/admin/user-groups' },
                 { name: 'Phân quyền', icon: Shield, path: '/admin/permissions' },
-                { name: 'Phòng ban', icon: Shield, path: '/users/DepartmentsPage.js' }
+                { name: 'Phòng ban', icon: Shield, path: '/users/departments' }
             ]
         },
         {
