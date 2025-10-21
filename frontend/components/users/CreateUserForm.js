@@ -20,7 +20,7 @@ export default function CreateUserForm() {
         email: '',
         fullName: '',
         phoneNumber: '',
-        role: 'expert',
+        roles: ['expert'], // ✨ THAY: roles thành array
         department: '',
         position: ''
     })
@@ -98,13 +98,21 @@ export default function CreateUserForm() {
         }
     }
 
+    // ✨ THAY: handleRoleChange để chọn nhiều roles
     const handleRoleChange = (roleValue) => {
-        setFormData(prev => ({
-            ...prev,
-            role: roleValue
-        }))
-        if (errors.role) {
-            setErrors(prev => ({ ...prev, role: '' }))
+        setFormData(prev => {
+            const newRoles = prev.roles.includes(roleValue)
+                ? prev.roles.filter(r => r !== roleValue)
+                : [...prev.roles, roleValue]
+
+            return {
+                ...prev,
+                roles: newRoles,
+                role: newRoles[0] || 'expert' // Set role chính là role đầu tiên
+            }
+        })
+        if (errors.roles) {
+            setErrors(prev => ({ ...prev, roles: '' }))
         }
     }
 
@@ -147,8 +155,8 @@ export default function CreateUserForm() {
             newErrors.department = 'Phòng ban là bắt buộc'
         }
 
-        if (!formData.role) {
-            newErrors.role = 'Phải chọn một vai trò'
+        if (!formData.roles || formData.roles.length === 0) {
+            newErrors.roles = 'Phải chọn ít nhất một vai trò'
         }
 
         setErrors(newErrors)
@@ -175,12 +183,12 @@ export default function CreateUserForm() {
                 email: formData.email.trim(),
                 fullName: formData.fullName.trim(),
                 phoneNumber: formData.phoneNumber?.trim() || '',
-                roles: [formData.role],
-                role: formData.role,
-                departmentRole: formData.role === 'expert' ? 'expert' : formData.role,
+                roles: formData.roles, // ✨ THAY: Gửi roles array
+                role: formData.roles[0] || 'expert', // role chính
+                departmentRole: formData.roles[0] === 'expert' ? 'expert' : formData.roles[0],
                 position: formData.position?.trim() || '',
                 department: formData.department,
-                selectedPermissions: selectedPermissions // ✨ THÊM
+                selectedPermissions: selectedPermissions
             }
 
             const response = await api.post('/api/users', submitData)
@@ -231,7 +239,7 @@ export default function CreateUserForm() {
             email: '',
             fullName: '',
             phoneNumber: '',
-            role: 'expert',
+            roles: ['expert'], // ✨ THAY
             department: '',
             position: ''
         })
@@ -484,12 +492,10 @@ export default function CreateUserForm() {
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {roleOptions.map((role) => {
-                                const isSelected = formData.role === role.value
+                                const isSelected = formData.roles.includes(role.value)
                                 return (
-                                    <button
+                                    <label
                                         key={role.value}
-                                        type="button"
-                                        onClick={() => handleRoleChange(role.value)}
                                         className={`relative p-5 border-2 rounded-xl cursor-pointer transition-all ${
                                             isSelected
                                                 ? 'border-blue-500 bg-blue-50 shadow-md'
@@ -504,7 +510,13 @@ export default function CreateUserForm() {
                                             }`}>
                                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                                             </div>
-                                            <div className="flex-1 text-left">
+                                            <div className="flex-1">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleRoleChange(role.value)}
+                                                    className="hidden"
+                                                />
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${role.color} text-white`}>
                                                         {role.label}
@@ -513,16 +525,19 @@ export default function CreateUserForm() {
                                                 <p className="text-sm text-gray-600">{role.description}</p>
                                             </div>
                                         </div>
-                                    </button>
+                                    </label>
                                 )
                             })}
                         </div>
-                        {errors.role && (
+                        {errors.roles && (
                             <p className="mt-4 text-sm text-red-600 flex items-center">
                                 <AlertCircle className="w-4 h-4 mr-1" />
-                                {errors.role}
+                                {errors.roles}
                             </p>
                         )}
+                        <div className="mt-4 text-sm text-gray-600">
+                            Đã chọn: <span className="font-bold text-blue-600">{formData.roles.length}</span> vai trò
+                        </div>
                     </div>
                 </div>
 
