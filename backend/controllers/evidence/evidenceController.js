@@ -37,6 +37,7 @@ const getEvidences = async (req, res) => {
             search,
             programId,
             organizationId,
+            departmentId,
             standardId,
             criteriaId,
             status,
@@ -56,9 +57,10 @@ const getEvidences = async (req, res) => {
         // === KIỂM TRA QUYỀN TRUY CẬP MINH CHỨNG THEO PHÒNG BAN
         // Admin: xem tất cả
         // Manager/TDG/Expert: chỉ xem minh chứng của phòng ban họ
+        // Có quyền xem nhưng không thêm sửa xóa minh chứng của phòng ban khác
         // =============================================================
         if (req.user.role !== 'admin') {
-            if (!req.user.organizationId) {
+            if (!req.user.department) {
                 return res.json({
                     success: true,
                     data: {
@@ -74,7 +76,29 @@ const getEvidences = async (req, res) => {
                     }
                 });
             }
-            query.organizationId = req.user.organizationId;
+            // Non-admin chỉ xem minh chứng của phòng ban họ
+            query.departmentId = req.user.department;
+
+            // Nếu có filter departmentId khác, phải là phòng ban của họ
+            if (departmentId && departmentId !== req.user.department.toString()) {
+                return res.json({
+                    success: true,
+                    data: {
+                        evidences: [],
+                        pagination: {
+                            current: pageNum,
+                            pages: 0,
+                            total: 0,
+                            hasNext: false,
+                            hasPrev: false
+                        },
+                        academicYear: req.currentAcademicYear
+                    }
+                });
+            }
+        } else if (departmentId) {
+            // Admin có thể filter theo departmentId
+            query.departmentId = departmentId;
         }
         // =============================================================
 
@@ -105,6 +129,7 @@ const getEvidences = async (req, res) => {
                 .populate('academicYearId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
+                .populate('departmentId', 'name code')
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
@@ -148,6 +173,7 @@ const getEvidenceById = async (req, res) => {
             .populate('academicYearId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
+            .populate('departmentId', 'name code')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
             .populate('createdBy', 'fullName email')
@@ -174,7 +200,7 @@ const getEvidenceById = async (req, res) => {
         // Manager/TDG/Expert: chỉ xem minh chứng của phòng ban họ
         // =============================================================
         if (req.user.role !== 'admin') {
-            if (evidence.organizationId._id.toString() !== req.user.organizationId) {
+            if (evidence.departmentId._id.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn không có quyền xem minh chứng của phòng ban khác'
@@ -209,6 +235,7 @@ const createEvidence = async (req, res) => {
             description,
             programId,
             organizationId,
+            departmentId,
             standardId,
             criteriaId,
             code,
@@ -223,9 +250,9 @@ const createEvidence = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        console.log('Creating evidence with data:', { name, standardId, criteriaId, academicYearId });
+        console.log('Creating evidence with data:', { name, standardId, criteriaId, academicYearId, departmentId });
 
-        if (!name || !programId || !organizationId || !standardId || !criteriaId) {
+        if (!name || !programId || !organizationId || !departmentId || !standardId || !criteriaId) {
             return res.status(400).json({
                 success: false,
                 message: 'Thiếu thông tin bắt buộc'
@@ -235,10 +262,17 @@ const createEvidence = async (req, res) => {
         // =============================================================
         // === KIỂM TRA QUYỀN TẠO MINH CHỨNG
         // Admin: có quyền tạo cho bất kỳ phòng ban nào
-        // Manager/TDG/Expert: chỉ tạo cho phòng ban của họ
+        // Manager: chỉ tạo cho phòng ban của họ
+        // TDG/Expert: không có quyền tạo
         // =============================================================
         if (req.user.role !== 'admin') {
-            if (!req.user.organizationId || req.user.organizationId !== organizationId) {
+            if (req.user.role !== 'manager') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền tạo minh chứng'
+                });
+            }
+            if (!req.user.department || req.user.department !== departmentId) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền tạo minh chứng cho phòng ban của bạn'
@@ -314,6 +348,7 @@ const createEvidence = async (req, res) => {
             code: evidenceCode,
             programId,
             organizationId,
+            departmentId,
             standardId,
             criteriaId,
             documentNumber: documentNumber?.trim(),
@@ -333,6 +368,7 @@ const createEvidence = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
+            { path: 'departmentId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' }
@@ -397,7 +433,7 @@ const updateEvidence = async (req, res) => {
                     message: 'Bạn không có quyền cập nhật minh chứng'
                 });
             }
-            if (evidence.organizationId.toString() !== req.user.organizationId) {
+            if (evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền cập nhật minh chứng của phòng ban bạn'
@@ -438,6 +474,7 @@ const updateEvidence = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
+            { path: 'departmentId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
             { path: 'updatedBy', select: 'fullName email' }
@@ -484,7 +521,7 @@ const deleteEvidence = async (req, res) => {
                     message: 'Bạn không có quyền xóa minh chứng'
                 });
             }
-            if (evidence.organizationId.toString() !== req.user.organizationId) {
+            if (evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền xóa minh chứng của phòng ban bạn'
@@ -540,10 +577,16 @@ const generateCode = async (req, res) => {
 
 const getEvidenceTree = async (req, res) => {
     try {
-        const { programId, organizationId } = req.query;
+        const { programId, organizationId, departmentId } = req.query;
         const academicYearId = req.academicYearId;
 
-        const tree = await Evidence.getTreeByAcademicYear(academicYearId, programId, organizationId);
+        let queryParams = { academicYearId, programId, organizationId };
+
+        if (departmentId) {
+            queryParams.departmentId = departmentId;
+        }
+
+        const tree = await Evidence.getTreeByAcademicYear(queryParams);
 
         res.json({
             success: true,
@@ -567,6 +610,13 @@ const advancedSearch = async (req, res) => {
         const searchParams = req.body;
         searchParams.academicYearId = req.academicYearId;
 
+        // Nếu không phải admin, chỉ tìm kiếm trong phòng ban họ
+        if (req.user.role !== 'admin') {
+            if (req.user.department) {
+                searchParams.departmentId = req.user.department;
+            }
+        }
+
         const evidences = await Evidence.advancedSearch(searchParams);
 
         res.json({
@@ -588,7 +638,7 @@ const advancedSearch = async (req, res) => {
 
 const getStatistics = async (req, res) => {
     try {
-        const { programId, organizationId, standardId, criteriaId } = req.query;
+        const { programId, organizationId, departmentId, standardId, criteriaId } = req.query;
         const academicYearId = req.academicYearId;
 
         let matchStage = { academicYearId };
@@ -603,9 +653,11 @@ const getStatistics = async (req, res) => {
         // Non-admin: chỉ xem thống kê của phòng ban họ
         // =============================================================
         if (req.user.role !== 'admin') {
-            if (req.user.organizationId) {
-                matchStage.organizationId = new mongoose.Types.ObjectId(req.user.organizationId);
+            if (req.user.department) {
+                matchStage.departmentId = new mongoose.Types.ObjectId(req.user.department);
             }
+        } else if (departmentId) {
+            matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
         }
         // =============================================================
 
@@ -682,7 +734,7 @@ const getStatistics = async (req, res) => {
 const copyEvidenceToAnotherYear = async (req, res) => {
     try {
         const { id } = req.params;
-        const { targetAcademicYearId, targetStandardId, targetCriteriaId, newCode } = req.body;
+        const { targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId, newCode } = req.body;
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
@@ -708,7 +760,7 @@ const copyEvidenceToAnotherYear = async (req, res) => {
         // Manager: chỉ copy minh chứng của phòng ban họ
         // =============================================================
         if (req.user.role === 'manager') {
-            if (evidence.organizationId.toString() !== req.user.organizationId) {
+            if (evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền copy minh chứng của phòng ban bạn'
@@ -740,6 +792,7 @@ const copyEvidenceToAnotherYear = async (req, res) => {
             targetAcademicYearId,
             targetStandardId,
             targetCriteriaId,
+            targetDepartmentId,
             newCode,
             req.user.id
         );
@@ -764,7 +817,7 @@ const copyEvidenceToAnotherYear = async (req, res) => {
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
-        const { programId, organizationId, mode } = req.body;
+        const { programId, organizationId, departmentId, mode } = req.body;
 
         if (!file) {
             return res.status(400).json({
@@ -777,6 +830,7 @@ const importEvidences = async (req, res) => {
         // === KIỂM TRA QUYỀN IMPORT
         // Admin: import cho bất kỳ phòng ban nào
         // Manager: chỉ import cho phòng ban của họ
+        // TDG/Expert: không có quyền import
         // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
@@ -785,7 +839,7 @@ const importEvidences = async (req, res) => {
                     message: 'Chỉ Admin và Manager mới có quyền import minh chứng'
                 });
             }
-            if (req.user.organizationId !== organizationId) {
+            if (req.user.department !== departmentId) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền import minh chứng cho phòng ban bạn'
@@ -799,6 +853,7 @@ const importEvidences = async (req, res) => {
             req.academicYearId,
             programId,
             organizationId,
+            departmentId,
             req.user.id,
             mode
         );
@@ -920,7 +975,7 @@ const moveEvidence = async (req, res) => {
                     message: 'Bạn không có quyền di chuyển minh chứng'
                 });
             }
-            if (evidence.organizationId.toString() !== req.user.organizationId) {
+            if (evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền di chuyển minh chứng của phòng ban bạn'
@@ -966,10 +1021,10 @@ const moveEvidence = async (req, res) => {
 
 const getFullEvidenceTree = async (req, res) => {
     try {
-        const { programId, organizationId } = req.query;
+        const { programId, organizationId, departmentId } = req.query;
         const academicYearId = req.academicYearId;
 
-        console.log('getFullEvidenceTree called:', { programId, organizationId, academicYearId });
+        console.log('getFullEvidenceTree called:', { programId, organizationId, departmentId, academicYearId });
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -981,14 +1036,28 @@ const getFullEvidenceTree = async (req, res) => {
         // =============================================================
         // === KIỂM TRA QUYỀN XEM CÂY MINH CHỨNG
         // Admin: xem tất cả
-        // Non-admin: chỉ xem cây của phòng ban họ
+        // Non-admin: chỉ xem cây của phòng ban họ, hoặc có thể xem tất cả phòng ban nếu không chọn filter
         // =============================================================
+        let queryDepartmentId = departmentId;
         if (req.user.role !== 'admin') {
-            if (organizationId !== req.user.organizationId) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền xem cây minh chứng của phòng ban bạn'
-                });
+            // Nếu user không phải admin và không chọn phòng ban, chỉ xem phòng ban họ
+            if (!departmentId) {
+                if (!req.user.department) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chưa được gán vào phòng ban nào'
+                    });
+                }
+                queryDepartmentId = req.user.department;
+            } else {
+                // Nếu chọn phòng ban khác, phải là phòng ban họ
+                if (departmentId !== req.user.department.toString()) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền xem cây minh chứng của phòng ban bạn'
+                    });
+                }
+                queryDepartmentId = departmentId;
             }
         }
         // =============================================================
@@ -1003,10 +1072,12 @@ const getFullEvidenceTree = async (req, res) => {
             Evidence.find({
                 academicYearId,
                 programId,
-                organizationId
+                organizationId,
+                departmentId: queryDepartmentId
             })
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
+                .populate('departmentId', 'name code')
                 .populate({
                     path: 'files',
                     select: 'originalName size mimeType uploadedAt approvalStatus rejectionReason uploadedBy'
@@ -1108,10 +1179,10 @@ const getFullEvidenceTree = async (req, res) => {
 
 const exportEvidences = async (req, res) => {
     try {
-        const { programId, organizationId, format = 'xlsx' } = req.query;
+        const { programId, organizationId, departmentId, format = 'xlsx' } = req.query;
         const academicYearId = req.academicYearId;
 
-        console.log('Export request:', { programId, organizationId, academicYearId, format });
+        console.log('Export request:', { programId, organizationId, departmentId, academicYearId, format });
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -1125,8 +1196,17 @@ const exportEvidences = async (req, res) => {
         // Admin: export tất cả
         // Non-admin: chỉ export của phòng ban họ
         // =============================================================
+        let queryDepartmentId = departmentId;
         if (req.user.role !== 'admin') {
-            if (organizationId !== req.user.organizationId) {
+            if (!departmentId) {
+                if (!req.user.department) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chưa được gán vào phòng ban nào'
+                    });
+                }
+                queryDepartmentId = req.user.department;
+            } else if (departmentId !== req.user.department.toString()) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền export minh chứng của phòng ban bạn'
@@ -1138,12 +1218,14 @@ const exportEvidences = async (req, res) => {
         const evidences = await Evidence.find({
             academicYearId,
             programId,
-            organizationId
+            organizationId,
+            departmentId: queryDepartmentId
         })
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
+            .populate('departmentId', 'name code')
             .populate('files')
             .sort({ code: 1 })
             .lean();
@@ -1154,7 +1236,7 @@ const exportEvidences = async (req, res) => {
         const workbook = XLSX.utils.book_new();
 
         const data = [
-            ['STT', 'Mã minh chứng', 'Tên minh chứng', 'Tiêu chuẩn', 'Tiêu chí', 'Số file', 'Trạng thái']
+            ['STT', 'Mã minh chứng', 'Tên minh chứng', 'Tiêu chuẩn', 'Tiêu chí', 'Phòng ban', 'Số file', 'Trạng thái']
         ];
 
         const statusMap = {
@@ -1174,6 +1256,7 @@ const exportEvidences = async (req, res) => {
                 evidence.name || '',
                 evidence.standardId ? `${evidence.standardId.code} - ${evidence.standardId.name}` : '',
                 evidence.criteriaId ? `${evidence.criteriaId.code} - ${evidence.criteriaId.name}` : '',
+                evidence.departmentId ? `${evidence.departmentId.code} - ${evidence.departmentId.name}` : '',
                 evidence.files?.length || 0,
                 statusMap[evidence.status] || 'Mới'
             ]);
@@ -1187,6 +1270,7 @@ const exportEvidences = async (req, res) => {
             { wch: 50 },
             { wch: 40 },
             { wch: 40 },
+            { wch: 30 },
             { wch: 10 },
             { wch: 12 }
         ];
@@ -1252,7 +1336,7 @@ const approveFile = async (req, res) => {
         // =============================================================
         if (req.user.role === 'manager') {
             const evidence = await Evidence.findById(file.evidenceId);
-            if (!evidence || evidence.organizationId.toString() !== req.user.organizationId) {
+            if (!evidence || evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn chỉ có quyền duyệt file của phòng ban bạn'
@@ -1299,6 +1383,7 @@ const getEvidenceByCode = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
+            .populate('departmentId', 'name code')
             .populate({
                 path: 'files',
                 select: 'originalName size mimeType uploadedAt'
@@ -1333,6 +1418,7 @@ const getPublicEvidence = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
+            .populate('departmentId', 'name code')
             .populate({
                 path: 'files',
                 select: 'originalName size mimeType uploadedAt'
