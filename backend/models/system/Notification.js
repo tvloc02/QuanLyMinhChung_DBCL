@@ -20,7 +20,6 @@ const notificationSchema = new mongoose.Schema({
             'assignment_overdue',
             'assignment_cancelled',
             'evaluation_submitted',
-            // ✅ Bổ sung loại thông báo mới
             'evaluation_supervised',
             'evaluation_reevaluated',
             'evaluation_finalized',
@@ -33,7 +32,10 @@ const notificationSchema = new mongoose.Schema({
             'system_maintenance',
             'deadline_approaching',
             'user_mentioned',
-            'general'
+            'general',
+            // Bổ sung loại thông báo mới
+            'evidence_request',
+            'evidence_request_completed'
         ],
         required: [true, 'Loại thông báo là bắt buộc']
     },
@@ -66,6 +68,18 @@ const notificationSchema = new mongoose.Schema({
         evidenceId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Evidence'
+        },
+        standardId: { // Thêm
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Standard'
+        },
+        criteriaId: { // Thêm
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Criteria'
+        },
+        departmentId: { // Thêm
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Department'
         },
         url: String,
         action: String,
@@ -186,11 +200,9 @@ notificationSchema.virtual('typeText').get(function() {
         'assignment_overdue': 'Phân công quá hạn',
         'assignment_cancelled': 'Hủy phân công',
         'evaluation_submitted': 'Đánh giá đã nộp',
-        // ✅ Bổ sung typeText mới
         'evaluation_supervised': 'Đánh giá được chấp thuận',
         'evaluation_reevaluated': 'Yêu cầu đánh giá lại',
         'evaluation_finalized': 'Đánh giá đã Hoàn tất',
-        // ---
         'evaluation_reviewed': 'Đánh giá đã xem xét',
         'report_published': 'Báo cáo được xuất bản',
         'report_updated': 'Báo cáo được cập nhật',
@@ -200,7 +212,9 @@ notificationSchema.virtual('typeText').get(function() {
         'system_maintenance': 'Bảo trì hệ thống',
         'deadline_approaching': 'Gần hạn chót',
         'user_mentioned': 'Được nhắc đến',
-        'general': 'Thông báo chung'
+        'general': 'Thông báo chung',
+        'evidence_request': 'Yêu cầu minh chứng',
+        'evidence_request_completed': 'Xác nhận yêu cầu MC'
     };
     return typeMap[this.type] || this.type;
 });
@@ -283,7 +297,6 @@ notificationSchema.methods.getActionUrl = function() {
 
         case 'evaluation_submitted':
         case 'evaluation_reviewed':
-        // ✅ Cập nhật ActionUrl cho các loại thông báo mới
         case 'evaluation_supervised':
         case 'evaluation_reevaluated':
         case 'evaluation_finalized':
@@ -295,6 +308,10 @@ notificationSchema.methods.getActionUrl = function() {
         case 'report_comment_added':
         case 'report_review_requested':
             return this.data?.reportId ? `/reports/${this.data.reportId}` : null;
+
+        case 'evidence_request':
+            // Chuyển đến trang xem Cây minh chứng với filter phòng ban đã chọn
+            return this.data?.departmentId ? `/evidence-management/tree?departmentId=${this.data.departmentId}` : '/evidence-management/tree';
 
         default:
             return null;
@@ -345,7 +362,6 @@ notificationSchema.statics.createAssignmentNotification = async function(assignm
     return notification.save();
 };
 
-// ✅ Sửa đổi hàm này để bao gồm các loại thông báo mới
 notificationSchema.statics.createEvaluationNotification = async function(evaluationId, type, recipientId, senderId = null) {
     const Evaluation = mongoose.model('Evaluation');
     const evaluation = await Evaluation.findById(evaluationId)
@@ -354,7 +370,6 @@ notificationSchema.statics.createEvaluationNotification = async function(evaluat
 
     if (!evaluation) throw new Error('Evaluation not found');
 
-    // Cần lấy tên người gửi thông báo (Giám sát/Admin)
     let senderName = senderId ? (await mongoose.model('User').findById(senderId))?.fullName : 'Hệ thống';
 
     const titleMap = {
@@ -374,10 +389,10 @@ notificationSchema.statics.createEvaluationNotification = async function(evaluat
     };
 
     const priorityMap = {
-        'evaluation_submitted': 'high', // Quan trọng với Supervisor
+        'evaluation_submitted': 'high',
         'evaluation_reviewed': 'normal',
         'evaluation_supervised': 'normal',
-        'evaluation_reevaluated': 'urgent', // Quan trọng nhất với Expert
+        'evaluation_reevaluated': 'urgent',
         'evaluation_finalized': 'high'
     }
 
@@ -438,6 +453,97 @@ notificationSchema.statics.createReportNotification = async function(reportId, t
 
     return this.insertMany(notifications);
 };
+
+notificationSchema.statics.createEvidenceRequestNotification = async function(departmentId, standardId, criteriaId, senderId) {
+    const Department = mongoose.model('Department');
+    const Standard = mongoose.model('Standard');
+    const Criteria = mongoose.model('Criteria');
+
+    const [department, standard, criteria] = await Promise.all([
+        Department.findById(departmentId).populate('manager', 'fullName'),
+        Standard.findById(standardId),
+        Criteria.findById(criteriaId)
+    ]);
+
+    if (!department) throw new Error('Department not found');
+    if (!department.manager) throw new Error('Department has no manager');
+    if (!standard || !criteria) throw new Error('Standard or Criteria not found');
+
+    const recipientId = department.manager._id;
+    const standardName = `${standard.code} - ${standard.name}`;
+    const criteriaName = `${criteria.code} - ${criteria.name}`;
+    const departmentName = department.name;
+
+    const title = `Yêu cầu bổ sung minh chứng cho ${standard.code}.${criteria.code}`;
+    const message = `Phòng ban ${departmentName} cần bổ sung minh chứng cho Tiêu chuẩn: ${standardName}, Tiêu chí: ${criteriaName}. Vui lòng kiểm tra và thực hiện.`;
+
+    const notification = new this({
+        recipientId,
+        senderId,
+        type: 'evidence_request',
+        title,
+        message,
+        data: {
+            departmentId,
+            standardId,
+            criteriaId,
+            url: `/evidence-management/tree?departmentId=${departmentId}`
+        },
+        priority: 'high',
+        channels: {
+            inApp: true,
+            email: true
+        }
+    });
+
+    return notification.save();
+};
+
+notificationSchema.statics.createEvidenceRequestCompletedNotification = async function(requestNotificationId, senderId) {
+    const Notification = mongoose.model('Notification');
+    const requestNotification = await Notification.findById(requestNotificationId)
+        .populate('data.departmentId', 'name')
+        .populate('data.standardId', 'code name')
+        .populate('data.criteriaId', 'code name');
+
+    if (!requestNotification) throw new Error('Request notification not found');
+    if (requestNotification.type !== 'evidence_request') throw new Error('Not an evidence request notification');
+
+    // Người gửi thông báo ban đầu là người nhận thông báo hoàn thành
+    const recipientId = requestNotification.senderId;
+    const departmentName = requestNotification.data.departmentId.name;
+    const standardCode = requestNotification.data.standardId.code;
+    const criteriaCode = requestNotification.data.criteriaId.code;
+    const senderName = (await mongoose.model('User').findById(senderId))?.fullName || 'Manager';
+
+    const title = `Phòng ban ${departmentName} đã Hoàn thành yêu cầu MC`;
+    const message = `${senderName} (Manager) đã đánh dấu Hoàn thành yêu cầu bổ sung minh chứng cho ${standardCode}.${criteriaCode}. Vui lòng kiểm tra.`;
+
+    const notification = new this({
+        recipientId,
+        senderId,
+        type: 'evidence_request_completed',
+        title,
+        message,
+        data: {
+            departmentId: requestNotification.data.departmentId._id,
+            standardId: requestNotification.data.standardId._id,
+            criteriaId: requestNotification.data.criteriaId._id,
+            url: `/evidence-management/tree?departmentId=${requestNotification.data.departmentId._id}`
+        },
+        priority: 'normal',
+        channels: {
+            inApp: true
+        }
+    });
+
+    // Cập nhật trạng thái của thông báo yêu cầu ban đầu (tùy chọn)
+    // requestNotification.data.metadata.isCompleted = true;
+    // await requestNotification.save();
+
+    return notification.save();
+};
+
 
 notificationSchema.statics.createSystemNotification = async function(title, message, recipientIds, data = {}) {
     const notifications = recipientIds.map(recipientId => ({
@@ -529,7 +635,6 @@ notificationSchema.statics.getNotificationStats = async function(userId = null) 
     let matchStage = {};
     if (userId) {
         if (mongoose.Types.ObjectId.isValid(userId)) {
-            // FIX: Sử dụng new mongoose.Types.ObjectId(userId) thay vì mongoose.Types.ObjectId(userId)
             matchStage.recipientId = new mongoose.Types.ObjectId(userId);
         } else {
             console.error(`Invalid userId passed to getNotificationStats: ${userId}`);
