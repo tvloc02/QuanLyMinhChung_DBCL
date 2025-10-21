@@ -117,15 +117,15 @@ export const apiMethods = {
     },
 
     departments: {
-        getAll: (params) => api.get('/departments', { params }),
-        getById: (id) => api.get(`/departments/${id}`),
-        create: (data) => api.post('/departments', data),
-        update: (id, data) => api.put(`/departments/${id}`, data),
-        delete: (id) => api.delete(`/departments/${id}`),
-        changeStatus: (id, status) => api.patch(`/departments/${id}/status`, { status }),
-        addMember: (id, userId, role) => api.post(`/departments/${id}/members`, { userId, role }),
-        removeMember: (id, userId) => api.delete(`/departments/${id}/members`, { data: { userId } }),
-        updateMemberRole: (id, userId, role) => api.patch(`/departments/${id}/members/role`, { userId, role })
+        getAll: (params) => api.get('/api/departments', { params }),
+        getById: (id) => api.get(`/api/departments/${id}`),
+        create: (data) => api.post('/api/departments', data),
+        update: (id, data) => api.put(`/api/departments/${id}`, data),
+        delete: (id) => api.delete(`/api/departments/${id}`),
+        changeStatus: (id, status) => api.patch(`/api/departments/${id}/status`, { status }),
+        addMember: (id, userId, role) => api.post(`/api/departments/${id}/members`, { userId, role }),
+        removeMember: (id, userId) => api.delete(`/api/departments/${id}/members`, { data: { userId } }),
+        updateMemberRole: (id, userId, role) => api.patch(`/api/departments/${id}/members/role`, { userId, role })
     },
 
     programs: {
@@ -184,27 +184,30 @@ export const apiMethods = {
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
 
-        getTree: (programId, organizationId) =>
-            api.get('/api/evidences/tree', {
-                params: { programId, organizationId }
-            }),
+        getTree: (programId, organizationId, departmentId) => {
+            const params = { programId, organizationId };
+            if (departmentId) params.departmentId = departmentId;
+            return api.get('/api/evidences/tree', { params });
+        },
 
-        getFullTree: (programId, organizationId) =>
-            api.get('/api/evidences/full-tree', {
-                params: { programId, organizationId }
-            }),
+        getFullTree: (programId, organizationId, departmentId) => {
+            const params = { programId, organizationId };
+            if (departmentId) params.departmentId = departmentId;
+            return api.get('/api/evidences/full-tree', { params });
+        },
 
-        getStatistics: () => api.get('/api/evidences/statistics'),
+        getStatistics: (params) => api.get('/api/evidences/statistics', { params }),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
-        copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
-            api.post('/api/evidences/${id}/copy', {
+        copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId) =>
+            api.post(`/api/evidences/${id}/copy`, {
                 targetAcademicYearId,
                 targetStandardId,
-                targetCriteriaId
+                targetCriteriaId,
+                targetDepartmentId
             }),
-        move: (id, targetStandardId, targetCriteriaId) =>
-            api.post('/api/evidences/${id}/move', { targetStandardId, targetCriteriaId }),
+        move: (id, data) =>
+            api.post(`/api/evidences/${id}/move`, data),
         getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
 
         import: (formData) => {
