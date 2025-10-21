@@ -13,6 +13,8 @@ export default function CreateUserForm() {
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
     const [departments, setDepartments] = useState([])
+    const [permissions, setPermissions] = useState([])
+    const [selectedPermissions, setSelectedPermissions] = useState([])
 
     const [formData, setFormData] = useState({
         email: '',
@@ -25,7 +27,6 @@ export default function CreateUserForm() {
 
     const [errors, setErrors] = useState({})
 
-    // 4 vai trò chính
     const roleOptions = [
         {
             value: 'admin',
@@ -55,6 +56,7 @@ export default function CreateUserForm() {
 
     useEffect(() => {
         fetchDepartments()
+        fetchPermissions()
     }, [])
 
     const fetchDepartments = async () => {
@@ -70,6 +72,18 @@ export default function CreateUserForm() {
             }
         } catch (error) {
             console.error('Error fetching departments:', error)
+        }
+    }
+
+    // ✨ THÊM: Lấy danh sách permissions
+    const fetchPermissions = async () => {
+        try {
+            const response = await api.get('/api/permissions')
+            if (response.data.success) {
+                setPermissions(response.data.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching permissions:', error)
         }
     }
 
@@ -92,6 +106,16 @@ export default function CreateUserForm() {
         if (errors.role) {
             setErrors(prev => ({ ...prev, role: '' }))
         }
+    }
+
+    // ✨ THÊM: Toggle permission
+    const handlePermissionChange = (permissionId) => {
+        setSelectedPermissions(prev => {
+            if (prev.includes(permissionId)) {
+                return prev.filter(id => id !== permissionId)
+            }
+            return [...prev, permissionId]
+        })
     }
 
     const validateForm = () => {
@@ -155,7 +179,8 @@ export default function CreateUserForm() {
                 role: formData.role,
                 departmentRole: formData.role === 'expert' ? 'expert' : formData.role,
                 position: formData.position?.trim() || '',
-                department: formData.department
+                department: formData.department,
+                selectedPermissions: selectedPermissions // ✨ THÊM
             }
 
             const response = await api.post('/api/users', submitData)
@@ -198,7 +223,7 @@ export default function CreateUserForm() {
     }
 
     const handleBackToList = () => {
-        router.push('/users')
+        router.push('/users/users')
     }
 
     const handleCreateAnother = () => {
@@ -210,6 +235,7 @@ export default function CreateUserForm() {
             department: '',
             position: ''
         })
+        setSelectedPermissions([])
         setGeneratedPassword('')
         setErrors({})
         setMessage({ type: '', text: '' })
@@ -248,53 +274,54 @@ export default function CreateUserForm() {
 
                             {message.type === 'success' && generatedPassword && (
                                 <div className="mt-4 p-4 bg-white border-2 border-green-300 rounded-xl">
-                                    <p className="text-sm font-semibold text-green-900 mb-2">
-                                        Mật khẩu mặc định:
-                                    </p>
-                                    <div className="flex items-center justify-between bg-green-50 px-4 py-3 rounded-lg">
-                                        <code className="text-lg font-mono font-bold text-green-900">
-                                            {showPassword ? generatedPassword : '••••••••'}
+                                    <p className="text-sm font-medium text-gray-700 mb-2">Mật khẩu mặc định:</p>
+                                    <div className="flex items-center space-x-2">
+                                        <code className="flex-1 px-3 py-2 bg-green-50 rounded-lg font-mono text-sm font-semibold text-green-900">
+                                            {generatedPassword}
                                         </code>
                                         <button
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all"
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(generatedPassword)
+                                                alert('Đã sao chép!')
+                                            }}
+                                            className="px-3 py-2 text-green-600 hover:bg-green-100 rounded-lg transition-all"
                                         >
                                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
                                     </div>
                                 </div>
                             )}
+
+                            {message.type === 'success' && (
+                                <div className="mt-6 flex items-center space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateAnother}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all"
+                                    >
+                                        Tạo người dùng khác
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleBackToList}
+                                        className="px-4 py-2 text-sm font-medium text-green-600 border-2 border-green-300 hover:bg-green-50 rounded-lg transition-all"
+                                    >
+                                        Quay lại danh sách
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        <button
-                            onClick={() => setMessage({ type: '', text: '' })}
-                            className="ml-4 text-gray-400 hover:text-gray-600"
-                        >
-                            <X className="w-5 h-5" />
+                        <button onClick={() => setMessage({ type: '', text: '' })} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
                         </button>
                     </div>
-
-                    {message.type === 'success' && (
-                        <div className="mt-4 flex gap-3 justify-end">
-                            <button
-                                onClick={handleBackToList}
-                                className="px-6 py-2.5 bg-white text-green-700 border-2 border-green-200 rounded-xl hover:bg-green-50 transition-all font-medium"
-                            >
-                                Về danh sách
-                            </button>
-                            <button
-                                onClick={handleCreateAnother}
-                                className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-                            >
-                                Tạo người dùng khác
-                            </button>
-                        </div>
-                    )}
                 </div>
             )}
 
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-start space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
                             <UserPlus className="w-8 h-8" />
                         </div>
@@ -498,6 +525,51 @@ export default function CreateUserForm() {
                         )}
                     </div>
                 </div>
+
+                {/* ✨ THÊM: Phần chọn quyền */}
+                {permissions.length > 0 && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-purple-100 rounded-lg">
+                                    <Shield className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900">Chọn Quyền (Nhiều Quyền)</h2>
+                                    <p className="text-sm text-gray-600">Người dùng có thể có nhiều quyền cùng lúc</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                                {permissions.map(permission => (
+                                    <label
+                                        key={permission._id}
+                                        className="flex items-start gap-3 p-3 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPermissions.includes(permission._id)}
+                                            onChange={() => handlePermissionChange(permission._id)}
+                                            className="w-4 h-4 mt-1 rounded cursor-pointer"
+                                        />
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">{permission.name}</div>
+                                            <div className="text-sm text-gray-600">{permission.description}</div>
+                                        </div>
+                                        {selectedPermissions.includes(permission._id) && (
+                                            <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
+                                        )}
+                                    </label>
+                                ))}
+                            </div>
+                            <div className="mt-4 text-sm text-gray-600">
+                                Đã chọn: <span className="font-bold text-blue-600">{selectedPermissions.length}</span> quyền
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex items-center justify-end gap-4 pt-4">
                     <button
