@@ -40,7 +40,6 @@ const userSchema = new mongoose.Schema({
         }
     },
 
-    // Chỉ 4 vai trò: admin, manager, tdg, expert
     roles: [{
         type: String,
         enum: ['admin', 'manager', 'tdg', 'expert']
@@ -77,6 +76,12 @@ const userSchema = new mongoose.Schema({
     userGroups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'UserGroup'
+    }],
+
+    // ✨ THÊM: Hỗ trợ chọn NHIỀU quyền
+    selectedPermissions: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Permission'
     }],
 
     individualPermissions: [{
@@ -272,6 +277,20 @@ userSchema.methods.getAllPermissions = async function() {
                         groupPermissions.set(perm.code, perm);
                     }
                 }
+            }
+        }
+    }
+
+    // ✨ THÊM: Lấy selectedPermissions (nhiều quyền)
+    await this.populate({
+        path: 'selectedPermissions',
+        match: { status: 'active' }
+    });
+
+    if (this.selectedPermissions) {
+        for (const perm of this.selectedPermissions) {
+            if (perm && perm.code) {
+                groupPermissions.set(perm.code, perm);
             }
         }
     }
