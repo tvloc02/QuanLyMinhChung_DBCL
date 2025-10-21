@@ -2,9 +2,9 @@ import axios from 'axios'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import {
-    Search, Plus, Edit, Trash2, Lock, Unlock, Shield,
+    Search, Plus, Edit, Trash2, Lock, Unlock,
     ChevronLeft, ChevronRight, AlertCircle, RefreshCw, Users,
-    Key, Eye, EyeOff, X, Send, Check
+    Key, Eye, EyeOff, X, Check
 } from 'lucide-react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -32,7 +32,6 @@ export default function UsersListPage() {
     const [showLockModal, setShowLockModal] = useState(false)
     const [showUnlockModal, setShowUnlockModal] = useState(false)
     const [showResetPasswordModal, setShowResetPasswordModal] = useState(false)
-    const [showPermissionsModal, setShowPermissionsModal] = useState(false) // ✨ THÊM
 
     const [selectedUser, setSelectedUser] = useState(null)
     const [lockReason, setLockReason] = useState('')
@@ -41,15 +40,11 @@ export default function UsersListPage() {
     const [newPassword, setNewPassword] = useState('')
     const [showNewPassword, setShowNewPassword] = useState(false)
 
-    // ✨ THÊM: States cho permissions
-    const [allPermissions, setAllPermissions] = useState([])
-    const [selectedPermissions, setSelectedPermissions] = useState([])
-
     const roleLabels = {
         admin: { label: 'Quản trị viên', icon: '', color: 'from-red-500 to-pink-500' },
         manager: { label: 'Cán bộ quản lý', icon: '', color: 'from-blue-500 to-indigo-500' },
-        expert: { label: 'Chuyên gia', icon: '', color: 'from-green-500 to-emerald-500' },
-        advisor: { label: 'Tư vấn', icon: '', color: 'from-purple-500 to-violet-500' }
+        tdg: { label: 'Cán bộ TĐG', icon: '', color: 'from-sky-500 to-blue-500' },
+        expert: { label: 'Chuyên gia', icon: '', color: 'from-green-500 to-emerald-500' }
     }
 
     const statusLabels = {
@@ -70,11 +65,6 @@ export default function UsersListPage() {
         fetchUsers()
     }, [pagination.current, searchTerm, roleFilter, statusFilter])
 
-    // ✨ THÊM: Lấy permissions
-    useEffect(() => {
-        fetchPermissions()
-    }, [])
-
     const fetchUsers = async () => {
         try {
             setLoading(true)
@@ -89,7 +79,7 @@ export default function UsersListPage() {
             if (roleFilter) params.role = roleFilter
             if (statusFilter) params.status = statusFilter
 
-            const response = await axios.get('http://localhost:5000/api/users', { params })
+            const response = await api.get('/api/users', { params })
 
             if (response.data.success) {
                 setUsers(response.data.data.users)
@@ -103,31 +93,6 @@ export default function UsersListPage() {
             })
         } finally {
             setLoading(false)
-        }
-    }
-
-    // ✨ THÊM: Fetch permissions
-    const fetchPermissions = async () => {
-        try {
-            const response = await api.get('/api/permissions')
-            if (response.data.success) {
-                setAllPermissions(response.data.data || [])
-            }
-        } catch (error) {
-            console.error('Error fetching permissions:', error)
-        }
-    }
-
-    // ✨ THÊM: Fetch selected permissions của user
-    const fetchUserPermissions = async (userId) => {
-        try {
-            const response = await api.get(`/api/users/${userId}/selected-permissions`)
-            if (response.data.success) {
-                setSelectedPermissions(response.data.data.map(p => p._id) || [])
-            }
-        } catch (error) {
-            console.error('Error fetching user permissions:', error)
-            setSelectedPermissions([])
         }
     }
 
@@ -223,49 +188,6 @@ export default function UsersListPage() {
         }
     }
 
-    // ✨ THÊM: Handle manage permissions
-    const handleOpenPermissionsModal = async (user) => {
-        setSelectedUser(user)
-        await fetchUserPermissions(user._id)
-        setShowPermissionsModal(true)
-    }
-
-    // ✨ THÊM: Toggle permission
-    const handlePermissionChange = (permissionId) => {
-        setSelectedPermissions(prev => {
-            if (prev.includes(permissionId)) {
-                return prev.filter(id => id !== permissionId)
-            }
-            return [...prev, permissionId]
-        })
-    }
-
-    // ✨ THÊM: Save permissions
-    const handleSavePermissions = async () => {
-        try {
-            setActionLoading(true)
-            await api.put(`/api/users/${selectedUser._id}/selected-permissions`, {
-                permissionIds: selectedPermissions
-            })
-            setMessage({
-                type: 'success',
-                text: 'Cập nhật quyền thành công'
-            })
-            setShowPermissionsModal(false)
-            setSelectedUser(null)
-            setSelectedPermissions([])
-            fetchUsers()
-        } catch (error) {
-            console.error('Error updating permissions:', error)
-            setMessage({
-                type: 'error',
-                text: error.response?.data?.message || 'Lỗi khi cập nhật quyền'
-            })
-        } finally {
-            setActionLoading(false)
-        }
-    }
-
     const handleEdit = (user) => {
         router.push(`/users/${user._id}/edit`)
     }
@@ -309,7 +231,7 @@ export default function UsersListPage() {
                         </div>
                     </div>
                     <button
-                        onClick={() => router.push('/users/users/create')}
+                        onClick={() => router.push('/users/create')}
                         className="flex items-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-all font-medium"
                     >
                         <Plus className="w-5 h-5" />
@@ -339,6 +261,7 @@ export default function UsersListPage() {
                         <option value="">Tất cả vai trò</option>
                         <option value="admin">Quản trị viên</option>
                         <option value="manager">Cán bộ quản lý</option>
+                        <option value="tdg">Cán bộ TĐG</option>
                         <option value="expert">Chuyên gia</option>
                     </select>
 
@@ -375,6 +298,7 @@ export default function UsersListPage() {
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Người dùng</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Vai trò</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Quyền được chọn</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Phòng ban</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Trạng thái</th>
                                     <th className="px-4 py-3 text-center font-semibold text-gray-700">Thao tác</th>
@@ -400,6 +324,23 @@ export default function UsersListPage() {
                                                 ))}
                                             </div>
                                         </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.selectedPermissions && user.selectedPermissions.length > 0 ? (
+                                                    user.selectedPermissions.map(perm => (
+                                                        <span
+                                                            key={perm._id}
+                                                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200"
+                                                            title={perm.description}
+                                                        >
+                                                            {perm.name}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-gray-500">Chưa có quyền</span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-3 text-gray-600">
                                             <div className="font-medium">{user.department?.name || '-'}</div>
                                             <div className="text-xs text-gray-500">{user.department?.code || ''}</div>
@@ -418,14 +359,6 @@ export default function UsersListPage() {
                                                     variant="edit"
                                                     size="sm"
                                                     title="Chỉnh sửa người dùng"
-                                                />
-                                                <ActionButton
-                                                    icon={Shield}
-                                                    label=""
-                                                    onClick={() => handleOpenPermissionsModal(user)}
-                                                    variant="primary"
-                                                    size="sm"
-                                                    title="Quản lý quyền"
                                                 />
                                                 <ActionButton
                                                     icon={Key}
@@ -509,75 +442,6 @@ export default function UsersListPage() {
                     </>
                 )}
             </div>
-
-            {/* ✨ THÊM: Permissions Modal */}
-            {showPermissionsModal && selectedUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold">Quản lý quyền - {selectedUser.fullName}</h2>
-                            <button
-                                onClick={() => {
-                                    setShowPermissionsModal(false)
-                                    setSelectedUser(null)
-                                    setSelectedPermissions([])
-                                }}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
-                            {allPermissions.map(permission => (
-                                <label
-                                    key={permission._id}
-                                    className="flex items-start gap-3 p-3 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedPermissions.includes(permission._id)}
-                                        onChange={() => handlePermissionChange(permission._id)}
-                                        className="w-4 h-4 mt-1 rounded cursor-pointer"
-                                    />
-                                    <div className="flex-1">
-                                        <div className="font-medium text-gray-900">{permission.name}</div>
-                                        <div className="text-sm text-gray-600">{permission.description}</div>
-                                    </div>
-                                    {selectedPermissions.includes(permission._id) && (
-                                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
-                                    )}
-                                </label>
-                            ))}
-                        </div>
-
-                        <div className="text-sm text-gray-600 mb-6">
-                            Đã chọn: <span className="font-bold text-blue-600">{selectedPermissions.length}</span> quyền
-                        </div>
-
-                        <div className="flex justify-end gap-2">
-                            <button
-                                onClick={() => {
-                                    setShowPermissionsModal(false)
-                                    setSelectedUser(null)
-                                    setSelectedPermissions([])
-                                }}
-                                disabled={actionLoading}
-                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSavePermissions}
-                                disabled={actionLoading}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {actionLoading ? 'Đang lưu...' : 'Lưu'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Delete Modal */}
             {showDeleteModal && selectedUser && (
