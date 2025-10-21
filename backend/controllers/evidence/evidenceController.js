@@ -53,23 +53,12 @@ const getEvidences = async (req, res) => {
         let query = { academicYearId };
 
         // =============================================================
-        // === SỬA ĐỔI: LOẠI BỎ KIỂM TRA QUYỀN ĐỂ TẤT CẢ NGƯỜI DÙNG XEM ĐƯỢC
-        // Nếu không có khối này, mọi người dùng đã đăng nhập sẽ thấy tất cả minh chứng
-        // trong năm học hiện tại.
-        /*
+        // === KIỂM TRA QUYỀN TRUY CẬP MINH CHỨNG THEO PHÒNG BAN
+        // Admin: xem tất cả
+        // Manager/TDG/Expert: chỉ xem minh chứng của phòng ban họ
+        // =============================================================
         if (req.user.role !== 'admin') {
-            const accessibleStandards = req.user.standardAccess || [];
-            const accessibleCriteria = req.user.criteriaAccess || [];
-
-            if (accessibleStandards.length > 0 || accessibleCriteria.length > 0) {
-                query.$or = [];
-                if (accessibleStandards.length > 0) {
-                    query.$or.push({ standardId: { $in: accessibleStandards } });
-                }
-                if (accessibleCriteria.length > 0) {
-                    query.$or.push({ criteriaId: { $in: accessibleCriteria } });
-                }
-            } else {
+            if (!req.user.organizationId) {
                 return res.json({
                     success: true,
                     data: {
@@ -85,8 +74,8 @@ const getEvidences = async (req, res) => {
                     }
                 });
             }
+            query.organizationId = req.user.organizationId;
         }
-        */
         // =============================================================
 
         if (search) {
@@ -179,16 +168,20 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
-        /*
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId._id) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId._id)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền truy cập minh chứng này'
-            });
+        // =============================================================
+        // === KIỂM TRA QUYỀN XEM MINH CHỨNG
+        // Admin: có quyền xem tất cả
+        // Manager/TDG/Expert: chỉ xem minh chứng của phòng ban họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (evidence.organizationId._id.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền xem minh chứng của phòng ban khác'
+                });
+            }
         }
-        */
+        // =============================================================
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
@@ -239,14 +232,20 @@ const createEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(standardId) &&
-            !req.user.hasCriteriaAccess(criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tạo minh chứng cho tiêu chuẩn/tiêu chí này'
-            });
+        // =============================================================
+        // === KIỂM TRA QUYỀN TẠO MINH CHỨNG
+        // Admin: có quyền tạo cho bất kỳ phòng ban nào
+        // Manager/TDG/Expert: chỉ tạo cho phòng ban của họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (!req.user.organizationId || req.user.organizationId !== organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền tạo minh chứng cho phòng ban của bạn'
+                });
+            }
         }
+        // =============================================================
 
         if (!Standard || !Criteria) {
             console.error('Standard or Criteria model not loaded!');
@@ -385,14 +384,27 @@ const updateEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền cập nhật minh chứng này'
-            });
+        // =============================================================
+        // === KIỂM TRA QUYỀN CẬP NHẬT MINH CHỨNG
+        // Admin: có quyền cập nhật bất kỳ minh chứng nào
+        // Manager: chỉ cập nhật minh chứng của phòng ban họ
+        // TDG/Expert: không có quyền cập nhật (chỉ upload file)
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (req.user.role !== 'manager') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền cập nhật minh chứng'
+                });
+            }
+            if (evidence.organizationId.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền cập nhật minh chứng của phòng ban bạn'
+                });
+            }
         }
+        // =============================================================
 
         if (updateData.code && updateData.code !== evidence.code) {
             const existingEvidence = await Evidence.findOne({
@@ -459,14 +471,27 @@ const deleteEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền xóa minh chứng này'
-            });
+        // =============================================================
+        // === KIỂM TRA QUYỀN XÓA MINH CHỨNG
+        // Admin: có quyền xóa bất kỳ minh chứng nào
+        // Manager: chỉ xóa minh chứng của phòng ban họ
+        // TDG/Expert: không có quyền xóa
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (req.user.role !== 'manager') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền xóa minh chứng'
+                });
+            }
+            if (evidence.organizationId.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền xóa minh chứng của phòng ban bạn'
+                });
+            }
         }
+        // =============================================================
 
         const files = await File.find({ evidenceId: id });
         for (const file of files) {
@@ -573,6 +598,17 @@ const getStatistics = async (req, res) => {
         if (standardId) matchStage.standardId = standardId;
         if (criteriaId) matchStage.criteriaId = criteriaId;
 
+        // =============================================================
+        // === KIỂM TRA QUYỀN THỐNG KÊ
+        // Non-admin: chỉ xem thống kê của phòng ban họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (req.user.organizationId) {
+                matchStage.organizationId = new mongoose.Types.ObjectId(req.user.organizationId);
+            }
+        }
+        // =============================================================
+
         const stats = await Evidence.aggregate([
             { $match: matchStage },
             {
@@ -667,6 +703,20 @@ const copyEvidenceToAnotherYear = async (req, res) => {
             });
         }
 
+        // =============================================================
+        // === KIỂM TRA QUYỀN COPY
+        // Manager: chỉ copy minh chứng của phòng ban họ
+        // =============================================================
+        if (req.user.role === 'manager') {
+            if (evidence.organizationId.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền copy minh chứng của phòng ban bạn'
+                });
+            }
+        }
+        // =============================================================
+
         const targetAcademicYear = await AcademicYear.findById(targetAcademicYearId);
         if (!targetAcademicYear) {
             return res.status(404).json({
@@ -722,6 +772,27 @@ const importEvidences = async (req, res) => {
                 message: 'Không có file được upload'
             });
         }
+
+        // =============================================================
+        // === KIỂM TRA QUYỀN IMPORT
+        // Admin: import cho bất kỳ phòng ban nào
+        // Manager: chỉ import cho phòng ban của họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (req.user.role !== 'manager') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Chỉ Admin và Manager mới có quyền import minh chứng'
+                });
+            }
+            if (req.user.organizationId !== organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền import minh chứng cho phòng ban bạn'
+                });
+            }
+        }
+        // =============================================================
 
         const result = await importEvidencesFromExcel(
             file.path,
@@ -828,7 +899,6 @@ const moveEvidence = async (req, res) => {
         const { targetStandardId, targetCriteriaId, newCode } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Tìm minh chứng trong năm học hiện tại
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
             return res.status(404).json({
@@ -837,17 +907,28 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền di chuyển minh chứng này'
-            });
+        // =============================================================
+        // === KIỂM TRA QUYỀN DI CHUYỂN
+        // Admin: di chuyển bất kỳ minh chứng nào
+        // Manager: chỉ di chuyển minh chứng của phòng ban họ
+        // TDG/Expert: không có quyền
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (req.user.role !== 'manager') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền di chuyển minh chứng'
+                });
+            }
+            if (evidence.organizationId.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền di chuyển minh chứng của phòng ban bạn'
+                });
+            }
         }
+        // =============================================================
 
-        // Kiểm tra trùng mã mới
         const existingEvidence = await Evidence.findOne({
             code: newCode,
             academicYearId,
@@ -860,7 +941,6 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // Gọi method moveTo từ model
         const movedEvidence = await evidence.moveTo(
             targetStandardId,
             targetCriteriaId,
@@ -897,6 +977,21 @@ const getFullEvidenceTree = async (req, res) => {
                 message: 'Thiếu thông tin programId hoặc organizationId'
             });
         }
+
+        // =============================================================
+        // === KIỂM TRA QUYỀN XEM CÂY MINH CHỨNG
+        // Admin: xem tất cả
+        // Non-admin: chỉ xem cây của phòng ban họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (organizationId !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền xem cây minh chứng của phòng ban bạn'
+                });
+            }
+        }
+        // =============================================================
 
         const mongoose = require('mongoose');
         const StandardModel = mongoose.model('Standard');
@@ -981,7 +1076,6 @@ const getFullEvidenceTree = async (req, res) => {
             tree.push(standardNode);
         });
 
-        // Tính statistics
         const statistics = {
             totalStandards: standards.length,
             totalCriteria: allCriteria.length,
@@ -993,7 +1087,6 @@ const getFullEvidenceTree = async (req, res) => {
         };
 
         console.log('Statistics:', statistics);
-        console.log('Tree structure:', JSON.stringify(tree, null, 2));
 
         res.json({
             success: true,
@@ -1026,6 +1119,21 @@ const exportEvidences = async (req, res) => {
                 message: 'Thiếu thông tin programId hoặc organizationId'
             });
         }
+
+        // =============================================================
+        // === KIỂM TRA QUYỀN EXPORT
+        // Admin: export tất cả
+        // Non-admin: chỉ export của phòng ban họ
+        // =============================================================
+        if (req.user.role !== 'admin') {
+            if (organizationId !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền export minh chứng của phòng ban bạn'
+                });
+            }
+        }
+        // =============================================================
 
         const evidences = await Evidence.find({
             academicYearId,
@@ -1083,19 +1191,15 @@ const exportEvidences = async (req, res) => {
             { wch: 12 }
         ];
 
-        // Thêm worksheet vào workbook
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách minh chứng');
 
-        // Tạo buffer từ workbook
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-        // Đặt headers cho response
         const filename = `minh-chung_${req.currentAcademicYear?.code || 'export'}_${Date.now()}.xlsx`;
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Length', buffer.length);
 
-        // Gửi buffer
         res.send(buffer);
 
         console.log('Export completed successfully');
@@ -1114,12 +1218,18 @@ const approveFile = async (req, res) => {
         const { fileId } = req.params;
         const { status, rejectionReason } = req.body;
 
-        if (req.user.role !== 'admin') {
+        // =============================================================
+        // === KIỂM TRA QUYỀN DUYỆT FILE
+        // Admin/Manager: có quyền duyệt file
+        // TDG/Expert: không có quyền
+        // =============================================================
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin mới có quyền duyệt file'
+                message: 'Chỉ Admin và Manager mới có quyền duyệt file'
             });
         }
+        // =============================================================
 
         if (!['approved', 'rejected'].includes(status)) {
             return res.status(400).json({
@@ -1135,6 +1245,21 @@ const approveFile = async (req, res) => {
                 message: 'Không tìm thấy file'
             });
         }
+
+        // =============================================================
+        // === KIỂM TRA QUYỀN DUYỆT FILE CHO PHÒNG BAN
+        // Manager: chỉ duyệt file của phòng ban họ
+        // =============================================================
+        if (req.user.role === 'manager') {
+            const evidence = await Evidence.findById(file.evidenceId);
+            if (!evidence || evidence.organizationId.toString() !== req.user.organizationId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn chỉ có quyền duyệt file của phòng ban bạn'
+                });
+            }
+        }
+        // =============================================================
 
         file.approvalStatus = status;
         file.approvedBy = req.user.id;
