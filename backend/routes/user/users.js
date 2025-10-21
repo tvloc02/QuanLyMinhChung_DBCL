@@ -30,7 +30,7 @@ router.get('/', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('role').optional().isIn(['admin', 'manager', 'tdg', 'expert', 'expert_external']),
+    query('role').optional().isIn(['admin', 'manager', 'tdg', 'expert']),
     query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']),
     query('departmentId').optional().isMongoId(),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
@@ -73,18 +73,29 @@ router.post('/',
             .withMessage('Số điện thoại không hợp lệ'),
         body('role')
             .optional()
-            .isIn(['admin', 'manager', 'tdg', 'expert', 'expert_external'])
-            .withMessage('Vai trò không hợp lệ'),
+            .isIn(['admin', 'manager', 'tdg', 'expert'])
+            .withMessage('Vai trò không hợp lệ. Chỉ chấp nhận: admin, manager, tdg, expert'),
         body('roles')
             .optional()
             .isArray()
-            .withMessage('Roles phải là mảng'),
+            .withMessage('Roles phải là mảng')
+            .custom((value) => {
+                const validRoles = ['admin', 'manager', 'tdg', 'expert'];
+                if (value && Array.isArray(value)) {
+                    const invalid = value.filter(r => !validRoles.includes(r));
+                    if (invalid.length > 0) {
+                        throw new Error(`Vai trò không hợp lệ: ${invalid.join(', ')}`);
+                    }
+                }
+                return true;
+            }),
         body('status')
             .optional()
             .isIn(['active', 'inactive', 'suspended', 'pending'])
             .withMessage('Trạng thái không hợp lệ'),
         body('department')
-            .optional()
+            .notEmpty()
+            .withMessage('Phòng ban là bắt buộc')
             .isMongoId()
             .withMessage('Department ID không hợp lệ'),
         body('departmentRole')
@@ -95,10 +106,6 @@ router.post('/',
             .optional()
             .isLength({ max: 100 })
             .withMessage('Chức vụ không được quá 100 ký tự'),
-        body('isExternalExpert')
-            .optional()
-            .isBoolean()
-            .withMessage('isExternalExpert phải là boolean'),
         body('expertise')
             .optional()
             .isArray()
@@ -155,12 +162,22 @@ router.put('/:id',
             .withMessage('Số điện thoại không hợp lệ'),
         body('role')
             .optional()
-            .isIn(['admin', 'manager', 'tdg', 'expert', 'expert_external'])
-            .withMessage('Vai trò không hợp lệ'),
+            .isIn(['admin', 'manager', 'tdg', 'expert'])
+            .withMessage('Vai trò không hợp lệ. Chỉ chấp nhận: admin, manager, tdg, expert'),
         body('roles')
             .optional()
             .isArray()
-            .withMessage('Roles phải là mảng'),
+            .withMessage('Roles phải là mảng')
+            .custom((value) => {
+                const validRoles = ['admin', 'manager', 'tdg', 'expert'];
+                if (value && Array.isArray(value)) {
+                    const invalid = value.filter(r => !validRoles.includes(r));
+                    if (invalid.length > 0) {
+                        throw new Error(`Vai trò không hợp lệ: ${invalid.join(', ')}`);
+                    }
+                }
+                return true;
+            }),
         body('department')
             .optional()
             .isMongoId()
@@ -173,10 +190,6 @@ router.put('/:id',
             .optional()
             .isLength({ max: 100 })
             .withMessage('Chức vụ không được quá 100 ký tự'),
-        body('isExternalExpert')
-            .optional()
-            .isBoolean()
-            .withMessage('isExternalExpert phải là boolean'),
         body('expertise')
             .optional()
             .isArray()
