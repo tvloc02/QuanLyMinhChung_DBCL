@@ -44,6 +44,12 @@ const evidenceSchema = new mongoose.Schema({
         required: [true, 'Tổ chức - Cấp đánh giá là bắt buộc']
     },
 
+    departmentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department',
+        required: [true, 'Phòng ban là bắt buộc']
+    },
+
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
@@ -150,7 +156,8 @@ const evidenceSchema = new mongoose.Schema({
 });
 
 evidenceSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
-evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
+evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, departmentId: 1 });
+evidenceSchema.index({ academicYearId: 1, departmentId: 1 });
 evidenceSchema.index({ academicYearId: 1, standardId: 1 });
 evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
 evidenceSchema.index({ academicYearId: 1, name: 'text', description: 'text', documentNumber: 'text' });
@@ -161,6 +168,7 @@ evidenceSchema.index({
     academicYearId: 1,
     programId: 1,
     organizationId: 1,
+    departmentId: 1,
     standardId: 1,
     criteriaId: 1
 });
@@ -321,6 +329,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
         academicYearId,
         programId,
         organizationId,
+        departmentId,
         standardId,
         criteriaId,
         dateFrom,
@@ -345,6 +354,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
 
     if (programId) query.programId = programId;
     if (organizationId) query.organizationId = organizationId;
+    if (departmentId) query.departmentId = departmentId;
     if (standardId) query.standardId = standardId;
     if (criteriaId) query.criteriaId = criteriaId;
     if (status) query.status = status;
@@ -358,7 +368,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     return this.find(query);
 };
 
-evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStandardId, targetCriteriaId, newCode, userId) {
+evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId, newCode, userId) {
     const Evidence = this.constructor;
 
     const evidenceData = this.toObject();
@@ -372,6 +382,7 @@ evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStand
     evidenceData.code = newCode;
     evidenceData.standardId = targetStandardId;
     evidenceData.criteriaId = targetCriteriaId;
+    evidenceData.departmentId = targetDepartmentId;
     evidenceData.createdBy = userId;
     evidenceData.updatedBy = userId;
     evidenceData.status = 'new';
@@ -442,14 +453,23 @@ evidenceSchema.statics.findByAcademicYear = function(academicYearId, query = {})
     });
 };
 
-evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, programId, organizationId) {
-    const evidences = await this.find({
+evidenceSchema.statics.getTreeByAcademicYear = async function(queryParams) {
+    const { academicYearId, programId, organizationId, departmentId } = queryParams;
+
+    const findQuery = {
         academicYearId,
         programId,
-        organizationId,
-    })
+        organizationId
+    };
+
+    if (departmentId) {
+        findQuery.departmentId = departmentId;
+    }
+
+    const evidences = await this.find(findQuery)
         .populate('standardId', 'name code')
         .populate('criteriaId', 'name code')
+        .populate('departmentId', 'name code')
         .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 });
 
     const tree = {};
