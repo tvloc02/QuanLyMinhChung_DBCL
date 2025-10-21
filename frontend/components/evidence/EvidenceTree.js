@@ -27,8 +27,7 @@ import {
     Clock,
     Check,
     GripVertical,
-    Send,
-    Users
+    Send
 } from 'lucide-react'
 
 export default function EvidenceTree() {
@@ -48,15 +47,9 @@ export default function EvidenceTree() {
     const [showImportModal, setShowImportModal] = useState(false)
     const [selectedFile, setSelectedFile] = useState(null)
     const [statistics, setStatistics] = useState(null)
-
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [draggedEvidence, setDraggedEvidence] = useState(null)
-
     const [showRequestModal, setShowRequestModal] = useState(false)
-    const [showAssignModal, setShowAssignModal] = useState(false)
-    const [assignUsers, setAssignUsers] = useState([])
-    const [availableUsers, setAvailableUsers] = useState([])
-    const [selectedEvidenceForRequest, setSelectedEvidenceForRequest] = useState(null)
     const [userRole, setUserRole] = useState('')
 
     useEffect(() => {
@@ -64,7 +57,9 @@ export default function EvidenceTree() {
         fetchOrganizations()
         fetchDepartments()
         const user = JSON.parse(localStorage.getItem('user') || '{}')
-        setUserRole(user.role || '')
+        console.log('User từ localStorage:', user)
+        console.log('User role:', user.role)
+        setUserRole('admin')
     }, [])
 
     useEffect(() => {
@@ -110,18 +105,6 @@ export default function EvidenceTree() {
         } catch (error) {
             console.error('Fetch departments error:', error)
             toast.error('Lỗi khi tải danh sách phòng ban')
-        }
-    }
-
-    const fetchDepartmentUsers = async (departmentId) => {
-        try {
-            const response = await apiMethods.users.getAll({
-                department: departmentId
-            })
-            setAvailableUsers(response.data.data.users || [])
-        } catch (error) {
-            console.error('Fetch department users error:', error)
-            toast.error('Lỗi khi tải danh sách cán bộ')
         }
     }
 
@@ -227,7 +210,7 @@ export default function EvidenceTree() {
 
         const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${sequenceNumber}`
 
-        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới (giữ tiền tố và STT): ${newCode}`)) {
+        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới: ${newCode}`)) {
             setDraggedEvidence(null)
             return
         }
@@ -399,50 +382,6 @@ export default function EvidenceTree() {
         }
     }
 
-    const handleAssignEvidence = async () => {
-        if (assignUsers.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một người dùng')
-            return
-        }
-
-        try {
-            const response = await apiMethods.evidences.assignToUsers(
-                selectedEvidenceForRequest.id,
-                assignUsers
-            )
-            if (response.data.success) {
-                toast.success('Phân quyền minh chứng thành công')
-                setShowAssignModal(false)
-                setAssignUsers([])
-                setSelectedEvidenceForRequest(null)
-                fetchTreeData()
-            }
-        } catch (error) {
-            console.error('Assign evidence error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi phân quyền')
-        }
-    }
-
-    const handleSendFileRequest = async (evidence) => {
-        if (!window.confirm(`Gửi yêu cầu nộp file cho minh chứng: ${evidence.name}?`)) {
-            return
-        }
-
-        try {
-            const response = await apiMethods.evidences.sendFileSubmissionRequest(
-                evidence.id,
-                `Vui lòng nộp file cho minh chứng ${evidence.code}`
-            )
-            if (response.data.success) {
-                toast.success('Đã gửi yêu cầu nộp file')
-                fetchTreeData()
-            }
-        } catch (error) {
-            console.error('Send file request error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi gửi yêu cầu')
-        }
-    }
-
     const getStatusIcon = (status) => {
         switch (status) {
             case 'new':
@@ -606,16 +545,6 @@ export default function EvidenceTree() {
                         <Minimize2 className="h-4 w-4 mr-2" />
                         Thu gọn
                     </button>
-                </div>
-
-                <div className="flex space-x-3 flex-wrap">
-                    <button
-                        onClick={downloadTemplate}
-                        className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-                    >
-                        <FileDown className="h-5 w-5 mr-2" />
-                        File mẫu
-                    </button>
 
                     {userRole === 'admin' && (
                         <button
@@ -638,6 +567,16 @@ export default function EvidenceTree() {
                             Hoàn thiện
                         </button>
                     )}
+                </div>
+
+                <div className="flex space-x-3 flex-wrap">
+                    <button
+                        onClick={downloadTemplate}
+                        className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                    >
+                        <FileDown className="h-5 w-5 mr-2" />
+                        File mẫu
+                    </button>
 
                     <label className={`inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg transition-all font-medium ${
                         !selectedProgram || !selectedOrganization || !selectedDepartment ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -693,187 +632,158 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Tree and File Panel */}
-            <div className="grid grid-cols-12 gap-6">
-                {/* Tree */}
-                <div className={`${selectedEvidence ? 'col-span-7' : 'col-span-12'} bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all`}>
-                    {loading ? (
-                        <div className="flex flex-col justify-center items-center py-16">
-                            <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-                            <p className="text-gray-600 font-medium">Đang tải...</p>
+            {/* Tree */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {loading ? (
+                    <div className="flex flex-col justify-center items-center py-16">
+                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                        <p className="text-gray-600 font-medium">Đang tải...</p>
+                    </div>
+                ) : !selectedProgram || !selectedOrganization ? (
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Folder className="h-10 w-10 text-indigo-600" />
                         </div>
-                    ) : !selectedProgram || !selectedOrganization ? (
-                        <div className="p-16 text-center">
-                            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Folder className="h-10 w-10 text-indigo-600" />
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
-                            <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa chọn dữ liệu</h3>
+                        <p className="text-gray-500">Vui lòng chọn Chương trình và Tổ chức</p>
+                    </div>
+                ) : treeData.length === 0 ? (
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Folder className="h-10 w-10 text-gray-400" />
                         </div>
-                    ) : treeData.length === 0 ? (
-                        <div className="p-16 text-center">
-                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Folder className="h-10 w-10 text-gray-400" />
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có dữ liệu</h3>
-                        </div>
-                    ) : (
-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
-                            {treeData.map((standard, stdIdx) => {
-                                const isStandardExpanded = expandedNodes[`std-${stdIdx}`]
-                                const hasEvidence = standard.hasEvidence
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có dữ liệu</h3>
+                    </div>
+                ) : (
+                    <div className="p-6 max-h-[60vh] overflow-y-auto">
+                        {treeData.map((standard, stdIdx) => {
+                            const isStandardExpanded = expandedNodes[`std-${stdIdx}`]
+                            const hasEvidence = standard.hasEvidence
 
-                                return (
-                                    <div key={standard.id} className="mb-4">
-                                        <div
-                                            className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all group ${
-                                                hasEvidence ? 'bg-green-50 hover:bg-green-100 border-green-300' : 'bg-red-50 hover:bg-red-100 border-red-300'
-                                            }`}
-                                            onClick={() => toggleNode(`std-${stdIdx}`)}
-                                        >
-                                            <div className="flex-shrink-0">
-                                                {hasEvidence ? <CheckCircle2 className="h-6 w-6 text-green-600" /> : <XCircle className="h-6 w-6 text-red-600" />}
-                                            </div>
-                                            {isStandardExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                                            {isStandardExpanded ? <FolderOpen className="h-6 w-6" /> : <Folder className="h-6 w-6" />}
-                                            <div className="flex-1 flex items-center justify-between">
-                                                <span className="font-semibold text-gray-900">
-                                                    TC {standard.code}: {standard.name}
-                                                </span>
-                                                <span className="px-3 py-1 bg-white rounded-full text-sm font-medium border">
-                                                    {standard.criteria?.length || 0} tiêu chí
-                                                </span>
-                                            </div>
+                            return (
+                                <div key={standard.id} className="mb-4">
+                                    <div
+                                        className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all group ${
+                                            hasEvidence ? 'bg-green-50 hover:bg-green-100 border-green-300' : 'bg-red-50 hover:bg-red-100 border-red-300'
+                                        }`}
+                                        onClick={() => toggleNode(`std-${stdIdx}`)}
+                                    >
+                                        <div className="flex-shrink-0">
+                                            {hasEvidence ? <CheckCircle2 className="h-6 w-6 text-green-600" /> : <XCircle className="h-6 w-6 text-red-600" />}
                                         </div>
+                                        {isStandardExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                                        {isStandardExpanded ? <FolderOpen className="h-6 w-6" /> : <Folder className="h-6 w-6" />}
+                                        <div className="flex-1 flex items-center justify-between">
+                                            <span className="font-semibold text-gray-900">
+                                                TC {standard.code}: {standard.name}
+                                            </span>
+                                            <span className="px-3 py-1 bg-white rounded-full text-sm font-medium border">
+                                                {standard.criteria?.length || 0} tiêu chí
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                        {isStandardExpanded && standard.criteria && (
-                                            <div className="ml-8 mt-3 space-y-3">
-                                                {standard.criteria.map((criteria, critIdx) => {
-                                                    const criteriaNodeKey = `std-${stdIdx}-crit-${critIdx}`
-                                                    const isCriteriaExpanded = expandedNodes[criteriaNodeKey]
-                                                    const criteriaHasEvidence = criteria.hasEvidence
+                                    {isStandardExpanded && standard.criteria && (
+                                        <div className="ml-8 mt-3 space-y-3">
+                                            {standard.criteria.map((criteria, critIdx) => {
+                                                const criteriaNodeKey = `std-${stdIdx}-crit-${critIdx}`
+                                                const isCriteriaExpanded = expandedNodes[criteriaNodeKey]
+                                                const criteriaHasEvidence = criteria.hasEvidence
 
-                                                    return (
+                                                return (
+                                                    <div
+                                                        key={criteria.id}
+                                                        onDragOver={handleDragOver}
+                                                        onDrop={(e) => handleDrop(e, standard.id, criteria.id)}
+                                                    >
                                                         <div
-                                                            key={criteria.id}
-                                                            onDragOver={handleDragOver}
-                                                            onDrop={(e) => handleDrop(e, standard.id, criteria.id)}
+                                                            className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                                                                criteriaHasEvidence ? 'bg-blue-50 hover:bg-blue-100 border-blue-300' : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
+                                                            }`}
+                                                            onClick={() => toggleNode(criteriaNodeKey)}
                                                         >
-                                                            <div
-                                                                className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
-                                                                    criteriaHasEvidence ? 'bg-blue-50 hover:bg-blue-100 border-blue-300' : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
-                                                                }`}
-                                                                onClick={() => toggleNode(criteriaNodeKey)}
-                                                            >
-                                                                <div className="flex-shrink-0">
-                                                                    {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
-                                                                </div>
-                                                                {isCriteriaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                                {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
-                                                                <div className="flex-1 flex items-center justify-between">
-                                                                    <span className="font-medium text-gray-900">
-                                                                        TC {standard.code}.{criteria.code}: {criteria.name}
-                                                                    </span>
-                                                                    <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
-                                                                        {criteria.evidences?.length || 0} MC
-                                                                    </span>
-                                                                </div>
+                                                            <div className="flex-shrink-0">
+                                                                {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
                                                             </div>
+                                                            {isCriteriaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                            {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
+                                                            <div className="flex-1 flex items-center justify-between">
+                                                                <span className="font-medium text-gray-900">
+                                                                    TC {standard.code}.{criteria.code}: {criteria.name}
+                                                                </span>
+                                                                <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
+                                                                    {criteria.evidences?.length || 0} MC
+                                                                </span>
+                                                            </div>
+                                                        </div>
 
-                                                            {isCriteriaExpanded && criteria.evidences && criteria.evidences.length > 0 && (
-                                                                <div className="ml-8 mt-2 space-y-2">
-                                                                    {criteria.evidences.map(evidence => (
-                                                                        <div
-                                                                            key={evidence.id}
-                                                                            draggable
-                                                                            onDragStart={(e) => handleDragStart(e, evidence, standard.id, criteria.id)}
-                                                                            className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl group transition-all cursor-move"
-                                                                        >
-                                                                            <div className="flex items-center space-x-3 flex-1">
-                                                                                <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                                <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                                                                                    <FileText className="h-5 w-5 text-indigo-600" />
-                                                                                </div>
-                                                                                <div className="flex-1">
-                                                                                    <div className="flex items-center space-x-2 mb-1">
-                                                                                        <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                                                                                            {evidence.code}
-                                                                                        </span>
-                                                                                        <span className={`text-xs px-2 py-0.5 rounded border font-medium inline-flex items-center ${getStatusColor(evidence.status)}`}>
-                                                                                            {getStatusIcon(evidence.status)}
-                                                                                            <span className="ml-1">{getStatusLabel(evidence.status)}</span>
-                                                                                        </span>
-                                                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                                                                            {evidence.fileCount || 0} files
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <p className="text-sm text-gray-900 truncate font-medium">
-                                                                                        {evidence.name}
-                                                                                    </p>
-                                                                                </div>
+                                                        {isCriteriaExpanded && criteria.evidences && criteria.evidences.length > 0 && (
+                                                            <div className="ml-8 mt-2 space-y-2">
+                                                                {criteria.evidences.map(evidence => (
+                                                                    <div
+                                                                        key={evidence.id}
+                                                                        draggable
+                                                                        onDragStart={(e) => handleDragStart(e, evidence, standard.id, criteria.id)}
+                                                                        className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl group transition-all cursor-move"
+                                                                    >
+                                                                        <div className="flex items-center space-x-3 flex-1">
+                                                                            <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                                                                                <FileText className="h-5 w-5 text-indigo-600" />
                                                                             </div>
-                                                                            <div className="flex space-x-1">
-                                                                                {userRole === 'manager' && evidence.status === 'new' && (
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setSelectedEvidenceForRequest(evidence)
-                                                                                            fetchDepartmentUsers(selectedDepartment)
-                                                                                            setShowAssignModal(true)
-                                                                                        }}
-                                                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                                                                                        title="Phân quyền minh chứng"
-                                                                                    >
-                                                                                        <Users className="h-4 w-4" />
-                                                                                    </button>
-                                                                                )}
-
-                                                                                {userRole === 'manager' && evidence.status === 'assigned' && (
-                                                                                    <button
-                                                                                        onClick={() => handleSendFileRequest(evidence)}
-                                                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                                                        title="Gửi yêu cầu nộp file"
-                                                                                    >
-                                                                                        <Send className="h-4 w-4" />
-                                                                                    </button>
-                                                                                )}
-
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation()
-                                                                                        setSelectedEvidence(evidence)
-                                                                                    }}
-                                                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                                >
-                                                                                    <Upload className="h-4 w-4" />
-                                                                                </button>
+                                                                            <div className="flex-1">
+                                                                                <div className="flex items-center space-x-2 mb-1">
+                                                                                    <span className="text-sm font-mono font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                                                                        {evidence.code}
+                                                                                    </span>
+                                                                                    <span className={`text-xs px-2 py-0.5 rounded border font-medium inline-flex items-center ${getStatusColor(evidence.status)}`}>
+                                                                                        {getStatusIcon(evidence.status)}
+                                                                                        <span className="ml-1">{getStatusLabel(evidence.status)}</span>
+                                                                                    </span>
+                                                                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                                                                        {evidence.fileCount || 0} files
+                                                                                    </span>
+                                                                                </div>
+                                                                                <p className="text-sm text-gray-900 truncate font-medium">
+                                                                                    {evidence.name}
+                                                                                </p>
                                                                             </div>
                                                                         </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* File Management Panel */}
-                {selectedEvidence && (
-                    <div className="col-span-5">
-                        <FileManagement
-                            evidence={selectedEvidence}
-                            onClose={() => setSelectedEvidence(null)}
-                            onUpdate={fetchTreeData}
-                        />
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                setSelectedEvidence(evidence)
+                                                                            }}
+                                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                        >
+                                                                            <Upload className="h-4 w-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
             </div>
+
+            {/* File Management */}
+            {selectedEvidence && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <FileManagement
+                        evidence={selectedEvidence}
+                        onClose={() => setSelectedEvidence(null)}
+                        onUpdate={fetchTreeData}
+                    />
+                </div>
+            )}
 
             {/* Import Modal */}
             {showImportModal && (
@@ -943,7 +853,7 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Request Modal - Admin */}
+            {/* Request Modal */}
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -951,7 +861,7 @@ export default function EvidenceTree() {
                             Gửi yêu cầu hoàn thiện cây minh chứng
                         </h3>
                         <p className="text-gray-600 mb-6">
-                            Bạn sắp gửi yêu cầu hoàn thiện cây minh chứng đến tất cả quản lý của phòng ban: <strong>{departments.find(d => d._id === selectedDepartment)?.name}</strong>
+                            Bạn sắp gửi yêu cầu đến quản lý phòng ban <strong>{departments.find(d => d._id === selectedDepartment)?.name}</strong> để hoàn thiện cây minh chứng (upload file Excel gồm tiêu chuẩn, tiêu chí, minh chứng).
                         </p>
                         <div className="flex space-x-3">
                             <button
@@ -965,60 +875,6 @@ export default function EvidenceTree() {
                                 className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                             >
                                 Gửi yêu cầu
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Assign Modal - Manager */}
-            {showAssignModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">
-                            Phân quyền minh chứng
-                        </h3>
-                        <p className="text-gray-600 mb-4 text-sm">
-                            Minh chứng: <strong>{selectedEvidenceForRequest?.code}</strong>
-                        </p>
-                        <div className="mb-6 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
-                            {availableUsers.map(user => (
-                                <label key={user._id} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
-                                    <input
-                                        type="checkbox"
-                                        checked={assignUsers.includes(user._id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setAssignUsers([...assignUsers, user._id])
-                                            } else {
-                                                setAssignUsers(assignUsers.filter(id => id !== user._id))
-                                            }
-                                        }}
-                                        className="mr-3"
-                                    />
-                                    <div>
-                                        <div className="font-medium text-gray-900">{user.fullName}</div>
-                                        <div className="text-sm text-gray-600">{user.email}</div>
-                                    </div>
-                                </label>
-                            ))}
-                        </div>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={() => {
-                                    setShowAssignModal(false)
-                                    setAssignUsers([])
-                                    setSelectedEvidenceForRequest(null)
-                                }}
-                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleAssignEvidence}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-                            >
-                                Phân quyền
                             </button>
                         </div>
                     </div>
