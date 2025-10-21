@@ -132,8 +132,7 @@ const createUser = async (req, res) => {
             roles,
             department,
             departmentRole,
-            position,
-            isExternalExpert
+            position
         } = req.body;
 
         let userRoles = roles || ['expert'];
@@ -141,13 +140,14 @@ const createUser = async (req, res) => {
             userRoles = [userRoles];
         }
 
-        const validRoles = ['admin', 'manager', 'tdg', 'expert', 'expert_external'];
+        // CHỈ 4 vai trò hợp lệ: admin, manager, tdg, expert
+        const validRoles = ['admin', 'manager', 'tdg', 'expert'];
         const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
         if (invalidRoles.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}`
+                message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}. Chỉ chấp nhận: admin, manager, tdg, expert`
             });
         }
 
@@ -171,9 +171,9 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Kiểm tra phòng ban nếu không phải expert_external
+        // Kiểm tra phòng ban (bắt buộc)
         let departmentId = null;
-        if (!isExternalExpert && department) {
+        if (department) {
             const dept = await Department.findById(department);
             if (!dept) {
                 return res.status(404).json({
@@ -182,6 +182,11 @@ const createUser = async (req, res) => {
                 });
             }
             departmentId = department;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Phòng ban là bắt buộc'
+            });
         }
 
         const defaultPassword = User.generateDefaultPassword(cleanEmail);
@@ -197,7 +202,6 @@ const createUser = async (req, res) => {
             department: departmentId,
             departmentRole: departmentRole || 'expert',
             position: position?.trim(),
-            isExternalExpert: isExternalExpert || false,
             mustChangePassword: true,
             createdBy: req.user.id,
             updatedBy: req.user.id
@@ -205,21 +209,19 @@ const createUser = async (req, res) => {
 
         await user.save();
 
-        // Thêm user vào phòng ban nếu có
-        if (departmentId) {
-            await Department.findByIdAndUpdate(
-                departmentId,
-                {
-                    $push: {
-                        members: {
-                            user: user._id,
-                            role: departmentRole || 'expert'
-                        }
+        // Thêm user vào phòng ban
+        await Department.findByIdAndUpdate(
+            departmentId,
+            {
+                $push: {
+                    members: {
+                        user: user._id,
+                        role: departmentRole || 'expert'
                     }
-                },
-                { new: true }
-            );
-        }
+                }
+            },
+            { new: true }
+        );
 
         const userResponse = user.toObject();
         delete userResponse.password;
@@ -231,8 +233,7 @@ const createUser = async (req, res) => {
                 targetName: user.fullName,
                 metadata: {
                     roles: user.roles,
-                    department: departmentId,
-                    isExternalExpert: isExternalExpert
+                    department: departmentId
                 }
             });
 
@@ -306,13 +307,14 @@ const updateUser = async (req, res) => {
                 userRoles = [userRoles];
             }
 
-            const validRoles = ['admin', 'manager', 'tdg', 'expert', 'expert_external'];
+            // CHỈ 4 vai trò hợp lệ
+            const validRoles = ['admin', 'manager', 'tdg', 'expert'];
             const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
             if (invalidRoles.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}`
+                    message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}. Chỉ chấp nhận: admin, manager, tdg, expert`
                 });
             }
 
@@ -370,7 +372,7 @@ const updateUser = async (req, res) => {
             phoneNumber: user.phoneNumber
         };
 
-        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'position', 'department', 'departmentRole', 'isExternalExpert'];
+        const allowedFields = ['fullName', 'phoneNumber', 'roles', 'role', 'position', 'department', 'departmentRole'];
 
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
@@ -834,9 +836,6 @@ const getUserStatistics = async (req, res) => {
                     },
                     expertUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'expert'] }, 1, 0] }
-                    },
-                    externalExpertUsers: {
-                        $sum: { $cond: [{ $eq: ['$role', 'expert_external'] }, 1, 0] }
                     }
                 }
             }
@@ -848,8 +847,7 @@ const getUserStatistics = async (req, res) => {
             adminUsers: 0,
             managerUsers: 0,
             tdgUsers: 0,
-            expertUsers: 0,
-            externalExpertUsers: 0
+            expertUsers: 0
         };
 
         await ActivityLog.logUserAction(req.user?.id, 'user_statistics',
