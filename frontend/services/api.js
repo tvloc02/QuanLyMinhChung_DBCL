@@ -230,6 +230,11 @@ export const apiMethods = {
             params: { format },
             responseType: 'arraybuffer'
         }),
+        sendCompletionRequest: (departmentId) =>
+            api.post('/api/evidences/requests/send-completion-request', { departmentId }),
+
+        submitCompletionNotification: (departmentId, message) =>
+            api.post('/api/evidences/requests/submit-completion-notification', { departmentId, message }),
     },
 
     files: {
