@@ -5,7 +5,6 @@ import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import FileManagement from '../file/FileManagement'
-import { useAuth } from '../../contexts/AuthContext'
 import {
     ChevronDown,
     ChevronRight,
@@ -28,12 +27,12 @@ import {
     Clock,
     Check,
     GripVertical,
-    Send
+    Send,
+    Users
 } from 'lucide-react'
 
 export default function EvidenceTree() {
     const router = useRouter()
-    const { user } = useAuth()
 
     const [loading, setLoading] = useState(true)
     const [treeData, setTreeData] = useState([])
@@ -53,10 +52,19 @@ export default function EvidenceTree() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [draggedEvidence, setDraggedEvidence] = useState(null)
 
+    const [showRequestModal, setShowRequestModal] = useState(false)
+    const [showAssignModal, setShowAssignModal] = useState(false)
+    const [assignUsers, setAssignUsers] = useState([])
+    const [availableUsers, setAvailableUsers] = useState([])
+    const [selectedEvidenceForRequest, setSelectedEvidenceForRequest] = useState(null)
+    const [userRole, setUserRole] = useState('')
+
     useEffect(() => {
         fetchPrograms()
         fetchOrganizations()
         fetchDepartments()
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        setUserRole(user.role || '')
     }, [])
 
     useEffect(() => {
@@ -102,6 +110,18 @@ export default function EvidenceTree() {
         } catch (error) {
             console.error('Fetch departments error:', error)
             toast.error('Lỗi khi tải danh sách phòng ban')
+        }
+    }
+
+    const fetchDepartmentUsers = async (departmentId) => {
+        try {
+            const response = await apiMethods.users.getAll({
+                department: departmentId
+            })
+            setAvailableUsers(response.data.data.users || [])
+        } catch (error) {
+            console.error('Fetch department users error:', error)
+            toast.error('Lỗi khi tải danh sách cán bộ')
         }
     }
 
@@ -305,8 +325,8 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
-            if (!selectedProgram || !selectedOrganization) {
-                toast.error('Vui lòng chọn Chương trình và Tổ chức')
+            if (!selectedProgram || !selectedOrganization || !selectedDepartment) {
+                toast.error('Vui lòng chọn Chương trình, Tổ chức và Phòng ban')
                 return
             }
 
@@ -341,14 +361,98 @@ export default function EvidenceTree() {
         }
     }
 
+    const handleSendCompletionRequest = async () => {
+        if (!selectedDepartment) {
+            toast.error('Vui lòng chọn phòng ban')
+            return
+        }
+
+        try {
+            const response = await apiMethods.evidences.sendCompletionRequest(selectedDepartment)
+            if (response.data.success) {
+                toast.success(response.data.message)
+                setShowRequestModal(false)
+            }
+        } catch (error) {
+            console.error('Send completion request error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi gửi yêu cầu')
+        }
+    }
+
+    const handleSubmitCompletion = async () => {
+        if (!selectedDepartment) {
+            toast.error('Vui lòng chọn phòng ban')
+            return
+        }
+
+        try {
+            const response = await apiMethods.evidences.submitCompletionNotification(
+                selectedDepartment,
+                'Cây minh chứng đã được hoàn thiện'
+            )
+            if (response.data.success) {
+                toast.success(response.data.message)
+            }
+        } catch (error) {
+            console.error('Submit completion error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi gửi xác nhận')
+        }
+    }
+
+    const handleAssignEvidence = async () => {
+        if (assignUsers.length === 0) {
+            toast.error('Vui lòng chọn ít nhất một người dùng')
+            return
+        }
+
+        try {
+            const response = await apiMethods.evidences.assignToUsers(
+                selectedEvidenceForRequest.id,
+                assignUsers
+            )
+            if (response.data.success) {
+                toast.success('Phân quyền minh chứng thành công')
+                setShowAssignModal(false)
+                setAssignUsers([])
+                setSelectedEvidenceForRequest(null)
+                fetchTreeData()
+            }
+        } catch (error) {
+            console.error('Assign evidence error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi phân quyền')
+        }
+    }
+
+    const handleSendFileRequest = async (evidence) => {
+        if (!window.confirm(`Gửi yêu cầu nộp file cho minh chứng: ${evidence.name}?`)) {
+            return
+        }
+
+        try {
+            const response = await apiMethods.evidences.sendFileSubmissionRequest(
+                evidence.id,
+                `Vui lòng nộp file cho minh chứng ${evidence.code}`
+            )
+            if (response.data.success) {
+                toast.success('Đã gửi yêu cầu nộp file')
+                fetchTreeData()
+            }
+        } catch (error) {
+            console.error('Send file request error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi gửi yêu cầu')
+        }
+    }
+
     const getStatusIcon = (status) => {
         switch (status) {
             case 'new':
                 return <Clock className="h-4 w-4 text-gray-500" />
+            case 'assigned':
+                return <AlertCircle className="h-4 w-4 text-yellow-500" />
             case 'in_progress':
                 return <Clock className="h-4 w-4 text-blue-500" />
-            case 'completed':
-                return <CheckCircle2 className="h-4 w-4 text-green-500" />
+            case 'pending_approval':
+                return <AlertCircle className="h-4 w-4 text-purple-500" />
             case 'approved':
                 return <Check className="h-4 w-4 text-emerald-500" />
             case 'rejected':
@@ -361,8 +465,9 @@ export default function EvidenceTree() {
     const getStatusLabel = (status) => {
         const labels = {
             'new': 'Mới',
+            'assigned': 'Phân quyền',
             'in_progress': 'Đang thực hiện',
-            'completed': 'Hoàn thành',
+            'pending_approval': 'Chờ duyệt',
             'approved': 'Đã duyệt',
             'rejected': 'Từ chối',
             'active': 'Hoạt động',
@@ -374,8 +479,9 @@ export default function EvidenceTree() {
     const getStatusColor = (status) => {
         const colors = {
             'new': 'bg-gray-100 text-gray-700 border-gray-300',
+            'assigned': 'bg-yellow-100 text-yellow-700 border-yellow-300',
             'in_progress': 'bg-blue-100 text-blue-700 border-blue-300',
-            'completed': 'bg-green-100 text-green-700 border-green-300',
+            'pending_approval': 'bg-purple-100 text-purple-700 border-purple-300',
             'approved': 'bg-emerald-100 text-emerald-700 border-emerald-300',
             'rejected': 'bg-red-100 text-red-700 border-red-300',
             'active': 'bg-green-100 text-green-700 border-green-300',
@@ -383,48 +489,6 @@ export default function EvidenceTree() {
         }
         return colors[status] || colors['new']
     }
-
-    // --- Logic mới: Yêu cầu Minh chứng ---
-    const handleRequestEvidence = async (standardId, criteriaId) => {
-        if (!selectedDepartment) {
-            toast.error('Vui lòng chọn một Phòng ban để gửi yêu cầu');
-            return;
-        }
-
-        const department = departments.find(d => d._id === selectedDepartment);
-        if (!department || !department.manager) {
-            toast.error(`Phòng ban ${department?.name || 'đã chọn'} chưa được gán Quản lý. Không thể gửi thông báo.`);
-            return;
-        }
-
-        const standard = treeData.find(s => s.id === standardId);
-        const criteria = standard?.criteria.find(c => c.id === criteriaId);
-
-        if (!standard || !criteria) {
-            toast.error('Không tìm thấy Tiêu chuẩn hoặc Tiêu chí');
-            return;
-        }
-
-        if (!confirm(`Xác nhận GỬI YÊU CẦU bổ sung minh chứng cho ${department.name}, Tiêu chí ${criteria.code}?`)) {
-            return;
-        }
-
-        try {
-            const response = await apiMethods.notifications.requestEvidence({
-                departmentId: selectedDepartment,
-                standardId: standardId,
-                criteriaId: criteriaId
-            });
-
-            if (response.data.success) {
-                toast.success('Gửi yêu cầu minh chứng thành công đến Quản lý phòng ban!');
-            }
-        } catch (error) {
-            console.error('Request evidence error:', error);
-            toast.error(error.response?.data?.message || 'Lỗi khi gửi yêu cầu minh chứng');
-        }
-    }
-    // --- Kết thúc Logic mới: Yêu cầu Minh chứng ---
 
     return (
         <div className="space-y-6">
@@ -524,7 +588,7 @@ export default function EvidenceTree() {
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex space-x-3">
                     <button
                         onClick={expandAll}
@@ -544,7 +608,7 @@ export default function EvidenceTree() {
                     </button>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 flex-wrap">
                     <button
                         onClick={downloadTemplate}
                         className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
@@ -552,6 +616,28 @@ export default function EvidenceTree() {
                         <FileDown className="h-5 w-5 mr-2" />
                         File mẫu
                     </button>
+
+                    {userRole === 'admin' && (
+                        <button
+                            onClick={() => setShowRequestModal(true)}
+                            disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
+                            className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        >
+                            <Send className="h-5 w-5 mr-2" />
+                            Gửi yêu cầu
+                        </button>
+                    )}
+
+                    {userRole === 'manager' && (
+                        <button
+                            onClick={handleSubmitCompletion}
+                            disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
+                            className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        >
+                            <CheckCircle2 className="h-5 w-5 mr-2" />
+                            Hoàn thiện
+                        </button>
+                    )}
 
                     <label className={`inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg transition-all font-medium ${
                         !selectedProgram || !selectedOrganization || !selectedDepartment ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -570,7 +656,7 @@ export default function EvidenceTree() {
 
                     <button
                         onClick={handleExport}
-                        disabled={!selectedProgram || !selectedOrganization}
+                        disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
                         className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
                         <Download className="h-5 w-5 mr-2" />
@@ -632,7 +718,7 @@ export default function EvidenceTree() {
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có dữ liệu</h3>
                         </div>
                     ) : (
-                        <div className="p-6">
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
                             {treeData.map((standard, stdIdx) => {
                                 const isStandardExpanded = expandedNodes[`std-${stdIdx}`]
                                 const hasEvidence = standard.hasEvidence
@@ -674,39 +760,24 @@ export default function EvidenceTree() {
                                                             onDrop={(e) => handleDrop(e, standard.id, criteria.id)}
                                                         >
                                                             <div
-                                                                className={`flex items-center space-x-3 p-3 border-2 rounded-xl transition-all ${
+                                                                className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
                                                                     criteriaHasEvidence ? 'bg-blue-50 hover:bg-blue-100 border-blue-300' : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
                                                                 }`}
+                                                                onClick={() => toggleNode(criteriaNodeKey)}
                                                             >
-                                                                <div
-                                                                    className='flex items-center flex-1 cursor-pointer'
-                                                                    onClick={() => toggleNode(criteriaNodeKey)}
-                                                                >
-                                                                    <div className="flex-shrink-0">
-                                                                        {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
-                                                                    </div>
-                                                                    {isCriteriaExpanded ? <ChevronDown className="h-4 w-4 ml-1" /> : <ChevronRight className="h-4 w-4 ml-1" />}
-                                                                    {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
-                                                                    <div className="flex-1 flex items-center justify-between ml-3">
-                                                                        <span className="font-medium text-gray-900">
-                                                                            TC {standard.code}.{criteria.code}: {criteria.name}
-                                                                        </span>
-                                                                        <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
-                                                                            {criteria.evidences?.length || 0} MC
-                                                                        </span>
-                                                                    </div>
+                                                                <div className="flex-shrink-0">
+                                                                    {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
                                                                 </div>
-
-                                                                {/* Nút Yêu cầu Minh chứng (Chỉ Admin) */}
-                                                                {user?.role === 'admin' && selectedDepartment && (
-                                                                    <button
-                                                                        onClick={() => handleRequestEvidence(standard.id, criteria.id)}
-                                                                        title={`Yêu cầu MC cho ${selectedDepartment}`}
-                                                                        className="flex-shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all ml-2"
-                                                                    >
-                                                                        <Send className="h-4 w-4" />
-                                                                    </button>
-                                                                )}
+                                                                {isCriteriaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                                {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
+                                                                <div className="flex-1 flex items-center justify-between">
+                                                                    <span className="font-medium text-gray-900">
+                                                                        TC {standard.code}.{criteria.code}: {criteria.name}
+                                                                    </span>
+                                                                    <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
+                                                                        {criteria.evidences?.length || 0} MC
+                                                                    </span>
+                                                                </div>
                                                             </div>
 
                                                             {isCriteriaExpanded && criteria.evidences && criteria.evidences.length > 0 && (
@@ -741,15 +812,41 @@ export default function EvidenceTree() {
                                                                                     </p>
                                                                                 </div>
                                                                             </div>
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation()
-                                                                                    setSelectedEvidence(evidence)
-                                                                                }}
-                                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                            >
-                                                                                <Upload className="h-4 w-4" />
-                                                                            </button>
+                                                                            <div className="flex space-x-1">
+                                                                                {userRole === 'manager' && evidence.status === 'new' && (
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setSelectedEvidenceForRequest(evidence)
+                                                                                            fetchDepartmentUsers(selectedDepartment)
+                                                                                            setShowAssignModal(true)
+                                                                                        }}
+                                                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                                                        title="Phân quyền minh chứng"
+                                                                                    >
+                                                                                        <Users className="h-4 w-4" />
+                                                                                    </button>
+                                                                                )}
+
+                                                                                {userRole === 'manager' && evidence.status === 'assigned' && (
+                                                                                    <button
+                                                                                        onClick={() => handleSendFileRequest(evidence)}
+                                                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                                                        title="Gửi yêu cầu nộp file"
+                                                                                    >
+                                                                                        <Send className="h-4 w-4" />
+                                                                                    </button>
+                                                                                )}
+
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation()
+                                                                                        setSelectedEvidence(evidence)
+                                                                                    }}
+                                                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                                >
+                                                                                    <Upload className="h-4 w-4" />
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -840,6 +937,88 @@ export default function EvidenceTree() {
                                         Import
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Request Modal - Admin */}
+            {showRequestModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">
+                            Gửi yêu cầu hoàn thiện cây minh chứng
+                        </h3>
+                        <p className="text-gray-600 mb-6">
+                            Bạn sắp gửi yêu cầu hoàn thiện cây minh chứng đến tất cả quản lý của phòng ban: <strong>{departments.find(d => d._id === selectedDepartment)?.name}</strong>
+                        </p>
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => setShowRequestModal(false)}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSendCompletionRequest}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                            >
+                                Gửi yêu cầu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Assign Modal - Manager */}
+            {showAssignModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            Phân quyền minh chứng
+                        </h3>
+                        <p className="text-gray-600 mb-4 text-sm">
+                            Minh chứng: <strong>{selectedEvidenceForRequest?.code}</strong>
+                        </p>
+                        <div className="mb-6 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                            {availableUsers.map(user => (
+                                <label key={user._id} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
+                                    <input
+                                        type="checkbox"
+                                        checked={assignUsers.includes(user._id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setAssignUsers([...assignUsers, user._id])
+                                            } else {
+                                                setAssignUsers(assignUsers.filter(id => id !== user._id))
+                                            }
+                                        }}
+                                        className="mr-3"
+                                    />
+                                    <div>
+                                        <div className="font-medium text-gray-900">{user.fullName}</div>
+                                        <div className="text-sm text-gray-600">{user.email}</div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowAssignModal(false)
+                                    setAssignUsers([])
+                                    setSelectedEvidenceForRequest(null)
+                                }}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleAssignEvidence}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                            >
+                                Phân quyền
                             </button>
                         </div>
                     </div>
