@@ -115,32 +115,6 @@ const evidenceSchema = new mongoose.Schema({
         ref: 'User'
     }],
 
-    requests: [{
-        type: {
-            type: String,
-            enum: ['completion_request', 'submit_files_request']
-        },
-        requestedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        requestedAt: {
-            type: Date,
-            default: Date.now
-        },
-        message: String,
-        status: {
-            type: String,
-            enum: ['pending', 'completed', 'rejected'],
-            default: 'pending'
-        },
-        completedAt: Date,
-        completedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        }
-    }],
-
     rejectionReason: {
         type: String,
         trim: true
@@ -226,20 +200,34 @@ evidenceSchema.methods.updateStatus = async function() {
     const File = require('./File');
     const files = await File.find({ evidenceId: this._id });
 
+    // Nếu minh chứng đang ở trạng thái mới hoặc phân quyền, không tự động thay đổi
     if (this.status === 'new' || this.status === 'assigned') {
-        return this.status;
+        // Nếu có file, chuyển sang in_progress, trừ khi nó vẫn là 'new' và chưa có file
+        if (files.length > 0 && this.status === 'new') {
+            this.status = 'in_progress';
+        }
+        // Nếu đã được assigned, chỉ chuyển sang in_progress nếu có file
+        if (files.length > 0 && this.status === 'assigned') {
+            this.status = 'in_progress';
+        }
     } else if (files.length === 0) {
+        // Nếu không có file nào, chuyển về trạng thái đang thực hiện
         this.status = 'in_progress';
     } else {
+        // Xác định trạng thái dựa trên file
         const rejectedFiles = files.filter(f => f.approvalStatus === 'rejected');
+        const pendingFiles = files.filter(f => f.approvalStatus === 'pending');
         const approvedFiles = files.filter(f => f.approvalStatus === 'approved');
 
         if (rejectedFiles.length > 0) {
             this.status = 'rejected';
+        } else if (pendingFiles.length > 0) {
+            this.status = 'pending_approval';
         } else if (approvedFiles.length === files.length) {
             this.status = 'approved';
         } else {
-            this.status = 'pending_approval';
+            // Nếu có file nhưng chưa có trạng thái duyệt rõ ràng (vẫn là in_progress hoặc pending)
+            this.status = 'in_progress';
         }
     }
 
