@@ -343,7 +343,10 @@ export const apiMethods = {
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
         delete: (id) => api.delete(`/api/notifications/${id}`),
         getUnreadCount: () => api.get('/api/notifications/unread-count'),
-        getStats: () => api.get('/api/notifications/stats')
+        getStats: () => api.get('/api/notifications/stats'),
+        // Thêm API mới
+        requestEvidence: (data) => api.post('/api/notifications/request-evidence', data),
+        completeEvidenceRequest: (id) => api.post(`/api/notifications/request-evidence/${id}/complete`)
     },
 
     activityLogs: {
