@@ -267,7 +267,7 @@ export default function UsersListPage() {
     }
 
     const handleEdit = (user) => {
-        router.push(`/users/users/${user._id}`)
+        router.push(`/users/${user._id}/edit`)
     }
 
     return (
