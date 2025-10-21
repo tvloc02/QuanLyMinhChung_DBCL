@@ -25,14 +25,12 @@ const {
 
 const {
     sendCompletionRequest,
-    submitCompletionNotification,
-    assignEvidenceToUsers,
-    sendFileSubmissionRequest
+    submitCompletionNotification
 } = require('../../controllers/evidence/evidenceController');
 
 router.use(auth, setAcademicYearContext);
 
-// Request routes
+// ========== REQUEST ROUTES ==========
 router.post('/requests/send-completion-request', [
     body('departmentId')
         .notEmpty()
@@ -53,24 +51,7 @@ router.post('/requests/submit-completion-notification', [
         .withMessage('Tin nhắn phải là chuỗi')
 ], validation, submitCompletionNotification);
 
-router.post('/:id/assign-to-users', [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
-    body('userIds')
-        .isArray()
-        .withMessage('userIds phải là mảng')
-        .notEmpty()
-        .withMessage('Danh sách người dùng không được trống')
-], validation, assignEvidenceToUsers);
-
-router.post('/:id/send-file-submission-request', [
-    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
-    body('message')
-        .optional()
-        .isString()
-        .withMessage('Tin nhắn phải là chuỗi')
-], validation, sendFileSubmissionRequest);
-
-// File approval route
+// ========== FILE APPROVAL ==========
 router.post('/files/:fileId/approve', [
     param('fileId').isMongoId().withMessage('ID file không hợp lệ'),
     body('status')
@@ -84,6 +65,7 @@ router.post('/files/:fileId/approve', [
         .withMessage('Lý do từ chối phải là chuỗi')
 ], validation, approveFile);
 
+// ========== MOVE EVIDENCE ==========
 router.post('/:id/move', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
     body('targetStandardId')
@@ -103,6 +85,7 @@ router.post('/:id/move', [
         .withMessage('Mã minh chứng mới không đúng format')
 ], validation, moveEvidence);
 
+// ========== STATISTICS ==========
 router.get('/statistics', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
@@ -111,6 +94,7 @@ router.get('/statistics', [
     query('criteriaId').optional().isMongoId()
 ], validation, getStatistics);
 
+// ========== FULL TREE ==========
 router.get('/full-tree', [
     query('programId')
         .notEmpty()
@@ -128,12 +112,14 @@ router.get('/full-tree', [
         .withMessage('ID phòng ban không hợp lệ')
 ], validation, getFullEvidenceTree);
 
+// ========== TREE ==========
 router.get('/tree', [
     query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
     query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ')
 ], validation, getEvidenceTree);
 
+// ========== ADVANCED SEARCH ==========
 router.post('/advanced-search', [
     body('status').optional().isIn(['active', 'inactive', 'new', 'assigned', 'in_progress', 'pending_approval', 'approved', 'rejected']),
     body('keyword').optional().trim().escape(),
@@ -148,6 +134,7 @@ router.post('/advanced-search', [
     body('limit').optional().isInt({ min: 1, max: 100 })
 ], validation, advancedSearch);
 
+// ========== GENERATE CODE ==========
 router.post('/generate-code', [
     body('standardCode')
         .notEmpty()
@@ -165,6 +152,7 @@ router.post('/generate-code', [
         .withMessage('Số hộp phải là số nguyên dương')
 ], validation, generateCode);
 
+// ========== EXPORT ==========
 router.get('/export', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
@@ -174,6 +162,7 @@ router.get('/export', [
     query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
 ], validation, exportEvidences);
 
+// ========== IMPORT ==========
 router.post('/import', upload.single('file'), [
     body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
@@ -181,6 +170,7 @@ router.post('/import', upload.single('file'), [
     body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
 ], validation, importEvidences);
 
+// ========== GET ALL ==========
 router.get('/', [
     query('status').optional().isIn(['active', 'inactive', 'new', 'assigned', 'in_progress', 'pending_approval', 'approved', 'rejected']),
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
@@ -188,17 +178,31 @@ router.get('/', [
     query('search').optional().trim().escape(),
     query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
-    query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ'),
+
+    // THAY ĐỔI: Custom validator để hỗ trợ truyền một hoặc nhiều ID phòng ban
+    query('departmentId').optional().custom(value => {
+        if (!value) return true;
+        const ids = Array.isArray(value) ? value : value.split(',');
+        const mongoose = require('mongoose');
+        const invalidIds = ids.filter(id => !mongoose.Types.ObjectId.isValid(id));
+        if (invalidIds.length > 0) {
+            throw new Error('ID phòng ban không hợp lệ');
+        }
+        return true;
+    }),
+
     query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
     query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getEvidences);
 
+// ========== GET BY ID ==========
 router.get('/:id', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
 ], validation, getEvidenceById);
 
+// ========== CREATE ==========
 router.post('/', [
     body('name')
         .notEmpty()
@@ -256,14 +260,17 @@ router.post('/', [
         .withMessage('Ghi chú không được quá 1000 ký tự')
 ], validation, createEvidence);
 
+// ========== UPDATE ==========
 router.put('/:id', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
 ], validation, updateEvidence);
 
+// ========== DELETE ==========
 router.delete('/:id', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ')
 ], validation, deleteEvidence);
 
+// ========== COPY TO YEAR ==========
 router.post('/:id/copy-to-year', [
     param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
     body('targetAcademicYearId')
