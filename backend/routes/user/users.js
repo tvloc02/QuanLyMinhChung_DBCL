@@ -20,7 +20,11 @@ const {
     denyUserPermission,
     removeUserPermission,
     lockUser,
-    unlockUser
+    unlockUser,
+    getUserSelectedPermissions,
+    updateSelectedPermissions,
+    addSelectedPermission,
+    removeSelectedPermission
 } = require('../../controllers/user/userController');
 
 router.get('/statistics', auth, requireManager, getUserStatistics);
@@ -317,5 +321,33 @@ router.delete('/:id/permissions', auth, requireAdmin, [
         .isMongoId()
         .withMessage('permissionId không hợp lệ')
 ], validation, removeUserPermission);
+
+router.get('/:id/selected-permissions', auth, requireAdmin, [
+    param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
+], validation, getUserSelectedPermissions);
+
+// Cập nhật nhiều quyền cùng lúc
+router.put('/:id/selected-permissions', auth, requireAdmin, [
+    param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
+    body('permissionIds')
+        .isArray()
+        .withMessage('permissionIds phải là mảng')
+], validation, updateSelectedPermissions);
+
+// Thêm 1 quyền vào selectedPermissions
+router.post('/:id/selected-permissions/add', auth, requireAdmin, [
+    param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
+    body('permissionId')
+        .isMongoId()
+        .withMessage('Permission ID không hợp lệ')
+], validation, addSelectedPermission);
+
+// Xóa 1 quyền khỏi selectedPermissions
+router.post('/:id/selected-permissions/remove', auth, requireAdmin, [
+    param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
+    body('permissionId')
+        .isMongoId()
+        .withMessage('Permission ID không hợp lệ')
+], validation, removeSelectedPermission);
 
 module.exports = router;
