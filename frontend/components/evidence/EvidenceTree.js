@@ -37,8 +37,10 @@ export default function EvidenceTree() {
     const [expandedNodes, setExpandedNodes] = useState({})
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
+    const [departments, setDepartments] = useState([])
     const [selectedProgram, setSelectedProgram] = useState('')
     const [selectedOrganization, setSelectedOrganization] = useState('')
+    const [selectedDepartment, setSelectedDepartment] = useState('')
     const [importing, setImporting] = useState(false)
     const [importMode, setImportMode] = useState('create')
     const [showImportModal, setShowImportModal] = useState(false)
@@ -51,13 +53,14 @@ export default function EvidenceTree() {
     useEffect(() => {
         fetchPrograms()
         fetchOrganizations()
+        fetchDepartments()
     }, [])
 
     useEffect(() => {
         if (selectedProgram && selectedOrganization) {
             fetchTreeData()
         }
-    }, [selectedProgram, selectedOrganization])
+    }, [selectedProgram, selectedOrganization, selectedDepartment])
 
     const fetchPrograms = async () => {
         try {
@@ -87,6 +90,19 @@ export default function EvidenceTree() {
         }
     }
 
+    const fetchDepartments = async () => {
+        try {
+            const response = await apiMethods.departments.getAll()
+            const departmentsData = response.data.data.departments || response.data.data || []
+            setDepartments(departmentsData)
+            // Không set mặc định phòng ban, để trống để hiển thị tất cả
+            setSelectedDepartment('')
+        } catch (error) {
+            console.error('Fetch departments error:', error)
+            toast.error('Lỗi khi tải danh sách phòng ban')
+        }
+    }
+
     const fetchTreeData = async () => {
         try {
             setLoading(true)
@@ -97,9 +113,19 @@ export default function EvidenceTree() {
                 return
             }
 
+            const params = {
+                programId: selectedProgram,
+                organizationId: selectedOrganization
+            }
+
+            if (selectedDepartment) {
+                params.departmentId = selectedDepartment
+            }
+
             const response = await apiMethods.evidences.getFullTree(
-                selectedProgram,
-                selectedOrganization
+                params.programId,
+                params.organizationId,
+                params.departmentId
             )
 
             setTreeData(response.data.data.tree || [])
@@ -229,8 +255,8 @@ export default function EvidenceTree() {
         const file = event.target.files?.[0]
         if (!file) return
 
-        if (!selectedProgram || !selectedOrganization) {
-            toast.error('Vui lòng chọn Chương trình và Tổ chức trước')
+        if (!selectedProgram || !selectedOrganization || !selectedDepartment) {
+            toast.error('Vui lòng chọn Chương trình, Tổ chức và Phòng ban trước')
             event.target.value = ''
             return
         }
@@ -240,7 +266,7 @@ export default function EvidenceTree() {
     }
 
     const handleImport = async () => {
-        if (!selectedFile || !selectedProgram || !selectedOrganization) return
+        if (!selectedFile || !selectedProgram || !selectedOrganization || !selectedDepartment) return
 
         try {
             setImporting(true)
@@ -249,6 +275,7 @@ export default function EvidenceTree() {
             formData.append('file', selectedFile)
             formData.append('programId', selectedProgram)
             formData.append('organizationId', selectedOrganization)
+            formData.append('departmentId', selectedDepartment)
             formData.append('mode', importMode)
 
             const response = await apiMethods.evidences.import(formData)
@@ -282,8 +309,8 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
-            if (!selectedProgram || !selectedOrganization) {
-                toast.error('Vui lòng chọn Chương trình và Tổ chức')
+            if (!selectedProgram || !selectedOrganization || !selectedDepartment) {
+                toast.error('Vui lòng chọn Chương trình, Tổ chức và Phòng ban')
                 return
             }
 
@@ -292,6 +319,7 @@ export default function EvidenceTree() {
             const response = await apiMethods.evidences.exportData({
                 programId: selectedProgram,
                 organizationId: selectedOrganization,
+                departmentId: selectedDepartment,
                 format: 'xlsx'
             })
 
@@ -386,7 +414,7 @@ export default function EvidenceTree() {
 
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <BookOpen className="h-4 w-4 inline mr-1" />
@@ -420,6 +448,25 @@ export default function EvidenceTree() {
                             {organizations.map(org => (
                                 <option key={org._id} value={org._id}>
                                     {org.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Building2 className="h-4 w-4 inline mr-1" />
+                            Phòng ban <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={selectedDepartment}
+                            onChange={(e) => setSelectedDepartment(e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                            <option value="">Tất cả phòng ban</option>
+                            {departments.map(dept => (
+                                <option key={dept._id} value={dept._id}>
+                                    {dept.name}
                                 </option>
                             ))}
                         </select>
@@ -469,14 +516,14 @@ export default function EvidenceTree() {
                     </button>
 
                     <label className={`inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg transition-all font-medium ${
-                        !selectedProgram || !selectedOrganization ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        !selectedProgram || !selectedOrganization || !selectedDepartment ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     }`}>
                         <input
                             id="file-upload"
                             type="file"
                             accept=".xlsx,.xls"
                             onChange={handleFileSelectForImport}
-                            disabled={!selectedProgram || !selectedOrganization}
+                            disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
                             className="hidden"
                         />
                         <Upload className="h-5 w-5 mr-2" />
@@ -485,7 +532,7 @@ export default function EvidenceTree() {
 
                     <button
                         onClick={handleExport}
-                        disabled={!selectedProgram || !selectedOrganization}
+                        disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
                         className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
                         <Download className="h-5 w-5 mr-2" />
@@ -508,11 +555,11 @@ export default function EvidenceTree() {
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-blue-900">{statistics.totalCriteria}</div>
-                            <div className="text-sm text-blue-700">Tổng TC</div>
+                            <div className="text-sm text-blue-700">Tổng TCi</div>
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-emerald-900">{statistics.criteriaWithEvidence}</div>
-                            <div className="text-sm text-emerald-700">TC có MC</div>
+                            <div className="text-sm text-emerald-700">TCi có MC</div>
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-bold text-purple-900">{statistics.totalEvidences}</div>
