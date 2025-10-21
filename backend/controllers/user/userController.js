@@ -42,6 +42,7 @@ const getUsers = async (req, res) => {
             User.find(query)
                 .populate('department', 'name code')
                 .populate('userGroups', 'code name type priority')
+                .populate('selectedPermissions', 'name code')
                 .populate('academicYearAccess', 'name code')
                 .populate('programAccess', 'name code')
                 .populate('organizationAccess', 'name code')
@@ -85,6 +86,7 @@ const getUserById = async (req, res) => {
         const user = await User.findById(id)
             .populate('department', 'name code')
             .populate('userGroups', 'code name type priority')
+            .populate('selectedPermissions', 'name code')
             .populate('academicYearAccess', 'name code')
             .populate('programAccess', 'name code')
             .populate('organizationAccess', 'name code')
@@ -152,10 +154,7 @@ const createUser = async (req, res) => {
         }
 
         if (userRoles.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phải có ít nhất một vai trò'
-            });
+            userRoles = ['expert'];
         }
 
         const cleanEmail = email.toLowerCase().trim();
@@ -319,10 +318,7 @@ const updateUser = async (req, res) => {
             }
 
             if (userRoles.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Phải có ít nhất một vai trò'
-                });
+                userRoles = ['expert'];
             }
 
             updateData.roles = userRoles;
@@ -1042,169 +1038,6 @@ const removeUserFromGroups = async (req, res) => {
     }
 };
 
-// ✨ THÊM FUNCTIONS NÀY VÀO userController.js (trước dòng "const grantUserPermission")
-
-// Lấy selectedPermissions của user
-const getUserSelectedPermissions = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const user = await User.findById(id).populate('selectedPermissions');
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: user.selectedPermissions || []
-        });
-    } catch (error) {
-        console.error('Get selected permissions error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lấy quyền'
-        });
-    }
-};
-
-const updateSelectedPermissions = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { permissionIds } = req.body;
-
-        if (!Array.isArray(permissionIds)) {
-            return res.status(400).json({
-                success: false,
-                message: 'permissionIds phải là mảng'
-            });
-        }
-
-        const user = await User.findByIdAndUpdate(
-            id,
-            { selectedPermissions: permissionIds },
-            { new: true }
-        ).populate('selectedPermissions');
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        await ActivityLog.logCriticalAction(req.user.id, 'selected_permissions_update',
-            `Cập nhật ${permissionIds.length} quyền cho ${user.fullName}`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName,
-                metadata: { permissionCount: permissionIds.length }
-            });
-
-        res.json({
-            success: true,
-            data: user,
-            message: 'Cập nhật quyền thành công'
-        });
-    } catch (error) {
-        console.error('Update selected permissions error:', error);
-        await ActivityLog.logError(req.user?.id, 'selected_permissions_update', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi cập nhật quyền'
-        });
-    }
-};
-
-// Thêm 1 quyền vào selectedPermissions
-const addSelectedPermission = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { permissionId } = req.body;
-
-        const user = await User.findByIdAndUpdate(
-            id,
-            { $addToSet: { selectedPermissions: permissionId } },
-            { new: true }
-        ).populate('selectedPermissions');
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        const permission = await Permission.findById(permissionId);
-
-        await ActivityLog.logCriticalAction(req.user.id, 'selected_permission_add',
-            `Thêm quyền ${permission?.name} cho ${user.fullName}`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName
-            });
-
-        res.json({
-            success: true,
-            data: user,
-            message: 'Thêm quyền thành công'
-        });
-    } catch (error) {
-        console.error('Add selected permission error:', error);
-        await ActivityLog.logError(req.user?.id, 'selected_permission_add', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi thêm quyền'
-        });
-    }
-};
-
-// Xóa 1 quyền khỏi selectedPermissions
-const removeSelectedPermission = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { permissionId } = req.body;
-
-        const user = await User.findByIdAndUpdate(
-            id,
-            { $pull: { selectedPermissions: permissionId } },
-            { new: true }
-        ).populate('selectedPermissions');
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        const permission = await Permission.findById(permissionId);
-
-        await ActivityLog.logCriticalAction(req.user.id, 'selected_permission_remove',
-            `Xóa quyền ${permission?.name} của ${user.fullName}`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName
-            });
-
-        res.json({
-            success: true,
-            data: user,
-            message: 'Xóa quyền thành công'
-        });
-    } catch (error) {
-        console.error('Remove selected permission error:', error);
-        await ActivityLog.logError(req.user?.id, 'selected_permission_remove', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xóa quyền'
-        });
-    }
-};
-
 const grantUserPermission = async (req, res) => {
     try {
         const { id } = req.params;
@@ -1400,9 +1233,5 @@ module.exports = {
     denyUserPermission,
     removeUserPermission,
     unlockUser,
-    lockUser,
-    getUserSelectedPermissions,
-    updateSelectedPermissions,
-    addSelectedPermission,
-    removeSelectedPermission,
+    lockUser
 };
