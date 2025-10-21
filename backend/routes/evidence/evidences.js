@@ -60,6 +60,7 @@ router.post('/:id/move', [
 router.get('/statistics', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
+    query('departmentId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
     query('criteriaId').optional().isMongoId()
 ], validation, getStatistics);
@@ -74,12 +75,17 @@ router.get('/full-tree', [
         .notEmpty()
         .withMessage('ID tổ chức là bắt buộc')
         .isMongoId()
-        .withMessage('ID tổ chức không hợp lệ')
+        .withMessage('ID tổ chức không hợp lệ'),
+    query('departmentId')
+        .optional()
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ')
 ], validation, getFullEvidenceTree);
 
 router.get('/tree', [
     query('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
-    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
+    query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
+    query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ')
 ], validation, getEvidenceTree);
 
 router.post('/advanced-search', [
@@ -87,6 +93,7 @@ router.post('/advanced-search', [
     body('keyword').optional().trim().escape(),
     body('programId').optional().isMongoId(),
     body('organizationId').optional().isMongoId(),
+    body('departmentId').optional().isMongoId(),
     body('standardId').optional().isMongoId(),
     body('criteriaId').optional().isMongoId(),
     body('dateFrom').optional().isISO8601(),
@@ -115,6 +122,7 @@ router.post('/generate-code', [
 router.get('/export', [
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
+    query('departmentId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
     query('criteriaId').optional().isMongoId(),
     query('format').optional().isIn(['xlsx', 'csv']).withMessage('Format phải là xlsx hoặc csv')
@@ -123,6 +131,7 @@ router.get('/export', [
 router.post('/import', upload.single('file'), [
     body('programId').notEmpty().isMongoId().withMessage('ID chương trình là bắt buộc'),
     body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
+    body('departmentId').notEmpty().isMongoId().withMessage('ID phòng ban là bắt buộc'),
     body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
 ], validation, importEvidences);
 
@@ -134,6 +143,7 @@ router.get('/', [
     query('search').optional().trim().escape(),
     query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
+    query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ'),
     query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
     query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'name', 'code']),
@@ -164,6 +174,11 @@ router.post('/', [
         .withMessage('Tổ chức - Cấp đánh giá là bắt buộc')
         .isMongoId()
         .withMessage('ID tổ chức không hợp lệ'),
+    body('departmentId')
+        .notEmpty()
+        .withMessage('Phòng ban là bắt buộc')
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ'),
     body('standardId')
         .notEmpty()
         .withMessage('Tiêu chuẩn là bắt buộc')
@@ -221,6 +236,11 @@ router.post('/:id/copy-to-year', [
         .withMessage('Tiêu chí đích là bắt buộc')
         .isMongoId()
         .withMessage('ID tiêu chí đích không hợp lệ'),
+    body('targetDepartmentId')
+        .notEmpty()
+        .withMessage('Phòng ban đích là bắt buộc')
+        .isMongoId()
+        .withMessage('ID phòng ban đích không hợp lệ'),
     body('newCode')
         .notEmpty()
         .withMessage('Mã minh chứng mới là bắt buộc')
@@ -230,12 +250,12 @@ router.post('/:id/copy-to-year', [
 
 
 router.post('/evidences/export', async (req, res) => {
-    const { programId, organizationId, format } = req.body;
+    const { programId, organizationId, departmentId, format } = req.body;
     try {
         if (!programId || !organizationId || format !== 'xlsx') {
             return res.status(400).json({ message: 'Thiếu dữ liệu hoặc định dạng không hợp lệ' });
         }
-        const evidenceData = await getEvidenceData(programId, organizationId);
+        const evidenceData = await getEvidenceData(programId, organizationId, departmentId);
         const fileBuffer = await generateExcelFile(evidenceData);
         res.setHeader('Content-Disposition', 'attachment; filename="evidence.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
