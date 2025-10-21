@@ -20,12 +20,12 @@ export default function CreateUserForm() {
         phoneNumber: '',
         role: 'expert',
         department: '',
-        position: '',
-        isExternalExpert: false
+        position: ''
     })
 
     const [errors, setErrors] = useState({})
 
+    // 4 vai trò chính
     const roleOptions = [
         {
             value: 'admin',
@@ -119,8 +119,8 @@ export default function CreateUserForm() {
             newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)'
         }
 
-        if (!formData.isExternalExpert && !formData.department) {
-            newErrors.department = 'Phòng ban là bắt buộc nếu không phải chuyên gia ngoài'
+        if (!formData.department) {
+            newErrors.department = 'Phòng ban là bắt buộc'
         }
 
         if (!formData.role) {
@@ -155,8 +155,7 @@ export default function CreateUserForm() {
                 role: formData.role,
                 departmentRole: formData.role === 'expert' ? 'expert' : formData.role,
                 position: formData.position?.trim() || '',
-                isExternalExpert: formData.isExternalExpert,
-                department: formData.department || null
+                department: formData.department
             }
 
             const response = await api.post('/api/users', submitData)
@@ -209,8 +208,7 @@ export default function CreateUserForm() {
             phoneNumber: '',
             role: 'expert',
             department: '',
-            position: '',
-            isExternalExpert: false
+            position: ''
         })
         setGeneratedPassword('')
         setErrors({})
@@ -414,49 +412,30 @@ export default function CreateUserForm() {
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
                                 <Building className="w-4 h-4 text-blue-600" />
-                                <span>Chuyên gia ngoài <span className="text-red-500">*</span></span>
+                                <span>Phòng ban <span className="text-red-500">*</span></span>
                             </label>
-                            <div className="flex items-center space-x-3">
-                                <input
-                                    type="checkbox"
-                                    name="isExternalExpert"
-                                    checked={formData.isExternalExpert}
-                                    onChange={handleInputChange}
-                                    className="w-5 h-5 border-2 border-gray-300 rounded-lg"
-                                />
-                                <span className="text-sm text-gray-600">Là chuyên gia thuê ngoài (không cần phòng ban)</span>
-                            </div>
+                            <select
+                                name="department"
+                                value={formData.department}
+                                onChange={handleInputChange}
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                    errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                }`}
+                            >
+                                <option value="">Chọn phòng ban</option>
+                                {departments.map(dept => (
+                                    <option key={dept._id} value={dept._id}>
+                                        {dept.name} ({dept.code})
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.department && (
+                                <p className="mt-2 text-sm text-red-600 flex items-center">
+                                    <AlertCircle className="w-4 h-4 mr-1" />
+                                    {errors.department}
+                                </p>
+                            )}
                         </div>
-
-                        {!formData.isExternalExpert && (
-                            <div>
-                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                    <Building className="w-4 h-4 text-blue-600" />
-                                    <span>Phòng ban <span className="text-red-500">*</span></span>
-                                </label>
-                                <select
-                                    name="department"
-                                    value={formData.department}
-                                    onChange={handleInputChange}
-                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                        errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                    }`}
-                                >
-                                    <option value="">Chọn phòng ban</option>
-                                    {departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>
-                                            {dept.name} ({dept.code})
-                                        </option>
-                                    ))}
-                                </select>
-                                {errors.department && (
-                                    <p className="mt-2 text-sm text-red-600 flex items-center">
-                                        <AlertCircle className="w-4 h-4 mr-1" />
-                                        {errors.department}
-                                    </p>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -498,7 +477,7 @@ export default function CreateUserForm() {
                                             }`}>
                                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 text-left">
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${role.color} text-white`}>
                                                         {role.label}
