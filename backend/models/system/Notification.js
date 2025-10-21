@@ -35,7 +35,10 @@ const notificationSchema = new mongoose.Schema({
             'general',
             // Bổ sung loại thông báo mới
             'evidence_request',
-            'evidence_request_completed'
+            'evidence_request_completed',
+            // BỔ SUNG
+            'completion_request',       // Admin -> Manager: Yêu cầu hoàn thiện cây minh chứng
+            'completion_notification'   // Manager -> Admin: Xác nhận hoàn thiện cây minh chứng
         ],
         required: [true, 'Loại thông báo là bắt buộc']
     },
@@ -214,7 +217,10 @@ notificationSchema.virtual('typeText').get(function() {
         'user_mentioned': 'Được nhắc đến',
         'general': 'Thông báo chung',
         'evidence_request': 'Yêu cầu minh chứng',
-        'evidence_request_completed': 'Xác nhận yêu cầu MC'
+        'evidence_request_completed': 'Xác nhận yêu cầu MC',
+        // BỔ SUNG
+        'completion_request': 'Yêu cầu HT cây MC',
+        'completion_notification': 'Xác nhận HT cây MC'
     };
     return typeMap[this.type] || this.type;
 });
@@ -310,6 +316,8 @@ notificationSchema.methods.getActionUrl = function() {
             return this.data?.reportId ? `/reports/${this.data.reportId}` : null;
 
         case 'evidence_request':
+        case 'completion_request': // BỔ SUNG
+        case 'completion_notification': // BỔ SUNG
             // Chuyển đến trang xem Cây minh chứng với filter phòng ban đã chọn
             return this.data?.departmentId ? `/evidence-management/tree?departmentId=${this.data.departmentId}` : '/evidence-management/tree';
 
