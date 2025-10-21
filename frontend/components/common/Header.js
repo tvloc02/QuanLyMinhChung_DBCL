@@ -202,6 +202,13 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     ? `/reports/my-assignments`
                     : null
 
+            // BỔ SUNG: Dẫn đến cây minh chứng với filter phòng ban
+            case 'completion_request':
+            case 'completion_notification':
+                return notification.data?.departmentId
+                    ? `/evidence-management/tree?departmentId=${notification.data.departmentId}`
+                    : '/evidence-management/tree'
+
             default:
                 return null
         }
