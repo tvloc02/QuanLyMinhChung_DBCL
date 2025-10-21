@@ -40,14 +40,15 @@ const userSchema = new mongoose.Schema({
         }
     },
 
+    // Chỉ 4 vai trò: admin, manager, tdg, expert
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'tdg', 'expert', 'expert_external']
+        enum: ['admin', 'manager', 'tdg', 'expert']
     }],
 
     role: {
         type: String,
-        enum: ['admin', 'manager', 'tdg', 'expert', 'expert_external'],
+        enum: ['admin', 'manager', 'tdg', 'expert'],
         default: 'expert'
     },
 
@@ -66,11 +67,6 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['manager', 'tdg', 'expert'],
         default: 'expert'
-    },
-
-    isExternalExpert: {
-        type: Boolean,
-        default: false
     },
 
     position: {
@@ -173,7 +169,6 @@ userSchema.index({ fullName: 'text' });
 userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
 userSchema.index({ department: 1 });
-userSchema.index({ isExternalExpert: 1 });
 
 userSchema.virtual('isLocked').get(function() {
     if (this.isLockedByAdmin) {
