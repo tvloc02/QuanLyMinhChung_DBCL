@@ -106,9 +106,40 @@ const evidenceSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['new', 'in_progress', 'completed', 'approved', 'rejected'],
+        enum: ['new', 'assigned', 'in_progress', 'pending_approval', 'approved', 'rejected'],
         default: 'new'
     },
+
+    assignedTo: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+
+    requests: [{
+        type: {
+            type: String,
+            enum: ['completion_request', 'submit_files_request']
+        },
+        requestedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        requestedAt: {
+            type: Date,
+            default: Date.now
+        },
+        message: String,
+        status: {
+            type: String,
+            enum: ['pending', 'completed', 'rejected'],
+            default: 'pending'
+        },
+        completedAt: Date,
+        completedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }
+    }],
 
     rejectionReason: {
         type: String,
@@ -195,8 +226,10 @@ evidenceSchema.methods.updateStatus = async function() {
     const File = require('./File');
     const files = await File.find({ evidenceId: this._id });
 
-    if (files.length === 0) {
-        this.status = this.status === 'new' ? 'new' : 'in_progress';
+    if (this.status === 'new' || this.status === 'assigned') {
+        return this.status;
+    } else if (files.length === 0) {
+        this.status = 'in_progress';
     } else {
         const rejectedFiles = files.filter(f => f.approvalStatus === 'rejected');
         const approvedFiles = files.filter(f => f.approvalStatus === 'approved');
@@ -206,7 +239,7 @@ evidenceSchema.methods.updateStatus = async function() {
         } else if (approvedFiles.length === files.length) {
             this.status = 'approved';
         } else {
-            this.status = 'completed';
+            this.status = 'pending_approval';
         }
     }
 
