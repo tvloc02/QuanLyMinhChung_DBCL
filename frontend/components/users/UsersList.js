@@ -79,7 +79,7 @@ export default function UsersListPage() {
             if (roleFilter) params.role = roleFilter
             if (statusFilter) params.status = statusFilter
 
-            const response = await api.get('/api/users', { params })
+            const response = await axios.get('http://localhost:5000/api/users', { params })
 
             if (response.data.success) {
                 setUsers(response.data.data.users)
@@ -298,7 +298,6 @@ export default function UsersListPage() {
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Người dùng</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Vai trò</th>
-                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Quyền được chọn</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Phòng ban</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Trạng thái</th>
                                     <th className="px-4 py-3 text-center font-semibold text-gray-700">Thao tác</th>
@@ -322,23 +321,6 @@ export default function UsersListPage() {
                                                         {roleLabels[r]?.label}
                                                     </span>
                                                 ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.selectedPermissions && user.selectedPermissions.length > 0 ? (
-                                                    user.selectedPermissions.map(perm => (
-                                                        <span
-                                                            key={perm._id}
-                                                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200"
-                                                            title={perm.description}
-                                                        >
-                                                            {perm.name}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-xs text-gray-500">Chưa có quyền</span>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-gray-600">
