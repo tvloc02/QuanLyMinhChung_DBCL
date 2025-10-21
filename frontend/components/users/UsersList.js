@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import {
     Search, Plus, Edit, Trash2, Lock, Unlock, Shield,
     ChevronLeft, ChevronRight, AlertCircle, RefreshCw, Users,
-    Key, Eye, EyeOff, X, Send
+    Key, Eye, EyeOff, X, Send, Check
 } from 'lucide-react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -32,6 +32,7 @@ export default function UsersListPage() {
     const [showLockModal, setShowLockModal] = useState(false)
     const [showUnlockModal, setShowUnlockModal] = useState(false)
     const [showResetPasswordModal, setShowResetPasswordModal] = useState(false)
+    const [showPermissionsModal, setShowPermissionsModal] = useState(false) // ✨ THÊM
 
     const [selectedUser, setSelectedUser] = useState(null)
     const [lockReason, setLockReason] = useState('')
@@ -39,6 +40,10 @@ export default function UsersListPage() {
     const [message, setMessage] = useState({ type: '', text: '' })
     const [newPassword, setNewPassword] = useState('')
     const [showNewPassword, setShowNewPassword] = useState(false)
+
+    // ✨ THÊM: States cho permissions
+    const [allPermissions, setAllPermissions] = useState([])
+    const [selectedPermissions, setSelectedPermissions] = useState([])
 
     const roleLabels = {
         admin: { label: 'Quản trị viên', icon: '', color: 'from-red-500 to-pink-500' },
@@ -64,6 +69,11 @@ export default function UsersListPage() {
     useEffect(() => {
         fetchUsers()
     }, [pagination.current, searchTerm, roleFilter, statusFilter])
+
+    // ✨ THÊM: Lấy permissions
+    useEffect(() => {
+        fetchPermissions()
+    }, [])
 
     const fetchUsers = async () => {
         try {
@@ -96,18 +106,40 @@ export default function UsersListPage() {
         }
     }
 
+    // ✨ THÊM: Fetch permissions
+    const fetchPermissions = async () => {
+        try {
+            const response = await api.get('/api/permissions')
+            if (response.data.success) {
+                setAllPermissions(response.data.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching permissions:', error)
+        }
+    }
+
+    // ✨ THÊM: Fetch selected permissions của user
+    const fetchUserPermissions = async (userId) => {
+        try {
+            const response = await api.get(`/api/users/${userId}/selected-permissions`)
+            if (response.data.success) {
+                setSelectedPermissions(response.data.data.map(p => p._id) || [])
+            }
+        } catch (error) {
+            console.error('Error fetching user permissions:', error)
+            setSelectedPermissions([])
+        }
+    }
+
     const handleSearch = (value) => {
         setSearchTerm(value)
         setPagination(prev => ({ ...prev, current: 1 }))
     }
 
     const handleDelete = async () => {
-        if (!selectedUser) return
-
         try {
             setActionLoading(true)
             await api.delete(`/api/users/${selectedUser._id}`)
-
             setMessage({
                 type: 'success',
                 text: 'Xóa người dùng thành công'
@@ -116,6 +148,7 @@ export default function UsersListPage() {
             setSelectedUser(null)
             fetchUsers()
         } catch (error) {
+            console.error('Error deleting user:', error)
             setMessage({
                 type: 'error',
                 text: error.response?.data?.message || 'Lỗi khi xóa người dùng'
@@ -126,26 +159,22 @@ export default function UsersListPage() {
     }
 
     const handleLock = async () => {
-        if (!selectedUser) return
-
         try {
             setActionLoading(true)
-            await api.post(`/api/users/${selectedUser._id}/lock`, {
-                reason: lockReason || 'Không có lý do cụ thể'
-            })
-
+            await api.post(`/api/users/${selectedUser._id}/lock`, { reason: lockReason })
             setMessage({
                 type: 'success',
-                text: 'Khóa tài khoản thành công'
+                text: 'Khóa người dùng thành công'
             })
             setShowLockModal(false)
-            setSelectedUser(null)
             setLockReason('')
+            setSelectedUser(null)
             fetchUsers()
         } catch (error) {
+            console.error('Error locking user:', error)
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Lỗi khi khóa tài khoản'
+                text: error.response?.data?.message || 'Lỗi khi khóa người dùng'
             })
         } finally {
             setActionLoading(false)
@@ -153,23 +182,21 @@ export default function UsersListPage() {
     }
 
     const handleUnlock = async () => {
-        if (!selectedUser) return
-
         try {
             setActionLoading(true)
             await api.post(`/api/users/${selectedUser._id}/unlock`)
-
             setMessage({
                 type: 'success',
-                text: 'Mở khóa tài khoản thành công'
+                text: 'Mở khóa người dùng thành công'
             })
             setShowUnlockModal(false)
             setSelectedUser(null)
             fetchUsers()
         } catch (error) {
+            console.error('Error unlocking user:', error)
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Lỗi khi mở khóa tài khoản'
+                text: error.response?.data?.message || 'Lỗi khi mở khóa người dùng'
             })
         } finally {
             setActionLoading(false)
@@ -177,361 +204,382 @@ export default function UsersListPage() {
     }
 
     const handleResetPassword = async () => {
-        if (!selectedUser) return
-
         try {
             setActionLoading(true)
             const response = await api.post(`/api/users/${selectedUser._id}/reset-password`)
-
-            if (response.data.success) {
-                setNewPassword(response.data.data.newPassword)
-                setMessage({
-                    type: 'success',
-                    text: 'Reset mật khẩu thành công'
-                })
-            }
+            setNewPassword(response.data.data?.defaultPassword || '')
+            setMessage({
+                type: 'success',
+                text: 'Reset mật khẩu thành công'
+            })
         } catch (error) {
+            console.error('Error resetting password:', error)
             setMessage({
                 type: 'error',
                 text: error.response?.data?.message || 'Lỗi khi reset mật khẩu'
             })
-            setShowResetPasswordModal(false)
-            setSelectedUser(null)
         } finally {
             setActionLoading(false)
         }
     }
 
-    const closeResetPasswordModal = () => {
-        setShowResetPasswordModal(false)
-        setSelectedUser(null)
-        setNewPassword('')
-        setShowNewPassword(false)
+    // ✨ THÊM: Handle manage permissions
+    const handleOpenPermissionsModal = async (user) => {
+        setSelectedUser(user)
+        await fetchUserPermissions(user._id)
+        setShowPermissionsModal(true)
     }
 
-    const canManageUsers = currentUser?.role === 'admin' || currentUser?.roles?.includes('admin')
+    // ✨ THÊM: Toggle permission
+    const handlePermissionChange = (permissionId) => {
+        setSelectedPermissions(prev => {
+            if (prev.includes(permissionId)) {
+                return prev.filter(id => id !== permissionId)
+            }
+            return [...prev, permissionId]
+        })
+    }
 
-    const renderRoles = (userRoles) => {
-        if (!userRoles || userRoles.length === 0) return null
+    // ✨ THÊM: Save permissions
+    const handleSavePermissions = async () => {
+        try {
+            setActionLoading(true)
+            await api.put(`/api/users/${selectedUser._id}/selected-permissions`, {
+                permissionIds: selectedPermissions
+            })
+            setMessage({
+                type: 'success',
+                text: 'Cập nhật quyền thành công'
+            })
+            setShowPermissionsModal(false)
+            setSelectedUser(null)
+            setSelectedPermissions([])
+            fetchUsers()
+        } catch (error) {
+            console.error('Error updating permissions:', error)
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.message || 'Lỗi khi cập nhật quyền'
+            })
+        } finally {
+            setActionLoading(false)
+        }
+    }
 
-        return (
-            <div className="flex flex-wrap gap-1.5">
-                {userRoles.map((role, index) => {
-                    const roleInfo = roleLabels[role]
-                    if (!roleInfo) return null
-
-                    return (
-                        <span
-                            key={index}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${roleInfo.color} text-white shadow-sm`}
-                        >
-                            <span>{roleInfo.icon}</span>
-                            <span>{roleInfo.label}</span>
-                        </span>
-                    )
-                })}
-            </div>
-        )
+    const handleEdit = (user) => {
+        router.push(`/users/users/${user._id}`)
     }
 
     return (
         <div className="space-y-6">
-            {/* Message Alert */}
             {message.text && (
-                <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                <div className={`rounded-xl border p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
                     message.type === 'success'
-                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                        : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
                 }`}>
-                    <div className="flex items-start">
-                        <div className="flex-shrink-0">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
-                            }`}>
-                                <AlertCircle className={`w-7 h-7 ${
-                                    message.type === 'success' ? 'text-green-600' : 'text-red-600'
-                                }`} />
-                            </div>
-                        </div>
-                        <div className="ml-4 flex-1">
-                            <h3 className={`font-bold text-lg mb-1 ${
-                                message.type === 'success' ? 'text-green-900' : 'text-red-900'
-                            }`}>
-                                {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
-                            </h3>
+                    <div className="flex items-start gap-3">
+                        {message.type === 'success' ? (
+                            <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1">
                             <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
                                 {message.text}
                             </p>
                         </div>
                         <button
                             onClick={() => setMessage({ type: '', text: '' })}
-                            className="ml-4 text-gray-400 hover:text-gray-600"
+                            className="text-gray-400 hover:text-gray-600"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl shadow-lg p-6 text-white">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                            <Users className="w-8 h-8" />
-                        </div>
+                    <div className="flex items-center space-x-3">
+                        <Users className="w-8 h-8" />
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Quản lý người dùng</h1>
-                            <p className="text-indigo-100">Quản lý tất cả người dùng trong hệ thống</p>
+                            <h1 className="text-2xl font-bold">Danh sách người dùng</h1>
+                            <p className="text-blue-100">Quản lý người dùng hệ thống</p>
                         </div>
                     </div>
-                    {canManageUsers && (
-                        <button
-                            onClick={() => router.push('/users/create')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span>Thêm người dùng</span>
-                        </button>
-                    )}
+                    <button
+                        onClick={() => router.push('/users/users/create')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-all font-medium"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span>Thêm người dùng</span>
+                    </button>
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm theo tên, email..."
-                                value={searchTerm}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                            />
-                        </div>
-
-                        <select
-                            value={roleFilter}
-                            onChange={(e) => {
-                                setRoleFilter(e.target.value)
-                                setPagination(prev => ({ ...prev, current: 1 }))
-                            }}
-                            className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        >
-                            <option value="">Tất cả vai trò</option>
-                            <option value="admin">Quản trị viên</option>
-                            <option value="manager">Cán bộ quản lý</option>
-                            <option value="expert">Chuyên gia</option>
-                            <option value="advisor">Tư vấn</option>
-                        </select>
-
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => {
-                                setStatusFilter(e.target.value)
-                                setPagination(prev => ({ ...prev, current: 1 }))
-                            }}
-                            className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        >
-                            <option value="">Tất cả trạng thái</option>
-                            <option value="active">Hoạt động</option>
-                            <option value="suspended">Bị khóa</option>
-                        </select>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm..."
+                            value={searchTerm}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
                     </div>
-                </div>
-            </div>
 
-            {/* Users Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">Tất cả vai trò</option>
+                        <option value="admin">Quản trị viên</option>
+                        <option value="manager">Cán bộ quản lý</option>
+                        <option value="expert">Chuyên gia</option>
+                    </select>
+
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                        <option value="suspended">Bị khóa</option>
+                    </select>
+
+                    <button
+                        onClick={fetchUsers}
+                        className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all"
+                    >
+                        <RefreshCw className="w-5 h-5" />
+                    </button>
+                </div>
+
                 {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="text-center">
-                            <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
-                            <p className="text-gray-600">Đang tải dữ liệu...</p>
-                        </div>
-                    </div>
-                ) : users.length === 0 ? (
-                    <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Users className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <p className="text-gray-500 font-medium">Không tìm thấy người dùng nào</p>
+                    <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Người dùng</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Liên hệ</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Vai trò</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Trạng thái</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Phòng ban</th>
-                                {canManageUsers && (
-                                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">Thao tác</th>
-                                )}
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-100">
-                            {users.map((user) => (
-                                <tr key={user._id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-sm">
-                                                    <span className="text-white font-bold text-base">
-                                                        {user.fullName?.charAt(0).toUpperCase()}
-                                                    </span>
-                                            </div>
-                                            <div className="ml-4">
-                                                <div className="text-sm font-semibold text-gray-900">{user.fullName}</div>
-                                                <div className="text-sm text-gray-500">{user.position || 'Chưa cập nhật'}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900 font-medium">{user.email}</div>
-                                        <div className="text-sm text-gray-500">{user.phoneNumber || 'N/A'}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {renderRoles(user.roles || [user.role])}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[user.status]}`}>
-                                                {statusLabels[user.status]}
-                                            </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">
-                                        {user.department || 'N/A'}
-                                    </td>
-                                    {canManageUsers && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-4">
-                                                <ActionButton
-                                                    icon={Edit}
-                                                    variant="edit"
-                                                    size="sm"
-                                                    onClick={() => router.push(`/users/${user._id}/edit`)}
-                                                    title="Chỉnh sửa thông tin"
-                                                />
-                                                <ActionButton
-                                                    icon={Key}
-                                                    variant="warning"
-                                                    size="sm"
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                <tr className="border-b border-gray-200">
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Người dùng</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Vai trò</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Trạng thái</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Thao tác</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {users.map((user) => (
+                                    <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                                        <td className="px-4 py-3">
+                                            <div className="font-medium text-gray-900">{user.fullName}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600">{user.email}</td>
+                                        <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${roleLabels[user.role]?.color} text-white`}>
+                                                    {roleLabels[user.role]?.label}
+                                                </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full border ${statusColors[user.status]}`}>
+                                                    {statusLabels[user.status]}
+                                                </span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(user)}
+                                                    className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 transition-all"
+                                                    title="Chỉnh sửa"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                                {/* ✨ THÊM: Button quản lý quyền */}
+                                                <button
+                                                    onClick={() => handleOpenPermissionsModal(user)}
+                                                    className="p-1.5 hover:bg-purple-100 rounded-lg text-purple-600 transition-all"
+                                                    title="Quản lý quyền"
+                                                >
+                                                    <Shield className="w-4 h-4" />
+                                                </button>
+                                                <button
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowResetPasswordModal(true)
                                                     }}
-                                                    title="Đổi mật khẩu"
-                                                />
-                                                {user.isLockedByAdmin ? (
-                                                    <ActionButton
-                                                        icon={Unlock}
-                                                        variant="success"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setSelectedUser(user)
-                                                            setShowUnlockModal(true)
-                                                        }}
-                                                        title="Mở khóa tài khoản"
-                                                    />
-                                                ) : (
-                                                    <ActionButton
-                                                        icon={Lock}
-                                                        variant="purple"
-                                                        size="sm"
+                                                    className="p-1.5 hover:bg-amber-100 rounded-lg text-amber-600 transition-all"
+                                                    title="Reset mật khẩu"
+                                                >
+                                                    <Key className="w-4 h-4" />
+                                                </button>
+                                                {user.status === 'active' ? (
+                                                    <button
                                                         onClick={() => {
                                                             setSelectedUser(user)
                                                             setShowLockModal(true)
                                                         }}
-                                                        title="Khóa tài khoản"
-                                                    />
+                                                        className="p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all"
+                                                        title="Khóa"
+                                                    >
+                                                        <Lock className="w-4 h-4" />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedUser(user)
+                                                            setShowUnlockModal(true)
+                                                        }}
+                                                        className="p-1.5 hover:bg-green-100 rounded-lg text-green-600 transition-all"
+                                                        title="Mở khóa"
+                                                    >
+                                                        <Unlock className="w-4 h-4" />
+                                                    </button>
                                                 )}
-                                                <ActionButton
-                                                    icon={Trash2}
-                                                    variant="delete"
-                                                    size="sm"
+                                                <button
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowDeleteModal(true)
                                                     }}
-                                                    title="Xóa người dùng"
-                                                />
+                                                    className="p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all"
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </td>
-                                    )}
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                {/* Pagination */}
-                {!loading && users.length > 0 && (
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t-2 border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-700">
-                                Hiển thị <span className="font-semibold text-indigo-600">{(pagination.current - 1) * 10 + 1}</span> đến{' '}
-                                <span className="font-semibold text-indigo-600">{Math.min(pagination.current * 10, pagination.total)}</span>{' '}
-                                trong tổng số <span className="font-semibold text-indigo-600">{pagination.total}</span> người dùng
+                        <div className="flex items-center justify-between mt-6">
+                            <div className="text-sm text-gray-600">
+                                Hiển thị {users.length} trên {pagination.total} người dùng
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setPagination(prev => ({ ...prev, current: prev.current - 1 }))}
                                     disabled={!pagination.hasPrev}
-                                    className="p-3 border-2 border-indigo-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                                 >
-                                    <ChevronLeft className="w-5 h-5 text-indigo-600" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <span className="text-sm font-semibold text-gray-700 px-4 py-2 bg-white rounded-xl border-2 border-indigo-200 shadow-md">
-                                        Trang {pagination.current} / {pagination.pages}
-                                    </span>
+                                <span className="text-sm font-medium">
+                                    Trang {pagination.current} / {pagination.pages}
+                                </span>
                                 <button
                                     onClick={() => setPagination(prev => ({ ...prev, current: prev.current + 1 }))}
                                     disabled={!pagination.hasNext}
-                                    className="p-3 border-2 border-indigo-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                                 >
-                                    <ChevronRight className="w-5 h-5 text-indigo-600" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
 
-            {/* Delete Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                                <AlertCircle className="w-7 h-7 text-red-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận xóa</h3>
-                                <p className="text-gray-600">
-                                    Bạn có chắc chắn muốn xóa người dùng <strong className="text-gray-900">{selectedUser?.fullName}</strong>?
-                                    Hành động này không thể hoàn tác.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3 justify-end">
+            {/* ✨ THÊM: Permissions Modal */}
+            {showPermissionsModal && selectedUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">Quản lý quyền - {selectedUser.fullName}</h2>
                             <button
                                 onClick={() => {
-                                    setShowDeleteModal(false)
+                                    setShowPermissionsModal(false)
                                     setSelectedUser(null)
+                                    setSelectedPermissions([])
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
+                            {allPermissions.map(permission => (
+                                <label
+                                    key={permission._id}
+                                    className="flex items-start gap-3 p-3 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedPermissions.includes(permission._id)}
+                                        onChange={() => handlePermissionChange(permission._id)}
+                                        className="w-4 h-4 mt-1 rounded cursor-pointer"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="font-medium text-gray-900">{permission.name}</div>
+                                        <div className="text-sm text-gray-600">{permission.description}</div>
+                                    </div>
+                                    {selectedPermissions.includes(permission._id) && (
+                                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-1" />
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+
+                        <div className="text-sm text-gray-600 mb-6">
+                            Đã chọn: <span className="font-bold text-blue-600">{selectedPermissions.length}</span> quyền
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => {
+                                    setShowPermissionsModal(false)
+                                    setSelectedUser(null)
+                                    setSelectedPermissions([])
                                 }}
                                 disabled={actionLoading}
-                                className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSavePermissions}
+                                disabled={actionLoading}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {actionLoading ? 'Đang lưu...' : 'Lưu'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {showDeleteModal && selectedUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md">
+                        <h2 className="text-lg font-bold mb-4">Xác nhận xóa</h2>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn xóa người dùng <strong>{selectedUser.fullName}</strong>?
+                        </p>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                disabled={actionLoading}
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleDelete}
                                 disabled={actionLoading}
-                                className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
                                 {actionLoading ? 'Đang xóa...' : 'Xóa'}
                             </button>
@@ -541,46 +589,31 @@ export default function UsersListPage() {
             )}
 
             {/* Lock Modal */}
-            {showLockModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <Lock className="w-7 h-7 text-purple-600" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">Khóa tài khoản</h3>
-                                <p className="text-gray-600 mb-4">
-                                    Khóa tài khoản <strong className="text-gray-900">{selectedUser?.fullName}</strong>?
-                                    Người dùng sẽ không thể đăng nhập.
-                                </p>
-                                <textarea
-                                    value={lockReason}
-                                    onChange={(e) => setLockReason(e.target.value)}
-                                    placeholder="Lý do khóa (tùy chọn)"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                                    rows={3}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-3 justify-end">
+            {showLockModal && selectedUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md">
+                        <h2 className="text-lg font-bold mb-4">Khóa người dùng</h2>
+                        <p className="text-gray-600 mb-4">Khóa người dùng <strong>{selectedUser.fullName}</strong></p>
+                        <textarea
+                            value={lockReason}
+                            onChange={(e) => setLockReason(e.target.value)}
+                            placeholder="Lý do khóa..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                        />
+                        <div className="flex justify-end gap-2">
                             <button
-                                onClick={() => {
-                                    setShowLockModal(false)
-                                    setSelectedUser(null)
-                                    setLockReason('')
-                                }}
+                                onClick={() => setShowLockModal(false)}
                                 disabled={actionLoading}
-                                className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleLock}
                                 disabled={actionLoading}
-                                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                             >
-                                {actionLoading ? 'Đang khóa...' : 'Khóa tài khoản'}
+                                {actionLoading ? 'Đang khóa...' : 'Khóa'}
                             </button>
                         </div>
                     </div>
@@ -588,36 +621,25 @@ export default function UsersListPage() {
             )}
 
             {/* Unlock Modal */}
-            {showUnlockModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                                <Unlock className="w-7 h-7 text-green-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">Mở khóa tài khoản</h3>
-                                <p className="text-gray-600">
-                                    Mở khóa tài khoản <strong className="text-gray-900">{selectedUser?.fullName}</strong>?
-                                    Người dùng sẽ có thể đăng nhập lại.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3 justify-end">
+            {showUnlockModal && selectedUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md">
+                        <h2 className="text-lg font-bold mb-4">Mở khóa người dùng</h2>
+                        <p className="text-gray-600 mb-6">
+                            Bạn có chắc chắn muốn mở khóa người dùng <strong>{selectedUser.fullName}</strong>?
+                        </p>
+                        <div className="flex justify-end gap-2">
                             <button
-                                onClick={() => {
-                                    setShowUnlockModal(false)
-                                    setSelectedUser(null)
-                                }}
+                                onClick={() => setShowUnlockModal(false)}
                                 disabled={actionLoading}
-                                className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
+                                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleUnlock}
                                 disabled={actionLoading}
-                                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                             >
                                 {actionLoading ? 'Đang mở khóa...' : 'Mở khóa'}
                             </button>
@@ -627,66 +649,64 @@ export default function UsersListPage() {
             )}
 
             {/* Reset Password Modal */}
-            {showResetPasswordModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                                <Key className="w-7 h-7 text-orange-600" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">Đổi mật khẩu</h3>
-                                <p className="text-gray-600">
-                                    {newPassword ? (
-                                        <>Mật khẩu mới cho <strong className="text-gray-900">{selectedUser?.fullName}</strong>:</>
-                                    ) : (
-                                        <>Đổi mật khẩu cho <strong className="text-gray-900">{selectedUser?.fullName}</strong>?</>
-                                    )}
+            {showResetPasswordModal && selectedUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md">
+                        <h2 className="text-lg font-bold mb-4">Reset mật khẩu</h2>
+                        {!newPassword ? (
+                            <>
+                                <p className="text-gray-600 mb-6">
+                                    Reset mật khẩu cho người dùng <strong>{selectedUser.fullName}</strong>?
                                 </p>
-                                {newPassword && (
-                                    <div className="mt-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-                                        <div className="flex items-center justify-between">
-                                            <code className="text-lg font-mono font-bold text-orange-900">
-                                                {showNewPassword ? newPassword : '••••••••'}
-                                            </code>
-                                            <button
-                                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                                className="p-2 text-orange-600 hover:bg-orange-100 rounded-lg transition-all"
-                                            >
-                                                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex gap-3 justify-end">
-                            {newPassword ? (
-                                <button
-                                    onClick={closeResetPasswordModal}
-                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-                                >
-                                    Đóng
-                                </button>
-                            ) : (
-                                <>
+                                <div className="flex justify-end gap-2">
                                     <button
-                                        onClick={closeResetPasswordModal}
+                                        onClick={() => {
+                                            setShowResetPasswordModal(false)
+                                            setSelectedUser(null)
+                                        }}
                                         disabled={actionLoading}
-                                        className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
+                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                                     >
                                         Hủy
                                     </button>
                                     <button
                                         onClick={handleResetPassword}
                                         disabled={actionLoading}
-                                        className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                                     >
-                                        {actionLoading ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                                        {actionLoading ? 'Đang reset...' : 'Reset'}
                                     </button>
-                                </>
-                            )}
-                        </div>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-gray-600 mb-4">Mật khẩu mới:</p>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <code className="flex-1 px-3 py-2 bg-blue-50 rounded-lg font-mono text-sm font-semibold text-blue-900 border border-blue-200">
+                                        {newPassword}
+                                    </code>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(newPassword)
+                                            alert('Đã sao chép!')
+                                        }}
+                                        className="px-3 py-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
+                                    >
+                                        {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowResetPasswordModal(false)
+                                        setNewPassword('')
+                                        setSelectedUser(null)
+                                    }}
+                                    className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                                >
+                                    Đóng
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
