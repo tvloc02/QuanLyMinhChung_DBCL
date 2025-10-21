@@ -370,25 +370,39 @@ export default function UsersListPage() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                <tr className="border-b border-gray-200">
+                                <tr className="border-b border-gray-200 bg-gray-50">
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-700 w-12">STT</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Người dùng</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Vai trò</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Phòng ban</th>
                                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Trạng thái</th>
-                                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Thao tác</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-700">Thao tác</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                {users.map((user) => (
-                                    <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                                {users.map((user, index) => (
+                                    <tr key={user._id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
+                                        <td className="px-4 py-3 text-center text-gray-600 font-medium">
+                                            {(pagination.current - 1) * 10 + index + 1}
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="font-medium text-gray-900">{user.fullName}</div>
+                                            <div className="text-xs text-gray-500">{user.position || '-'}</div>
                                         </td>
                                         <td className="px-4 py-3 text-gray-600">{user.email}</td>
                                         <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${roleLabels[user.role]?.color} text-white`}>
-                                                    {roleLabels[user.role]?.label}
-                                                </span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.roles && user.roles.map(r => (
+                                                    <span key={r} className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${roleLabels[r]?.color} text-white`}>
+                                                        {roleLabels[r]?.label}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600">
+                                            <div className="font-medium">{user.department?.name || '-'}</div>
+                                            <div className="text-xs text-gray-500">{user.department?.code || ''}</div>
                                         </td>
                                         <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full border ${statusColors[user.status]}`}>
@@ -396,65 +410,70 @@ export default function UsersListPage() {
                                                 </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <button
+                                            <div className="flex items-center justify-center gap-2">
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    label=""
                                                     onClick={() => handleEdit(user)}
-                                                    className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 transition-all"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <Edit className="w-4 h-4" />
-                                                </button>
-                                                {/* ✨ THÊM: Button quản lý quyền */}
-                                                <button
+                                                    variant="edit"
+                                                    size="sm"
+                                                    title="Chỉnh sửa người dùng"
+                                                />
+                                                <ActionButton
+                                                    icon={Shield}
+                                                    label=""
                                                     onClick={() => handleOpenPermissionsModal(user)}
-                                                    className="p-1.5 hover:bg-purple-100 rounded-lg text-purple-600 transition-all"
+                                                    variant="primary"
+                                                    size="sm"
                                                     title="Quản lý quyền"
-                                                >
-                                                    <Shield className="w-4 h-4" />
-                                                </button>
-                                                <button
+                                                />
+                                                <ActionButton
+                                                    icon={Key}
+                                                    label=""
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowResetPasswordModal(true)
                                                     }}
-                                                    className="p-1.5 hover:bg-amber-100 rounded-lg text-amber-600 transition-all"
+                                                    variant="warning"
+                                                    size="sm"
                                                     title="Reset mật khẩu"
-                                                >
-                                                    <Key className="w-4 h-4" />
-                                                </button>
+                                                />
                                                 {user.status === 'active' ? (
-                                                    <button
+                                                    <ActionButton
+                                                        icon={Lock}
+                                                        label=""
                                                         onClick={() => {
                                                             setSelectedUser(user)
                                                             setShowLockModal(true)
                                                         }}
-                                                        className="p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all"
-                                                        title="Khóa"
-                                                    >
-                                                        <Lock className="w-4 h-4" />
-                                                    </button>
+                                                        variant="lock"
+                                                        size="sm"
+                                                        title="Khóa người dùng"
+                                                    />
                                                 ) : (
-                                                    <button
+                                                    <ActionButton
+                                                        icon={Unlock}
+                                                        label=""
                                                         onClick={() => {
                                                             setSelectedUser(user)
                                                             setShowUnlockModal(true)
                                                         }}
-                                                        className="p-1.5 hover:bg-green-100 rounded-lg text-green-600 transition-all"
-                                                        title="Mở khóa"
-                                                    >
-                                                        <Unlock className="w-4 h-4" />
-                                                    </button>
+                                                        variant="success"
+                                                        size="sm"
+                                                        title="Mở khóa người dùng"
+                                                    />
                                                 )}
-                                                <button
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    label=""
                                                     onClick={() => {
                                                         setSelectedUser(user)
                                                         setShowDeleteModal(true)
                                                     }}
-                                                    className="p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                    variant="delete"
+                                                    size="sm"
+                                                    title="Xóa người dùng"
+                                                />
                                             </div>
                                         </td>
                                     </tr>
