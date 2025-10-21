@@ -1445,6 +1445,297 @@ const getPublicEvidence = async (req, res) => {
     }
 };
 
+const sendCompletionRequest = async (req, res) => {
+    try {
+        const { departmentId } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Admin mới có quyền gửi yêu cầu hoàn thiện cây minh chứng'
+            });
+        }
+
+        if (!departmentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phòng ban là bắt buộc'
+            });
+        }
+
+        const managers = await User.find({
+            department: departmentId,
+            role: 'manager',
+            status: 'active'
+        });
+
+        if (managers.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy quản lý nào trong phòng ban này'
+            });
+        }
+
+        const notifications = managers.map(manager => ({
+            userId: manager._id,
+            type: 'completion_request',
+            title: 'Yêu cầu hoàn thiện cây minh chứng',
+            message: `Admin yêu cầu hoàn thiện cây minh chứng cho phòng ban của bạn`,
+            relatedData: {
+                departmentId,
+                academicYearId,
+                requestedBy: req.user.id,
+                requestedAt: new Date()
+            },
+            read: false,
+            createdAt: new Date()
+        }));
+
+        await Notification.insertMany(notifications);
+
+        res.json({
+            success: true,
+            message: `Đã gửi yêu cầu đến ${managers.length} quản lý phòng ban`,
+            data: {
+                managersCount: managers.length,
+                managerIds: managers.map(m => m._id)
+            }
+        });
+
+    } catch (error) {
+        console.error('Send completion request error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi gửi yêu cầu'
+        });
+    }
+};
+
+const submitCompletionNotification = async (req, res) => {
+    try {
+        const { departmentId, message } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Quản lý mới có quyền gửi xác nhận hoàn thiện'
+            });
+        }
+
+        if (!departmentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phòng ban là bắt buộc'
+            });
+        }
+
+        const admins = await User.find({
+            role: 'admin',
+            status: 'active'
+        });
+
+        if (admins.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy admin'
+            });
+        }
+
+        const notifications = admins.map(admin => ({
+            userId: admin._id,
+            type: 'completion_notification',
+            title: 'Cây minh chứng đã được hoàn thiện',
+            message: message || 'Quản lý phòng ban đã hoàn thiện cây minh chứng',
+            relatedData: {
+                departmentId,
+                academicYearId,
+                submittedBy: req.user.id,
+                submittedAt: new Date()
+            },
+            read: false,
+            createdAt: new Date()
+        }));
+
+        await Notification.insertMany(notifications);
+
+        res.json({
+            success: true,
+            message: `Đã gửi xác nhận đến ${admins.length} admin`,
+            data: {
+                adminsCount: admins.length,
+                adminIds: admins.map(a => a._id)
+            }
+        });
+
+    } catch (error) {
+        console.error('Submit completion notification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi gửi xác nhận'
+        });
+    }
+};
+
+const assignEvidenceToUsers = async (req, res) => {
+    try {
+        const { evidenceId } = req.params;
+        const { userIds } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách người dùng là bắt buộc'
+            });
+        }
+
+        const evidence = await Evidence.findOne({ _id: evidenceId, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền phân quyền minh chứng'
+            });
+        }
+
+        if (req.user.role === 'manager' && evidence.departmentId.toString() !== req.user.department) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn chỉ có quyền phân quyền minh chứng của phòng ban bạn'
+            });
+        }
+
+        evidence.assignedTo = userIds;
+        evidence.status = 'assigned';
+        evidence.updatedBy = req.user.id;
+        await evidence.save();
+
+        const notifications = userIds.map(userId => ({
+            userId,
+            type: 'evidence_assignment',
+            title: 'Được phân quyền đẩy file minh chứng',
+            message: `Bạn được phân quyền đẩy file cho minh chứng: ${evidence.code} - ${evidence.name}`,
+            relatedData: {
+                evidenceId: evidence._id,
+                academicYearId,
+                assignedBy: req.user.id
+            },
+            read: false,
+            createdAt: new Date()
+        }));
+
+        await Notification.insertMany(notifications);
+
+        await evidence.populate([
+            { path: 'academicYearId', select: 'name code' },
+            { path: 'programId', select: 'name code' },
+            { path: 'organizationId', select: 'name code' },
+            { path: 'departmentId', select: 'name code' },
+            { path: 'standardId', select: 'name code' },
+            { path: 'criteriaId', select: 'name code' },
+            { path: 'assignedTo', select: 'fullName email' }
+        ]);
+
+        res.json({
+            success: true,
+            message: 'Phân quyền minh chứng thành công',
+            data: evidence
+        });
+
+    } catch (error) {
+        console.error('Assign evidence to users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phân quyền minh chứng'
+        });
+    }
+};
+
+const sendFileSubmissionRequest = async (req, res) => {
+    try {
+        const { evidenceId } = req.params;
+        const { message } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const evidence = await Evidence.findOne({ _id: evidenceId, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        if (req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Quản lý mới có quyền gửi yêu cầu nộp file minh chứng'
+            });
+        }
+
+        if (evidence.departmentId.toString() !== req.user.department) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn chỉ có quyền gửi yêu cầu cho minh chứng của phòng ban bạn'
+            });
+        }
+
+        if (!evidence.assignedTo || evidence.assignedTo.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Minh chứng chưa được phân quyền cho ai'
+            });
+        }
+
+        const request = {
+            type: 'submit_files_request',
+            requestedBy: req.user.id,
+            requestedAt: new Date(),
+            message,
+            status: 'pending'
+        };
+
+        evidence.requests.push(request);
+        await evidence.save();
+
+        const notifications = evidence.assignedTo.map(userId => ({
+            userId,
+            type: 'file_submission_request',
+            title: 'Yêu cầu nộp file minh chứng',
+            message: message || `Yêu cầu nộp file cho minh chứng: ${evidence.code}`,
+            relatedData: {
+                evidenceId: evidence._id,
+                academicYearId,
+                requestedBy: req.user.id
+            },
+            read: false,
+            createdAt: new Date()
+        }));
+
+        await Notification.insertMany(notifications);
+
+        res.json({
+            success: true,
+            message: `Đã gửi yêu cầu nộp file đến ${evidence.assignedTo.length} người`,
+            data: evidence
+        });
+
+    } catch (error) {
+        console.error('Send file submission request error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi gửi yêu cầu nộp file'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -1464,5 +1755,9 @@ module.exports = {
     getFullEvidenceTree,
     approveFile,
     getEvidenceByCode,
-    getPublicEvidence
+    getPublicEvidence,
+    sendCompletionRequest,
+    submitCompletionNotification,
+    assignEvidenceToUsers,
+    sendFileSubmissionRequest
 };
