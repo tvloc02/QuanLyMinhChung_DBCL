@@ -5,6 +5,7 @@ import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import FileManagement from '../file/FileManagement'
+import { useAuth } from '../../contexts/AuthContext'
 import {
     ChevronDown,
     ChevronRight,
@@ -26,11 +27,13 @@ import {
     AlertCircle,
     Clock,
     Check,
-    GripVertical
+    GripVertical,
+    Send
 } from 'lucide-react'
 
 export default function EvidenceTree() {
     const router = useRouter()
+    const { user } = useAuth()
 
     const [loading, setLoading] = useState(true)
     const [treeData, setTreeData] = useState([])
@@ -95,7 +98,6 @@ export default function EvidenceTree() {
             const response = await apiMethods.departments.getAll()
             const departmentsData = response.data.data.departments || response.data.data || []
             setDepartments(departmentsData)
-            // Không set mặc định phòng ban, để trống để hiển thị tất cả
             setSelectedDepartment('')
         } catch (error) {
             console.error('Fetch departments error:', error)
@@ -193,23 +195,17 @@ export default function EvidenceTree() {
             return
         }
 
-        // --- Bắt đầu điều chỉnh logic mã minh chứng ---
         const currentCode = draggedEvidence.evidence.code
         const currentCodeParts = currentCode.split('.')
 
-        // 1. Lấy ký tự tiền tố và số hộp từ mã cũ (VD: "H1", "A2",...)
-        // Lấy phần đầu tiên (VD: H1)
         const prefixAndBox = currentCodeParts[0]
 
-        // 2. Lấy mã tiêu chuẩn và tiêu chí mới
         const newStandardCode = String(standard.code).padStart(2, '0')
         const newCriteriaCode = String(criteria.code).padStart(2, '0')
 
-        // 3. Sử dụng prefix và số thứ tự cuối cùng từ mã cũ để tạo mã mới
         const sequenceNumber = currentCodeParts[3]
 
         const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${sequenceNumber}`
-        // --- Kết thúc điều chỉnh logic mã minh chứng ---
 
         if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới (giữ tiền tố và STT): ${newCode}`)) {
             setDraggedEvidence(null)
@@ -309,8 +305,8 @@ export default function EvidenceTree() {
 
     const handleExport = async () => {
         try {
-            if (!selectedProgram || !selectedOrganization || !selectedDepartment) {
-                toast.error('Vui lòng chọn Chương trình, Tổ chức và Phòng ban')
+            if (!selectedProgram || !selectedOrganization) {
+                toast.error('Vui lòng chọn Chương trình và Tổ chức')
                 return
             }
 
@@ -387,6 +383,48 @@ export default function EvidenceTree() {
         }
         return colors[status] || colors['new']
     }
+
+    // --- Logic mới: Yêu cầu Minh chứng ---
+    const handleRequestEvidence = async (standardId, criteriaId) => {
+        if (!selectedDepartment) {
+            toast.error('Vui lòng chọn một Phòng ban để gửi yêu cầu');
+            return;
+        }
+
+        const department = departments.find(d => d._id === selectedDepartment);
+        if (!department || !department.manager) {
+            toast.error(`Phòng ban ${department?.name || 'đã chọn'} chưa được gán Quản lý. Không thể gửi thông báo.`);
+            return;
+        }
+
+        const standard = treeData.find(s => s.id === standardId);
+        const criteria = standard?.criteria.find(c => c.id === criteriaId);
+
+        if (!standard || !criteria) {
+            toast.error('Không tìm thấy Tiêu chuẩn hoặc Tiêu chí');
+            return;
+        }
+
+        if (!confirm(`Xác nhận GỬI YÊU CẦU bổ sung minh chứng cho ${department.name}, Tiêu chí ${criteria.code}?`)) {
+            return;
+        }
+
+        try {
+            const response = await apiMethods.notifications.requestEvidence({
+                departmentId: selectedDepartment,
+                standardId: standardId,
+                criteriaId: criteriaId
+            });
+
+            if (response.data.success) {
+                toast.success('Gửi yêu cầu minh chứng thành công đến Quản lý phòng ban!');
+            }
+        } catch (error) {
+            console.error('Request evidence error:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi gửi yêu cầu minh chứng');
+        }
+    }
+    // --- Kết thúc Logic mới: Yêu cầu Minh chứng ---
 
     return (
         <div className="space-y-6">
@@ -532,7 +570,7 @@ export default function EvidenceTree() {
 
                     <button
                         onClick={handleExport}
-                        disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
+                        disabled={!selectedProgram || !selectedOrganization}
                         className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
                         <Download className="h-5 w-5 mr-2" />
@@ -636,24 +674,39 @@ export default function EvidenceTree() {
                                                             onDrop={(e) => handleDrop(e, standard.id, criteria.id)}
                                                         >
                                                             <div
-                                                                className={`flex items-center space-x-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                                                                className={`flex items-center space-x-3 p-3 border-2 rounded-xl transition-all ${
                                                                     criteriaHasEvidence ? 'bg-blue-50 hover:bg-blue-100 border-blue-300' : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
                                                                 }`}
-                                                                onClick={() => toggleNode(criteriaNodeKey)}
                                                             >
-                                                                <div className="flex-shrink-0">
-                                                                    {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
+                                                                <div
+                                                                    className='flex items-center flex-1 cursor-pointer'
+                                                                    onClick={() => toggleNode(criteriaNodeKey)}
+                                                                >
+                                                                    <div className="flex-shrink-0">
+                                                                        {criteriaHasEvidence ? <CheckCircle2 className="h-5 w-5 text-blue-600" /> : <AlertCircle className="h-5 w-5 text-orange-600" />}
+                                                                    </div>
+                                                                    {isCriteriaExpanded ? <ChevronDown className="h-4 w-4 ml-1" /> : <ChevronRight className="h-4 w-4 ml-1" />}
+                                                                    {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
+                                                                    <div className="flex-1 flex items-center justify-between ml-3">
+                                                                        <span className="font-medium text-gray-900">
+                                                                            TC {standard.code}.{criteria.code}: {criteria.name}
+                                                                        </span>
+                                                                        <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
+                                                                            {criteria.evidences?.length || 0} MC
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
-                                                                {isCriteriaExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                                {isCriteriaExpanded ? <FolderOpen className="h-5 w-5" /> : <Folder className="h-5 w-5" />}
-                                                                <div className="flex-1 flex items-center justify-between">
-                                                                    <span className="font-medium text-gray-900">
-                                                                        TC {standard.code}.{criteria.code}: {criteria.name}
-                                                                    </span>
-                                                                    <span className="px-2.5 py-1 bg-white rounded-full text-xs font-medium border">
-                                                                        {criteria.evidences?.length || 0} MC
-                                                                    </span>
-                                                                </div>
+
+                                                                {/* Nút Yêu cầu Minh chứng (Chỉ Admin) */}
+                                                                {user?.role === 'admin' && selectedDepartment && (
+                                                                    <button
+                                                                        onClick={() => handleRequestEvidence(standard.id, criteria.id)}
+                                                                        title={`Yêu cầu MC cho ${selectedDepartment}`}
+                                                                        className="flex-shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all ml-2"
+                                                                    >
+                                                                        <Send className="h-4 w-4" />
+                                                                    </button>
+                                                                )}
                                                             </div>
 
                                                             {isCriteriaExpanded && criteria.evidences && criteria.evidences.length > 0 && (
