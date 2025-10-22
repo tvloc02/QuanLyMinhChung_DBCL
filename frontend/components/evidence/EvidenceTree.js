@@ -26,7 +26,9 @@ import {
     Clock,
     Check,
     GripVertical,
-    Send
+    Send,
+    Users,
+    FileCheck
 } from 'lucide-react'
 
 export default function EvidenceTree() {
@@ -49,7 +51,15 @@ export default function EvidenceTree() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [draggedEvidence, setDraggedEvidence] = useState(null)
     const [showRequestModal, setShowRequestModal] = useState(false)
+    const [showAssignModal, setShowAssignModal] = useState(false)
+    const [showReportModal, setShowReportModal] = useState(false)
     const [userRole, setUserRole] = useState('')
+    const [userDepartment, setUserDepartment] = useState('')
+    const [selectedEvidenceForAssign, setSelectedEvidenceForAssign] = useState(null)
+    const [selectedUsers, setSelectedUsers] = useState([])
+    const [availableUsers, setAvailableUsers] = useState([])
+    const [loadingUsers, setLoadingUsers] = useState(false)
+    const [reportMessage, setReportMessage] = useState('')
 
     useEffect(() => {
         fetchPrograms()
@@ -58,6 +68,7 @@ export default function EvidenceTree() {
 
         const user = JSON.parse(localStorage.getItem('user') || '{}')
         setUserRole(user.role || '')
+        setUserDepartment(user.department || '')
     }, [])
 
     useEffect(() => {
@@ -103,6 +114,25 @@ export default function EvidenceTree() {
         } catch (error) {
             console.error('Fetch departments error:', error)
             toast.error('Lỗi khi tải danh sách phòng ban')
+        }
+    }
+
+    // ===== FETCH TDG - USERS CỦA PHÒNG BAN =====
+    const fetchAvailableUsers = async (deptId) => {
+        try {
+            setLoadingUsers(true)
+            const response = await apiMethods.users.getAll({
+                department: deptId,
+                role: 'tdg',
+                status: 'active'
+            })
+            const usersData = response.data.data.users || response.data.data || []
+            setAvailableUsers(usersData)
+        } catch (error) {
+            console.error('Fetch users error:', error)
+            toast.error('Lỗi khi tải danh sách thành viên')
+        } finally {
+            setLoadingUsers(false)
         }
     }
 
@@ -346,6 +376,84 @@ export default function EvidenceTree() {
         }
     }
 
+    const handleOpenAssignModal = (evidence) => {
+        if (userRole !== 'manager' || userDepartment !== evidence.departmentId._id.toString() && userDepartment !== evidence.departmentId) {
+            toast.error('Chỉ Manager của phòng ban mới có quyền phân quyền')
+            return
+        }
+
+        setSelectedEvidenceForAssign(evidence)
+        setSelectedUsers([])
+        fetchAvailableUsers(evidence.departmentId._id || evidence.departmentId)
+        setShowAssignModal(true)
+    }
+
+    // ===== ASSIGN USERS TO EVIDENCE =====
+    const handleAssignUsers = async () => {
+        if (!selectedEvidenceForAssign || selectedUsers.length === 0) {
+            toast.error('Vui lòng chọn ít nhất một thành viên')
+            return
+        }
+
+        try {
+            // API cần được thêm vào backend
+            const response = await apiMethods.evidences.assignUsers(selectedEvidenceForAssign.id, {
+                userIds: selectedUsers
+            })
+
+            if (response.data.success) {
+                toast.success(`Đã phân quyền cho ${selectedUsers.length} thành viên`)
+                setShowAssignModal(false)
+                setSelectedEvidenceForAssign(null)
+                setSelectedUsers([])
+                fetchTreeData()
+            }
+        } catch (error) {
+            console.error('Assign users error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi phân quyền')
+        }
+    }
+
+    // ===== OPEN REPORT MODAL =====
+    const handleOpenReportModal = () => {
+        // Chỉ Manager được nộp báo cáo
+        if (userRole !== 'manager') {
+            toast.error('Chỉ Manager mới có quyền nộp báo cáo')
+            return
+        }
+
+        if (!selectedDepartment) {
+            toast.error('Vui lòng chọn phòng ban')
+            return
+        }
+
+        setShowReportModal(true)
+    }
+
+    // ===== SUBMIT REPORT =====
+    const handleSubmitReport = async () => {
+        if (!reportMessage.trim()) {
+            toast.error('Vui lòng nhập nội dung báo cáo')
+            return
+        }
+
+        try {
+            const response = await apiMethods.evidences.submitCompletionNotification(
+                selectedDepartment,
+                reportMessage
+            )
+
+            if (response.data.success) {
+                toast.success(response.data.message || 'Nộp báo cáo thành công')
+                setShowReportModal(false)
+                setReportMessage('')
+            }
+        } catch (error) {
+            console.error('Submit report error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo')
+        }
+    }
+
     const handleSendCompletionRequest = async () => {
         if (!selectedDepartment) {
             toast.error('Vui lòng chọn phòng ban')
@@ -567,14 +675,16 @@ export default function EvidenceTree() {
                     )}
 
                     {userRole === 'manager' && (
-                        <button
-                            onClick={handleSubmitCompletion}
-                            disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
-                            className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
-                        >
-                            <CheckCircle2 className="h-5 w-5 mr-2" />
-                            Hoàn thiện
-                        </button>
+                        <>
+                            <button
+                                onClick={handleOpenReportModal}
+                                disabled={!selectedProgram || !selectedOrganization || !selectedDepartment}
+                                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                            >
+                                <FileCheck className="h-5 w-5 mr-2" />
+                                Nộp báo cáo
+                            </button>
+                        </>
                     )}
                 </div>
 
@@ -756,15 +866,31 @@ export default function EvidenceTree() {
                                                                                 </p>
                                                                             </div>
                                                                         </div>
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation()
-                                                                                setSelectedEvidence(evidence)
-                                                                            }}
-                                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                        >
-                                                                            <Upload className="h-4 w-4" />
-                                                                        </button>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            {/* ===== NÚT PHÂN QUYỀN - CHỈ MANAGER PHÒNG BAN ĐÓ =====*/}
+                                                                            {userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation()
+                                                                                        handleOpenAssignModal(evidence)
+                                                                                    }}
+                                                                                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                                                    title="Phân quyền cho thành viên"
+                                                                                >
+                                                                                    <Users className="h-4 w-4" />
+                                                                                </button>
+                                                                            )}
+
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    setSelectedEvidence(evidence)
+                                                                                }}
+                                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                            >
+                                                                                <Upload className="h-4 w-4" />
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -852,6 +978,115 @@ export default function EvidenceTree() {
                                         Import
                                     </>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== MODAL PHÂN QUYỀN ===== */}
+            {showAssignModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">
+                            Phân quyền minh chứng
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Chọn thành viên để phân quyền upload file cho: <span className="font-semibold">{selectedEvidenceForAssign?.name}</span>
+                        </p>
+
+                        <div className="space-y-2 mb-6 max-h-64 overflow-y-auto border border-gray-200 rounded-xl p-3">
+                            {loadingUsers ? (
+                                <div className="text-center py-4">
+                                    <Loader2 className="h-6 w-6 text-indigo-600 animate-spin mx-auto mb-2" />
+                                    <p className="text-sm text-gray-500">Đang tải...</p>
+                                </div>
+                            ) : availableUsers.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">Không có thành viên nào</p>
+                            ) : (
+                                availableUsers.map(user => (
+                                    <label key={user._id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedUsers.includes(user._id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedUsers([...selectedUsers, user._id])
+                                                } else {
+                                                    setSelectedUsers(selectedUsers.filter(id => id !== user._id))
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded"
+                                        />
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
+                                            <div className="text-xs text-gray-500">{user.email}</div>
+                                        </div>
+                                    </label>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowAssignModal(false)
+                                    setSelectedEvidenceForAssign(null)
+                                    setSelectedUsers([])
+                                }}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleAssignUsers}
+                                disabled={selectedUsers.length === 0}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                            >
+                                <Users className="h-4 w-4 inline mr-2" />
+                                Phân quyền ({selectedUsers.length})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== MODAL NỘP BÁO CÁO ===== */}
+            {showReportModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">
+                            Nộp báo cáo hoàn thành
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Nộp báo cáo việc hoàn thành upload cây minh chứng
+                        </p>
+
+                        <textarea
+                            value={reportMessage}
+                            onChange={(e) => setReportMessage(e.target.value)}
+                            placeholder="Nhập nội dung báo cáo..."
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+                            rows="4"
+                        />
+
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowReportModal(false)
+                                    setReportMessage('')
+                                }}
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleSubmitReport}
+                                disabled={!reportMessage.trim()}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                            >
+                                <FileCheck className="h-4 w-4 inline mr-2" />
+                                Nộp báo cáo
                             </button>
                         </div>
                     </div>
