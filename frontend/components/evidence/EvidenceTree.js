@@ -867,7 +867,6 @@ export default function EvidenceTree() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
-                                                                            {/* ===== NÚT PHÂN QUYỀN - CHỈ MANAGER PHÒNG BAN ĐÓ =====*/}
                                                                             {userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId) && (
                                                                                 <button
                                                                                     onClick={(e) => {
