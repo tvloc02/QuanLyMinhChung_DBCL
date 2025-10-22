@@ -20,10 +20,7 @@ const {
     importEvidences,
     getFullEvidenceTree,
     moveEvidence,
-    approveFile
-} = require('../../controllers/evidence/evidenceController');
-
-const {
+    approveFile,
     sendCompletionRequest,
     submitCompletionNotification
 } = require('../../controllers/evidence/evidenceController');
