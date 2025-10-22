@@ -9,7 +9,6 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
-// BỔ SUNG: KHẮC PHỤC LỖI 500 - Thêm require cho các model bị thiếu
 const Department = require('../../models/User/Department');
 const User = require('../../models/User/User');
 const Notification = require('../../models/system/Notification');
@@ -65,36 +64,28 @@ const getEvidences = async (req, res) => {
             filterDepartmentIds = Array.isArray(departmentId) ? departmentId : departmentId.split(',');
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN TRUY CẬP MINH CHỨNG THEO PHÒNG BAN
-        // =============================================================
+
         if (req.user.role !== 'admin') {
             if (!req.user.department) {
-                // Nếu user không có phòng ban gán, trả về rỗng
                 query.departmentId = null;
             } else {
                 const userDeptId = req.user.department.toString();
 
                 if (filterDepartmentIds.length > 0) {
-                    // Nếu user cố gắng filter phòng ban khác phòng ban của họ
                     if (!filterDepartmentIds.includes(userDeptId)) {
                         return res.status(403).json({
                             success: false,
                             message: 'Bạn không có quyền xem minh chứng của phòng ban khác.'
                         });
                     }
-                    // Nếu filter đúng phòng ban của họ
                     query.departmentId = userDeptId;
                 } else {
-                    // Nếu không filter, mặc định xem phòng ban của họ
                     query.departmentId = userDeptId;
                 }
             }
         } else if (filterDepartmentIds.length > 0) {
-            // Admin có thể filter theo departmentId
             query.departmentId = { $in: filterDepartmentIds };
         }
-        // =============================================================
 
         if (search) {
             query.$and = query.$and || [];
@@ -822,9 +813,6 @@ const importEvidences = async (req, res) => {
 
         // =============================================================
         // === KIỂM TRA QUYỀN IMPORT
-        // Admin: import cho bất kỳ phòng ban nào
-        // Manager: chỉ import cho phòng ban của họ
-        // TDG/Expert: không có quyền import
         // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
@@ -833,10 +821,12 @@ const importEvidences = async (req, res) => {
                     message: 'Chỉ Admin và Manager mới có quyền import minh chứng'
                 });
             }
-            if (req.user.department !== departmentId) {
+
+            // SỬA LỖI 403: Chuyển cả hai ID về chuỗi để so sánh
+            if (req.user.department?.toString() !== departmentId?.toString()) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền import minh chứng cho phòng ban bạn'
+                    message: 'Bạn chỉ có quyền import minh chứng cho phòng ban của bạn'
                 });
             }
         }
@@ -1029,8 +1019,6 @@ const getFullEvidenceTree = async (req, res) => {
 
         // =============================================================
         // === KIỂM TRA QUYỀN XEM CÂY MINH CHỨNG
-        // Admin: xem tất cả
-        // Non-admin: chỉ xem cây của phòng ban họ
         // =============================================================
         let queryDepartmentId = departmentId;
         if (req.user.role !== 'admin') {
@@ -1167,7 +1155,7 @@ const getFullEvidenceTree = async (req, res) => {
                 tree,
                 academicYear: req.currentAcademicYear,
                 statistics,
-                userRole: req.user.role
+                userRole: req.user.role // Trả về role cho frontend
             }
         });
 
@@ -1285,20 +1273,15 @@ const submitCompletionNotification = async (req, res) => {
         const { departmentId, message } = req.body;
         const academicYearId = req.academicYearId;
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN GỬI XÁC NHẬN HOÀN THIỆN
-        // Chỉ Manager có quyền gửi xác nhận hoàn thiện
-        // =============================================================
         if (req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
                 message: 'Chỉ Quản lý mới có quyền gửi xác nhận hoàn thiện'
             });
         }
-        // =============================================================
 
-        // Đảm bảo Manager chỉ gửi cho phòng ban của mình
-        if (req.user.department?.toString() !== departmentId.toString()) {
+
+        if (req.user.department?.toString() !== departmentId?.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Bạn chỉ có quyền gửi xác nhận cho phòng ban của bạn'
