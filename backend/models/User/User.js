@@ -42,13 +42,15 @@ const userSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'tdg', 'expert']
+        enum: ['admin', 'manager', 'tdg', 'expert'],
+        set: (v) => v.toLowerCase()
     }],
 
     role: {
         type: String,
         enum: ['admin', 'manager', 'tdg', 'expert'],
-        default: 'expert'
+        default: 'expert',
+        set: (v) => v.toLowerCase()
     },
 
     status: {
@@ -65,7 +67,8 @@ const userSchema = new mongoose.Schema({
     departmentRole: {
         type: String,
         enum: ['manager', 'tdg', 'expert'],
-        default: 'expert'
+        default: 'expert',
+        set: (v) => v.toLowerCase()
     },
 
     position: {
