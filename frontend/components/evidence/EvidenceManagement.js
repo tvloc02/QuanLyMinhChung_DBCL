@@ -24,12 +24,15 @@ import {
     Clock,
     AlertCircle,
     Square,
-    CheckSquare
+    CheckSquare,
+    UserPlus
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
 import ApproveFilesModal from './ApproveFilesModal.js'
+import AssignUsersModal from './AssignUsersModal.js'
 import { useAuth } from '../../contexts/AuthContext'
+import AssignUsersSingleModal from "./AssignUsersSingleModal";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -37,7 +40,6 @@ export default function EvidenceManagement() {
     const router = useRouter()
     const { user, isLoading: isAuthLoading } = useAuth()
     const isAdmin = user?.role === 'admin'
-    // Lấy ID phòng ban của người dùng (có thể là undefined nếu user không có phòng ban)
     const userDepartmentId = user?.department;
 
     const [evidences, setEvidences] = useState([])
@@ -61,7 +63,6 @@ export default function EvidenceManagement() {
         limit: ITEMS_PER_PAGE,
         sortBy: 'createdAt',
         sortOrder: 'desc'
-        // Không cần state userDepartmentId trong filters vì nó được quản lý bởi API backend
     })
 
     const [programs, setPrograms] = useState([])
@@ -72,7 +73,9 @@ export default function EvidenceManagement() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [showMoveModal, setShowMoveModal] = useState(false)
     const [showApproveModal, setShowApproveModal] = useState(false)
+    const [showAssignModal, setShowAssignModal] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
+    const [showAssignSingleModal, setShowAssignSingleModal] = useState(false)
     const [showFilters, setShowFilters] = useState(false)
     const [expandedRows, setExpandedRows] = useState({})
 
@@ -82,15 +85,10 @@ export default function EvidenceManagement() {
     }, [])
 
     useEffect(() => {
-        // Chỉ fetch evidences nếu người dùng đã tải xong (không còn loading auth)
-        // và nếu không phải admin, đảm bảo userDepartmentId đã load (dù là null/undefined)
         if (!isAuthLoading) {
-            // Đối với non-admin, nếu userDepartmentId là null/undefined, API sẽ tự trả về 0 kết quả
-            // (vì backend filter theo query.departmentId = null/undefined)
             fetchEvidences()
         }
     }, [isAuthLoading, filters.page, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
-
 
     useEffect(() => {
         if (filters.programId && filters.organizationId) {
@@ -127,7 +125,6 @@ export default function EvidenceManagement() {
             if (filters.organizationId) params.organizationId = filters.organizationId
             if (filters.standardId) params.standardId = filters.standardId
             if (filters.criteriaId) params.criteriaId = filters.criteriaId
-            // KHÔNG CẦN truyền departmentId cho non-admin vì backend đã tự động thêm req.user.department
 
             const response = await apiMethods.evidences.getAll(params)
             const data = response.data?.data || response.data
@@ -212,7 +209,6 @@ export default function EvidenceManagement() {
     }
 
     const handleEdit = (evidence) => {
-        // Thực hiện điều hướng đến trang chỉnh sửa thực tế
         router.push(`/evidence/edit/${evidence._id}`)
     }
 
@@ -239,7 +235,6 @@ export default function EvidenceManagement() {
 
         try {
             for (const id of selectedItems) {
-                // Backend sẽ kiểm tra quyền từng lần xóa
                 await apiMethods.evidences.delete(id)
             }
             toast.success(`Đã xóa ${selectedItems.length} minh chứng`)
@@ -273,6 +268,31 @@ export default function EvidenceManagement() {
     const handleApproveSuccess = () => {
         setShowApproveModal(false)
         setSelectedItems([])
+        fetchEvidences()
+    }
+
+    const handleBulkAssign = () => {
+        if (selectedItems.length === 0) {
+            toast.error('Vui lòng chọn minh chứng để phân quyền')
+            return
+        }
+        setShowAssignModal(true)
+    }
+
+    const handleAssignSuccess = () => {
+        setShowAssignModal(false)
+        setSelectedItems([])
+        fetchEvidences()
+    }
+
+    const handleSingleAssign = (evidence) => {
+        setSelectedEvidence(evidence)
+        setShowAssignSingleModal(true)
+    }
+
+    const handleSingleAssignSuccess = () => {
+        setShowAssignSingleModal(false)
+        setSelectedEvidence(null)
         fetchEvidences()
     }
 
@@ -315,7 +335,6 @@ export default function EvidenceManagement() {
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
 
-    // *** LOGIC TRẠNG THÁI ĐÃ SỬA DỰA TRÊN evidence.status ***
     const getEvidenceStatusDisplay = (status, files) => {
         const fileCount = files?.length || 0;
         const approvedCount = files?.filter(f => f.approvalStatus === 'approved').length || 0;
@@ -371,19 +390,14 @@ export default function EvidenceManagement() {
             </span>
         )
     }
-    // *** KẾT THÚC LOGIC TRẠNG THÁI ***
 
-    // Logic kiểm tra quyền chỉnh sửa cho non-admin
     const canEditEvidence = (evidence) => {
-        // Admin luôn có quyền
         if (isAdmin) return true;
-        // Manager/TGD chỉ có quyền nếu minh chứng thuộc phòng ban của mình
         if ((user?.role === 'manager' || user?.role === 'tdg') && userDepartmentId && evidence.departmentId?._id?.toString() === userDepartmentId) {
             return true;
         }
         return false;
     }
-
 
     if (isAuthLoading) {
         return (
@@ -394,7 +408,6 @@ export default function EvidenceManagement() {
         )
     }
 
-    // Nếu user không phải admin và không có departmentId (không có phòng ban), chặn không cho xem
     if (!isAdmin && !userDepartmentId) {
         return (
             <div className="p-16 text-center bg-white rounded-2xl shadow-lg">
@@ -424,7 +437,6 @@ export default function EvidenceManagement() {
                             </p>
                         </div>
                     </div>
-                    {/* Chỉ cho phép Manager/TGD tạo minh chứng */}
                     {(isAdmin || user?.role === 'manager' || user?.role === 'tdg') && (
                         <button
                             onClick={() => router.push('/evidence/create')}
@@ -572,7 +584,7 @@ export default function EvidenceManagement() {
                         <span className="text-sm text-blue-900 font-semibold">
                             Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> minh chứng
                         </span>
-                        <div className="flex space-x-3">
+                        <div className="flex space-x-3 flex-wrap">
                             <button
                                 onClick={() => setSelectedItems([])}
                                 className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
@@ -580,7 +592,15 @@ export default function EvidenceManagement() {
                                 <X className="h-4 w-4 mr-2" />
                                 Hủy chọn
                             </button>
-                            {/* Chỉ cho Admin duyệt hàng loạt */}
+
+                            <button
+                                onClick={handleBulkAssign}
+                                className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                            >
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Phân Quyền Nộp File
+                            </button>
+
                             {isAdmin && (
                                 <button
                                     onClick={handleBulkApprove}
@@ -689,14 +709,14 @@ export default function EvidenceManagement() {
                                     <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">
                                         Ngày tạo
                                     </th>
-                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-56">
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-80">
                                         Thao tác
                                     </th>
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => {
-                                    const isEditable = canEditEvidence(evidence); // Kiểm tra quyền chỉnh sửa
+                                    const isEditable = canEditEvidence(evidence);
                                     return (
                                         <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
                                             <td className="px-3 py-3 text-center border-r border-gray-200">
@@ -789,36 +809,47 @@ export default function EvidenceManagement() {
                                                 {formatDate(evidence.createdAt)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex items-center justify-center gap-4 flex-wrap">
                                                     <ActionButton
                                                         icon={Eye}
+                                                        title="Xem minh chứng"
+                                                        onClick={() => handleViewDetail(evidence._id)}
                                                         variant="view"
                                                         size="sm"
-                                                        onClick={() => handleViewDetail(evidence._id)}
                                                     />
 
-                                                    {/* CHỈNH SỬA: Cho phép Admin HOẶC Manager/TGD của phòng ban edit/move/delete */}
                                                     {isEditable && (
                                                         <>
                                                             <ActionButton
                                                                 icon={Edit}
+                                                                title="Chỉnh sửa minh chứng"
+                                                                onClick={() => handleEdit(evidence)}
                                                                 variant="edit"
                                                                 size="sm"
-                                                                onClick={() => handleEdit(evidence)}
+                                                            />
+
+                                                            <ActionButton
+                                                                icon={UserPlus}
+                                                                title="Phân quyền nộp file cho minh chứng này"
+                                                                onClick={() => handleSingleAssign(evidence)}
+                                                                variant="purple"
+                                                                size="sm"
                                                             />
 
                                                             <ActionButton
                                                                 icon={ArrowRightLeft}
+                                                                title="Di chuyển minh chứng"
+                                                                onClick={() => handleMove(evidence)}
                                                                 variant="primary"
                                                                 size="sm"
-                                                                onClick={() => handleMove(evidence)}
                                                             />
 
                                                             <ActionButton
                                                                 icon={Trash2}
+                                                                title="Xóa minh chứng"
+                                                                onClick={() => handleDelete(evidence._id)}
                                                                 variant="delete"
                                                                 size="sm"
-                                                                onClick={() => handleDelete(evidence._id)}
                                                             />
                                                         </>
                                                     )}
@@ -832,13 +863,13 @@ export default function EvidenceManagement() {
 
                         {pagination.pages > 1 && (
                             <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
                                     <p className="text-sm text-gray-700">
                                         Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
                                         <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
                                         <strong className="text-blue-600">{pagination.total}</strong> kết quả
                                     </p>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <button
                                             onClick={() => handlePageChange(pagination.current - 1)}
                                             disabled={!pagination.hasPrev}
@@ -848,7 +879,6 @@ export default function EvidenceManagement() {
                                         </button>
                                         {[...Array(pagination.pages)].map((_, i) => {
                                             const pageNum = i + 1;
-                                            // Logic hiển thị trang đơn giản hơn, có thể tối ưu thêm cho UX
                                             if (
                                                 pagination.pages <= 7 ||
                                                 pageNum === 1 || pageNum === pagination.pages ||
@@ -905,6 +935,26 @@ export default function EvidenceManagement() {
                     onSuccess={handleApproveSuccess}
                 />
             )}
+
+            {showAssignModal && (
+                <AssignUsersModal
+                    evidenceIds={selectedItems}
+                    onClose={() => setShowAssignModal(false)}
+                    onSuccess={handleAssignSuccess}
+                />
+            )}
+
+            {showAssignSingleModal && selectedEvidence && (
+                <AssignUsersSingleModal
+                    evidence={selectedEvidence}
+                    onClose={() => {
+                        setShowAssignSingleModal(false)
+                        setSelectedEvidence(null)
+                    }}
+                    onSuccess={handleSingleAssignSuccess}
+                />
+            )}
+
         </div>
     )
 }
