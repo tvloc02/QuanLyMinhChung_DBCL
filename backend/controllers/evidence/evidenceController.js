@@ -1166,7 +1166,8 @@ const getFullEvidenceTree = async (req, res) => {
             data: {
                 tree,
                 academicYear: req.currentAcademicYear,
-                statistics
+                statistics,
+                userRole: req.user.role
             }
         });
 
@@ -1200,12 +1201,17 @@ const sendCompletionRequest = async (req, res) => {
         const { departmentId } = req.body;
         const academicYearId = req.academicYearId;
 
+        // =============================================================
+        // === KIỂM TRA QUYỀN GỬI YÊU CẦU HOÀN THIỆN
+        // Chỉ Admin có quyền gửi yêu cầu
+        // =============================================================
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ Admin mới có quyền gửi yêu cầu'
+                message: 'Chỉ Admin mới có quyền gửi yêu cầu hoàn thiện'
             });
         }
+        // =============================================================
 
         if (!departmentId) {
             return res.status(400).json({
@@ -1279,12 +1285,17 @@ const submitCompletionNotification = async (req, res) => {
         const { departmentId, message } = req.body;
         const academicYearId = req.academicYearId;
 
+        // =============================================================
+        // === KIỂM TRA QUYỀN GỬI XÁC NHẬN HOÀN THIỆN
+        // Chỉ Manager có quyền gửi xác nhận hoàn thiện
+        // =============================================================
         if (req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
                 message: 'Chỉ Quản lý mới có quyền gửi xác nhận hoàn thiện'
             });
         }
+        // =============================================================
 
         // Đảm bảo Manager chỉ gửi cho phòng ban của mình
         if (req.user.department?.toString() !== departmentId.toString()) {
