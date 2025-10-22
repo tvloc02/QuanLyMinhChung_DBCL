@@ -79,7 +79,7 @@ export default function UsersListPage() {
             if (roleFilter) params.role = roleFilter
             if (statusFilter) params.status = statusFilter
 
-            const response = await axios.get('http://localhost:5000/api/users', { params })
+            const response = await api.get('/api/users', { params })
 
             if (response.data.success) {
                 setUsers(response.data.data.users)
