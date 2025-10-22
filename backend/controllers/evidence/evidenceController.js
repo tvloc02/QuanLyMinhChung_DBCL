@@ -811,9 +811,6 @@ const importEvidences = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN IMPORT
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
                 return res.status(403).json({
@@ -822,7 +819,6 @@ const importEvidences = async (req, res) => {
                 });
             }
 
-            // SỬA LỖI 403: Chuyển cả hai ID về chuỗi để so sánh
             if (req.user.department?.toString() !== departmentId?.toString()) {
                 return res.status(403).json({
                     success: false,
@@ -830,7 +826,6 @@ const importEvidences = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         const result = await importEvidencesFromExcel(
             file.path,
@@ -946,12 +941,6 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN DI CHUYỂN
-        // Admin: di chuyển bất kỳ minh chứng nào
-        // Manager: chỉ di chuyển minh chứng của phòng ban họ
-        // TDG/Expert: không có quyền
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
                 return res.status(403).json({
@@ -1230,14 +1219,13 @@ const sendCompletionRequest = async (req, res) => {
             });
         }
 
-        // Tạo thông báo gửi đến tất cả manager
         const notifications = managers.map(manager => ({
             recipientId: manager._id,
             senderId: req.user.id,
-            type: 'completion_request', // Loại thông báo mới
+            type: 'completion_request',
             title: 'Yêu cầu hoàn thiện cây minh chứng',
             message: `Admin yêu cầu hoàn thiện cây minh chứng cho phòng ban ${department.name}. Vui lòng upload file Excel gồm tiêu chuẩn, tiêu chí và minh chứng.`,
-            relatedData: {
+            data: {
                 departmentId,
                 academicYearId,
                 requestedBy: req.user.id,
@@ -1314,7 +1302,7 @@ const submitCompletionNotification = async (req, res) => {
             type: 'completion_notification',
             title: 'Cây minh chứng đã được hoàn thiện',
             message: message || `Quản lý phòng ban ${department.name} đã hoàn thiện cây minh chứng.`,
-            relatedData: {
+            data: {
                 departmentId,
                 academicYearId,
                 submittedBy: req.user.id,
