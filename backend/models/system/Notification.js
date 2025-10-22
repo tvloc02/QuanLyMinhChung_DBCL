@@ -33,7 +33,6 @@ const notificationSchema = new mongoose.Schema({
             'deadline_approaching',
             'user_mentioned',
             'general',
-            // Bổ sung loại thông báo mới
             'evidence_request',
             'evidence_request_completed',
             // BỔ SUNG
@@ -72,15 +71,15 @@ const notificationSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Evidence'
         },
-        standardId: { // Thêm
+        standardId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Standard'
         },
-        criteriaId: { // Thêm
+        criteriaId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Criteria'
         },
-        departmentId: { // Thêm
+        departmentId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Department'
         },
@@ -218,7 +217,6 @@ notificationSchema.virtual('typeText').get(function() {
         'general': 'Thông báo chung',
         'evidence_request': 'Yêu cầu minh chứng',
         'evidence_request_completed': 'Xác nhận yêu cầu MC',
-        // BỔ SUNG
         'completion_request': 'Yêu cầu HT cây MC',
         'completion_notification': 'Xác nhận HT cây MC'
     };
