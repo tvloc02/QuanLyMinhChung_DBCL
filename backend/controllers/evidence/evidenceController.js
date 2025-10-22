@@ -59,7 +59,7 @@ const getEvidences = async (req, res) => {
 
         let filterDepartmentIds = [];
         if (departmentId) {
-            filterDepartmentIds = Array.isArray(departmentId) ? departmentId : departmentId.split(',');
+            filterDepartmentIds = Array.isArray(departmentId) ? filterDepartmentIds : departmentId.split(',');
         }
 
 
@@ -956,7 +956,7 @@ const getFullEvidenceTree = async (req, res) => {
         const { programId, organizationId, departmentId } = req.query;
         const academicYearId = req.academicYearId;
 
-        console.log('getFullEvidenceTree called:', { programId, organizationId, departmentId, academicYearId });
+        const userDeptId = req.user.department?.toString();
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -965,31 +965,15 @@ const getFullEvidenceTree = async (req, res) => {
             });
         }
 
-        let queryDepartmentId = departmentId;
-        if (req.user.role !== 'admin') {
-            if (!req.user.department) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chưa được gán vào phòng ban nào'
-                });
-            }
-            queryDepartmentId = req.user.department.toString();
-
-            if (departmentId && departmentId !== queryDepartmentId) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền xem cây minh chứng của phòng ban bạn'
-                });
-            }
-        } else {
-            if (!queryDepartmentId) {
-                queryDepartmentId = undefined;
-            }
-        }
-
         const mongoose = require('mongoose');
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
+
+        let standardCriteriaQuery = {
+            academicYearId,
+            programId,
+            organizationId
+        };
 
         let evidenceQuery = {
             academicYearId,
@@ -997,13 +981,20 @@ const getFullEvidenceTree = async (req, res) => {
             organizationId
         };
 
-        if (queryDepartmentId) {
-            evidenceQuery.departmentId = queryDepartmentId;
+        // LOGIC MỚI: Lọc Tiêu chuẩn/Tiêu chí/Minh chứng theo departmentId nếu có chọn filter
+        if (departmentId) {
+            standardCriteriaQuery.departmentId = departmentId;
+            evidenceQuery.departmentId = departmentId;
+        } else if (req.user.role !== 'admin') {
+            // Khi Manager không chọn phòng ban, Evidence Query không lọc theo phòng ban
+            // -> Trả về tất cả Evidences (cho phép Manager thấy tất cả các phòng ban)
+            // standardCriteriaQuery cũng không lọc theo departmentId -> Trả về tất cả S/C
         }
 
+
         const [standards, allCriteria, evidences] = await Promise.all([
-            StandardModel.find({ academicYearId, programId }).sort({ code: 1 }).lean(),
-            CriteriaModel.find({ academicYearId, programId }).sort({ standardCode: 1, code: 1 }).lean(),
+            StandardModel.find(standardCriteriaQuery).sort({ code: 1 }).lean(),
+            CriteriaModel.find(standardCriteriaQuery).sort({ standardId: 1, code: 1 }).lean(),
             Evidence.find(evidenceQuery)
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
@@ -1063,7 +1054,8 @@ const getFullEvidenceTree = async (req, res) => {
                         code: e.code,
                         name: e.name,
                         fileCount: e.files?.length || 0,
-                        status: e.status
+                        status: e.status,
+                        departmentId: e.departmentId?._id.toString()
                     }))
                 };
 
@@ -1095,7 +1087,8 @@ const getFullEvidenceTree = async (req, res) => {
                 tree,
                 academicYear: req.currentAcademicYear,
                 statistics,
-                userRole: req.user.role
+                userRole: req.user.role,
+                userDepartmentId: userDeptId
             }
         });
 
