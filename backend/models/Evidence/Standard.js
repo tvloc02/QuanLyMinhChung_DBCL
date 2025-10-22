@@ -27,8 +27,6 @@ const standardSchema = new mongoose.Schema({
         }
     },
 
-
-
     programId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program',
@@ -41,6 +39,11 @@ const standardSchema = new mongoose.Schema({
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
 
+    departmentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department',
+        required: [true, 'Phòng ban là bắt buộc']
+    },
 
     objectives: {
         type: String,
@@ -98,7 +101,8 @@ const standardSchema = new mongoose.Schema({
     }
 });
 
-standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, code: 1 }, { unique: true });
+standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, departmentId: 1, code: 1 }, { unique: true });
+standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, departmentId: 1 });
 standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, order: 1 });
 standardSchema.index({ academicYearId: 1, status: 1 });
 
