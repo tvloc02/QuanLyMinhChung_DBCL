@@ -1459,7 +1459,7 @@ const assignUsers = async (req, res) => {
         evidence.assignedTo = Array.from(new Set([
             ...evidence.assignedTo.map(id => id.toString()),
             ...userIds
-        ])).map(id => mongoose.Types.ObjectId(id));
+        ])).map(id => new mongoose.Types.ObjectId(id)); // ✅ ĐÃ SỬA TẠI ĐÂY
 
         // Cập nhật status thành 'assigned' nếu còn 'new'
         if (evidence.status === 'new') {
@@ -1511,5 +1511,5 @@ module.exports = {
     getPublicEvidence,
     sendCompletionRequest,
     submitCompletionNotification,
-    assignUsers   
+    assignUsers
 };
