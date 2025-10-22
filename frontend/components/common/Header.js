@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import { apiMethods } from '../../services/api'
@@ -40,17 +40,71 @@ export default function Header({ onMenuClick, sidebarOpen }) {
     const [unreadCount, setUnreadCount] = useState(0)
     const [notificationsLoading, setNotificationsLoading] = useState(false)
 
+    // Tối ưu hóa: Dùng useCallback cho các hàm fetch
+    const fetchNotifications = useCallback(async () => {
+        try {
+            setNotificationsLoading(true)
+            const response = await apiMethods.notifications.getAll({
+                page: 1,
+                limit: 5,
+                unreadOnly: false
+            })
+
+            if (response.data.success) {
+                setNotifications(response.data.data.notifications)
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error)
+        } finally {
+            setNotificationsLoading(false)
+        }
+    }, [])
+
+    const fetchUnreadCount = useCallback(async () => {
+        try {
+            const response = await apiMethods.notifications.getUnreadCount()
+            if (response && response.data && response.data.success) {
+                setUnreadCount(response.data.data.unreadCount)
+            } else {
+                console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
+                setUnreadCount(0);
+            }
+        } catch (error) {
+            console.error('Error fetching unread count (Server 500 likely):', error)
+            setUnreadCount(0)
+        }
+    }, [])
+
     useEffect(() => {
         fetchAcademicYears()
         fetchNotifications()
         fetchUnreadCount()
 
+        // 1. CƠ CHẾ POLLING (15 giây)
         const interval = setInterval(() => {
             fetchUnreadCount()
-        }, 30000)
+            fetchNotifications()
+        }, 15000)
 
-        return () => clearInterval(interval)
-    }, [])
+        // 2. CƠ CHẾ WINDOW FOCUS (TẢI LẠI KHI NGƯỜI DÙNG QUAY LẠI TAB)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Window focused, reloading notifications...')
+                fetchUnreadCount()
+                fetchNotifications()
+            }
+        };
+
+        window.addEventListener('focus', handleVisibilityChange);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+
+        return () => {
+            clearInterval(interval)
+            window.removeEventListener('focus', handleVisibilityChange);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
+    }, [fetchNotifications, fetchUnreadCount])
 
     const fetchAcademicYears = async () => {
         try {
@@ -103,39 +157,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
         }
     }
 
-    const fetchNotifications = async () => {
-        try {
-            setNotificationsLoading(true)
-            const response = await apiMethods.notifications.getAll({
-                page: 1,
-                limit: 5,
-                unreadOnly: false
-            })
-
-            if (response.data.success) {
-                setNotifications(response.data.data.notifications)
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error)
-        } finally {
-            setNotificationsLoading(false)
-        }
-    }
-
-    const fetchUnreadCount = async () => {
-        try {
-            const response = await apiMethods.notifications.getUnreadCount()
-            if (response && response.data && response.data.success) {
-                setUnreadCount(response.data.data.unreadCount)
-            } else {
-                console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
-                setUnreadCount(0);
-            }
-        } catch (error) {
-            console.error('Error fetching unread count (Server 500 likely):', error)
-            setUnreadCount(0)
-        }
-    }
 
     const handleNotificationClick = async (notification) => {
         if (notification.isUnread) {
@@ -202,7 +223,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     ? `/reports/my-assignments`
                     : null
 
-            // BỔ SUNG: Dẫn đến cây minh chứng với filter phòng ban
+            // Dẫn đến cây minh chứng với filter phòng ban
             case 'completion_request':
             case 'completion_notification':
                 return notification.data?.departmentId
@@ -563,6 +584,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 onClick={() => {
                                     setNotificationDropdownOpen(!notificationDropdownOpen)
                                     if (!notificationDropdownOpen) {
+                                        // Tải lại thông báo ngay khi mở dropdown
                                         fetchNotifications()
                                     }
                                 }}
@@ -643,6 +665,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                             }`}>
                                                                 {notification.title}
                                                             </p>
+                                                            {/* SỬA LỖI RENDER: Sử dụng optional chaining cho message */}
                                                             <p className="text-xs mb-2 line-clamp-2 text-gray-600">
                                                                 {notification.message}
                                                             </p>
