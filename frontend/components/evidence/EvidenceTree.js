@@ -49,12 +49,16 @@ export default function EvidenceTree() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [draggedEvidence, setDraggedEvidence] = useState(null)
     const [showRequestModal, setShowRequestModal] = useState(false)
-    const [userRole, setUserRole] = useState('')
+    const [userRole, setUserRole] = useState('') // Khởi tạo rỗng
 
     useEffect(() => {
         fetchPrograms()
         fetchOrganizations()
         fetchDepartments()
+
+        // BỎ HARDCODE: Lấy vai trò từ localStorage (phụ thuộc vào cách client lưu trữ thông tin user)
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        setUserRole(user.role || '');
     }, [])
 
     useEffect(() => {
@@ -130,8 +134,11 @@ export default function EvidenceTree() {
 
             setTreeData(response.data.data.tree || [])
             setStatistics(response.data.data.statistics || null)
-            // Lấy userRole từ backend response
-            setUserRole(response.data.data.userRole || '')
+
+            // Lấy role từ API (đã được sửa trong Controller)
+            if (response.data.data.userRole) {
+                setUserRole(response.data.data.userRole);
+            }
         } catch (error) {
             console.error('Fetch tree data error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi khi tải cây minh chứng'
@@ -341,6 +348,7 @@ export default function EvidenceTree() {
         }
     }
 
+    // ADMIN: Gửi yêu cầu hoàn thiện
     const handleSendCompletionRequest = async () => {
         if (!selectedDepartment) {
             toast.error('Vui lòng chọn phòng ban')
@@ -359,19 +367,32 @@ export default function EvidenceTree() {
         }
     }
 
-    const handleSubmitCompletion = async () => {
+    // MANAGER: Mở modal xác nhận hoàn thiện
+    const handleSubmitCompletion = () => {
         if (!selectedDepartment) {
             toast.error('Vui lòng chọn phòng ban')
             return
         }
 
+        // Mở modal xác nhận trước khi gửi
+        setShowRequestModal(true)
+    }
+
+    // MANAGER: Xác nhận gửi thông báo Hoàn thiện (sau khi nhấn nút trong modal)
+    const confirmSubmitCompletion = async () => {
+        if (!selectedDepartment) return
+
         try {
+            const departmentName = departments.find(d => d._id === selectedDepartment)?.name || 'Phòng ban của bạn'
+            const message = `Quản lý phòng ban ${departmentName} xác nhận đã hoàn thành việc upload file Excel cây minh chứng.`
+
             const response = await apiMethods.evidences.submitCompletionNotification(
                 selectedDepartment,
-                'Cây minh chứng đã được hoàn thiện'
+                message
             )
             if (response.data.success) {
                 toast.success(response.data.message)
+                setShowRequestModal(false)
             }
         } catch (error) {
             console.error('Submit completion error:', error)
@@ -543,6 +564,7 @@ export default function EvidenceTree() {
                         Thu gọn
                     </button>
 
+                    {/* HIỂN THỊ DỰA TRÊN userRole LẤY TỪ STATE */}
                     {userRole === 'admin' && (
                         <button
                             onClick={() => setShowRequestModal(true)}
@@ -850,15 +872,18 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Request Modal */}
+            {/* Request Modal (Dùng cho cả Admin Gửi yêu cầu và Manager Xác nhận) */}
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
                         <h3 className="text-xl font-bold text-gray-900 mb-4">
-                            Gửi yêu cầu hoàn thiện cây minh chứng
+                            {userRole === 'admin' ? 'Gửi yêu cầu hoàn thiện cây minh chứng' : 'Xác nhận Hoàn thiện Cây Minh Chứng'}
                         </h3>
                         <p className="text-gray-600 mb-6">
-                            Bạn sắp gửi yêu cầu đến quản lý phòng ban <strong>{departments.find(d => d._id === selectedDepartment)?.name}</strong> để hoàn thiện cây minh chứng (upload file Excel gồm tiêu chuẩn, tiêu chí, minh chứng).
+                            {userRole === 'admin'
+                                ? `Bạn sắp gửi yêu cầu đến quản lý phòng ban ${departments.find(d => d._id === selectedDepartment)?.name} để hoàn thiện cây minh chứng (upload file Excel gồm tiêu chuẩn, tiêu chí, minh chứng).`
+                                : `Bạn xác nhận đã hoàn thành việc upload file Excel cây minh chứng và muốn gửi thông báo cho Admin?`
+                            }
                         </p>
                         <div className="flex space-x-3">
                             <button
@@ -867,12 +892,21 @@ export default function EvidenceTree() {
                             >
                                 Hủy
                             </button>
-                            <button
-                                onClick={handleSendCompletionRequest}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
-                            >
-                                Gửi yêu cầu
-                            </button>
+                            {userRole === 'admin' ? (
+                                <button
+                                    onClick={handleSendCompletionRequest}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                                >
+                                    Gửi yêu cầu
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={confirmSubmitCompletion}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                                >
+                                    Xác nhận Hoàn thiện
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
