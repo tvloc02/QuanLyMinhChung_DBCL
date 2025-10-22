@@ -22,7 +22,7 @@ const {
     moveEvidence,
     approveFile,
     sendCompletionRequest,
-    submitCompletionNotification
+    submitCompletionNotification, assignUsers
 } = require('../../controllers/evidence/evidenceController');
 
 router.use(auth, setAcademicYearContext);
@@ -256,6 +256,21 @@ router.post('/', [
         .isLength({ max: 1000 })
         .withMessage('Ghi chú không được quá 1000 ký tự')
 ], validation, createEvidence);
+
+router.post('/:id/assign-users', [
+    param('id').isMongoId().withMessage('ID minh chứng không hợp lệ'),
+    body('userIds')
+        .isArray({ min: 1 })
+        .withMessage('userIds phải là mảng và có ít nhất 1 phần tử')
+        .custom(value => {
+            const mongoose = require('mongoose');
+            const invalidIds = value.filter(id => !mongoose.Types.ObjectId.isValid(id));
+            if (invalidIds.length > 0) {
+                throw new Error('ID thành viên không hợp lệ');
+            }
+            return true;
+        })
+], validation, assignUsers);
 
 // ========== UPDATE ==========
 router.put('/:id', [
