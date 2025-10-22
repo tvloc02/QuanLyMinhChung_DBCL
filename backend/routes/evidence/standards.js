@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
-//const { setAcademicYearContext } = require('../middleware/academicYear');
 const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
@@ -15,12 +14,8 @@ const {
     getStandardStatistics
 } = require('../../controllers/evidence/standardController');
 
-// Apply academic year context to all routes
-//router.use(auth, setAcademicYearContext);
-
 router.use(auth, attachCurrentAcademicYear);
 
-// Validation rules
 const createStandardValidation = [
     body('name')
         .notEmpty()
@@ -42,6 +37,11 @@ const createStandardValidation = [
         .withMessage('Tổ chức - Cấp đánh giá là bắt buộc')
         .isMongoId()
         .withMessage('ID tổ chức không hợp lệ'),
+    body('departmentId')
+        .notEmpty()
+        .withMessage('Phòng ban là bắt buộc')
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ'),
     body('objectives')
         .optional()
         .isLength({ max: 2000 })
@@ -54,18 +54,23 @@ const createStandardValidation = [
 
 const updateStandardValidation = [
     param('id').isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
+    body('departmentId')
+        .optional()
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ'),
     ...createStandardValidation.filter(rule =>
         !rule.builder.fields.includes('programId') &&
-        !rule.builder.fields.includes('organizationId')
+        !rule.builder.fields.includes('organizationId') &&
+        !rule.builder.fields.includes('departmentId')
     )
 ];
 
-// Routes
 router.get('/statistics',
     requireManager,
     [
         query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
-        query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ')
+        query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
+        query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ')
     ],
     validation,
     getStandardStatistics
@@ -81,7 +86,12 @@ router.get('/by-program-org', [
         .notEmpty()
         .withMessage('ID tổ chức là bắt buộc')
         .isMongoId()
-        .withMessage('ID tổ chức không hợp lệ')
+        .withMessage('ID tổ chức không hợp lệ'),
+    query('departmentId')
+        .notEmpty()
+        .withMessage('ID phòng ban là bắt buộc')
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ')
 ], validation, getStandardsByProgramAndOrg);
 
 router.get('/', [
@@ -90,6 +100,7 @@ router.get('/', [
     query('search').optional().trim().escape(),
     query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
     query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
+    query('departmentId').optional().isMongoId().withMessage('ID phòng ban không hợp lệ'),
     query('status').optional().isIn(['draft', 'active', 'inactive', 'archived']),
     query('sortBy').optional().isIn(['order', 'code', 'name', 'createdAt', 'updatedAt']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
