@@ -230,6 +230,8 @@ export const apiMethods = {
             params: { format },
             responseType: 'arraybuffer'
         }),
+        assignUsers: (evidenceId, data) =>
+            api.post(`/api/evidences/${evidenceId}/assign-users`, data),
         sendCompletionRequest: (departmentId) =>
             api.post('/api/evidences/requests/send-completion-request', { departmentId }),
 
