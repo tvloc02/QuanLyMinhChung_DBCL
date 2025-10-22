@@ -16,7 +16,6 @@ const {
 
 router.use(auth, attachCurrentAcademicYear);
 
-// Validation rules
 const createCriteriaValidation = [
     body('name')
         .notEmpty()
@@ -26,40 +25,50 @@ const createCriteriaValidation = [
     body('code')
         .optional()
         .matches(/^\d{1,2}$/)
-        .withMessage('Mã tiêu chí phải là số từ 1-99'),
-    body('autoGenerateCode')
-        .optional()
-        .isBoolean()
-        .withMessage('autoGenerateCode phải là boolean'),
+        .withMessage('Mã tiêu chí phải là 1-2 chữ số'),
     body('standardId')
         .notEmpty()
         .withMessage('Tiêu chuẩn là bắt buộc')
         .isMongoId()
         .withMessage('ID tiêu chuẩn không hợp lệ'),
+    body('departmentId')
+        .notEmpty()
+        .withMessage('Phòng ban là bắt buộc')
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ'),
     body('requirements')
         .optional()
         .isLength({ max: 2000 })
         .withMessage('Yêu cầu không được quá 2000 ký tự'),
+    body('guidelines')
+        .optional()
+        .isLength({ max: 2000 })
+        .withMessage('Hướng dẫn không được quá 2000 ký tự'),
     body('indicators')
         .optional()
         .isArray()
-        .withMessage('Chỉ số phải là mảng')
+        .withMessage('Chỉ số đánh giá phải là mảng')
 ];
 
 const updateCriteriaValidation = [
     param('id').isMongoId().withMessage('ID tiêu chí không hợp lệ'),
-    ...createCriteriaValidation.filter(rule =>
-        !rule.builder.fields.includes('standardId')
-    )
+    body('code')
+        .optional()
+        .matches(/^\d{1,2}$/)
+        .withMessage('Mã tiêu chí phải là 1-2 chữ số'),
+    body('departmentId')
+        .optional()
+        .isMongoId()
+        .withMessage('ID phòng ban không hợp lệ'),
+    ...createCriteriaValidation.filter(rule => !rule.builder.fields.includes('standardId'))
 ];
 
-// Routes
 router.get('/statistics',
     requireManager,
     [
-        query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
-        query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
-        query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ')
+        query('programId').optional().isMongoId(),
+        query('organizationId').optional().isMongoId(),
+        query('departmentId').optional().isMongoId()
     ],
     validation,
     getCriteriaStatistics
@@ -74,12 +83,13 @@ router.get('/by-standard', [
 ], validation, getCriteriaByStandard);
 
 router.get('/', [
-    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
     query('search').optional().trim().escape(),
-    query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
-    query('programId').optional().isMongoId().withMessage('ID chương trình không hợp lệ'),
-    query('organizationId').optional().isMongoId().withMessage('ID tổ chức không hợp lệ'),
+    query('standardId').optional().isMongoId(),
+    query('programId').optional().isMongoId(),
+    query('organizationId').optional().isMongoId(),
+    query('departmentId').optional().isMongoId(),
     query('status').optional().isIn(['draft', 'active', 'inactive', 'archived']),
     query('sortBy').optional().isIn(['code', 'name', 'createdAt', 'updatedAt']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
