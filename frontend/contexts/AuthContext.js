@@ -65,7 +65,16 @@ export const AuthProvider = ({ children }) => {
 
             const response = await axios.get('/api/auth/me')
             if (response.data.success) {
-                setUser(response.data.data)
+                const userData = response.data.data
+                setUser(userData)
+
+                // ✅ DEBUG: In ra user info cho Sidebar
+                console.log('✅ [AUTH] User loaded:', {
+                    id: userData._id,
+                    email: userData.email,
+                    role: userData.role,
+                    roles: userData.roles
+                })
             } else {
                 localStorage.removeItem('token')
                 setToken(null)
@@ -87,7 +96,7 @@ export const AuthProvider = ({ children }) => {
         try {
             setIsLoading(true)
 
-            console.log('🔄 Attempting login:', {
+            console.log('🔐 [AUTH] Attempting login:', {
                 url: `${axios.defaults.baseURL}/api/auth/login`,
                 email,
                 timestamp: new Date().toISOString()
@@ -98,13 +107,22 @@ export const AuthProvider = ({ children }) => {
                 password
             })
 
-            console.log('📡 Login response:', response.data)
+            console.log('📡 [AUTH] Login response:', response.data)
 
             if (response.data.success) {
                 const { token: newToken, user: userData } = response.data.data
 
+                // ✅ DEBUG: In ra user info sau khi login
+                console.log('✅ [AUTH] Login successful:', {
+                    id: userData._id,
+                    email: userData.email,
+                    role: userData.role,
+                    roles: userData.roles
+                })
+
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', newToken)
+                    localStorage.setItem('user', JSON.stringify(userData))
                 }
                 setToken(newToken)
                 axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
@@ -117,7 +135,7 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: response.data.message }
             }
         } catch (error) {
-            console.error('❌ Login error:', error)
+            console.error('❌ [AUTH] Login error:', error)
 
             let errorMessage = 'Lỗi kết nối mạng'
 
@@ -150,6 +168,7 @@ export const AuthProvider = ({ children }) => {
         } finally {
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('token')
+                localStorage.removeItem('user')
             }
             setToken(null)
             setUser(null)
@@ -159,13 +178,28 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
+    // ✅ Helper functions
+    const hasRole = (role) => {
+        if (!user) return false
+        return user.roles?.includes(role) || user.role === role
+    }
+
+    const hasAnyRole = (roles) => {
+        if (!user) return false
+        return roles.some(role => user.roles?.includes(role) || user.role === role)
+    }
+
     const value = {
         user,
         token,
         isLoading,
+        loading: isLoading,
         login,
         logout,
-        checkAuth
+        checkAuth,
+        hasRole,
+        hasAnyRole,
+        isAuthenticated: !!user && !!token
     }
 
     return (
