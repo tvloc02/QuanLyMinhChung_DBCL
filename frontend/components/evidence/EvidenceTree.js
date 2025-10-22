@@ -1,4 +1,3 @@
-// EvidenceTree.js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
@@ -56,10 +55,6 @@ export default function EvidenceTree() {
         fetchPrograms()
         fetchOrganizations()
         fetchDepartments()
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
-        console.log('User từ localStorage:', user)
-        console.log('User role:', user.role)
-        setUserRole('admin')
     }, [])
 
     useEffect(() => {
@@ -135,6 +130,8 @@ export default function EvidenceTree() {
 
             setTreeData(response.data.data.tree || [])
             setStatistics(response.data.data.statistics || null)
+            // Lấy userRole từ backend response
+            setUserRole(response.data.data.userRole || '')
         } catch (error) {
             console.error('Fetch tree data error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi khi tải cây minh chứng'
