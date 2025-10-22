@@ -1178,8 +1178,22 @@ const approveFile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
         }
 
+        // ===== KIỂM TRA QUYỀN DUYỆT FILE =====
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({ success: false, message: 'Chỉ Admin hoặc Manager mới có quyền phê duyệt file' });
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Admin hoặc Manager mới có quyền phê duyệt file'
+            });
+        }
+
+        // Manager chỉ được duyệt file của phòng ban mình
+        if (req.user.role === 'manager') {
+            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Manager chỉ có quyền duyệt file của phòng ban mình'
+                });
+            }
         }
 
         if (status === 'rejected' && !rejectionReason) {
@@ -1190,7 +1204,7 @@ const approveFile = async (req, res) => {
         file.approvalStatus = status;
         file.approvedBy = userId;
         file.rejectionReason = status === 'rejected' ? rejectionReason : undefined;
-        file.approvedAt = new Date();
+        file.approvalDate = new Date();
 
         await file.save();
 
@@ -1403,6 +1417,78 @@ const submitCompletionNotification = async (req, res) => {
     }
 };
 
+const assignUsers = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userIds } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!userIds || userIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng chọn ít nhất một thành viên'
+            });
+        }
+
+        const evidence = await Evidence.findOne({ _id: id, academicYearId });
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        // ===== KIỂM TRA QUYỀN: Chỉ Manager phòng ban được phân quyền =====
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager mới có quyền phân quyền'
+            });
+        }
+
+        if (req.user.role === 'manager') {
+            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Manager chỉ được phân quyền cho phòng ban mình'
+                });
+            }
+        }
+
+        // Update assignedTo - thêm user vào danh sách
+        evidence.assignedTo = Array.from(new Set([
+            ...evidence.assignedTo.map(id => id.toString()),
+            ...userIds
+        ])).map(id => mongoose.Types.ObjectId(id));
+
+        // Cập nhật status thành 'assigned' nếu còn 'new'
+        if (evidence.status === 'new') {
+            evidence.status = 'assigned';
+        }
+
+        evidence.updatedBy = req.user.id;
+        await evidence.save();
+
+        await evidence.populate([
+            { path: 'assignedTo', select: 'fullName email' },
+            { path: 'departmentId', select: 'name code' }
+        ]);
+
+        res.json({
+            success: true,
+            message: `Đã phân quyền cho ${userIds.length} thành viên`,
+            data: evidence
+        });
+
+    } catch (error) {
+        console.error('Assign users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phân quyền'
+        });
+    }
+};
+
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -1424,5 +1510,6 @@ module.exports = {
     getEvidenceByCode,
     getPublicEvidence,
     sendCompletionRequest,
-    submitCompletionNotification
+    submitCompletionNotification,
+    assignUsers   
 };
