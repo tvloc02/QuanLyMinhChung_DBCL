@@ -49,16 +49,15 @@ export default function EvidenceTree() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [draggedEvidence, setDraggedEvidence] = useState(null)
     const [showRequestModal, setShowRequestModal] = useState(false)
-    const [userRole, setUserRole] = useState('') // Khởi tạo rỗng
+    const [userRole, setUserRole] = useState('')
 
     useEffect(() => {
         fetchPrograms()
         fetchOrganizations()
         fetchDepartments()
 
-        // BỎ HARDCODE: Lấy vai trò từ localStorage (phụ thuộc vào cách client lưu trữ thông tin user)
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        setUserRole(user.role || '');
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        setUserRole(user.role || '')
     }, [])
 
     useEffect(() => {
@@ -135,7 +134,6 @@ export default function EvidenceTree() {
             setTreeData(response.data.data.tree || [])
             setStatistics(response.data.data.statistics || null)
 
-            // Lấy role từ API (đã được sửa trong Controller)
             if (response.data.data.userRole) {
                 setUserRole(response.data.data.userRole);
             }
@@ -348,7 +346,6 @@ export default function EvidenceTree() {
         }
     }
 
-    // ADMIN: Gửi yêu cầu hoàn thiện
     const handleSendCompletionRequest = async () => {
         if (!selectedDepartment) {
             toast.error('Vui lòng chọn phòng ban')
@@ -367,18 +364,15 @@ export default function EvidenceTree() {
         }
     }
 
-    // MANAGER: Mở modal xác nhận hoàn thiện
     const handleSubmitCompletion = () => {
         if (!selectedDepartment) {
             toast.error('Vui lòng chọn phòng ban')
             return
         }
 
-        // Mở modal xác nhận trước khi gửi
         setShowRequestModal(true)
     }
 
-    // MANAGER: Xác nhận gửi thông báo Hoàn thiện (sau khi nhấn nút trong modal)
     const confirmSubmitCompletion = async () => {
         if (!selectedDepartment) return
 
@@ -449,7 +443,6 @@ export default function EvidenceTree() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -471,7 +464,6 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
@@ -544,7 +536,6 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Actions */}
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex space-x-3">
                     <button
@@ -564,7 +555,6 @@ export default function EvidenceTree() {
                         Thu gọn
                     </button>
 
-                    {/* HIỂN THỊ DỰA TRÊN userRole LẤY TỪ STATE */}
                     {userRole === 'admin' && (
                         <button
                             onClick={() => setShowRequestModal(true)}
@@ -623,7 +613,6 @@ export default function EvidenceTree() {
                 </div>
             </div>
 
-            {/* Statistics */}
             {statistics && (
                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -651,7 +640,6 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Tree */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
@@ -793,7 +781,6 @@ export default function EvidenceTree() {
                 )}
             </div>
 
-            {/* File Management */}
             {selectedEvidence && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <FileManagement
@@ -804,7 +791,6 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Import Modal */}
             {showImportModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
@@ -872,7 +858,6 @@ export default function EvidenceTree() {
                 </div>
             )}
 
-            {/* Request Modal (Dùng cho cả Admin Gửi yêu cầu và Manager Xác nhận) */}
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
