@@ -196,7 +196,6 @@ export default function NotificationsPage() {
                     ? `/assignments/my-assignments`
                     : null
 
-            // BỔ SUNG: Dẫn đến cây minh chứng với filter phòng ban
             case 'completion_request':
             case 'completion_notification':
                 return notification.data?.departmentId
@@ -490,7 +489,8 @@ export default function NotificationsPage() {
                                                                 {formatDate(notification.createdAt)}
                                                             </span>
 
-                                                            {notification.senderId && (
+                                                            {/* SỬA LỖI RENDER: Sử dụng Optional Chaining khi truy cập fullName */}
+                                                            {notification.senderId?.fullName && (
                                                                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
                                                                     Từ: {notification.senderId.fullName}
                                                                 </span>
