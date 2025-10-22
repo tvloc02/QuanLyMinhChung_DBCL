@@ -29,14 +29,16 @@ import {
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
 import ApproveFilesModal from './ApproveFilesModal.js'
-import { useAuth } from '../../contexts/AuthContext' // Đã sửa lỗi: Import useAuth
+import { useAuth } from '../../contexts/AuthContext'
 
 const ITEMS_PER_PAGE = 20;
 
 export default function EvidenceManagement() {
     const router = useRouter()
-    const { user, isLoading: isAuthLoading } = useAuth() // GỌI useAuth để lấy thông tin user
+    const { user, isLoading: isAuthLoading } = useAuth()
     const isAdmin = user?.role === 'admin'
+    // Lấy ID phòng ban của người dùng (có thể là undefined nếu user không có phòng ban)
+    const userDepartmentId = user?.department;
 
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(true)
@@ -59,6 +61,7 @@ export default function EvidenceManagement() {
         limit: ITEMS_PER_PAGE,
         sortBy: 'createdAt',
         sortOrder: 'desc'
+        // Không cần state userDepartmentId trong filters vì nó được quản lý bởi API backend
     })
 
     const [programs, setPrograms] = useState([])
@@ -80,7 +83,10 @@ export default function EvidenceManagement() {
 
     useEffect(() => {
         // Chỉ fetch evidences nếu người dùng đã tải xong (không còn loading auth)
+        // và nếu không phải admin, đảm bảo userDepartmentId đã load (dù là null/undefined)
         if (!isAuthLoading) {
+            // Đối với non-admin, nếu userDepartmentId là null/undefined, API sẽ tự trả về 0 kết quả
+            // (vì backend filter theo query.departmentId = null/undefined)
             fetchEvidences()
         }
     }, [isAuthLoading, filters.page, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
@@ -121,6 +127,7 @@ export default function EvidenceManagement() {
             if (filters.organizationId) params.organizationId = filters.organizationId
             if (filters.standardId) params.standardId = filters.standardId
             if (filters.criteriaId) params.criteriaId = filters.criteriaId
+            // KHÔNG CẦN truyền departmentId cho non-admin vì backend đã tự động thêm req.user.department
 
             const response = await apiMethods.evidences.getAll(params)
             const data = response.data?.data || response.data
@@ -232,6 +239,7 @@ export default function EvidenceManagement() {
 
         try {
             for (const id of selectedItems) {
+                // Backend sẽ kiểm tra quyền từng lần xóa
                 await apiMethods.evidences.delete(id)
             }
             toast.success(`Đã xóa ${selectedItems.length} minh chứng`)
@@ -317,16 +325,15 @@ export default function EvidenceManagement() {
         switch (status) {
             case 'new':
                 return { status: 'new', text: 'Mới tạo', color: 'gray', icon: FileText };
+            case 'assigned':
+                return { status: 'assigned', text: 'Đã phân quyền', color: 'yellow', icon: AlertCircle };
             case 'in_progress':
                 if (fileCount > 0 && pendingCount > 0) {
-                    return { status: 'pending', text: 'Đang chờ duyệt', color: 'yellow', icon: Clock };
+                    return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
                 }
                 return { status: 'in_progress', text: 'Đang thực hiện', color: 'blue', icon: Clock };
-            case 'completed':
-                if (approvedCount > 0 && approvedCount < fileCount && pendingCount === 0 && rejectedCount === 0) {
-                    return { status: 'partial', text: `${approvedCount}/${fileCount} file`, color: 'teal', icon: Clock };
-                }
-                return { status: 'completed', text: 'Hoàn thành (Cần duyệt)', color: 'blue', icon: CheckCircle };
+            case 'pending_approval':
+                return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
             case 'approved':
                 return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle };
             case 'rejected':
@@ -350,14 +357,15 @@ export default function EvidenceManagement() {
             red: 'bg-red-100 text-red-700 border-red-200',
             blue: 'bg-blue-100 text-blue-700 border-blue-200',
             teal: 'bg-teal-100 text-teal-700 border-teal-200',
-            new: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-            pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-            partial: 'bg-teal-100 text-teal-700 border-teal-200',
+            new: 'bg-gray-100 text-gray-700 border-gray-200',
+            assigned: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+            in_progress: 'bg-blue-100 text-blue-700 border-blue-200',
+            pending_approval: 'bg-purple-100 text-purple-700 border-purple-200',
             unknown: 'bg-red-100 text-red-700 border-red-200'
         }
 
         return (
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClasses[statusDisplay.color]}`}>
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClasses[statusDisplay.status] || colorClasses['unknown']}`}>
                 {Icon && <Icon className="h-3.5 w-3.5 mr-1" />}
                 {statusDisplay.text}
             </span>
@@ -365,11 +373,37 @@ export default function EvidenceManagement() {
     }
     // *** KẾT THÚC LOGIC TRẠNG THÁI ***
 
+    // Logic kiểm tra quyền chỉnh sửa cho non-admin
+    const canEditEvidence = (evidence) => {
+        // Admin luôn có quyền
+        if (isAdmin) return true;
+        // Manager/TGD chỉ có quyền nếu minh chứng thuộc phòng ban của mình
+        if ((user?.role === 'manager' || user?.role === 'tdg') && userDepartmentId && evidence.departmentId?._id?.toString() === userDepartmentId) {
+            return true;
+        }
+        return false;
+    }
+
+
     if (isAuthLoading) {
         return (
             <div className="flex flex-col justify-center items-center py-16 min-h-[500px]">
                 <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
                 <p className="text-gray-600 font-medium">Đang tải dữ liệu người dùng...</p>
+            </div>
+        )
+    }
+
+    // Nếu user không phải admin và không có departmentId (không có phòng ban), chặn không cho xem
+    if (!isAdmin && !userDepartmentId) {
+        return (
+            <div className="p-16 text-center bg-white rounded-2xl shadow-lg">
+                <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Không có quyền truy cập</h3>
+                <p className="text-gray-500">
+                    Bạn không phải là Admin và chưa được gán vào phòng ban nào.
+                    Vui lòng liên hệ Admin để được gán phòng ban.
+                </p>
             </div>
         )
     }
@@ -390,13 +424,16 @@ export default function EvidenceManagement() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => router.push('/evidence/create')}
-                        className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
-                    >
-                        <Plus className="h-5 w-5 mr-2" />
-                        Tạo minh chứng mới
-                    </button>
+                    {/* Chỉ cho phép Manager/TGD tạo minh chứng */}
+                    {(isAdmin || user?.role === 'manager' || user?.role === 'tdg') && (
+                        <button
+                            onClick={() => router.push('/evidence/create')}
+                            className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
+                        >
+                            <Plus className="h-5 w-5 mr-2" />
+                            Tạo minh chứng mới
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -658,134 +695,137 @@ export default function EvidenceManagement() {
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white">
-                                {evidences.map((evidence, index) => (
-                                    <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedItems.includes(evidence._id)}
-                                                onChange={() => toggleSelectItem(evidence._id)}
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                                            />
-                                        </td>
-                                        <td className="px-2 py-3 text-center border-r border-gray-200">
+                                {evidences.map((evidence, index) => {
+                                    const isEditable = canEditEvidence(evidence); // Kiểm tra quyền chỉnh sửa
+                                    return (
+                                        <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedItems.includes(evidence._id)}
+                                                    onChange={() => toggleSelectItem(evidence._id)}
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-3 text-center border-r border-gray-200">
                                             <span className="text-sm font-semibold text-gray-700">
                                                 {((pagination.current - 1) * filters.limit) + index + 1}
                                             </span>
-                                        </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            </td>
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
                                             <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
                                                 {evidence.code}
                                             </span>
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-gray-200">
-                                            <div className="max-w-md">
-                                                <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
-                                                    {evidence.name}
-                                                </p>
-                                                {evidence.documentNumber && (
-                                                    <p className="text-xs text-gray-500 mt-1 truncate" title={`Số: ${evidence.documentNumber}`}>
-                                                        Số: {evidence.documentNumber}
+                                            </td>
+                                            <td className="px-4 py-3 border-r border-gray-200">
+                                                <div className="max-w-md">
+                                                    <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
+                                                        {evidence.name}
                                                     </p>
+                                                    {evidence.documentNumber && (
+                                                        <p className="text-xs text-gray-500 mt-1 truncate" title={`Số: ${evidence.documentNumber}`}>
+                                                            Số: {evidence.documentNumber}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 border-r border-gray-200">
+                                                {evidence.standardId && (
+                                                    <div>
+                                                        <button
+                                                            onClick={() => toggleExpandRow(evidence._id)}
+                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
+                                                        >
+                                                            {expandedRows[evidence._id] ? (
+                                                                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
+                                                            ) : (
+                                                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
+                                                            )}
+                                                            <div className="flex-1">
+                                                                <span className="font-bold text-blue-700">{evidence.standardId?.code}</span>
+                                                                {expandedRows[evidence._id] && evidence.standardId?.name && (
+                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                        {evidence.standardId?.name}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-3 border-r border-gray-200">
-                                            {evidence.standardId && (
-                                                <div>
-                                                    <button
-                                                        onClick={() => toggleExpandRow(evidence._id)}
-                                                        className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
-                                                    >
-                                                        {expandedRows[evidence._id] ? (
-                                                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
-                                                        ) : (
-                                                            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
-                                                        )}
-                                                        <div className="flex-1">
-                                                            <span className="font-bold text-blue-700">{evidence.standardId?.code}</span>
-                                                            {expandedRows[evidence._id] && evidence.standardId?.name && (
-                                                                <p className="mt-1 text-gray-600 leading-relaxed">
-                                                                    {evidence.standardId?.name}
-                                                                </p>
+                                            </td>
+                                            <td className="px-3 py-3 border-r border-gray-200">
+                                                {evidence.criteriaId && (
+                                                    <div>
+                                                        <button
+                                                            onClick={() => toggleExpandRow(evidence._id)}
+                                                            className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
+                                                        >
+                                                            {expandedRows[evidence._id] ? (
+                                                                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
+                                                            ) : (
+                                                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
                                                             )}
-                                                        </div>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-3 border-r border-gray-200">
-                                            {evidence.criteriaId && (
-                                                <div>
-                                                    <button
-                                                        onClick={() => toggleExpandRow(evidence._id)}
-                                                        className="flex items-start space-x-1 text-xs hover:text-blue-600 transition-colors w-full text-left"
-                                                    >
-                                                        {expandedRows[evidence._id] ? (
-                                                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
-                                                        ) : (
-                                                            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
-                                                        )}
-                                                        <div className="flex-1">
-                                                            <span className="font-bold text-blue-700">{evidence.criteriaId?.code}</span>
-                                                            {expandedRows[evidence._id] && evidence.criteriaId?.name && (
-                                                                <p className="mt-1 text-gray-600 leading-relaxed">
-                                                                    {evidence.criteriaId?.name}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-2 py-3 text-center border-r border-gray-200">
+                                                            <div className="flex-1">
+                                                                <span className="font-bold text-blue-700">{evidence.criteriaId?.code}</span>
+                                                                {expandedRows[evidence._id] && evidence.criteriaId?.name && (
+                                                                    <p className="mt-1 text-gray-600 leading-relaxed">
+                                                                        {evidence.criteriaId?.name}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-2 py-3 text-center border-r border-gray-200">
                                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                                 {evidence.files?.length || 0}
                                             </span>
-                                        </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <ApprovalStatusBadge evidence={evidence} />
-                                        </td>
-                                        <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
-                                            {formatDate(evidence.createdAt)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <ActionButton
-                                                    icon={Eye}
-                                                    variant="view"
-                                                    size="sm"
-                                                    onClick={() => handleViewDetail(evidence._id)}
-                                                />
+                                            </td>
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                                <ApprovalStatusBadge evidence={evidence} />
+                                            </td>
+                                            <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
+                                                {formatDate(evidence.createdAt)}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        variant="view"
+                                                        size="sm"
+                                                        onClick={() => handleViewDetail(evidence._id)}
+                                                    />
 
-                                                {isAdmin && (
-                                                    <>
-                                                        <ActionButton
-                                                            icon={Edit}
-                                                            variant="edit"
-                                                            size="sm"
-                                                            onClick={() => handleEdit(evidence)}
-                                                        />
+                                                    {/* CHỈNH SỬA: Cho phép Admin HOẶC Manager/TGD của phòng ban edit/move/delete */}
+                                                    {isEditable && (
+                                                        <>
+                                                            <ActionButton
+                                                                icon={Edit}
+                                                                variant="edit"
+                                                                size="sm"
+                                                                onClick={() => handleEdit(evidence)}
+                                                            />
 
-                                                        <ActionButton
-                                                            icon={ArrowRightLeft}
-                                                            variant="primary"
-                                                            size="sm"
-                                                            onClick={() => handleMove(evidence)}
-                                                        />
+                                                            <ActionButton
+                                                                icon={ArrowRightLeft}
+                                                                variant="primary"
+                                                                size="sm"
+                                                                onClick={() => handleMove(evidence)}
+                                                            />
 
-                                                        <ActionButton
-                                                            icon={Trash2}
-                                                            variant="delete"
-                                                            size="sm"
-                                                            onClick={() => handleDelete(evidence._id)}
-                                                        />
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                            <ActionButton
+                                                                icon={Trash2}
+                                                                variant="delete"
+                                                                size="sm"
+                                                                onClick={() => handleDelete(evidence._id)}
+                                                            />
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )})}
                                 </tbody>
                             </table>
                         </div>
