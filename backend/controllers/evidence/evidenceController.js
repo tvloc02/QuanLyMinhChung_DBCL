@@ -12,7 +12,6 @@ const mongoose = require('mongoose');
 const Department = require('../../models/User/Department');
 const User = require('../../models/User/User');
 const Notification = require('../../models/system/Notification');
-// KẾT THÚC BỔ SUNG
 
 let Standard, Criteria;
 
@@ -42,7 +41,7 @@ const getEvidences = async (req, res) => {
             search,
             programId,
             organizationId,
-            departmentId, // Bộ lọc mới từ Client
+            departmentId,
             standardId,
             criteriaId,
             status,
@@ -60,7 +59,6 @@ const getEvidences = async (req, res) => {
 
         let filterDepartmentIds = [];
         if (departmentId) {
-            // Chuyển departmentId thành mảng, hỗ trợ chọn nhiều phòng ban
             filterDepartmentIds = Array.isArray(departmentId) ? departmentId : departmentId.split(',');
         }
 
@@ -179,11 +177,6 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN XEM MINH CHỨNG
-        // Admin: có quyền xem tất cả
-        // Manager/TDG/Expert: chỉ xem minh chứng của phòng ban họ
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (evidence.departmentId._id.toString() !== req.user.department) {
                 return res.status(403).json({
@@ -192,7 +185,6 @@ const getEvidenceById = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
@@ -244,12 +236,6 @@ const createEvidence = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN TẠO MINH CHỨNG
-        // Admin: có quyền tạo cho bất kỳ phòng ban nào
-        // Manager: chỉ tạo cho phòng ban của họ
-        // TDG/Expert: không có quyền tạo
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
                 return res.status(403).json({
@@ -264,7 +250,6 @@ const createEvidence = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         if (!Standard || !Criteria) {
             console.error('Standard or Criteria model not loaded!');
@@ -405,12 +390,6 @@ const updateEvidence = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN CẬP NHẬT MINH CHỨNG
-        // Admin: có quyền cập nhật bất kỳ minh chứng nào
-        // Manager: chỉ cập nhật minh chứng của phòng ban họ
-        // TDG/Expert: không có quyền cập nhật (chỉ upload file)
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
                 return res.status(403).json({
@@ -425,7 +404,6 @@ const updateEvidence = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         if (updateData.code && updateData.code !== evidence.code) {
             const existingEvidence = await Evidence.findOne({
@@ -493,12 +471,6 @@ const deleteEvidence = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN XÓA MINH CHỨNG
-        // Admin: có quyền xóa bất kỳ minh chứng nào
-        // Manager: chỉ xóa minh chứng của phòng ban họ
-        // TDG/Expert: không có quyền xóa
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.role !== 'manager') {
                 return res.status(403).json({
@@ -513,7 +485,6 @@ const deleteEvidence = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         const files = await File.find({ evidenceId: id });
         for (const file of files) {
@@ -595,7 +566,6 @@ const advancedSearch = async (req, res) => {
         const searchParams = req.body;
         searchParams.academicYearId = req.academicYearId;
 
-        // Nếu không phải admin, chỉ tìm kiếm trong phòng ban họ
         if (req.user.role !== 'admin') {
             if (req.user.department) {
                 searchParams.departmentId = req.user.department;
@@ -633,10 +603,6 @@ const getStatistics = async (req, res) => {
         if (standardId) matchStage.standardId = standardId;
         if (criteriaId) matchStage.criteriaId = criteriaId;
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN THỐNG KÊ
-        // Non-admin: chỉ xem thống kê của phòng ban họ
-        // =============================================================
         if (req.user.role !== 'admin') {
             if (req.user.department) {
                 matchStage.departmentId = new mongoose.Types.ObjectId(req.user.department);
@@ -644,7 +610,6 @@ const getStatistics = async (req, res) => {
         } else if (departmentId) {
             matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
         }
-        // =============================================================
 
         const stats = await Evidence.aggregate([
             { $match: matchStage },
@@ -740,10 +705,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN COPY
-        // Manager: chỉ copy minh chứng của phòng ban họ
-        // =============================================================
         if (req.user.role === 'manager') {
             if (evidence.departmentId.toString() !== req.user.department) {
                 return res.status(403).json({
@@ -752,7 +713,6 @@ const copyEvidenceToAnotherYear = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         const targetAcademicYear = await AcademicYear.findById(targetAcademicYearId);
         if (!targetAcademicYear) {
@@ -955,7 +915,6 @@ const moveEvidence = async (req, res) => {
                 });
             }
         }
-        // =============================================================
 
         const existingEvidence = await Evidence.findOne({
             code: newCode,
@@ -1006,9 +965,6 @@ const getFullEvidenceTree = async (req, res) => {
             });
         }
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN XEM CÂY MINH CHỨNG
-        // =============================================================
         let queryDepartmentId = departmentId;
         if (req.user.role !== 'admin') {
             if (!req.user.department) {
@@ -1017,10 +973,8 @@ const getFullEvidenceTree = async (req, res) => {
                     message: 'Bạn chưa được gán vào phòng ban nào'
                 });
             }
-            // Nếu user là Non-admin, chỉ xem phòng ban họ
             queryDepartmentId = req.user.department.toString();
 
-            // Nếu có filter departmentId, phải là phòng ban họ
             if (departmentId && departmentId !== queryDepartmentId) {
                 return res.status(403).json({
                     success: false,
@@ -1028,13 +982,10 @@ const getFullEvidenceTree = async (req, res) => {
                 });
             }
         } else {
-            // Admin có thể filter, nếu không filter thì xem tất cả phòng ban
             if (!queryDepartmentId) {
-                // Nếu Admin không chọn phòng ban, tìm tất cả
                 queryDepartmentId = undefined;
             }
         }
-        // =============================================================
 
         const mongoose = require('mongoose');
         const StandardModel = mongoose.model('Standard');
@@ -1144,7 +1095,7 @@ const getFullEvidenceTree = async (req, res) => {
                 tree,
                 academicYear: req.currentAcademicYear,
                 statistics,
-                userRole: req.user.role // Trả về role cho frontend
+                userRole: req.user.role
             }
         });
 
@@ -1158,19 +1109,151 @@ const getFullEvidenceTree = async (req, res) => {
 };
 
 const exportEvidences = async (req, res) => {
-// ... (Hàm này giữ nguyên)
+    try {
+        const { programId, organizationId, departmentId, standardId, criteriaId, format = 'xlsx' } = req.query;
+        const academicYearId = req.academicYearId;
+
+        const query = { academicYearId };
+
+        if (programId) query.programId = programId;
+        if (organizationId) query.organizationId = organizationId;
+        if (departmentId) query.departmentId = departmentId;
+        if (standardId) query.standardId = standardId;
+        if (criteriaId) query.criteriaId = criteriaId;
+
+        if (req.user.role !== 'admin' && req.user.department) {
+            query.departmentId = req.user.department;
+        }
+
+        const evidences = await Evidence.find(query)
+            .populate('programId', 'name code')
+            .populate('organizationId', 'name code')
+            .populate('departmentId', 'name code')
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code')
+            .lean();
+
+        const data = evidences.map(e => ({
+            Mã_Minh_Chứng: e.code,
+            Tên_Minh_Chứng: e.name,
+            Mô_Tả: e.description,
+            Chương_Trình: e.programId?.name,
+            Tổ_Chức: e.organizationId?.name,
+            Phòng_Ban: e.departmentId?.name,
+            Tiêu_Chuẩn: e.standardId?.code,
+            Tiêu_Chí: e.criteriaId?.code,
+            Số_Hiệu_Văn_Bản: e.documentNumber,
+            Ngày_Ban_Hành: e.issueDate ? new Date(e.issueDate).toLocaleDateString('vi-VN') : '',
+            Cơ_Quan_Ban_Hành: e.issuingAgency,
+            Trạng_Thái: e.status,
+            Ngày_Tạo: e.createdAt.toLocaleDateString('vi-VN'),
+            Người_Tạo: e.createdBy?.fullName
+        }));
+
+        const buffer = exportService.exportData(data, format);
+
+        const fileName = `Export_MinhChung_${Date.now()}.${format}`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Export evidences error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi export minh chứng: ' + error.message
+        });
+    }
 };
 
 const approveFile = async (req, res) => {
-// ... (Hàm này giữ nguyên)
+    try {
+        const { fileId } = req.params;
+        const { status, rejectionReason } = req.body;
+        const userId = req.user.id;
+
+        const FileModel = mongoose.model('File');
+        const file = await FileModel.findById(fileId);
+
+        if (!file) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy file' });
+        }
+
+        const evidence = await Evidence.findById(file.evidenceId);
+
+        if (!evidence) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({ success: false, message: 'Chỉ Admin hoặc Manager mới có quyền phê duyệt file' });
+        }
+
+        if (status === 'rejected' && !rejectionReason) {
+            return res.status(400).json({ success: false, message: 'Lý do từ chối là bắt buộc' });
+        }
+
+        const oldStatus = file.approvalStatus;
+        file.approvalStatus = status;
+        file.approvedBy = userId;
+        file.rejectionReason = status === 'rejected' ? rejectionReason : undefined;
+        file.approvedAt = new Date();
+
+        await file.save();
+
+        await evidence.updateStatus();
+
+        res.json({
+            success: true,
+            message: `File đã được ${status === 'approved' ? 'phê duyệt' : 'từ chối'}`,
+            data: { fileStatus: file.approvalStatus, evidenceStatus: evidence.status }
+        });
+
+    } catch (error) {
+        console.error('Approve file error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi phê duyệt file' });
+    }
 };
 
 const getEvidenceByCode = async (req, res) => {
-// ... (Hàm này giữ nguyên)
+    try {
+        const { code } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const evidence = await Evidence.findOne({ code, academicYearId })
+            .populate('departmentId', 'name code')
+            .select('-files -changeHistory -downloadStats');
+
+        if (!evidence) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
+        }
+
+        res.json({ success: true, data: evidence });
+
+    } catch (error) {
+        console.error('Get evidence by code error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi lấy minh chứng theo mã' });
+    }
 };
 
 const getPublicEvidence = async (req, res) => {
-// ... (Hàm này giữ nguyên)
+    try {
+        const { id } = req.params;
+
+        const evidence = await Evidence.findById(id)
+            .populate('departmentId', 'name code')
+            .select('-files -changeHistory -downloadStats -createdBy -updatedBy');
+
+        if (!evidence) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng công khai' });
+        }
+
+        res.json({ success: true, data: evidence });
+
+    } catch (error) {
+        console.error('Get public evidence error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi lấy minh chứng công khai' });
+    }
 };
 
 const sendCompletionRequest = async (req, res) => {
@@ -1178,17 +1261,12 @@ const sendCompletionRequest = async (req, res) => {
         const { departmentId } = req.body;
         const academicYearId = req.academicYearId;
 
-        // =============================================================
-        // === KIỂM TRA QUYỀN GỬI YÊU CẦU HOÀN THIỆN
-        // Chỉ Admin có quyền gửi yêu cầu
-        // =============================================================
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 message: 'Chỉ Admin mới có quyền gửi yêu cầu hoàn thiện'
             });
         }
-        // =============================================================
 
         if (!departmentId) {
             return res.status(400).json({
@@ -1205,7 +1283,6 @@ const sendCompletionRequest = async (req, res) => {
             });
         }
 
-        // Lấy tất cả manager trong phòng ban
         const managers = await User.find({
             department: departmentId,
             role: 'manager',
