@@ -866,16 +866,6 @@ export default function FilesPage() {
                                                         <Trash2 className="h-5 w-5" />
                                                     </button>
                                                 )}
-
-                                                {file.type === 'folder' && canUpload && (
-                                                    <button
-                                                        onClick={() => handleDelete(file._id, 'folder')}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                                        title="Xóa thư mục"
-                                                    >
-                                                        <Trash2 className="h-5 w-5" />
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
