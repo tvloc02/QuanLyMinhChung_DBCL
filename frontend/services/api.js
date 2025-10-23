@@ -170,104 +170,60 @@ export const apiMethods = {
         import: (formData) => api.post('/api/criteria/import', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         }),
-        bulkImport: (formData) => api.post('/api/criteria/bulk-import', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        })
     },
 
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
         getById: (id) => api.get(`/api/evidences/${id}`),
         create: (data) => api.post('/api/evidences', data),
-        update: (id, data) => api.put('/api/evidences/${id}', data),
-        delete: (id) => api.delete('/api/evidences/${id}'),
-        bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
-        search: (params) => api.get('/api/evidences/search', { params }),
-
-        getTree: (programId, organizationId, departmentId) => {
-            const params = { programId, organizationId };
-            if (departmentId) params.departmentId = departmentId;
-            return api.get('/api/evidences/tree', { params });
-        },
-
-        getFullTree: (programId, organizationId, departmentId) => {
-            const params = { programId, organizationId };
-            if (departmentId) params.departmentId = departmentId;
-            return api.get('/api/evidences/full-tree', { params });
-        },
-
-        getStatistics: (params) => api.get('/api/evidences/statistics', { params }),
-        generateCode: (standardCode, criteriaCode) =>
-            api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
-        copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId) =>
-            api.post(`/api/evidences/${id}/copy`, {
-                targetAcademicYearId,
-                targetStandardId,
-                targetCriteriaId,
-                targetDepartmentId
-            }),
-        move: (id, data) =>
-            api.post(`/api/evidences/${id}/move`, data),
-        getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
-
-        import: (formData) => {
-            return api.post('/api/evidences/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
-        },
-        export: (params) => api.get('/api/evidences/export', {
-            params,
-            responseType: 'blob'
-        }),
-
-        exportData: (params) =>
-            api.get('/api/evidences/export', {
-                params,
-                responseType: 'blob'
-            }),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
-        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
-            params: { format },
-            responseType: 'arraybuffer'
-        }),
-        assignUsers: (evidenceId, data) =>
-            api.post(`/api/evidences/${evidenceId}/assign-users`, data),
-        sendCompletionRequest: (departmentId) =>
-            api.post('/api/evidences/requests/send-completion-request', { departmentId }),
-
-        submitCompletionNotification: (departmentId, message) =>
-            api.post('/api/evidences/requests/submit-completion-notification', { departmentId, message }),
+        update: (id, data) => api.put(`/api/evidences/${id}`, data),
+        delete: (id) => api.delete(`/api/evidences/${id}`),
+        getByStandard: (standardId) => api.get(`/api/evidences/standard/${standardId}`),
+        getByCriteria: (criteriaId) => api.get(`/api/evidences/criteria/${criteriaId}`),
+        getByAssignee: (userId) => api.get(`/api/evidences/assignee/${userId}`),
+        getStats: (params) => api.get('/api/evidences/stats', { params }),
+        validateLink: (data) => api.post('/api/evidences/validate-link', data),
+        linkFile: (evidenceId, data) => api.post(`/api/evidences/${evidenceId}/link-files`, data)
     },
 
     files: {
-        upload: (file, evidenceId, config = {}) => {
+        uploadFiles: (evidenceId, data) => {
             const formData = new FormData()
-            formData.append('files', file)
-            return api.post('/api/files/upload/${evidenceId}', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                ...config
+            if (data.files && Array.isArray(data.files)) {
+                data.files.forEach(file => {
+                    formData.append('files', file)
+                })
+            }
+            if (data.parentFolderId) {
+                formData.append('parentFolderId', data.parentFolderId)
+            }
+            return api.post(`/api/files/upload/${evidenceId}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
-        uploadMultiple: (files, evidenceId, config = {}) => {
-            const formData = new FormData()
-            files.forEach(file => {
-                formData.append('files', file)
-            })
-            return api.post('/api/files/upload/${evidenceId}', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                ...config
-            })
-        },
-        getById: (id) => api.get('/api/files/${id}'),
-
-        download: (id) => api.get('/api/files/download/${id}', {
+        downloadFile: (id) => api.get(`/api/files/download/${id}`, {
             responseType: 'blob'
         }),
-        delete: (id) => api.delete('/api/files/${id}'),
-        getByEvidence: (evidenceId) => api.get('/api/files/evidence/${evidenceId}'),
-        approve: (fileId, data) => {
-            return api.post('/api/evidences/files/${fileId}/approve', data)
-        }
+        getFileInfo: (id) => api.get(`/api/files/${id}/info`),
+        deleteFile: (id) => api.delete(`/api/files/${id}`),
+        getByEvidence: (evidenceId, params) =>
+            api.get(`/api/files/list/${evidenceId}`, { params }),
+        createFolder: (evidenceId, data) =>
+            api.post(`/api/files/create-folder/${evidenceId}`, data),
+        getFolderContents: (params) =>
+            api.get(`/api/files/folder/${params.folderId}/contents`, {
+                params: {
+                    page: params.page,
+                    limit: params.limit
+                }
+            }),
+        submitFiles: (evidenceId) =>
+            api.post(`/api/files/submit/${evidenceId}`),
+        approveFile: (fileId) =>
+            api.post(`/api/files/approve/${fileId}`),
+        rejectFile: (fileId, data) =>
+            api.post(`/api/files/reject/${fileId}`, data),
+        streamFile: (id) => api.get(`/api/files/stream/${id}`)
     },
 
     reports: {
@@ -403,7 +359,8 @@ export const apiMethods = {
 }
 
 export const uploadFile = (file, evidenceId, onProgress) => {
-    return apiMethods.files.upload(file, evidenceId, {
+    return apiMethods.files.uploadFiles(evidenceId, {
+        files: [file],
         onUploadProgress: (progressEvent) => {
             const progress = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
@@ -415,7 +372,7 @@ export const uploadFile = (file, evidenceId, onProgress) => {
 
 export const downloadFile = async (fileId, filename) => {
     try {
-        const response = await apiMethods.files.download(fileId)
+        const response = await apiMethods.files.downloadFile(fileId)
 
         const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
