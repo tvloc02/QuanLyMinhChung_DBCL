@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 // Định nghĩa sub-schema cho Versions
 const versionSubSchema = new mongoose.Schema({
+    requestId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ReportRequest'
+    },
+
     content: { type: String, required: true },
     changeNote: String,
     changedBy: {
