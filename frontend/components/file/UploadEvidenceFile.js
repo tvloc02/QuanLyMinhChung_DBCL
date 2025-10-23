@@ -3,7 +3,6 @@ import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
-// Component Modal Tạo Thư Mục (Giữ nguyên)
 const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
     const [folderName, setFolderName] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -31,7 +30,7 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full space-y-4">
+            <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full space-y-4">
                 <h4 className="text-lg font-bold">Tạo thư mục mới</h4>
                 <input
                     type="text"
@@ -57,12 +56,11 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
                         Tạo
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
     );
 };
 
-// ✅ SỬA LOGIC FETCHCONTENTS TRONG FolderContentSelector
 const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, onFolderCreated }) => {
     const [contents, setContents] = useState([])
     const [loading, setLoading] = useState(false)
@@ -77,26 +75,25 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, o
             let items = [];
 
             if (folderId === 'root') {
-                // GỌI API LIST VỚI parentFolder=root
-                response = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root', page: 1, limit: 1000 });
-                // ✅ LẤY TỪ items: Cấu trúc mới trả về { data: { items: [...], pagination: {...} } }
+                response = await apiMethods.files.getByEvidence(evidenceId, {
+                    parentFolder: 'root',
+                    page: 1,
+                    limit: 1000
+                });
                 items = response.data?.data?.items || [];
             } else {
-                // GỌI API CONTENT CHO FOLDER CON
                 response = await apiMethods.files.getFolderContents({
                     folderId: folderId,
                     evidenceId: evidenceId
                 })
-                // ✅ LẤY TỪ data: Cấu trúc trả về { data: [...] }
                 items = response.data?.data || [];
             }
 
-            // ✅ SỬ DỤNG items.filter, items chắc chắn là một mảng
             setContents(items.filter(item => item.type === 'folder'))
 
         } catch (error) {
             console.error('Fetch folder contents error:', error)
-            toast.error('Lỗi khi tải nội dung thư mục')
+            toast.error(error.response?.data?.message || 'Lỗi khi tải nội dung thư mục')
         } finally {
             setLoading(false)
         }
@@ -115,7 +112,6 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, o
         setCurrentPath(prev => prev.slice(0, index + 1))
     }
 
-    // Tùy chọn: Chọn thư mục hiện tại làm thư mục đích
     const handleSelectCurrentFolder = () => {
         const targetId = currentFolderId === 'root' ? null : currentFolderId;
         onSelectFolder(targetId);
@@ -218,7 +214,7 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
     const [submitting, setSubmitting] = useState(false)
     const [dragActive, setDragActive] = useState(false)
     const [uploadedFiles, setUploadedFiles] = useState([])
-    const [selectedFolderId, setSelectedFolderId] = useState(null) // State cho thư mục cha
+    const [selectedFolderId, setSelectedFolderId] = useState(null)
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -265,7 +261,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         setFiles(prev => prev.filter(f => f.id !== id))
     }
 
-    // Cập nhật hàm handleUpload để gửi parentFolderId
     const handleUpload = async () => {
         if (files.length === 0) {
             toast.error('Vui lòng chọn ít nhất một file')
@@ -275,10 +270,9 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         try {
             setUploading(true)
 
-            // SỬ DỤNG apiMethods.files.uploadFiles để gửi nhiều file và parentFolderId
             const response = await apiMethods.files.uploadFiles(evidence._id, {
-                files: files.map(f => f.file), // Lấy mảng file object
-                parentFolderId: selectedFolderId || undefined // Gửi parentFolderId nếu có
+                files: files.map(f => f.file),
+                parentFolderId: selectedFolderId || undefined
             })
 
             if (!response.data?.success) {
@@ -286,12 +280,12 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
             }
 
             const data = response.data;
-            setUploadedFiles(prev => [...prev, ...(data.data || [])]); // Thêm vào danh sách đã upload
+            setUploadedFiles(prev => [...prev, ...(data.data || [])]);
 
             const successCount = data.data?.length || 0;
             const failCount = files.length - successCount;
 
-            setFiles([]) // Xóa danh sách chờ upload
+            setFiles([])
 
             if (successCount > 0 && failCount === 0) {
                 toast.success(`Đã upload thành công ${successCount} file. Giờ nộp file để manager duyệt.`)
@@ -318,7 +312,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         try {
             setSubmitting(true)
 
-            // Gọi API submit evidence
             const response = await apiMethods.files.submitFiles(evidence._id);
 
             if (!response.data?.success) {
@@ -350,7 +343,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header */}
                 <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 flex items-center justify-between border-b">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg">
@@ -372,10 +364,8 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     </button>
                 </div>
 
-                {/* Content */}
                 <div className="p-6 space-y-6">
 
-                    {/* Folder Selector */}
                     <FolderContentSelector
                         evidenceId={evidence._id}
                         selectedFolderId={selectedFolderId}
@@ -383,7 +373,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         onFolderCreated={onSuccess}
                     />
 
-                    {/* Hiển thị thư mục đích đã chọn */}
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center gap-3">
                         <Folder className="h-5 w-5 text-purple-600 flex-shrink-0" />
                         <p className="text-sm text-purple-800 font-semibold">
@@ -391,7 +380,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         </p>
                     </div>
 
-                    {/* Upload Area */}
                     <div
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
@@ -424,7 +412,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         </label>
                     </div>
 
-                    {/* File List */}
                     {files.length > 0 && (
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
@@ -467,7 +454,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         </div>
                     )}
 
-                    {/* Uploaded Files */}
                     {uploadedFiles.length > 0 && (
                         <div className="space-y-3 bg-green-50 border border-green-200 rounded-lg p-4">
                             <div className="flex items-center gap-2">
@@ -498,7 +484,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         </div>
                     )}
 
-                    {/* Info Box */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
                         <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-blue-800">
@@ -512,7 +497,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    {/* Important Notes */}
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
                         <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-amber-800">
@@ -527,7 +511,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 flex items-center justify-end gap-3">
                     <button
                         onClick={onClose}
