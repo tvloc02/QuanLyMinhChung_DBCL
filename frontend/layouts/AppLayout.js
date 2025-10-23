@@ -1,11 +1,7 @@
-// frontend/layouts/AppLayout.js
-// ✅ SỬA: Hoạt động với AuthContext hiện tại của bạn
-
 import { useState, useEffect } from 'react'
-import Sidebar from '@/components/common/Sidebar'
-import Navbar from '@/components/common/Navbar'
+import Sidebar from '../components/common/Sidebar'
 import { useRouter } from 'next/router'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '../hooks/useAuth'
 
 export default function AppLayout({ children }) {
     const router = useRouter()
