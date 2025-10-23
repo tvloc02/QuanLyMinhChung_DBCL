@@ -434,7 +434,7 @@ const createFolder = async (req, res) => {
         const { evidenceId } = req.params;
         const { folderName, parentFolderId } = req.body;
 
-        if (!folderName) {
+        if (!folderName || !folderName.trim()) {
             return res.status(400).json({
                 success: false,
                 message: 'Tên thư mục là bắt buộc'
@@ -491,11 +491,10 @@ const createFolder = async (req, res) => {
             }
         }
 
-        // Fix Lỗi 500: Gán giá trị mặc định cho các trường REQUIRED: true
         const folder = new File({
             originalName: folderName.trim(),
-            storedName: folderName.trim() + '/', // Dùng tên folder + / để thỏa mãn storedName required
-            filePath: path.join('uploads', 'evidences', evidenceId, folderName.trim()), // Đường dẫn vật lý
+            storedName: folderName.trim(),
+            filePath: path.join('uploads', 'evidences', evidenceId, folderName.trim()),
             size: 0,
             mimeType: 'folder',
             extension: '',
@@ -508,17 +507,8 @@ const createFolder = async (req, res) => {
                 totalSize: 0,
                 lastModified: new Date()
             },
-            // Dù là folder, vẫn cần approvalStatus
-            approvalStatus: req.user.role === 'admin' ? 'approved' : 'pending'
+            approvalStatus: 'approved'
         });
-
-        // Tạo thư mục vật lý (tùy chọn, nếu cần)
-        try {
-            fs.mkdirSync(folder.filePath, { recursive: true });
-        } catch (e) {
-            console.error(`Error creating physical folder path: ${folder.filePath}`, e);
-        }
-
 
         await folder.save();
 
@@ -537,11 +527,11 @@ const createFolder = async (req, res) => {
 
     } catch (error) {
         console.error('Create folder error:', error);
-        // Trả về lỗi 400 nếu là ValidationError từ mongoose
+
         if (error.name === 'ValidationError') {
             return res.status(400).json({
                 success: false,
-                message: error.message
+                message: Object.values(error.errors).map(e => e.message).join(', ')
             });
         }
 
