@@ -266,8 +266,9 @@ export const apiMethods = {
         getFolderContents: (params) =>
             api.get(`/api/files/folder/${params.folderId}/contents`, {
                 params: {
-                    page: params.page,
-                    limit: params.limit
+                    evidenceId: params.evidenceId,
+                    page: params.page || 1,
+                    limit: params.limit || 20
                 }
             }),
         submitFiles: (evidenceId) =>

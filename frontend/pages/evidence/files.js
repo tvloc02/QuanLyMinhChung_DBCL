@@ -433,7 +433,7 @@ export default function FilesPage() {
     }
 
     const getSafeFileName = (fileName) => {
-        if (!fileName) return 'Tên file không xác định';
+        if (!fileName) return 'Tên File không xác định';
         try {
             return decodeURIComponent(fileName);
         } catch (e) {
