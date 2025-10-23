@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { apiMethods } from '../../services/api'
+import { apiMethods } from '../../../services/api'
 import toast from 'react-hot-toast'
 import {
     Plus,
@@ -21,9 +21,11 @@ import {
     Clock,
     FileText,
     Edit2,
-    Send
+    Send,
+    ArrowLeft,
+    SubmitIcon
 } from 'lucide-react'
-import { formatDate } from '../../utils/helpers'
+import { formatDate } from '../../../utils/helpers'
 
 export default function FileManagement() {
     const router = useRouter()
@@ -33,26 +35,44 @@ export default function FileManagement() {
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState(false)
     const [currentFolder, setCurrentFolder] = useState('root')
-    const [folderName, setFolderName] = useState('')
-    const [showCreateFolder, setShowCreateFolder] = useState(false)
     const [userRole, setUserRole] = useState(null)
     const [userFolder, setUserFolder] = useState(null)
-    const [showUploadForm, setShowUploadForm] = useState(false)
-    const [selectedFiles, setSelectedFiles] = useState([])
     const [rejectReason, setRejectReason] = useState('')
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [selectedFileForReject, setSelectedFileForReject] = useState(null)
     const [isSubmitted, setIsSubmitted] = useState(false)
+    const [breadcrumbs, setBreadcrumbs] = useState([])
 
-    const user = null // Lấy từ auth context
+    // Kiểm tra role
+    const isManager = userRole === 'manager'
+    const isTDG = userRole === 'tdg'
+    const isAdmin = userRole === 'admin'
+    const canUpload = isTDG || isAdmin
 
     useEffect(() => {
         if (evidenceId) {
             fetchEvidence()
+            fetchUserRole()
+        }
+    }, [evidenceId])
+
+    useEffect(() => {
+        if (evidenceId) {
             fetchFiles()
         }
     }, [evidenceId, currentFolder])
 
+    // Lấy role của user
+    const fetchUserRole = async () => {
+        try {
+            const response = await apiMethods.auth.me()
+            setUserRole(response.data?.data?.role || null)
+        } catch (error) {
+            console.error('Fetch user role error:', error)
+        }
+    }
+
+    // Lấy thông tin minh chứng
     const fetchEvidence = async () => {
         try {
             const response = await apiMethods.evidences.getById(evidenceId)
@@ -63,14 +83,17 @@ export default function FileManagement() {
         }
     }
 
+    // Lấy danh sách file
     const fetchFiles = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.files.getFolderContents({
-                id: currentFolder === 'root' ? 'root' : currentFolder,
-                evidenceId
-            })
-            setFiles(response.data?.data || [])
+            const params = {
+                folderId: currentFolder === 'root' ? null : currentFolder,
+                page: 1,
+                limit: 50
+            }
+            const response = await apiMethods.files.getByEvidence(evidenceId, params)
+            setFiles(response.data?.data?.files || [])
         } catch (error) {
             console.error('Fetch files error:', error)
             toast.error('Lỗi khi tải danh sách file')
@@ -79,14 +102,16 @@ export default function FileManagement() {
         }
     }
 
-    const createUserFolder = async () => {
+    // Tạo folder cho TDG nộp file
+    const handleCreateUserFolder = async () => {
         try {
             setLoading(true)
             const response = await apiMethods.files.createFolder(evidenceId, {
-                folderName: `Nộp file - ${new Date().getTime()}`
+                folderName: `Nộp file - ${new Date().toLocaleDateString('vi-VN')}`
             })
-            setUserFolder(response.data?.data)
-            setCurrentFolder(response.data?.data._id)
+            const newFolder = response.data?.data
+            setUserFolder(newFolder)
+            setCurrentFolder(newFolder._id)
             toast.success('Tạo folder nộp file thành công')
             fetchFiles()
         } catch (error) {
@@ -97,48 +122,18 @@ export default function FileManagement() {
         }
     }
 
-    const handleCreateFolder = async () => {
-        if (!folderName.trim()) {
-            toast.error('Vui lòng nhập tên thư mục')
-            return
-        }
-
-        try {
-            setLoading(true)
-            await apiMethods.files.createFolder(evidenceId, {
-                folderName: folderName.trim(),
-                parentFolderId: currentFolder !== 'root' ? currentFolder : null
-            })
-            toast.success('Tạo thư mục thành công')
-            setFolderName('')
-            setShowCreateFolder(false)
-            fetchFiles()
-        } catch (error) {
-            console.error('Create folder error:', error)
-            toast.error('Lỗi khi tạo thư mục')
-        } finally {
-            setLoading(false)
-        }
-    }
-
+    // Upload file
     const handleUploadFiles = async (e) => {
         const uploadedFiles = Array.from(e.target.files)
         if (uploadedFiles.length === 0) return
 
         try {
             setUploading(true)
-            const formData = new FormData()
-            uploadedFiles.forEach(file => {
-                formData.append('files', file)
-            })
-
             await apiMethods.files.uploadFiles(evidenceId, {
                 files: uploadedFiles,
                 parentFolderId: currentFolder !== 'root' ? currentFolder : null
             })
-
             toast.success(`Upload ${uploadedFiles.length} file thành công`)
-            setSelectedFiles([])
             fetchFiles()
         } catch (error) {
             console.error('Upload error:', error)
@@ -148,6 +143,32 @@ export default function FileManagement() {
         }
     }
 
+    // Nộp file (submit)
+    const handleSubmitFiles = async () => {
+        if (!userFolder) {
+            toast.error('Vui lòng tạo folder nộp file trước')
+            return
+        }
+
+        if (!confirm('Bạn có chắc chắn muốn nộp file? Sau khi nộp, manager sẽ duyệt file.')) {
+            return
+        }
+
+        try {
+            setUploading(true)
+            await apiMethods.files.submitFiles(evidenceId)
+            toast.success('Nộp file thành công. Chờ manager duyệt.')
+            setIsSubmitted(true)
+            fetchFiles()
+        } catch (error) {
+            console.error('Submit error:', error)
+            toast.error('Lỗi khi nộp file')
+        } finally {
+            setUploading(false)
+        }
+    }
+
+    // Xóa file
     const handleDeleteFile = async (fileId) => {
         if (!confirm('Bạn có chắc chắn muốn xóa file/thư mục này?')) return
 
@@ -161,28 +182,40 @@ export default function FileManagement() {
         }
     }
 
-    const handleDownloadFile = async (fileId) => {
+    // Tải xuống file
+    const handleDownloadFile = async (fileId, fileName) => {
         try {
-            await apiMethods.files.downloadFile(fileId)
+            const response = await apiMethods.files.downloadFile(fileId)
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', fileName || 'file')
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
         } catch (error) {
             console.error('Download error:', error)
             toast.error('Lỗi khi tải file')
         }
     }
 
+    // Duyệt file
     const handleApproveFile = async (fileId) => {
         try {
-            await apiMethods.evidences.approveFile(fileId, {
-                status: 'approved'
-            })
-            toast.success('Phê duyệt file thành công')
+            setUploading(true)
+            await apiMethods.files.approveFile(fileId)
+            toast.success('Duyệt file thành công')
             fetchFiles()
         } catch (error) {
             console.error('Approve error:', error)
-            toast.error('Lỗi khi phê duyệt file')
+            toast.error('Lỗi khi duyệt file')
+        } finally {
+            setUploading(false)
         }
     }
 
+    // Từ chối file
     const handleRejectFile = async (fileId) => {
         if (!rejectReason.trim()) {
             toast.error('Vui lòng nhập lý do từ chối')
@@ -190,275 +223,282 @@ export default function FileManagement() {
         }
 
         try {
-            await apiMethods.evidences.approveFile(fileId, {
-                status: 'rejected',
+            setUploading(true)
+            await apiMethods.files.rejectFile(fileId, {
                 rejectionReason: rejectReason.trim()
             })
             toast.success('Từ chối file thành công')
-            setRejectReason('')
             setShowRejectModal(false)
             setSelectedFileForReject(null)
+            setRejectReason('')
             fetchFiles()
         } catch (error) {
             console.error('Reject error:', error)
             toast.error('Lỗi khi từ chối file')
+        } finally {
+            setUploading(false)
         }
     }
 
-    const handleSubmitFiles = async () => {
-        if (!confirm('Bạn có chắc chắn muốn nộp các file này? Sau khi nộp, Manager sẽ có thể duyệt hoặc từ chối.')) return
-
-        try {
-            // Mark as submitted - update evidence status
-            await apiMethods.evidences.update(evidenceId, {
-                status: 'pending_approval'
-            })
-            toast.success('Nộp file thành công. Vui lòng chờ Manager duyệt.')
-            setIsSubmitted(true)
-            fetchEvidence()
-        } catch (error) {
-            console.error('Submit error:', error)
-            toast.error('Lỗi khi nộp file')
-        }
-    }
-
+    // Lấy icon cho loại file
     const getFileIcon = (file) => {
-        if (file.type === 'folder') return <Folder className="h-5 w-5 text-blue-500" />
-        if (file.mimeType?.startsWith('image/')) return <FileText className="h-5 w-5 text-purple-500" />
-        if (file.mimeType?.includes('pdf')) return <FileText className="h-5 w-5 text-red-500" />
-        return <FileText className="h-5 w-5 text-gray-500" />
+        if (file.type === 'folder') {
+            return <Folder className="h-5 w-5 text-yellow-500" />
+        }
+        if (file.isImage) {
+            return <Eye className="h-5 w-5 text-blue-500" />
+        }
+        if (file.isPdf) {
+            return <FileText className="h-5 w-5 text-red-500" />
+        }
+        return <File className="h-5 w-5 text-gray-500" />
     }
 
+    // Lấy badge cho trạng thái duyệt
     const getApprovalStatusBadge = (status) => {
         switch (status) {
             case 'approved':
-                return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-700 border border-green-200"><CheckCircle className="h-3.5 w-3.5 mr-1" /> Đã duyệt</span>
+                return (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        <CheckCircle className="h-4 w-4" />
+                        Đã duyệt
+                    </span>
+                )
             case 'rejected':
-                return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 border border-red-200"><XCircle className="h-3.5 w-3.5 mr-1" /> Đã từ chối</span>
+                return (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                        <XCircle className="h-4 w-4" />
+                        Bị từ chối
+                    </span>
+                )
             case 'pending':
-                return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200"><Clock className="h-3.5 w-3.5 mr-1" /> Đang chờ</span>
+                return (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                        <Clock className="h-4 w-4" />
+                        Chờ duyệt
+                    </span>
+                )
             default:
                 return null
         }
     }
 
-    const isManager = userRole === 'manager'
-    const isTDG = userRole === 'tdg'
-    const canUpload = isTDG && !isSubmitted
-    const canApprove = isManager
+    // Mở folder
+    const handleOpenFolder = (folderId) => {
+        setCurrentFolder(folderId)
+        setBreadcrumbs([...breadcrumbs, { id: folderId, name: 'Folder' }])
+    }
 
-    if (!evidenceId) {
-        return (
-            <div className="p-6 text-center">
-                <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-                <p className="text-gray-600 font-medium">Không tìm thấy minh chứng</p>
-            </div>
-        )
+    // Quay lại folder cha
+    const handleBackFolder = () => {
+        if (currentFolder !== 'root') {
+            const newBreadcrumbs = breadcrumbs.slice(0, -1)
+            setBreadcrumbs(newBreadcrumbs)
+            setCurrentFolder(newBreadcrumbs.length > 0 ? newBreadcrumbs[newBreadcrumbs.length - 1].id : 'root')
+        }
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <button
-                            onClick={() => router.back()}
-                            className="inline-flex items-center text-blue-100 hover:text-white mb-3 font-semibold transition-colors"
-                        >
-                            <ChevronRight className="h-5 w-5 mr-1 transform -rotate-180" />
-                            Quay lại
-                        </button>
-                        <h1 className="text-3xl font-bold mb-2">{evidence?.code} - {evidence?.name}</h1>
-                        <p className="text-blue-100">Quản lý file minh chứng</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Status Info */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                        <p className="text-sm text-gray-600 mb-1">Trạng thái:</p>
-                        <p className="text-lg font-bold text-blue-700">{evidence?.status === 'pending_approval' ? 'Đã nộp - Chờ duyệt' : 'Chưa nộp'}</p>
-                    </div>
-                    <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl">
-                        <p className="text-sm text-gray-600 mb-1">Vai trò:</p>
-                        <p className="text-lg font-bold text-purple-700">{isManager ? 'Quản lý duyệt' : isTDG ? 'Nộp file' : 'Xem'}</p>
-                    </div>
-                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-xl">
-                        <p className="text-sm text-gray-600 mb-1">Tổng file:</p>
-                        <p className="text-lg font-bold text-green-700">{files.filter(f => f.type === 'file').length}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Actions */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <div className="flex flex-wrap gap-3">
-                    {canUpload && !userFolder && (
-                        <button
-                            onClick={createUserFolder}
-                            disabled={loading}
-                            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 font-semibold"
-                        >
-                            <FolderPlus className="h-5 w-5 mr-2" />
-                            Tạo Folder Nộp File
-                        </button>
+        <div className="min-h-screen bg-gray-50 py-8 px-4">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                        Quản lý File Minh Chứng
+                    </h1>
+                    {evidence && (
+                        <p className="text-gray-600">
+                            <span className="font-semibold">{evidence.code}</span> - {evidence.name}
+                        </p>
                     )}
+                </div>
 
-                    {canUpload && userFolder && (
-                        <>
-                            <label className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold cursor-pointer">
-                                <Upload className="h-5 w-5 mr-2" />
-                                Upload File
-                                <input
-                                    type="file"
-                                    multiple
-                                    onChange={handleUploadFiles}
-                                    disabled={uploading}
-                                    className="hidden"
-                                />
-                            </label>
-
-                            {files.filter(f => f.type === 'file' && f.approvalStatus === 'pending').length > 0 && !isSubmitted && (
+                {/* Action Bar */}
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-8 border border-gray-200">
+                    <div className="flex flex-wrap gap-4 items-center justify-between">
+                        <div className="flex flex-wrap gap-3">
+                            {/* TDG Actions */}
+                            {isTDG && !userFolder && (
                                 <button
-                                    onClick={handleSubmitFiles}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
+                                    onClick={handleCreateUserFolder}
+                                    disabled={loading}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
                                 >
-                                    <Send className="h-5 w-5 mr-2" />
-                                    Nộp File
+                                    <FolderPlus className="h-5 w-5" />
+                                    {loading ? 'Đang tạo...' : 'Tạo Folder Nộp File'}
                                 </button>
                             )}
-                        </>
-                    )}
 
-                    {showCreateFolder && (
-                        <div className="w-full flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Nhập tên thư mục..."
-                                value={folderName}
-                                onChange={(e) => setFolderName(e.target.value)}
-                                className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                onClick={handleCreateFolder}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold"
-                            >
-                                Tạo
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setShowCreateFolder(false)
-                                    setFolderName('')
-                                }}
-                                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 font-semibold"
-                            >
-                                Hủy
-                            </button>
+                            {/* Upload button */}
+                            {canUpload && userFolder && !isSubmitted && (
+                                <label className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer transition-colors font-semibold">
+                                    <Upload className="h-5 w-5" />
+                                    {uploading ? 'Đang upload...' : 'Chọn File'}
+                                    <input
+                                        type="file"
+                                        multiple
+                                        onChange={handleUploadFiles}
+                                        disabled={uploading}
+                                        className="hidden"
+                                        accept="*/*"
+                                    />
+                                </label>
+                            )}
+
+                            {/* Submit button */}
+                            {isTDG && userFolder && !isSubmitted && files.length > 0 && (
+                                <button
+                                    onClick={handleSubmitFiles}
+                                    disabled={uploading}
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors font-semibold"
+                                >
+                                    <Send className="h-5 w-5" />
+                                    {uploading ? 'Đang nộp...' : 'Nộp File'}
+                                </button>
+                            )}
+
+                            {/* Back button */}
+                            {currentFolder !== 'root' && (
+                                <button
+                                    onClick={handleBackFolder}
+                                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-semibold"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                    Quay Lại
+                                </button>
+                            )}
                         </div>
-                    )}
 
-                    {!showCreateFolder && userFolder && (
-                        <button
-                            onClick={() => setShowCreateFolder(true)}
-                            className="inline-flex items-center px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
-                        >
-                            <FolderPlus className="h-5 w-5 mr-2" />
-                            Tạo Thư Mục
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* File List */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
-                    <h2 className="text-lg font-bold text-gray-900">
-                        Danh sách file
-                        <span className="ml-2 text-sm font-semibold text-blue-600">
-                            ({files.filter(f => f.type === 'file').length} file)
-                        </span>
-                    </h2>
+                        {/* Status badge */}
+                        {isSubmitted && (
+                            <div className="px-4 py-2 bg-green-50 border-2 border-green-200 rounded-lg">
+                                <p className="text-sm font-semibold text-green-800">
+                                    ✓ Đã nộp file - Chờ manager duyệt
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {loading ? (
-                    <div className="flex flex-col justify-center items-center py-16">
-                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                        <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+                {/* Files List */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h2 className="text-xl font-bold text-gray-900">
+                            Danh Sách File
+                            <span className="text-sm text-gray-600 ml-2">
+                                ({files.length} file)
+                            </span>
+                        </h2>
                     </div>
-                ) : files.length === 0 ? (
-                    <div className="p-16 text-center">
-                        <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500 font-medium">Thư mục trống</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">Tên</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">Loại</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">Ngày upload</th>
-                                {isManager && (
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">Trạng thái duyệt</th>
-                                )}
-                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">Thao tác</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {files.map((file) => (
-                                <tr key={file._id} className="hover:bg-gray-50 border-b border-gray-200">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            {getFileIcon(file)}
-                                            <div>
-                                                <p className="font-semibold text-gray-900">{file.originalName}</p>
-                                                {file.type === 'folder' && (
-                                                    <p className="text-xs text-gray-500">{file.folderMetadata?.fileCount || 0} file</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        {file.type === 'folder' ? 'Thư mục' : file.mimeType}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">
-                                        {formatDate(file.uploadedAt)}
-                                    </td>
-                                    {isManager && file.type === 'file' && (
-                                        <td className="px-6 py-4">
-                                            {getApprovalStatusBadge(file.approvalStatus)}
-                                        </td>
+
+                    {loading ? (
+                        <div className="flex flex-col justify-center items-center py-16">
+                            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+                        </div>
+                    ) : files.length === 0 ? (
+                        <div className="p-16 text-center">
+                            <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-500 font-medium">
+                                {isTDG ? 'Tạo folder nộp file để bắt đầu' : 'Thư mục trống'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                        Tên
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                        Loại
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                        Người upload
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                        Ngày upload
+                                    </th>
+                                    {isManager && (
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                            Trạng thái duyệt
+                                        </th>
                                     )}
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-2">
-                                            {file.type === 'folder' && (
-                                                <button
-                                                    onClick={() => setCurrentFolder(file._id)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                    title="Mở thư mục"
-                                                >
-                                                    <ChevronRight className="h-5 w-5" />
-                                                </button>
-                                            )}
-
-                                            {file.type === 'file' && (
-                                                <>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+                                        Thao tác
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {files.map((file) => (
+                                    <tr key={file._id} className="hover:bg-gray-50 border-b border-gray-200 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                {getFileIcon(file)}
+                                                <div>
+                                                    <p className="font-semibold text-gray-900">
+                                                        {file.originalName}
+                                                    </p>
+                                                    {file.type === 'folder' && (
+                                                        <p className="text-xs text-gray-500">
+                                                            {file.folderMetadata?.fileCount || 0} file
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {file.type === 'folder' ? 'Thư mục' : file.extension}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {file.uploadedBy?.fullName || 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {formatDate(file.uploadedAt)}
+                                        </td>
+                                        {isManager && file.type === 'file' && (
+                                            <td className="px-6 py-4">
+                                                {getApprovalStatusBadge(file.approvalStatus)}
+                                            </td>
+                                        )}
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2 flex-wrap">
+                                                {/* Mở folder */}
+                                                {file.type === 'folder' && (
                                                     <button
-                                                        onClick={() => handleDownloadFile(file._id)}
+                                                        onClick={() => handleOpenFolder(file._id)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Mở thư mục"
+                                                    >
+                                                        <ChevronRight className="h-5 w-5" />
+                                                    </button>
+                                                )}
+
+                                                {/* Tải xuống file */}
+                                                {file.type === 'file' && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleDownloadFile(file._id, file.originalName)
+                                                        }
                                                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                         title="Tải xuống"
                                                     >
                                                         <Download className="h-5 w-5" />
                                                     </button>
+                                                )}
 
-                                                    {isManager && file.approvalStatus === 'pending' && (
+                                                {/* Duyệt file - Manager */}
+                                                {isManager &&
+                                                    file.type === 'file' &&
+                                                    file.approvalStatus === 'pending' && (
                                                         <>
                                                             <button
-                                                                onClick={() => handleApproveFile(file._id)}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                                onClick={() =>
+                                                                    handleApproveFile(file._id)
+                                                                }
+                                                                disabled={uploading}
+                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
                                                                 title="Phê duyệt"
                                                             >
                                                                 <Check className="h-5 w-5" />
@@ -475,73 +515,79 @@ export default function FileManagement() {
                                                             </button>
                                                         </>
                                                     )}
-                                                </>
-                                            )}
 
-                                            {(canUpload || isManager) && (
-                                                <button
-                                                    onClick={() => handleDeleteFile(file._id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="h-5 w-5" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+                                                {/* Xóa file */}
+                                                {(canUpload || isManager) && (
+                                                    <button
+                                                        onClick={() => handleDeleteFile(file._id)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Reject Modal */}
+                {showRejectModal && selectedFileForReject && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+                            <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-t-2xl">
+                                <h2 className="text-2xl font-bold">Từ Chối File</h2>
+                                <p className="text-red-100 text-sm mt-2">
+                                    {selectedFileForReject.originalName}
+                                </p>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Lý do từ chối
+                                    </label>
+                                    <textarea
+                                        value={rejectReason}
+                                        onChange={(e) => setRejectReason(e.target.value)}
+                                        placeholder="Nhập lý do từ chối..."
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                                        rows="4"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 border-t-2 border-gray-200 p-6 flex gap-3 rounded-b-2xl">
+                                <button
+                                    onClick={() => {
+                                        setShowRejectModal(false)
+                                        setSelectedFileForReject(null)
+                                        setRejectReason('')
+                                    }}
+                                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all disabled:opacity-50"
+                                    disabled={uploading}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={() =>
+                                        handleRejectFile(selectedFileForReject._id)
+                                    }
+                                    disabled={uploading}
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
+                                >
+                                    {uploading ? 'Đang xử lý...' : 'Từ Chối'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
-
-            {/* Reject Modal */}
-            {showRejectModal && selectedFileForReject && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-                        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-t-2xl">
-                            <h2 className="text-2xl font-bold">Từ Chối File</h2>
-                            <p className="text-red-100 text-sm mt-2">{selectedFileForReject.originalName}</p>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Lý do từ chối
-                                </label>
-                                <textarea
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                    placeholder="Nhập lý do từ chối..."
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                                    rows="4"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 border-t-2 border-gray-200 p-6 flex gap-3 rounded-b-2xl">
-                            <button
-                                onClick={() => {
-                                    setShowRejectModal(false)
-                                    setSelectedFileForReject(null)
-                                    setRejectReason('')
-                                }}
-                                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={() => handleRejectFile(selectedFileForReject._id)}
-                                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
-                            >
-                                Từ Chối
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
