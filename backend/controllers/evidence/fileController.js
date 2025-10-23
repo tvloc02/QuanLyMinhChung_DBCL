@@ -28,7 +28,7 @@ const uploadFiles = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -153,7 +153,7 @@ const downloadFile = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -223,7 +223,7 @@ const deleteFile = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
             const isFileUploader = file.uploadedBy?.toString() === req.user.id;
 
             if (req.user.role === 'manager') {
@@ -330,7 +330,7 @@ const getFileInfo = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -391,7 +391,7 @@ const createFolder = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -564,7 +564,7 @@ const getFolderContents = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -733,7 +733,7 @@ const getFolderTree = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -805,7 +805,7 @@ const searchFiles = async (req, res) => {
             if (req.user.role !== 'admin') {
                 const userDeptId = req.user.department?.toString();
                 const evidenceDeptId = evidence.departmentId?._id?.toString();
-                const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+                const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
                 if (req.user.role === 'manager') {
                     if (userDeptId !== evidenceDeptId) {
@@ -902,7 +902,7 @@ const getFileStatistics = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -1034,7 +1034,7 @@ const submitEvidence = async (req, res) => {
         }
 
         // Check quyền
-        const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+        const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
         const userDeptId = req.user.department?.toString();
         const evidenceDeptId = evidence.departmentId?.toString();
 
