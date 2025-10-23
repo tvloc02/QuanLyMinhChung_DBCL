@@ -1,55 +1,57 @@
 import { useState, useEffect } from 'react'
-import { X, ArrowRightLeft, Sparkles, Loader2, Zap } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
+import toast from 'react-hot-toast'
+import {
+    X,
+    Loader2,
+    Folder,
+    Edit2,
+    Trash2,
+    ChevronRight
+} from 'lucide-react'
 
-export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
-    const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState({
-        targetStandardId: '',
-        targetCriteriaId: '',
-        newCode: ''
-    })
+const MoveEvidenceModal = ({ evidence, onClose, onSuccess }) => {
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
-    const [errors, setErrors] = useState({})
-    const [autoGenerateCode, setAutoGenerateCode] = useState(true)
+    const [selectedStandard, setSelectedStandard] = useState('')
+    const [selectedCriteria, setSelectedCriteria] = useState('')
+    const [newCode, setNewCode] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
         fetchStandards()
     }, [])
 
     useEffect(() => {
-        if (formData.targetStandardId) {
-            fetchCriteria()
+        if (selectedStandard) {
+            fetchCriteria(selectedStandard)
+        } else {
+            setCriteria([])
+            setSelectedCriteria('')
         }
-    }, [formData.targetStandardId])
-
-    useEffect(() => {
-        if (autoGenerateCode && formData.targetStandardId && formData.targetCriteriaId) {
-            generateNewCode()
-        }
-    }, [formData.targetStandardId, formData.targetCriteriaId, autoGenerateCode])
+    }, [selectedStandard])
 
     const fetchStandards = async () => {
         try {
+            setLoading(true)
             const response = await apiMethods.standards.getAll({
-                programId: evidence.programId?._id || evidence.programId,
-                organizationId: evidence.organizationId?._id || evidence.organizationId,
-                status: 'active'
+                programId: evidence.programId._id,
+                organizationId: evidence.organizationId._id
             })
             setStandards(response.data?.data?.standards || response.data?.data || [])
         } catch (error) {
             console.error('Fetch standards error:', error)
-            toast.error('Lỗi khi tải danh sách tiêu chuẩn')
+            toast.error('Lỗi khi tải tiêu chuẩn')
+        } finally {
+            setLoading(false)
         }
     }
 
-    const fetchCriteria = async () => {
+    const fetchCriteria = async (standardId) => {
         try {
             const response = await apiMethods.criteria.getAll({
-                standardId: formData.targetStandardId,
-                status: 'active'
+                standardId
             })
             const criteriaData = response.data?.data?.criterias ||
                 response.data?.data?.criteria ||
@@ -57,297 +59,279 @@ export default function MoveEvidenceModal({ evidence, onClose, onSuccess }) {
             setCriteria(criteriaData)
         } catch (error) {
             console.error('Fetch criteria error:', error)
-            toast.error('Lỗi khi tải danh sách tiêu chí')
+            setCriteria([])
         }
     }
 
-    const generateNewCode = async () => {
-        try {
-            const standard = standards.find(s => s._id === formData.targetStandardId)
-            const criterion = criteria.find(c => c._id === formData.targetCriteriaId)
-
-            if (!standard || !criterion) return
-
-            const response = await apiMethods.evidences.generateCode(
-                standard.code,
-                criterion.code
-            )
-
-            setFormData(prev => ({
-                ...prev,
-                newCode: response.data?.data?.code || response.data?.data
-            }))
-        } catch (error) {
-            console.error('Generate code error:', error)
-            const standard = standards.find(s => s._id === formData.targetStandardId)
-            const criterion = criteria.find(c => c._id === formData.targetCriteriaId)
-            if (standard && criterion) {
-                const code = `H1.${standard.code.padStart(2, '0')}.${criterion.code.padStart(2, '0')}.01`
-                setFormData(prev => ({ ...prev, newCode: code }))
-            }
+    const handleMove = async () => {
+        if (!selectedStandard || !selectedCriteria || !newCode.trim()) {
+            toast.error('Vui lòng điền đầy đủ thông tin')
+            return
         }
-    }
-
-    const handleChange = (e) => {
-        const { name, value } = e.target
-        setFormData(prev => ({ ...prev, [name]: value }))
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }))
-        }
-    }
-
-    const validate = () => {
-        const newErrors = {}
-
-        if (!formData.targetStandardId) {
-            newErrors.targetStandardId = 'Vui lòng chọn tiêu chuẩn đích'
-        }
-
-        if (!formData.targetCriteriaId) {
-            newErrors.targetCriteriaId = 'Vui lòng chọn tiêu chí đích'
-        }
-
-        if (!formData.newCode.trim()) {
-            newErrors.newCode = 'Mã minh chứng mới là bắt buộc'
-        } else if (!/^H\d+\.\d{2}\.\d{2}\.\d{2}$/.test(formData.newCode)) {
-            newErrors.newCode = 'Mã minh chứng không đúng định dạng (VD: H1.01.02.04)'
-        }
-
-        setErrors(newErrors)
-        return Object.keys(newErrors).length === 0
-    }
-
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-
-        if (!validate()) return
 
         try {
-            setLoading(true)
-
-            const response = await apiMethods.evidences.move(
-                evidence._id,
-                formData.targetStandardId,
-                formData.targetCriteriaId,
-                formData.newCode
-            )
-
-            if (response.data?.success) {
-                toast.success('Di chuyển minh chứng thành công')
-                onSuccess()
-            }
+            setSubmitting(true)
+            await apiMethods.evidences.move(evidence._id, {
+                targetStandardId: selectedStandard,
+                targetCriteriaId: selectedCriteria,
+                newCode: newCode.trim()
+            })
+            toast.success('Di chuyển minh chứng thành công')
+            onSuccess()
         } catch (error) {
-            console.error('Move evidence error:', error)
+            console.error('Move error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi di chuyển minh chứng')
         } finally {
-            setLoading(false)
+            setSubmitting(false)
         }
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
-                                <ArrowRightLeft className="h-6 w-6 text-white" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white">
-                                Di chuyển minh chứng
-                            </h2>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
-                        >
-                            <X className="h-6 w-6" />
-                        </button>
-                    </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+                <div className="px-6 py-5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-t-2xl text-white flex justify-between items-center">
+                    <h3 className="text-xl font-bold flex items-center"><ChevronRight className="h-6 w-6 mr-2" /> Di Chuyển Minh Chứng</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                    {/* Current Evidence Info */}
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border-2 border-gray-200">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-2">
-                                <Sparkles className="h-4 w-4 text-indigo-600" />
-                            </div>
-                            Minh chứng hiện tại
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <p className="text-xs text-gray-600 mb-1">Mã minh chứng</p>
-                                <p className="font-mono text-sm font-semibold text-indigo-600">
-                                    {evidence.code}
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <p className="text-xs text-gray-600 mb-1">Tên</p>
-                                <p className="text-sm text-gray-900 font-medium truncate">
-                                    {evidence.name}
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <p className="text-xs text-gray-600 mb-1">Tiêu chuẩn</p>
-                                <p className="text-sm text-gray-900 truncate">
-                                    {evidence.standardId?.code} - {evidence.standardId?.name}
-                                </p>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <p className="text-xs text-gray-600 mb-1">Tiêu chí</p>
-                                <p className="text-sm text-gray-900 truncate">
-                                    {evidence.criteriaId?.code} - {evidence.criteriaId?.name}
-                                </p>
-                            </div>
-                        </div>
+                <div className="p-6 space-y-6">
+                    <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                        <p className="text-sm font-semibold text-purple-900">Minh chứng hiện tại:</p>
+                        <p className="text-lg font-bold text-purple-700 mt-1">{evidence.code} - {evidence.name}</p>
                     </div>
 
-                    {/* Target Selection */}
-                    <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-gray-900 flex items-center">
-                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-2">
-                                <ArrowRightLeft className="h-4 w-4 text-purple-600" />
-                            </div>
-                            Di chuyển đến
-                        </h3>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tiêu chuẩn đích <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="targetStandardId"
-                                value={formData.targetStandardId}
-                                onChange={handleChange}
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                    errors.targetStandardId ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                }`}
-                            >
-                                <option value="">Chọn tiêu chuẩn</option>
-                                {standards.map(standard => (
-                                    <option key={standard._id} value={standard._id}>
-                                        {standard.code} - {standard.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.targetStandardId && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <X className="h-4 w-4 mr-1" />
-                                    {errors.targetStandardId}
-                                </p>
-                            )}
+                    {loading ? (
+                        <div className="flex justify-center py-8">
+                            <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
                         </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tiêu chuẩn đích <span className="text-red-600">*</span>
+                                    </label>
+                                    <select
+                                        value={selectedStandard}
+                                        onChange={(e) => setSelectedStandard(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                    >
+                                        <option value="">Chọn tiêu chuẩn...</option>
+                                        {standards.map(s => (
+                                            <option key={s._id} value={s._id}>{s.code} - {s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tiêu chí đích <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="targetCriteriaId"
-                                value={formData.targetCriteriaId}
-                                onChange={handleChange}
-                                disabled={!formData.targetStandardId}
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                    errors.targetCriteriaId ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                } ${!formData.targetStandardId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">Chọn tiêu chí</option>
-                                {criteria.map(criterion => (
-                                    <option key={criterion._id} value={criterion._id}>
-                                        {criterion.code} - {criterion.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.targetCriteriaId && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <X className="h-4 w-4 mr-1" />
-                                    {errors.targetCriteriaId}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="block text-sm font-medium text-gray-700">
-                                    Mã minh chứng mới <span className="text-red-500">*</span>
-                                </label>
-                                <label className="flex items-center space-x-2 text-sm text-gray-600">
-                                    <input
-                                        type="checkbox"
-                                        checked={autoGenerateCode}
-                                        onChange={(e) => setAutoGenerateCode(e.target.checked)}
-                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span>Tự động tạo mã</span>
-                                </label>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Tiêu chí đích <span className="text-red-600">*</span>
+                                    </label>
+                                    <select
+                                        value={selectedCriteria}
+                                        onChange={(e) => setSelectedCriteria(e.target.value)}
+                                        disabled={!selectedStandard}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
+                                    >
+                                        <option value="">Chọn tiêu chí...</option>
+                                        {criteria.map(c => (
+                                            <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <input
-                                type="text"
-                                name="newCode"
-                                value={formData.newCode}
-                                onChange={handleChange}
-                                disabled={autoGenerateCode}
-                                placeholder="VD: H1.01.02.04"
-                                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 transition-all ${
-                                    errors.newCode ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                                } ${autoGenerateCode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            />
-                            {errors.newCode && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <X className="h-4 w-4 mr-1" />
-                                    {errors.newCode}
-                                </p>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Warning */}
-                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl p-4">
-                        <div className="flex items-start space-x-3">
-                            <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Sparkles className="h-5 w-5 text-yellow-600" />
-                            </div>
                             <div>
-                                <p className="text-sm font-semibold text-yellow-900 mb-1">Lưu ý quan trọng</p>
-                                <p className="text-sm text-yellow-800">
-                                    Khi di chuyển minh chứng, mã minh chứng sẽ được thay đổi. Vui lòng kiểm tra kỹ trước khi thực hiện.
-                                </p>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Mã minh chứng mới <span className="text-red-600">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newCode}
+                                    onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                                    placeholder="VD: A1.01.02.04"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Format: A1.01.02.04</p>
                             </div>
-                        </div>
-                    </div>
-                </form>
+                        </>
+                    )}
 
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-medium"
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all font-medium"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang di chuyển...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="w-5 h-5" />
-                                <span>Di chuyển</span>
-                            </>
-                        )}
-                    </button>
+                    <div className="flex items-center justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            disabled={submitting}
+                            className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={handleMove}
+                            disabled={submitting || !selectedStandard || !selectedCriteria || !newCode.trim()}
+                            className="inline-flex items-center px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:shadow-xl"
+                        >
+                            {submitting ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Đang di chuyển...</> : 'Di Chuyển'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     )
 }
+
+const RenameFolderModal = ({ folder, onClose, onSuccess }) => {
+    const [newName, setNewName] = useState(folder.originalName)
+    const [submitting, setSubmitting] = useState(false)
+
+    const handleRename = async () => {
+        const trimmedName = newName.trim()
+
+        if (!trimmedName) {
+            toast.error('Vui lòng nhập tên thư mục')
+            return
+        }
+
+        if (trimmedName === folder.originalName) {
+            toast.error('Tên mới phải khác tên cũ')
+            return
+        }
+
+        if (trimmedName.length > 255) {
+            toast.error('Tên thư mục không được quá 255 ký tự')
+            return
+        }
+
+        try {
+            setSubmitting(true)
+            await apiMethods.files.renameFolder(folder._id, { newName: trimmedName })
+            toast.success('Đổi tên thư mục thành công')
+            onSuccess()
+        } catch (error) {
+            console.error('Rename error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi đổi tên thư mục')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div className="px-6 py-5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-2xl text-white flex justify-between items-center">
+                    <h3 className="text-xl font-bold flex items-center"><Edit2 className="h-6 w-6 mr-2" /> Đổi Tên Thư Mục</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Tên thư mục mới <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            maxLength={255}
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled={submitting}
+                            autoFocus
+                        />
+                        <p className="text-xs text-gray-500 mt-1">{newName.length}/255</p>
+                    </div>
+                    <div className="flex items-center justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            disabled={submitting}
+                            className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={handleRename}
+                            disabled={submitting || !newName.trim() || newName === folder.originalName}
+                            className="inline-flex items-center px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-xl"
+                        >
+                            {submitting ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Đang lưu...</> : 'Lưu'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+const DeleteFolderModal = ({ folder, onClose, onSuccess }) => {
+    const [submitting, setSubmitting] = useState(false)
+
+    const handleDelete = async () => {
+        try {
+            setSubmitting(true)
+            await apiMethods.files.deleteFile(folder._id)
+            toast.success('Xóa thư mục thành công')
+            onSuccess()
+        } catch (error) {
+            console.error('Delete error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi xóa thư mục')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div className="px-6 py-5 bg-gradient-to-r from-red-500 to-red-600 rounded-t-2xl text-white flex justify-between items-center">
+                    <h3 className="text-xl font-bold flex items-center"><Trash2 className="h-6 w-6 mr-2" /> Xóa Thư Mục</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                        <p className="text-sm font-semibold text-red-900">Cảnh báo:</p>
+                        <p className="text-red-800 mt-2">
+                            Bạn sắp xóa thư mục "<strong>{folder.originalName}</strong>".
+                            Hành động này không thể hoàn tác.
+                        </p>
+                    </div>
+                    <div className="flex items-center justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            disabled={submitting}
+                            className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            disabled={submitting}
+                            className="inline-flex items-center px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-red-500 to-red-600 text-white hover:shadow-xl"
+                        >
+                            {submitting ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Đang xóa...</> : 'Xóa'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+const FolderActions = ({ folder, onRenameClick, onDeleteClick }) => {
+    return (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={() => onRenameClick(folder)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                title="Đổi tên"
+            >
+                <Edit2 className="h-5 w-5" />
+            </button>
+            <button
+                onClick={() => onDeleteClick(folder)}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                title="Xóa"
+            >
+                <Trash2 className="h-5 w-5" />
+            </button>
+        </div>
+    )
+}
+
+export { MoveEvidenceModal, RenameFolderModal, DeleteFolderModal, FolderActions }
