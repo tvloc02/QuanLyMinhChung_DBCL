@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { StatCard, QuickAction, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
-const AdvisorDashboard = () => {
+const TdgDashboard = () => {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -293,4 +293,4 @@ const AdvisorDashboard = () => {
     );
 };
 
-export default AdvisorDashboard;
+export default TdgDashboard;
