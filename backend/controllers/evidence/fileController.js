@@ -549,10 +549,10 @@ const renameFolder = async (req, res) => {
 
 const getFolderContents = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { evidenceId } = req.query;
+        const { folderId } = req.params;
+        const { evidenceId } = req.query; // ✅ Lấy evidenceId từ query để kiểm tra quyền
 
-        // ===== KIỂM TRA QUYỀN XEM NỘI DUNG FOLDER =====
+        // Cần kiểm tra quyền trước khi truy xuất
         const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
         if (!evidence) {
             return res.status(404).json({
@@ -561,59 +561,61 @@ const getFolderContents = async (req, res) => {
             });
         }
 
+        // ===== KIỂM TRA QUYỀN TRUY CẬP (Logic nhất quán) =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
                     return res.status(403).json({
                         success: false,
-                        message: 'Bạn không có quyền xem nội dung này'
+                        message: 'Không có quyền truy cập thư mục này'
                     });
                 }
             } else if (req.user.role === 'tdg') {
                 if (!isAssigned && userDeptId !== evidenceDeptId) {
                     return res.status(403).json({
                         success: false,
-                        message: 'Bạn không có quyền xem nội dung này'
+                        message: 'Không có quyền truy cập thư mục này'
                     });
                 }
             } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền xem nội dung'
+                    message: 'Bạn không có quyền truy cập'
                 });
             }
         }
+        // =====================================================
 
-        let query = {};
+        const folder = await File.findOne({ _id: folderId, type: 'folder' });
+        if (!folder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy thư mục'
+            });
+        }
 
-        if (id === 'root') {
-            query = {
-                evidenceId,
-                parentFolder: null
-            };
-        } else {
-            const folder = await File.findOne({ _id: id, type: 'folder' });
-            if (!folder) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy thư mục'
-                });
-            }
+        let query = { parentFolder: folderId, status: 'active' };
 
-            query = { parentFolder: id };
+        // Nếu là TDG, chỉ lấy file của chính họ hoặc file đã được nộp (submitted)
+        if (req.user.role === 'tdg') {
+            query.$or = [
+                { uploadedBy: req.user.id },
+                { isSubmitted: true }
+            ];
         }
 
         const items = await File.find(query)
             .populate('uploadedBy', 'fullName email')
-            .sort({ type: -1, originalName: 1 });
+            .sort({ type: -1, originalName: 1 }); // Sắp xếp folder lên trước
 
+        // ✅ TRẢ VỀ MẢNG TRỰC TIẾP (Đồng nhất với logic Front-end mong muốn)
         res.json({
             success: true,
-            data: items
+            data: items // Trả về mảng trực tiếp
         });
 
     } catch (error) {
