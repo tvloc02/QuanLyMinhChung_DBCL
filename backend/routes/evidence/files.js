@@ -66,10 +66,7 @@ router.post('/create-folder/:evidenceId',
 router.get('/list/:evidenceId',
     auth,
     [
-        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ'),
-        query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-        query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit phải từ 1-50'),
-        query('parentFolder').optional()
+        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
     ],
     validation,
     async (req, res) => {
@@ -130,10 +127,10 @@ router.get('/list/:evidenceId',
                 ];
             }
 
-            if (parentFolder && parentFolder !== 'root') {
-                query.parentFolder = parentFolder;
-            } else {
+            if (parentFolder === 'root' || !parentFolder) {
                 query.parentFolder = null;
+            } else if (parentFolder !== 'all') {
+                query.parentFolder = parentFolder;
             }
 
             const [items, total] = await Promise.all([
