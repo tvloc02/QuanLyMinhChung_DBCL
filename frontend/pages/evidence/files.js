@@ -111,8 +111,6 @@ export default function FilesPage() {
 
         for (const file of filesToUpload) {
             try {
-                // Giả định sử dụng apiMethods.files.uploadMultiple
-                // Tuy nhiên, logic backend chỉ nhận 'files', ta dùng upload đơn trong loop
                 const response = await apiMethods.files.upload(file, evidenceId)
 
                 if (response.data?.success) {
