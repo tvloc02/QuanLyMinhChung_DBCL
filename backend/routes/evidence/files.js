@@ -27,7 +27,6 @@ router.post('/upload/:evidenceId',
     uploadFiles
 );
 
-// Route download file
 router.get('/download/:id',
     auth,
     [
@@ -37,7 +36,6 @@ router.get('/download/:id',
     downloadFile
 );
 
-// Route lấy thông tin file
 router.get('/:id/info',
     auth,
     [
@@ -47,7 +45,6 @@ router.get('/:id/info',
     getFileInfo
 );
 
-// Route xóa file
 router.delete('/:id',
     auth,
     [
@@ -57,7 +54,6 @@ router.delete('/:id',
     deleteFile
 );
 
-// Route tạo folder cho TDG
 router.post('/create-folder/:evidenceId',
     auth,
     [
@@ -67,7 +63,6 @@ router.post('/create-folder/:evidenceId',
     createFolder
 );
 
-// ✅ SỬA ROUTE LẤY DANH SÁCH FILE/FOLDER (Dùng cho cả phân trang và lấy folder gốc)
 router.get('/list/:evidenceId',
     auth,
     [
@@ -80,12 +75,13 @@ router.get('/list/:evidenceId',
     async (req, res) => {
         try {
             const { evidenceId } = req.params;
-            const { page = 1, limit = 20, parentFolder } = req.query; // Dùng parentFolder
+            const page = parseInt(req.query.page || 1);
+            const limit = parseInt(req.query.limit || 20);
+            const { parentFolder } = req.query;
 
             const File = require('../../models/Evidence/File');
             const Evidence = require('../../models/Evidence/Evidence');
 
-            // Cần populate assignedTo cho logic check quyền
             const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
             if (!evidence) {
                 return res.status(404).json({
@@ -94,7 +90,6 @@ router.get('/list/:evidenceId',
                 });
             }
 
-            // ===== KIỂM TRA QUYỀN TRUY CẬP (Logic nhất quán với evidenceController) =====
             if (req.user.role !== 'admin') {
                 const userDeptId = req.user.department?.toString();
                 const evidenceDeptId = evidence.departmentId?._id?.toString();
@@ -108,7 +103,6 @@ router.get('/list/:evidenceId',
                         });
                     }
                 } else if (req.user.role === 'tdg') {
-                    // TDG được xem file nếu được phân quyền HOẶC thuộc phòng ban tạo
                     if (!isAssigned && userDeptId !== evidenceDeptId) {
                         return res.status(403).json({
                             success: false,
@@ -123,45 +117,39 @@ router.get('/list/:evidenceId',
                 }
             }
 
-            const pageNum = parseInt(page);
-            const limitNum = parseInt(limit);
+            const pageNum = page;
+            const limitNum = limit;
             const skip = (pageNum - 1) * limitNum;
 
-            // Query để lấy file
             let query = { evidenceId, status: 'active' };
 
-            // Nếu là TDG thì chỉ lấy file của chính họ hoặc file đã được nộp (submitted)
             if (req.user.role === 'tdg') {
-                // TDG chỉ thấy file của mình VÀ folder của mình (folder cũng có uploadedBy) HOẶC file đã được nộp
                 query.$or = [
                     { uploadedBy: req.user.id },
                     { isSubmitted: true }
                 ];
             }
 
-            // Xác định thư mục cha
             if (parentFolder && parentFolder !== 'root') {
                 query.parentFolder = parentFolder;
             } else {
                 query.parentFolder = null;
             }
 
-            // Lấy danh sách items (files/folders)
             const [items, total] = await Promise.all([
                 File.find(query)
                     .populate('uploadedBy', 'fullName email')
                     .populate('approvedBy', 'fullName email')
-                    .sort({ type: -1, originalName: 1 }) // Sắp xếp folder lên trước
+                    .sort({ type: -1, originalName: 1 })
                     .skip(skip)
                     .limit(limitNum),
                 File.countDocuments(query)
             ]);
 
-            // ✅ TRẢ VỀ CẤU TRÚC ĐỒNG NHẤT
             res.json({
                 success: true,
                 data: {
-                    items, // Sửa tên từ files thành items để dễ quản lý ở Front-end
+                    items,
                     pagination: {
                         current: pageNum,
                         pages: Math.ceil(total / limitNum),
@@ -182,7 +170,6 @@ router.get('/list/:evidenceId',
     }
 );
 
-// Route lấy contents của folder
 router.get('/folder/:folderId/contents',
     auth,
     [
@@ -192,7 +179,6 @@ router.get('/folder/:folderId/contents',
     getFolderContents
 );
 
-// Route nộp file (submit) - TDG nộp file cho manager duyệt
 router.post('/submit/:evidenceId',
     auth,
     [
@@ -202,7 +188,6 @@ router.post('/submit/:evidenceId',
     submitEvidence
 );
 
-// Route duyệt file - Manager duyệt file
 router.post('/approve/:fileId',
     auth,
     [
@@ -212,7 +197,6 @@ router.post('/approve/:fileId',
     approveFile
 );
 
-// Route từ chối file - Manager từ chối file
 router.post('/reject/:fileId',
     auth,
     [
@@ -222,7 +206,6 @@ router.post('/reject/:fileId',
     rejectFile
 );
 
-// Route stream file (xem file online)
 router.get('/stream/:id',
     auth,
     [
@@ -244,20 +227,17 @@ router.get('/stream/:id',
                 });
             }
 
-            // ===== KIỂM TRA QUYỀN XEM FILE (Cần sửa để lấy assignedTo) =====
             const Evidence = require('../../models/Evidence/Evidence');
-            const evidence = await Evidence.findById(file.evidenceId._id).populate('assignedTo'); // Lấy lại evidence có assignedTo
+            const evidence = await Evidence.findById(file.evidenceId._id).populate('assignedTo');
 
             if (req.user.role !== 'admin') {
                 const userDeptId = req.user.department?.toString();
                 const evidenceDeptId = evidence.departmentId?.toString();
                 const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
 
-                // TDG
                 if (req.user.role === 'tdg') {
                     const isOwnFile = file.uploadedBy.toString() === req.user.id;
                     const isSubmitted = file.isSubmitted;
-                    // Cho phép nếu là file của mình, HOẶC đã được nộp, HOẶC được phân quyền, HOẶC cùng phòng ban
                     if (!isOwnFile && !isSubmitted && !isAssigned && userDeptId !== evidenceDeptId) {
                         return res.status(403).json({
                             success: false,
@@ -265,7 +245,6 @@ router.get('/stream/:id',
                         });
                     }
                 } else if (req.user.role === 'manager') {
-                    // Manager chỉ cần cùng phòng ban (hoặc được assigned, nhưng ở đây chỉ check dept)
                     if (userDeptId !== evidenceDeptId) {
                         return res.status(403).json({
                             success: false,
@@ -274,7 +253,6 @@ router.get('/stream/:id',
                     }
                 }
             }
-            // =============================================================
 
             if (!fs.existsSync(file.filePath)) {
                 return res.status(404).json({
