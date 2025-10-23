@@ -809,7 +809,7 @@ export default function EvidenceManagement() {
                                                 {formatDate(evidence.createdAt)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-4 flex-wrap">
+                                                <div className="flex items-center justify-center gap-2 flex-wrap">
                                                     <ActionButton
                                                         icon={Eye}
                                                         title="Xem minh chứng"
