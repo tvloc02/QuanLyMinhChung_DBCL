@@ -242,16 +242,20 @@ export const apiMethods = {
     files: {
         uploadFiles: (evidenceId, data) => {
             const formData = new FormData()
+
             if (data.files && Array.isArray(data.files)) {
-                data.files.forEach(file => {
-                    formData.append('files', file)
+                data.files.forEach((file, index) => {
+                    formData.append('files', file, file.name);
                 })
             }
+
             if (data.parentFolderId) {
                 formData.append('parentFolderId', data.parentFolderId)
             }
+
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 60000
             })
         },
         downloadFile: (id) => api.get(`/api/files/download/${id}`, {
@@ -259,15 +263,19 @@ export const apiMethods = {
         }),
         getFileInfo: (id) => api.get(`/api/files/${id}/info`),
         deleteFile: (id) => api.delete(`/api/files/${id}`),
-        getByEvidence: (evidenceId, params = {}) =>
-            api.get(`/api/files/list/${evidenceId}`, { params }),
+        getByEvidence: (evidenceId, params = {}) => {
+            const queryParams = { ...params };
+            return api.get(`/api/files/list/${evidenceId}`, { params: queryParams });
+        },
         createFolder: (evidenceId, data) => {
             const payload = {
-                folderName: data.folderName,
+                folderName: data.folderName || '',
                 parentFolderId: data.parentFolderId || null
             };
             return api.post(`/api/files/create-folder/${evidenceId}`, payload);
         },
+        renameFolder: (folderId, data) =>
+            api.post(`/api/files/rename/${folderId}`, data),
         getFolderContents: (params) =>
             api.get(`/api/files/folder/${params.folderId}/contents`, {
                 params: {
