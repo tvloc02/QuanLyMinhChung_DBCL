@@ -4,34 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
-// Hàm updateFolderMetadata (giữ nguyên)
-const updateFolderMetadata = async (folderId) => {
-    try {
-        const children = await File.find({ parentFolder: folderId });
-
-        let fileCount = 0;
-        let totalSize = 0;
-
-        for (const child of children) {
-            if (child.type === 'file') {
-                fileCount++;
-                totalSize += child.size;
-            } else if (child.type === 'folder') {
-                fileCount += child.folderMetadata.fileCount;
-                totalSize += child.folderMetadata.totalSize;
-            }
-        }
-
-        await File.findByIdAndUpdate(folderId, {
-            'folderMetadata.fileCount': fileCount,
-            'folderMetadata.totalSize': totalSize,
-            'folderMetadata.lastModified': new Date()
-        });
-    } catch (error) {
-        console.error('Update folder metadata error:', error);
-    }
-};
-
 const uploadFiles = async (req, res) => {
     try {
         const { evidenceId } = req.params;
@@ -53,10 +25,6 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN UPLOAD =====
-        // Admin: có quyền upload cho bất kỳ minh chứng nào
-        // Manager: chỉ được upload cho minh chứng của phòng ban mình
-        // TDG: được upload nếu được phân quyền hoặc thuộc phòng ban tạo minh chứng
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
@@ -181,7 +149,6 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM FILE =====
         const evidence = file.evidenceId;
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
@@ -196,7 +163,6 @@ const downloadFile = async (req, res) => {
                     });
                 }
             } else if (req.user.role === 'tdg') {
-                // TDG chỉ xem được file của mình hoặc nếu được phân quyền
                 if (!isAssigned && userDeptId !== evidenceDeptId) {
                     return res.status(403).json({
                         success: false,
@@ -254,7 +220,6 @@ const deleteFile = async (req, res) => {
 
         const evidence = file.evidenceId;
 
-        // ===== KIỂM TRA QUYỀN XÓA FILE =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
@@ -269,7 +234,6 @@ const deleteFile = async (req, res) => {
                     });
                 }
             } else if (req.user.role === 'tdg') {
-                // TDG chỉ được xóa file của mình
                 if (!isFileUploader) {
                     return res.status(403).json({
                         success: false,
@@ -283,7 +247,6 @@ const deleteFile = async (req, res) => {
                 });
             }
 
-            // Nếu là folder hoặc file folder
             if (file.type === 'folder') {
                 const childrenCount = await File.countDocuments({ parentFolder: id });
                 if (childrenCount > 0) {
@@ -294,7 +257,6 @@ const deleteFile = async (req, res) => {
                 }
             }
 
-            // ===== KIỂM TRA TRẠNG THÁI DUYỆT =====
             if (file.approvalStatus === 'approved') {
                 return res.status(403).json({
                     success: false,
@@ -364,7 +326,6 @@ const getFileInfo = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM THÔNG TIN FILE =====
         const evidence = file.evidenceId;
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
@@ -1050,6 +1011,308 @@ const buildTree = (items, parentId) => {
     }));
 };
 
+const submitEvidence = async (req, res) => {
+    try {
+        const { evidenceId } = req.params;
+
+        // Chỉ TDG được nộp
+        if (req.user.role !== 'tdg') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ TDG được nộp file'
+            });
+        }
+
+        const File = require('../../models/Evidence/File');
+        const Evidence = require('../../models/Evidence/Evidence');
+
+        const evidence = await Evidence.findById(evidenceId);
+        if (!evidence) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
+        }
+
+        // Check quyền
+        const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+        const userDeptId = req.user.department?.toString();
+        const evidenceDeptId = evidence.departmentId?.toString();
+
+        if (!isAssigned && userDeptId !== evidenceDeptId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền nộp file cho minh chứng này'
+            });
+        }
+
+        // Lấy tất cả file của user chưa nộp
+        const filesToSubmit = await File.find({
+            evidenceId,
+            uploadedBy: req.user.id,
+            type: 'file',
+            isSubmitted: false,
+            status: 'active'
+        });
+
+        if (filesToSubmit.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file để nộp'
+            });
+        }
+
+        const submittedAt = new Date();
+
+        // Update tất cả file thành submitted
+        const result = await File.updateMany(
+            {
+                evidenceId,
+                uploadedBy: req.user.id,
+                type: 'file',
+                isSubmitted: false,
+                status: 'active'
+            },
+            {
+                $set: {
+                    isSubmitted: true,
+                    submittedAt,
+                    submittedBy: req.user.id,
+                    approvalStatus: 'pending'
+                }
+            }
+        );
+
+        // Log activity
+        await File.findOne({
+            evidenceId,
+            uploadedBy: req.user.id
+        }).then(async file => {
+            if (file) {
+                await file.addActivityLog(
+                    'evidence_submit',
+                    req.user.id,
+                    `Nộp minh chứng với ${filesToSubmit.length} file`,
+                    {
+                        severity: 'medium',
+                        result: 'success',
+                        fileCount: filesToSubmit.length,
+                        submittedAt
+                    }
+                );
+            }
+        });
+
+        res.json({
+            success: true,
+            message: `Nộp thành công ${filesToSubmit.length} file. Chờ manager duyệt.`,
+            data: {
+                submittedCount: filesToSubmit.length,
+                submittedAt
+            }
+        });
+
+    } catch (error) {
+        console.error('Submit evidence error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi nộp file'
+        });
+    }
+};
+
+const approveFile = async (req, res) => {
+    try {
+        const { fileId } = req.params;
+
+        // Chỉ Manager/Admin được duyệt
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin được duyệt file'
+            });
+        }
+
+        const File = require('../../models/Evidence/File');
+        const file = await File.findById(fileId).populate('evidenceId');
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        // Check file là pending
+        if (file.approvalStatus !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: 'File này không ở trạng thái chờ duyệt'
+            });
+        }
+
+        // Check quyền (Manager chỉ duyệt file của phòng ban mình)
+        if (req.user.role === 'manager') {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = file.evidenceId.departmentId?.toString();
+
+            if (userDeptId !== evidenceDeptId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền duyệt file này'
+                });
+            }
+        }
+
+        // Cập nhật file
+        file.approvalStatus = 'approved';
+        file.approvedBy = req.user.id;
+        file.approvalDate = new Date();
+        await file.save();
+
+        // Log activity
+        await file.addActivityLog(
+            'file_approve',
+            req.user.id,
+            `Duyệt file: ${file.originalName}`,
+            {
+                severity: 'medium',
+                result: 'success',
+                approvedBy: req.user.id
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Duyệt file thành công',
+            data: file
+        });
+
+    } catch (error) {
+        console.error('Approve file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi duyệt file'
+        });
+    }
+};
+
+// ===== 5. TỪ CHỐI FILE (MANAGER TỪ CHỐI) =====
+const rejectFile = async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const { rejectionReason } = req.body;
+
+        // Chỉ Manager/Admin được từ chối
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin được từ chối file'
+            });
+        }
+
+        if (!rejectionReason || !rejectionReason.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng nhập lý do từ chối'
+            });
+        }
+
+        const File = require('../../models/Evidence/File');
+        const file = await File.findById(fileId).populate('evidenceId');
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        // Check file là pending
+        if (file.approvalStatus !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: 'File này không ở trạng thái chờ duyệt'
+            });
+        }
+
+        // Check quyền (Manager chỉ từ chối file của phòng ban mình)
+        if (req.user.role === 'manager') {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = file.evidenceId.departmentId?.toString();
+
+            if (userDeptId !== evidenceDeptId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền từ chối file này'
+                });
+            }
+        }
+
+        // Cập nhật file
+        file.approvalStatus = 'rejected';
+        file.approvedBy = req.user.id;
+        file.approvalDate = new Date();
+        file.rejectionReason = rejectionReason.trim();
+        await file.save();
+
+        // Log activity
+        await file.addActivityLog(
+            'file_reject',
+            req.user.id,
+            `Từ chối file: ${file.originalName}`,
+            {
+                severity: 'medium',
+                result: 'success',
+                rejectionReason: rejectionReason.trim(),
+                approvedBy: req.user.id
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Từ chối file thành công',
+            data: file
+        });
+
+    } catch (error) {
+        console.error('Reject file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi từ chối file'
+        });
+    }
+};
+
+// ===== HELPER: Update folder metadata =====
+const updateFolderMetadata = async (folderId) => {
+    try {
+        const File = require('../../models/Evidence/File');
+        const children = await File.find({ parentFolder: folderId });
+
+        let fileCount = 0;
+        let totalSize = 0;
+
+        for (const child of children) {
+            if (child.type === 'file') {
+                fileCount++;
+                totalSize += child.size || 0;
+            } else if (child.type === 'folder') {
+                fileCount += child.folderMetadata?.fileCount || 0;
+                totalSize += child.folderMetadata?.totalSize || 0;
+            }
+        }
+
+        await File.findByIdAndUpdate(folderId, {
+            'folderMetadata.fileCount': fileCount,
+            'folderMetadata.totalSize': totalSize,
+            'folderMetadata.lastModified': new Date()
+        });
+    } catch (error) {
+        console.error('Update folder metadata error:', error);
+    }
+};
+
 module.exports = {
     uploadFiles,
     downloadFile,
@@ -1061,5 +1324,8 @@ module.exports = {
     moveFile,
     getFolderTree,
     searchFiles,
-    getFileStatistics
+    getFileStatistics,
+    submitEvidence,
+    approveFile,
+    rejectFile
 };
