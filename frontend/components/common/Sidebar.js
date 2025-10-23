@@ -45,7 +45,7 @@ import {
 } from 'lucide-react'
 
 // ============================================
-// ĐỊNH NGHĨA QUYỀN THEO VAI TRÒ
+// ĐỊNH NGHĨA QUYỀN THEO VAI TRÒ - ĐỒNG BỘ VỚI BACKEND
 // ============================================
 const ROLE_PERMISSIONS = {
     admin: [
@@ -501,17 +501,38 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, us
     const [expandedMenus, setExpandedMenus] = useState({})
     const [searchQuery, setSearchQuery] = useState('')
     const [userPermissions, setUserPermissions] = useState([])
+    const [debugInfo, setDebugInfo] = useState({})
 
-    // Khởi tạo quyền người dùng
+    // ✅ FIX: Khởi tạo quyền người dùng - đảm bảo được gọi mỗi khi userRole thay đổi
     useEffect(() => {
-        const permissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.expert
+        // Validate role
+        const validRoles = ['admin', 'manager', 'tdg', 'expert']
+        const normalizedRole = validRoles.includes(userRole) ? userRole : 'expert'
+
+        const permissions = ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS.expert
         setUserPermissions(permissions)
+
+        // ✅ DEBUG: Log info để kiểm tra
+        setDebugInfo({
+            userRole,
+            normalizedRole,
+            permissionsCount: permissions.length,
+            timestamp: new Date().toLocaleTimeString()
+        })
+
+        console.log('🔄 [SIDEBAR] Role updated:', {
+            userRole,
+            normalizedRole,
+            permissionsCount: permissions.length,
+            permissions: permissions.slice(0, 5) + '...' // Show first 5
+        })
     }, [userRole])
 
     // Kiểm tra xem mục có được phép hiển thị không
     const isMenuItemVisible = (permissionKey) => {
         if (!permissionKey) return true
-        return userPermissions.includes(permissionKey)
+        const isVisible = userPermissions.includes(permissionKey)
+        return isVisible
     }
 
     // Lọc các mục menu theo quyền
@@ -542,6 +563,12 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, us
         return item.name.toLowerCase().includes(query) ||
             (item.submenu && item.submenu.some(sub => sub.name.toLowerCase().includes(query)))
     })
+
+    // ✅ DEBUG: Log filtered items
+    useEffect(() => {
+        console.log('📋 [SIDEBAR] Filtered items count:', filteredItems.length)
+        console.log('📋 [SIDEBAR] Items:', filteredItems.map(i => i.name))
+    }, [filteredItems])
 
     const handleNavigation = (path) => {
         router.push(path)
@@ -600,6 +627,13 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, us
                     background: 'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)'
                 }}
             >
+                {/* DEBUG INFO - Chỉ hiện khi collapsed */}
+                {collapsed && !searchQuery && (
+                    <div className="p-2 text-xs text-gray-500 border-b text-center whitespace-nowrap overflow-hidden" title={JSON.stringify(debugInfo)}>
+                        {debugInfo.normalizedRole}
+                    </div>
+                )}
+
                 {/* SEARCH BAR */}
                 {!collapsed && (
                     <div className="p-4 border-b-2 bg-white flex-shrink-0" style={{ borderColor: '#E5E7EB' }}>
@@ -648,6 +682,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, us
                         <div className="flex flex-col items-center justify-center py-8 text-center">
                             <Lock className="h-8 w-8 text-gray-300 mb-3" />
                             <p className="text-gray-500 text-sm font-medium">Không có quyền truy cập</p>
+                            <p className="text-gray-400 text-xs mt-2">Role: {userRole}</p>
                         </div>
                     ) : (
                         filteredItems.map((item, index) => (
