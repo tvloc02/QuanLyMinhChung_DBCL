@@ -46,7 +46,6 @@ router.get('/', auth, [
     query('criteriaId').optional().isMongoId()
 ], validation, getReports);
 
-// ✅ Yêu cầu quyền Manager+ (bao gồm advisor/supervisor)
 router.post('/', auth, requireManager, [
     body('title').notEmpty().isLength({ max: 500 }),
     body('type').isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
@@ -57,7 +56,8 @@ router.post('/', auth, requireManager, [
     body('content').optional(),
     body('contentMethod').optional().isIn(['online_editor', 'file_upload']),
     body('summary').optional().isLength({ max: 1000 }),
-    body('keywords').optional().isArray()
+    body('keywords').optional().isArray(),
+    body('requestId').optional().isMongoId()
 ], validation, createReport);
 
 router.get('/:id', auth, [
