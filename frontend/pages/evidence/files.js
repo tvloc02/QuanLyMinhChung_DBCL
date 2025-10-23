@@ -36,8 +36,12 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!folderName.trim()) return toast.error('Vui lòng nhập tên thư mục');
-        // ✅ THÊM CHECK NẾU EVIDENCEID KHÔNG CÓ
+
+        if (!folderName.trim()) {
+            toast.error('Vui lòng nhập tên thư mục');
+            return;
+        }
+
         if (!evidenceId) {
             toast.error('Không tìm thấy ID minh chứng để tạo thư mục.');
             return;
@@ -45,17 +49,28 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
 
         try {
             setSubmitting(true);
-            await apiMethods.files.createFolder(evidenceId, {
-                folderName: folderName.trim(),
-                parentFolderId: parentFolderId || null
-            });
 
-            toast.success(`Tạo thư mục "${folderName.trim()}" thành công`);
-            onSuccess();
+            const payload = {
+                folderName: folderName.trim()
+            };
+
+            if (parentFolderId) {
+                payload.parentFolderId = parentFolderId;
+            }
+
+            const response = await apiMethods.files.createFolder(evidenceId, payload);
+
+            if (response.data?.success) {
+                toast.success(`Tạo thư mục "${folderName.trim()}" thành công`);
+                setFolderName('');
+                onSuccess();
+            } else {
+                toast.error(response.data?.message || 'Lỗi khi tạo thư mục');
+            }
         } catch (error) {
             console.error('Create folder error:', error);
-            // ✅ HIỂN THỊ LỖI CHI TIẾT TỪ BACK-END
-            toast.error(error.response?.data?.message || 'Lỗi khi tạo thư mục');
+            const errorMsg = error.response?.data?.message || error.message || 'Lỗi khi tạo thư mục';
+            toast.error(errorMsg);
         } finally {
             setSubmitting(false);
         }
@@ -80,6 +95,7 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
                             placeholder="Nhập tên thư mục..."
                             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             disabled={submitting}
+                            autoFocus
                         />
                     </div>
                     <div className="flex items-center justify-end space-x-3">
@@ -173,22 +189,26 @@ export default function FilesPage() {
             const evidenceData = evidenceResponse.data?.data || evidenceResponse.data
             setEvidence(evidenceData)
 
-            let filesResponse;
             let filesInFolder = [];
 
-            if (currentFolderId === null) {
-                // Fix Lỗi 400: Gửi tham số page/limit làm query params
-                filesResponse = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root', page: 1, limit: 1000 });
-                filesInFolder = filesResponse.data?.data?.items || [];
-            } else {
-                filesResponse = await apiMethods.files.getFolderContents({
-                    folderId: currentFolderId,
-                    evidenceId: evidenceId
-                });
-                filesInFolder = filesResponse.data?.data || [];
+            try {
+                if (currentFolderId === null) {
+                    const filesResponse = await apiMethods.files.getByEvidence(evidenceId, {
+                        parentFolder: 'root'
+                    });
+                    filesInFolder = filesResponse.data?.data?.items || filesResponse.data?.data || [];
+                } else {
+                    const filesResponse = await apiMethods.files.getFolderContents({
+                        folderId: currentFolderId,
+                        evidenceId: evidenceId
+                    });
+                    filesInFolder = filesResponse.data?.data || [];
+                }
+            } catch (fileError) {
+                console.warn('Error fetching files, using empty array:', fileError);
+                filesInFolder = [];
             }
 
-            // Fix Lỗi filesInFolder.sort is not a function: Đảm bảo là mảng trước khi sắp xếp
             if (Array.isArray(filesInFolder)) {
                 filesInFolder.sort((a, b) => {
                     if (a.type === 'folder' && b.type !== 'folder') return -1;
@@ -212,7 +232,7 @@ export default function FilesPage() {
                 }, 1500)
             } else if (error.response?.status === 401) {
                 toast.error('Vui lòng đăng nhập lại')
-                router.push('/login')
+                await router.push('/login')
             } else {
                 toast.error(error.response?.data?.message || 'Lỗi khi tải dữ liệu')
             }
