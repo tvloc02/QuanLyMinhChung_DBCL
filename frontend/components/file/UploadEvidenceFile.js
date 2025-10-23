@@ -1,35 +1,94 @@
-import { useState,useEffect } from 'react'
-import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2 } from 'lucide-react' // Thêm các icon mới
+import { useState, useEffect } from 'react'
+import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2, sum, allItems } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { apiMethods } from '../../services/api' // Import apiMethods
+import { apiMethods } from '../../services/api'
+
+const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
+    const [folderName, setFolderName] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!folderName.trim()) return toast.error('Vui lòng nhập tên thư mục');
+
+        try {
+            setSubmitting(true);
+            await apiMethods.files.createFolder(evidenceId, {
+                folderName: folderName.trim(),
+                parentFolderId: parentFolderId || null
+            });
+
+            toast.success(`Tạo thư mục "${folderName.trim()}" thành công`);
+            onSuccess();
+        } catch (error) {
+            console.error('Create folder error:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi tạo thư mục');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full space-y-4">
+                <h4 className="text-lg font-bold">Tạo thư mục mới</h4>
+                <input
+                    type="text"
+                    value={folderName}
+                    onChange={(e) => setFolderName(e.target.value)}
+                    placeholder="Nhập tên thư mục..."
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={submitting}
+                />
+                <div className="flex justify-end space-x-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl font-semibold"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={submitting || !folderName.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
+                    >
+                        Tạo
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // Component con để hiển thị cây thư mục/nội dung
-const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder }) => {
+const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, onFolderCreated }) => {
     const [contents, setContents] = useState([])
     const [loading, setLoading] = useState(false)
     const [currentPath, setCurrentPath] = useState([{ id: 'root', name: 'Thư mục gốc' }])
     const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
-    const [newFolderName, setNewFolderName] = useState('')
     const currentFolderId = currentPath[currentPath.length - 1].id;
 
     const fetchContents = async (folderId) => {
         setLoading(true)
         try {
-            // Sử dụng apiMethods.files.getFolderContents với folderId là id của folder hoặc 'root'
-            const response = await apiMethods.files.getFolderContents({
-                folderId: folderId,
-                evidenceId: evidenceId
-            })
-            const allItems = response.data?.data || []
+            const params = { evidenceId };
+            let response;
+
+            if (folderId === 'root') {
+                // Lấy nội dung thư mục gốc (parentFolder: null)
+                response = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root' });
+            } else {
+                // Lấy nội dung thư mục con
+                response = await apiMethods.files.getFolderContents({
+                    folderId: folderId,
+                    evidenceId: evidenceId
+                })
+            }
+
+            const allItems = response.data?.data || allItems.files || []
             // Chỉ lấy folders
             setContents(allItems.filter(item => item.type === 'folder'))
-
-            // Nếu folderId là ID thật, chọn folder đó làm target upload mặc định
-            if (folderId !== 'root') {
-                onSelectFolder(folderId);
-            } else {
-                onSelectFolder(null); // Chọn thư mục gốc
-            }
 
         } catch (error) {
             console.error('Fetch folder contents error:', error)
@@ -41,6 +100,7 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder })
 
     useEffect(() => {
         fetchContents(currentFolderId)
+        onSelectFolder(currentFolderId === 'root' ? null : currentFolderId);
     }, [currentPath])
 
     const handleOpenFolder = (folder) => {
@@ -51,32 +111,17 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder })
         setCurrentPath(prev => prev.slice(0, index + 1))
     }
 
-    const handleCreateFolder = async (e) => {
-        e.preventDefault();
-        if (!newFolderName.trim()) return toast.error('Vui lòng nhập tên thư mục');
-
-        try {
-            const parentFolderId = currentFolderId === 'root' ? null : currentFolderId;
-            await apiMethods.files.createFolder(evidenceId, {
-                folderName: newFolderName.trim(),
-                parentFolderId: parentFolderId
-            })
-
-            toast.success(`Tạo thư mục "${newFolderName.trim()}" thành công`)
-            setNewFolderName('')
-            setShowCreateFolderModal(false)
-            fetchContents(currentFolderId) // Refresh contents
-
-        } catch (error) {
-            console.error('Create folder error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tạo thư mục')
-        }
-    }
-
     // Tùy chọn: Chọn thư mục hiện tại làm thư mục đích
     const handleSelectCurrentFolder = () => {
-        onSelectFolder(currentFolderId === 'root' ? null : currentFolderId);
+        const targetId = currentFolderId === 'root' ? null : currentFolderId;
+        onSelectFolder(targetId);
         toast.success(`Đã chọn "${currentPath[currentPath.length - 1].name}" làm thư mục đích.`);
+    };
+
+    const handleFolderCreationSuccess = () => {
+        onFolderCreated();
+        setShowCreateFolderModal(false);
+        fetchContents(currentFolderId);
     };
 
     return (
@@ -143,42 +188,21 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder })
                                     {folder.originalName}
                                 </span>
                             </div>
-                            <span className="text-xs text-gray-500">{folder.folderMetadata?.fileCount || 0} files</span>
+                            <span className="text-xs text-gray-500">{folder.folderMetadata?.fileCount || 0} mục</span>
                         </button>
                     ))}
                 </div>
             )}
 
-            {/* Modal Tạo thư mục */}
             {showCreateFolderModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-                    <form onSubmit={handleCreateFolder} className="bg-white rounded-xl p-6 shadow-2xl max-w-sm w-full space-y-4">
-                        <h4 className="text-lg font-bold">Tạo thư mục mới</h4>
-                        <input
-                            type="text"
-                            value={newFolderName}
-                            onChange={(e) => setNewFolderName(e.target.value)}
-                            placeholder="Nhập tên thư mục..."
-                            className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowCreateFolderModal(false)}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl font-semibold"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                type="submit"
-                                className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
-                            >
-                                Tạo
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                <CreateFolderModal
+                    evidenceId={evidenceId}
+                    parentFolderId={currentFolderId === 'root' ? null : currentFolderId}
+                    onClose={() => setShowCreateFolderModal(false)}
+                    onSuccess={handleFolderCreationSuccess}
+                />
             )}
+
         </div>
     );
 };
@@ -191,8 +215,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
     const [dragActive, setDragActive] = useState(false)
     const [uploadedFiles, setUploadedFiles] = useState([])
     const [selectedFolderId, setSelectedFolderId] = useState(null) // State cho thư mục cha
-
-    // ... các hàm handleDrag, handleDrop, handleFileChange, removeFile giữ nguyên
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -248,36 +270,33 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
 
         try {
             setUploading(true)
-            const formData = new FormData()
 
-            files.forEach(f => {
-                formData.append('files', f.file)
+            // SỬ DỤNG apiMethods.files.uploadFiles để gửi nhiều file và parentFolderId
+            const response = await apiMethods.files.uploadFiles(evidence._id, {
+                files: files.map(f => f.file), // Lấy mảng file object
+                parentFolderId: selectedFolderId || undefined // Gửi parentFolderId nếu có
             })
 
-            // Thêm parentFolderId nếu có
-            if (selectedFolderId) {
-                formData.append('parentFolderId', selectedFolderId);
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Lỗi khi upload file');
             }
 
-            // Gọi API upload file
-            const response = await fetch(`/api/files/upload/${evidence._id}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    // Không set Content-Type: multipart/form-data ở đây, để browser tự thêm boundary
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Lỗi khi upload file');
-            }
-
-            const data = await response.json();
+            const data = response.data;
             setUploadedFiles(prev => [...prev, ...(data.data || [])]); // Thêm vào danh sách đã upload
+
+            const successCount = data.data?.length || 0;
+            const failCount = files.length - successCount;
+
             setFiles([]) // Xóa danh sách chờ upload
-            toast.success(`Đã upload thành công ${files.length} file. Giờ nộp file để manager duyệt.`)
+
+            if (successCount > 0 && failCount === 0) {
+                toast.success(`Đã upload thành công ${successCount} file. Giờ nộp file để manager duyệt.`)
+            } else if (successCount > 0 && failCount > 0) {
+                toast.success(`Upload thành công ${successCount} file, thất bại ${failCount} file`)
+            } else {
+                toast.error('Upload thất bại')
+            }
+
         } catch (error) {
             console.error('Upload error:', error)
             toast.error(error.message || 'Lỗi khi upload file')
@@ -286,7 +305,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         }
     }
 
-    // ... hàm handleSubmit và formatFileSize giữ nguyên
     const handleSubmit = async () => {
         if (uploadedFiles.length === 0) {
             toast.error('Vui lòng upload file trước')
@@ -297,18 +315,10 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
             setSubmitting(true)
 
             // Gọi API submit evidence
-            const response = await fetch(`/api/files/submit/${evidence._id}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({})
-            });
+            const response = await apiMethods.files.submitFiles(evidence._id);
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Lỗi khi nộp file');
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Lỗi khi nộp file');
             }
 
             toast.success('Đã nộp file thành công. Manager sẽ duyệt trong thời gian sớm nhất.')
@@ -331,14 +341,13 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
     }
 
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0)
+    const totalSize = files.reduce((sum, f => sum + f.size), 0)
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 flex items-center justify-between border-b">
-                    {/* ... (Header giữ nguyên) ... */}
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white bg-opacity-20 rounded-lg">
                             <Upload className="h-6 w-6" />
@@ -367,13 +376,14 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         evidenceId={evidence._id}
                         selectedFolderId={selectedFolderId}
                         onSelectFolder={setSelectedFolderId}
+                        onFolderCreated={onSuccess} // Để refresh list files ở trang cha nếu cần
                     />
 
                     {/* Hiển thị thư mục đích đã chọn */}
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center gap-3">
                         <Folder className="h-5 w-5 text-purple-600 flex-shrink-0" />
                         <p className="text-sm text-purple-800 font-semibold">
-                            Thư mục đích upload: <span className="text-purple-900">{selectedFolderId || 'Thư mục gốc'}</span>
+                            Thư mục đích upload: <span className="text-purple-900 font-bold">{selectedFolderId || 'Thư mục gốc'}</span>
                         </p>
                     </div>
 
@@ -389,7 +399,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                                 : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
                         }`}
                     >
-                        {/* ... (Upload Area giữ nguyên) ... */}
                         <Upload className="h-12 w-12 mx-auto text-blue-600 mb-3" />
                         <p className="text-gray-900 font-semibold mb-2">
                             Kéo thả file vào đây hoặc click để chọn
@@ -412,7 +421,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     </div>
 
                     {/* File List */}
-                    {/* ... (File List giữ nguyên) ... */}
                     {files.length > 0 && (
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
@@ -456,7 +464,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     )}
 
                     {/* Uploaded Files */}
-                    {/* ... (Uploaded Files giữ nguyên) ... */}
                     {uploadedFiles.length > 0 && (
                         <div className="space-y-3 bg-green-50 border border-green-200 rounded-lg p-4">
                             <div className="flex items-center gap-2">
@@ -488,7 +495,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     )}
 
                     {/* Info Box */}
-                    {/* ... (Info Box giữ nguyên) ... */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
                         <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-blue-800">
@@ -503,7 +509,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                     </div>
 
                     {/* Important Notes */}
-                    {/* ... (Important Notes giữ nguyên) ... */}
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
                         <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-amber-800">
@@ -520,7 +525,6 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
 
                 {/* Footer */}
                 <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 flex items-center justify-end gap-3">
-                    {/* ... (Footer giữ nguyên) ... */}
                     <button
                         onClick={onClose}
                         disabled={uploading || submitting}
