@@ -69,11 +69,12 @@ export const AuthProvider = ({ children }) => {
                 setUser(userData)
 
                 // ✅ DEBUG: In ra user info cho Sidebar
-                console.log('✅ [AUTH] User loaded:', {
+                console.log('✅ [AUTH-CHECK] User loaded:', {
                     id: userData._id,
                     email: userData.email,
                     role: userData.role,
-                    roles: userData.roles
+                    roles: userData.roles,
+                    fullName: userData.fullName
                 })
             } else {
                 localStorage.removeItem('token')
@@ -96,7 +97,7 @@ export const AuthProvider = ({ children }) => {
         try {
             setIsLoading(true)
 
-            console.log('🔐 [AUTH] Attempting login:', {
+            console.log('🔐 [AUTH-LOGIN] Attempting login:', {
                 url: `${axios.defaults.baseURL}/api/auth/login`,
                 email,
                 timestamp: new Date().toISOString()
@@ -107,18 +108,27 @@ export const AuthProvider = ({ children }) => {
                 password
             })
 
-            console.log('📡 [AUTH] Login response:', response.data)
+            console.log('📡 [AUTH-LOGIN] Login response:', response.data)
 
             if (response.data.success) {
                 const { token: newToken, user: userData } = response.data.data
 
-                // ✅ DEBUG: In ra user info sau khi login
-                console.log('✅ [AUTH] Login successful:', {
+                // ✅ DEBUG: In ra user info sau khi login - ĐẢM BẢO CÓ ROLE
+                console.log('✅ [AUTH-LOGIN] Login successful:', {
                     id: userData._id,
                     email: userData.email,
                     role: userData.role,
-                    roles: userData.roles
+                    roles: userData.roles,
+                    fullName: userData.fullName,
+                    status: userData.status
                 })
+
+                // ✅ QUAN TRỌNG: Kiểm tra role có được set không
+                if (!userData.role && (!userData.roles || userData.roles.length === 0)) {
+                    console.error('❌ [AUTH-LOGIN] User data missing role information!')
+                    toast.error('Dữ liệu người dùng không hợp lệ')
+                    return { success: false, message: 'Dữ liệu người dùng không hợp lệ' }
+                }
 
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', newToken)
@@ -135,7 +145,7 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: response.data.message }
             }
         } catch (error) {
-            console.error('❌ [AUTH] Login error:', error)
+            console.error('❌ [AUTH-LOGIN] Login error:', error)
 
             let errorMessage = 'Lỗi kết nối mạng'
 
