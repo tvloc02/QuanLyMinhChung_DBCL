@@ -367,7 +367,8 @@ export default function FilesPage() {
             }
         } catch (error) {
             console.error('Delete error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi xóa')
+            const errorMsg = error.response?.data?.message || 'Lỗi khi xóa'
+            toast.error(errorMsg)
         }
     }
 
@@ -453,10 +454,23 @@ export default function FilesPage() {
     }
 
     const getSafeFileName = (fileName) => {
-        if (!fileName) return 'Tên File không xác định';
+        if (!fileName) return 'Tên file không xác định';
+
         try {
-            return decodeURIComponent(fileName);
+            let decoded = fileName;
+
+            if (fileName.includes('%')) {
+                try {
+                    decoded = decodeURIComponent(fileName);
+                } catch (e) {
+                    console.warn('Cannot decode filename:', e);
+                    decoded = fileName;
+                }
+            }
+
+            return decoded;
         } catch (e) {
+            console.error('Error processing filename:', e);
             return fileName;
         }
     };
@@ -841,6 +855,16 @@ export default function FilesPage() {
                                                             </button>
                                                         )}
                                                     </>
+                                                )}
+
+                                                {file.type === 'folder' && canUpload && (
+                                                    <button
+                                                        onClick={() => handleDelete(file._id, 'folder')}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                        title="Xóa thư mục"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </button>
                                                 )}
 
                                                 {file.type === 'folder' && canUpload && (
