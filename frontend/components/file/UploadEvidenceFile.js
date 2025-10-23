@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2, sum, allItems } from 'lucide-react'
+import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
+// Component Modal Tạo Thư Mục (Giữ nguyên)
 const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
     const [folderName, setFolderName] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -61,7 +62,7 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
     );
 };
 
-// Component con để hiển thị cây thư mục/nội dung
+// ✅ SỬA LOGIC FETCHCONTENTS TRONG FolderContentSelector
 const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, onFolderCreated }) => {
     const [contents, setContents] = useState([])
     const [loading, setLoading] = useState(false)
@@ -72,23 +73,26 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, o
     const fetchContents = async (folderId) => {
         setLoading(true)
         try {
-            const params = { evidenceId };
             let response;
+            let items = [];
 
             if (folderId === 'root') {
-                // Lấy nội dung thư mục gốc (parentFolder: null)
-                response = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root' });
+                // GỌI API LIST VỚI parentFolder=root
+                response = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root', page: 1, limit: 1000 });
+                // ✅ LẤY TỪ items: Cấu trúc mới trả về { data: { items: [...], pagination: {...} } }
+                items = response.data?.data?.items || [];
             } else {
-                // Lấy nội dung thư mục con
+                // GỌI API CONTENT CHO FOLDER CON
                 response = await apiMethods.files.getFolderContents({
                     folderId: folderId,
                     evidenceId: evidenceId
                 })
+                // ✅ LẤY TỪ data: Cấu trúc trả về { data: [...] }
+                items = response.data?.data || [];
             }
 
-            const allItems = response.data?.data || allItems.files || []
-            // Chỉ lấy folders
-            setContents(allItems.filter(item => item.type === 'folder'))
+            // ✅ SỬ DỤNG items.filter, items chắc chắn là một mảng
+            setContents(items.filter(item => item.type === 'folder'))
 
         } catch (error) {
             console.error('Fetch folder contents error:', error)
@@ -341,7 +345,7 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
     }
 
-    const totalSize = files.reduce((sum, f => sum + f.size), 0)
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0)
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -376,7 +380,7 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         evidenceId={evidence._id}
                         selectedFolderId={selectedFolderId}
                         onSelectFolder={setSelectedFolderId}
-                        onFolderCreated={onSuccess} // Để refresh list files ở trang cha nếu cần
+                        onFolderCreated={onSuccess}
                     />
 
                     {/* Hiển thị thư mục đích đã chọn */}
