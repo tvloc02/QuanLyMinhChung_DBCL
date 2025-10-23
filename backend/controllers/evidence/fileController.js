@@ -132,15 +132,31 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
-            const encodedFileName = encodeURIComponent(file.originalname);
+            let storedName = file.originalname;
 
-            const storedName = File.generateStoredName(
-                evidence.code,
-                evidence.name,
-                encodedFileName
-            );
+            try {
+                const ext = path.extname(file.originalname);
+                const nameWithoutExt = path.basename(file.originalname, ext);
 
-            const permanentPath = path.join('uploads', 'evidences', storedName);
+                const sanitizedName = nameWithoutExt
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd')
+                    .replace(/Đ/g, 'D')
+                    .replace(/[^a-zA-Z0-9_-]/g, '_')
+                    .replace(/_+/g, '_')
+                    .substring(0, 100);
+
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).substring(2, 8);
+                storedName = `${sanitizedName}_${timestamp}_${random}${ext}`;
+            } catch (err) {
+                console.warn('Error sanitizing filename, using original:', err);
+                const timestamp = Date.now();
+                storedName = `file_${timestamp}${path.extname(file.originalname)}`;
+            }
+
+            const permanentPath = path.join('uploads', 'evidences', evidenceId, storedName);
             const permanentDir = path.dirname(permanentPath);
 
             if (!fs.existsSync(permanentDir)) {
@@ -308,17 +324,7 @@ const deleteFile = async (req, res) => {
                 });
             }
 
-            if (file.type === 'folder') {
-                const childrenCount = await File.countDocuments({ parentFolder: id });
-                if (childrenCount > 0) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Không thể xóa thư mục có chứa file/thư mục con'
-                    });
-                }
-            }
-
-            if (file.approvalStatus === 'approved') {
+            if (file.type === 'file' && file.approvalStatus === 'approved') {
                 return res.status(403).json({
                     success: false,
                     message: 'Không thể xóa file đã được duyệt. Vui lòng bỏ duyệt trước khi xóa.'
@@ -519,6 +525,8 @@ const createFolder = async (req, res) => {
             await updateFolderMetadata(parentFolderId);
         }
 
+        await folder.populate('uploadedBy', 'fullName email');
+
         res.status(201).json({
             success: true,
             message: 'Tạo thư mục thành công',
@@ -529,9 +537,10 @@ const createFolder = async (req, res) => {
         console.error('Create folder error:', error);
 
         if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(err => err.message);
             return res.status(400).json({
                 success: false,
-                message: Object.values(error.errors).map(e => e.message).join(', ')
+                message: messages.join(', ')
             });
         }
 
