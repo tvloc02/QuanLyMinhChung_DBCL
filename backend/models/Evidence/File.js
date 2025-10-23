@@ -30,8 +30,9 @@ const fileSchema = new mongoose.Schema({
 
     extension: {
         type: String,
-        required: [true, 'Phần mở rộng file là bắt buộc'],
-        lowercase: true
+        required: false,
+        lowercase: true,
+        default: ''
     },
 
     type: {
@@ -121,7 +122,6 @@ const fileSchema = new mongoose.Schema({
         default: Date.now
     },
 
-    // ===== PHẦN DUYỆT FILE =====
     approvedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
@@ -142,7 +142,6 @@ const fileSchema = new mongoose.Schema({
         trim: true
     },
 
-    // ===== TRẠNG THÁI NỘP FILE =====
     isSubmitted: {
         type: Boolean,
         default: false
@@ -158,7 +157,6 @@ const fileSchema = new mongoose.Schema({
     }
 });
 
-// ===== INDEXES =====
 fileSchema.index({ evidenceId: 1 });
 fileSchema.index({ uploadedBy: 1 });
 fileSchema.index({ originalName: 'text', extractedContent: 'text' });
@@ -169,7 +167,6 @@ fileSchema.index({ approvalStatus: 1 });
 fileSchema.index({ isSubmitted: 1 });
 fileSchema.index({ evidenceId: 1, uploadedBy: 1 });
 
-// ===== MIDDLEWARE =====
 fileSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -178,6 +175,10 @@ fileSchema.pre('save', function(next) {
 });
 
 fileSchema.pre('validate', function(next) {
+    if (this.type === 'folder') {
+        this.extension = '';
+    }
+
     const fullPath = `${this.filePath}/${this.storedName}`;
     if (fullPath.length > 255) {
         return next(new Error('Đường dẫn đầy đủ (path + name) không được quá 255 ký tự'));
@@ -185,7 +186,6 @@ fileSchema.pre('validate', function(next) {
     next();
 });
 
-// ===== VIRTUALS =====
 fileSchema.virtual('fullName').get(function() {
     return this.storedName || this.originalName;
 });
@@ -210,7 +210,6 @@ fileSchema.virtual('isOfficeDoc').get(function() {
     return officeMimes.includes(this.mimeType);
 });
 
-// ===== METHODS =====
 fileSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -250,7 +249,6 @@ fileSchema.methods.getFormattedSize = function() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// ===== STATICS =====
 fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
 
@@ -281,7 +279,6 @@ fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, ori
     return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
-// ===== POST HOOKS =====
 fileSchema.post('save', async function(doc, next) {
     if (this.isNew && this.uploadedBy) {
         try {
