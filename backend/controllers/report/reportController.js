@@ -162,11 +162,41 @@ const createReport = async (req, res) => {
             content,
             contentMethod,
             summary,
-            keywords
+            keywords,
+            requestId
         } = req.body;
 
         const academicYearId = req.academicYearId;
 
+        // Nếu là từ request, kiểm tra request
+        let reportRequest = null;
+        if (requestId) {
+            const ReportRequest = mongoose.model('ReportRequest');
+            reportRequest = await ReportRequest.findById(requestId);
+
+            if (!reportRequest || reportRequest.academicYearId.toString() !== academicYearId.toString()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Yêu cầu không hợp lệ'
+                });
+            }
+
+            if (reportRequest.assignedTo.toString() !== req.user.id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền viết báo cáo cho yêu cầu này'
+                });
+            }
+
+            if (reportRequest.status === 'rejected' || reportRequest.status === 'completed') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Yêu cầu này không thể viết báo cáo'
+                });
+            }
+        }
+
+        // Phần còn lại giữ nguyên...
         let standardCode = '';
         let criteriaCode = '';
 
@@ -211,6 +241,10 @@ const createReport = async (req, res) => {
             updatedBy: req.user.id
         };
 
+        if (requestId) {
+            reportData.requestId = requestId;
+        }
+
         if (standardId) {
             reportData.standardId = standardId;
         }
@@ -234,6 +268,11 @@ const createReport = async (req, res) => {
         const report = new Report(reportData);
         await report.save();
 
+        // Update request status
+        if (reportRequest) {
+            await reportRequest.markInProgress();
+        }
+
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
@@ -250,15 +289,14 @@ const createReport = async (req, res) => {
         });
 
     } catch (error) {
+        // Giữ nguyên phần xử lý lỗi
         console.error('Create report error:', error);
-
         if (error.code === 11000) {
             return res.status(400).json({
                 success: false,
                 message: 'Mã báo cáo đã tồn tại'
             });
         }
-
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -266,7 +304,6 @@ const createReport = async (req, res) => {
                 message: messages.join(', ')
             });
         }
-
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi hệ thống khi tạo báo cáo'
