@@ -8,7 +8,12 @@ const {
     uploadFiles,
     downloadFile,
     deleteFile,
-    getFileInfo
+    getFileInfo,
+    createFolder,
+    getFolderContents,
+    submitEvidence,
+    approveFile,
+    rejectFile
 } = require('../../controllers/evidence/fileController');
 
 router.post('/upload/:evidenceId',
@@ -22,6 +27,7 @@ router.post('/upload/:evidenceId',
     uploadFiles
 );
 
+// Route download file
 router.get('/download/:id',
     auth,
     [
@@ -31,6 +37,7 @@ router.get('/download/:id',
     downloadFile
 );
 
+// Route lấy thông tin file
 router.get('/:id/info',
     auth,
     [
@@ -40,6 +47,7 @@ router.get('/:id/info',
     getFileInfo
 );
 
+// Route xóa file
 router.delete('/:id',
     auth,
     [
@@ -49,23 +57,35 @@ router.delete('/:id',
     deleteFile
 );
 
-router.get('/evidence/:evidenceId',
+// Route tạo folder cho TDG
+router.post('/create-folder/:evidenceId',
+    auth,
+    [
+        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
+    ],
+    validation,
+    createFolder
+);
+
+// Route lấy danh sách file/folder của minh chứng (phân trang)
+router.get('/list/:evidenceId',
     auth,
     [
         param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ'),
         query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-        query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit phải từ 1-50')
+        query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit phải từ 1-50'),
+        query('folderId').optional()
     ],
     validation,
     async (req, res) => {
         try {
             const { evidenceId } = req.params;
-            const { page = 1, limit = 20 } = req.query;
+            const { page = 1, limit = 20, folderId } = req.query;
 
             const File = require('../../models/Evidence/File');
             const Evidence = require('../../models/Evidence/Evidence');
 
-            const evidence = await Evidence.findById(evidenceId);
+            const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
             if (!evidence) {
                 return res.status(404).json({
                     success: false,
@@ -73,26 +93,66 @@ router.get('/evidence/:evidenceId',
                 });
             }
 
-            if (req.user.role !== 'admin' &&
-                !req.user.hasStandardAccess(evidence.standardId) &&
-                !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Không có quyền truy cập minh chứng này'
-                });
+            // ===== KIỂM TRA QUYỀN TRUY CẬP =====
+            if (req.user.role !== 'admin') {
+                const userDeptId = req.user.department?.toString();
+                const evidenceDeptId = evidence.departmentId?._id?.toString();
+                const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+
+                if (req.user.role === 'manager') {
+                    // Manager: được xem file của phòng ban mình
+                    if (userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Không có quyền truy cập minh chứng này'
+                        });
+                    }
+                } else if (req.user.role === 'tdg') {
+                    // TDG: được xem file của minh chứng nếu được phân quyền hoặc thuộc phòng ban tạo
+                    if (!isAssigned && userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Không có quyền truy cập minh chứng này'
+                        });
+                    }
+                } else {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền truy cập'
+                    });
+                }
             }
 
             const pageNum = parseInt(page);
             const limitNum = parseInt(limit);
             const skip = (pageNum - 1) * limitNum;
 
+            // Query để lấy file
+            let query = { evidenceId, status: 'active' };
+
+            // Nếu là TDG thì chỉ lấy file của chính họ hoặc file đã được nộp (submitted)
+            if (req.user.role === 'tdg') {
+                query.$or = [
+                    { uploadedBy: req.user.id },
+                    { isSubmitted: true } // File đã được nộp thì TDG được xem
+                ];
+            }
+
+            // Nếu có folderId, lấy file trong folder đó
+            if (folderId && folderId !== 'root') {
+                query.parentFolder = folderId;
+            } else {
+                query.parentFolder = null;
+            }
+
             const [files, total] = await Promise.all([
-                File.find({ evidenceId, status: 'active' })
+                File.find(query)
                     .populate('uploadedBy', 'fullName email')
+                    .populate('approvedBy', 'fullName email')
                     .sort({ uploadedAt: -1 })
                     .skip(skip)
                     .limit(limitNum),
-                File.countDocuments({ evidenceId, status: 'active' })
+                File.countDocuments(query)
             ]);
 
             res.json({
@@ -119,6 +179,47 @@ router.get('/evidence/:evidenceId',
     }
 );
 
+// Route lấy contents của folder
+router.get('/folder/:folderId/contents',
+    auth,
+    [
+        param('folderId').isMongoId().withMessage('ID folder không hợp lệ')
+    ],
+    validation,
+    getFolderContents
+);
+
+// Route nộp file (submit) - TDG nộp file cho manager duyệt
+router.post('/submit/:evidenceId',
+    auth,
+    [
+        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
+    ],
+    validation,
+    submitEvidence
+);
+
+// Route duyệt file - Manager duyệt file
+router.post('/approve/:fileId',
+    auth,
+    [
+        param('fileId').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    approveFile
+);
+
+// Route từ chối file - Manager từ chối file
+router.post('/reject/:fileId',
+    auth,
+    [
+        param('fileId').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    rejectFile
+);
+
+// Route stream file (xem file online)
 router.get('/stream/:id',
     auth,
     [
@@ -140,13 +241,31 @@ router.get('/stream/:id',
                 });
             }
 
-            if (req.user.role !== 'admin' &&
-                !req.user.hasStandardAccess(file.evidenceId.standardId) &&
-                !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Không có quyền truy cập file này'
-                });
+            // ===== KIỂM TRA QUYỀN XEM FILE =====
+            const evidence = file.evidenceId;
+            if (req.user.role !== 'admin') {
+                const userDeptId = req.user.department?.toString();
+                const evidenceDeptId = evidence.departmentId?.toString();
+                const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+
+                // TDG chỉ xem được file của mình hoặc file đã được nộp
+                if (req.user.role === 'tdg') {
+                    const isOwnFile = file.uploadedBy.toString() === req.user.id;
+                    const isSubmitted = file.isSubmitted;
+                    if (!isOwnFile && !isSubmitted && !isAssigned && userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Không có quyền xem file này'
+                        });
+                    }
+                } else if (req.user.role === 'manager') {
+                    if (userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Không có quyền xem file này'
+                        });
+                    }
+                }
             }
 
             if (!fs.existsSync(file.filePath)) {
