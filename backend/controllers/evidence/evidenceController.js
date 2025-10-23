@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const Department = require('../../models/User/Department');
 const User = require('../../models/User/User');
 const Notification = require('../../models/system/Notification');
+const ProgramModel = require("../../models/Evidence/Program");
 
 let Standard, Criteria;
 
@@ -161,9 +162,10 @@ const getEvidenceById = async (req, res) => {
             .populate('criteriaId', 'name code')
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
+            .populate('assignedTo', 'fullName email') // ✅ BỔ SUNG POPULATE ASSIGNEDTO
             .populate({
                 path: 'files',
-                select: 'originalName storedName size mimeType uploadedAt downloadCount approvalStatus rejectionReason uploadedBy',
+                select: 'originalName storedName size mimeType uploadedAt downloadCount approvalStatus rejectionReason uploadedBy type parentFolder folderMetadata',
                 populate: {
                     path: 'uploadedBy',
                     select: 'fullName email'
@@ -177,8 +179,13 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
+        // ✅ LOGIC PHÂN QUYỀN MỚI: Cho phép nếu là Admin, HOẶC (cùng phòng ban HOẶC được phân quyền)
         if (req.user.role !== 'admin') {
-            if (evidence.departmentId._id.toString() !== req.user.department) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?._id?.toString();
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
+
+            if (userDeptId !== evidenceDeptId && !isAssigned) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn không có quyền xem minh chứng của phòng ban khác'
