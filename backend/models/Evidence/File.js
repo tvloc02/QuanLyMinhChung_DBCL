@@ -251,28 +251,32 @@ fileSchema.methods.getFormattedSize = function() {
 
 fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
+    const nameWithoutExt = path.basename(originalName, ext);
 
-    const cleanName = evidenceName
+    let cleanName = nameWithoutExt
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D');
+        .replace(/Đ/g, 'D')
+        .replace(/[^a-zA-Z0-9_\-\s]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .substring(0, 150);
 
-    let fileName = `${evidenceCode}-${cleanName}${ext}`;
-
-    fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+    let fileName = `${evidenceCode}_${cleanName}${ext}`;
 
     const maxNameLength = 200;
     if (fileName.length > maxNameLength) {
-        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
-        fileName = truncatedName + ext;
+        const allowedLength = maxNameLength - ext.length - evidenceCode.length - 2;
+        cleanName = cleanName.substring(0, allowedLength);
+        fileName = `${evidenceCode}_${cleanName}${ext}`;
     }
 
     return fileName;
+};
+
+fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
+    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
 fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
