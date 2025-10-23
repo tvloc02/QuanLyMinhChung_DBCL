@@ -259,16 +259,19 @@ export const apiMethods = {
         }),
         getFileInfo: (id) => api.get(`/api/files/${id}/info`),
         deleteFile: (id) => api.delete(`/api/files/${id}`),
-        getByEvidence: (evidenceId, params) =>
+        getByEvidence: (evidenceId, params = {}) =>
             api.get(`/api/files/list/${evidenceId}`, { params }),
-        createFolder: (evidenceId, data) =>
-            api.post(`/api/files/create-folder/${evidenceId}`, data),
+        createFolder: (evidenceId, data) => {
+            const payload = {
+                folderName: data.folderName,
+                parentFolderId: data.parentFolderId || null
+            };
+            return api.post(`/api/files/create-folder/${evidenceId}`, payload);
+        },
         getFolderContents: (params) =>
             api.get(`/api/files/folder/${params.folderId}/contents`, {
                 params: {
-                    evidenceId: params.evidenceId,
-                    page: params.page || 1,
-                    limit: params.limit || 20
+                    evidenceId: params.evidenceId
                 }
             }),
         submitFiles: (evidenceId) =>
