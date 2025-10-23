@@ -55,12 +55,31 @@ const uploadFiles = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN UPLOAD =====
         // Admin: có quyền upload cho bất kỳ minh chứng nào
-        // TDG/Manager: chỉ được upload cho minh chứng của phòng ban mình
+        // Manager: chỉ được upload cho minh chứng của phòng ban mình
+        // TDG: được upload nếu được phân quyền hoặc thuộc phòng ban tạo minh chứng
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?.toString();
+            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền upload file cho minh chứng của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền upload file cho minh chứng này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền upload file cho minh chứng của phòng ban mình'
+                    message: 'Bạn không có quyền upload file'
                 });
             }
         }
@@ -84,7 +103,6 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
-            // SỬA LỖI FONT: Mã hóa tên file gốc để sử dụng an toàn trong path
             const encodedFileName = encodeURIComponent(file.originalname);
 
             const storedName = File.generateStoredName(
@@ -166,10 +184,29 @@ const downloadFile = async (req, res) => {
         // ===== KIỂM TRA QUYỀN XEM FILE =====
         const evidence = file.evidenceId;
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?.toString();
+            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền tải file này'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                // TDG chỉ xem được file của mình hoặc nếu được phân quyền
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền tải file này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền tải file này'
+                    message: 'Bạn không có quyền tải file'
                 });
             }
         }
@@ -190,7 +227,6 @@ const downloadFile = async (req, res) => {
 
         await file.incrementDownloadCount();
 
-        // SỬA LỖI FONT: Dùng tên gốc (đã được lưu đúng) khi download
         const decodedFileName = file.originalName;
 
         res.download(file.filePath, decodedFileName);
@@ -219,13 +255,31 @@ const deleteFile = async (req, res) => {
         const evidence = file.evidenceId;
 
         // ===== KIỂM TRA QUYỀN XÓA FILE =====
-        // Admin: có quyền xóa file nào cũng được
-        // Manager/TDG: chỉ được xóa file của phòng ban mình
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?.toString();
+            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+            const isFileUploader = file.uploadedBy?.toString() === req.user.id;
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền xóa file của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                // TDG chỉ được xóa file của mình
+                if (!isFileUploader) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền xóa file của mình'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền xóa file của phòng ban mình'
+                    message: 'Bạn không có quyền xóa file'
                 });
             }
 
@@ -241,8 +295,6 @@ const deleteFile = async (req, res) => {
             }
 
             // ===== KIỂM TRA TRẠNG THÁI DUYỆT =====
-            // Nếu file đã được duyệt (approved), không được xóa
-            // Chỉ có thể xóa file pending hoặc rejected
             if (file.approvalStatus === 'approved') {
                 return res.status(403).json({
                     success: false,
@@ -301,7 +353,7 @@ const getFileInfo = async (req, res) => {
         const { id } = req.params;
 
         const file = await File.findById(id)
-            .populate('evidenceId', 'code name departmentId')
+            .populate('evidenceId', 'code name departmentId assignedTo')
             .populate('uploadedBy', 'fullName email')
             .populate('parentFolder', 'originalName type');
 
@@ -315,10 +367,28 @@ const getFileInfo = async (req, res) => {
         // ===== KIỂM TRA QUYỀN XEM THÔNG TIN FILE =====
         const evidence = file.evidenceId;
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?.toString();
+            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem thông tin file này'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem thông tin file này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền xem thông tin file này'
+                    message: 'Bạn không có quyền xem thông tin file'
                 });
             }
         }
@@ -336,7 +406,6 @@ const getFileInfo = async (req, res) => {
         });
     }
 };
-
 
 const createFolder = async (req, res) => {
     try {
@@ -360,10 +429,28 @@ const createFolder = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN TẠO FOLDER =====
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?.toString();
+            const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền tạo thư mục cho minh chứng của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền tạo thư mục cho minh chứng này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền tạo thư mục cho minh chứng của phòng ban mình'
+                    message: 'Bạn không có quyền tạo thư mục'
                 });
             }
         }
@@ -454,10 +541,28 @@ const renameFolder = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN ĐỔI TÊN FOLDER =====
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== folder.evidenceId.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = folder.evidenceId.departmentId?.toString();
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền đổi tên thư mục của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                const isFileUploader = folder.uploadedBy?.toString() === req.user.id;
+                if (!isFileUploader) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền đổi tên thư mục của mình'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền đổi tên thư mục của phòng ban mình'
+                    message: 'Bạn không có quyền đổi tên thư mục'
                 });
             }
         }
@@ -488,7 +593,7 @@ const getFolderContents = async (req, res) => {
         const { evidenceId } = req.query;
 
         // ===== KIỂM TRA QUYỀN XEM NỘI DUNG FOLDER =====
-        const evidence = await Evidence.findById(evidenceId);
+        const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
         if (!evidence) {
             return res.status(404).json({
                 success: false,
@@ -497,10 +602,28 @@ const getFolderContents = async (req, res) => {
         }
 
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?._id?.toString();
+            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem nội dung này'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem nội dung này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền xem nội dung này'
+                    message: 'Bạn không có quyền xem nội dung'
                 });
             }
         }
@@ -557,10 +680,28 @@ const moveFile = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN DI CHUYỂN FILE =====
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== file.evidenceId.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = file.evidenceId.departmentId?.toString();
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền di chuyển file của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                const isFileUploader = file.uploadedBy?.toString() === req.user.id;
+                if (!isFileUploader) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền di chuyển file của mình'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn chỉ có quyền di chuyển file của phòng ban mình'
+                    message: 'Bạn không có quyền di chuyển file'
                 });
             }
         }
@@ -620,7 +761,7 @@ const getFolderTree = async (req, res) => {
     try {
         const { evidenceId } = req.params;
 
-        const evidence = await Evidence.findById(evidenceId);
+        const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
         if (!evidence) {
             return res.status(404).json({
                 success: false,
@@ -630,10 +771,28 @@ const getFolderTree = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN XEM TREE =====
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?._id?.toString();
+            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem cây thư mục này'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem cây thư mục này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền xem cây thư mục này'
+                    message: 'Bạn không có quyền xem cây thư mục'
                 });
             }
         }
@@ -658,7 +817,6 @@ const getFolderTree = async (req, res) => {
     }
 };
 
-
 const searchFiles = async (req, res) => {
     try {
         const {
@@ -675,7 +833,7 @@ const searchFiles = async (req, res) => {
         let query = {};
 
         if (evidenceId) {
-            const evidence = await Evidence.findById(evidenceId);
+            const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
             if (!evidence) {
                 return res.status(404).json({
                     success: false,
@@ -685,10 +843,28 @@ const searchFiles = async (req, res) => {
 
             // ===== KIỂM TRA QUYỀN TÌM KIẾM =====
             if (req.user.role !== 'admin') {
-                if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+                const userDeptId = req.user.department?.toString();
+                const evidenceDeptId = evidence.departmentId?._id?.toString();
+                const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+
+                if (req.user.role === 'manager') {
+                    if (userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Bạn không có quyền tìm kiếm file này'
+                        });
+                    }
+                } else if (req.user.role === 'tdg') {
+                    if (!isAssigned && userDeptId !== evidenceDeptId) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'Bạn không có quyền tìm kiếm file này'
+                        });
+                    }
+                } else {
                     return res.status(403).json({
                         success: false,
-                        message: 'Bạn không có quyền tìm kiếm file này'
+                        message: 'Bạn không có quyền tìm kiếm file'
                     });
                 }
             }
@@ -750,12 +926,11 @@ const searchFiles = async (req, res) => {
     }
 };
 
-
 const getFileStatistics = async (req, res) => {
     try {
         const { evidenceId } = req.params;
 
-        const evidence = await Evidence.findById(evidenceId);
+        const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
         if (!evidence) {
             return res.status(404).json({
                 success: false,
@@ -765,10 +940,28 @@ const getFileStatistics = async (req, res) => {
 
         // ===== KIỂM TRA QUYỀN XEM THỐNG KÊ =====
         if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = evidence.departmentId?._id?.toString();
+            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem thống kê này'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem thống kê này'
+                    });
+                }
+            } else {
                 return res.status(403).json({
                     success: false,
-                    message: 'Bạn không có quyền xem thống kê này'
+                    message: 'Bạn không có quyền xem thống kê'
                 });
             }
         }
@@ -825,7 +1018,6 @@ const getFileStatistics = async (req, res) => {
         });
     }
 };
-
 
 const checkIfDescendant = async (ancestorId, descendantId) => {
     let currentId = ancestorId;
