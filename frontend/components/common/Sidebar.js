@@ -1,52 +1,44 @@
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
+import {useEffect, useState} from 'react'
+import {useRouter} from 'next/router'
 import {
-    BarChart3,
-    FileText,
-    Search,
-    BookOpen,
-    Building2,
-    Target,
-    CheckSquare,
-    User,
-    TrendingUp,
-    Settings,
-    Shield,
-    Users,
-    Database,
-    GraduationCap,
-    UserCheck,
-    ChevronDown,
-    ChevronRight,
-    ChevronLeft,
-    Menu,
-    X,
-    FolderTree,
-    Upload,
-    Calendar,
-    ClipboardCheck,
-    FileSignature,
-    UserPlus,
-    Bell,
     Activity,
     Archive,
-    Home,
-    Briefcase,
-    Award,
-    MessageSquare,
-    Download,
-    Eye,
-    Folder,
-    Mail,
-    Plus,
+    BarChart3,
+    Bell,
     Book,
-    Play,
+    BookOpen,
+    Briefcase,
+    Building2,
+    Calendar,
+    CheckSquare,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ClipboardCheck,
+    Eye,
+    FileSignature,
+    FileText,
+    Folder,
+    FolderTree,
+    GraduationCap,
+    Home,
     Lock,
+    Mail,
+    Play,
+    Plus,
+    Search,
+    Settings,
+    Shield,
+    Target,
+    TrendingUp,
+    Upload,
+    User,
+    UserCheck,
+    UserPlus,
+    Users,
 } from 'lucide-react'
 
-// ============================================
-// ĐỊNH NGHĨA QUYỀN THEO VAI TRÒ - ĐỒNG BỘ VỚI BACKEND
-// ============================================
+
 const ROLE_PERMISSIONS = {
     admin: [
         'dashboard',
@@ -63,20 +55,8 @@ const ROLE_PERMISSIONS = {
         'evidence_overview',
         'evidence_tree',
         'evidence_management',
-        'evidence_create',
-        'evidence_tree_create',
-        'evidence_batch',
-        'evidence_batch_upload',
-        'evidence_batch_assign',
-        'evidence_batch_delete',
         'reports',
         'reports_list',
-        'reports_create',
-        'assignments',
-        'evaluations',
-        'evaluations_supervised',
-        'evaluations_my',
-        'evaluations_approvals',
         'notifications',
         'analytics',
         'analytics_dashboard',
@@ -101,10 +81,6 @@ const ROLE_PERMISSIONS = {
 
     manager: [
         'dashboard',
-        'academic_years',
-        'academic_years_list',
-        'academic_years_create',
-        'academic_years_copy',
         'evaluation_structure',
         'programs',
         'organizations',
@@ -137,6 +113,10 @@ const ROLE_PERMISSIONS = {
 
     tdg: [
         'dashboard',
+        'programs',
+        'organizations',
+        'standards',
+        'criteria',
         'evidence',
         'evidence_overview',
         'evidence_tree',
@@ -157,6 +137,15 @@ const ROLE_PERMISSIONS = {
 
     expert: [
         'dashboard',
+        'programs',
+        'organizations',
+        'standards',
+        'criteria',
+        'evaluation_structure',
+        'programs',
+        'organizations',
+        'standards',
+        'criteria',
         'reports',
         'reports_list',
         'evaluations',
@@ -166,9 +155,6 @@ const ROLE_PERMISSIONS = {
     ]
 }
 
-// ============================================
-// ĐỊNH NGHĨA CẤU TRÚC MENU
-// ============================================
 const getAllMenuItems = () => [
     {
         name: 'Trang chủ',
@@ -528,11 +514,18 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, us
         })
     }, [userRole])
 
-    // Kiểm tra xem mục có được phép hiển thị không
     const isMenuItemVisible = (permissionKey) => {
-        if (!permissionKey) return true
-        const isVisible = userPermissions.includes(permissionKey)
-        return isVisible
+        // Nếu không có permission key, hiển thị
+        if (!permissionKey) {
+            return true
+        }
+
+        // ✅ FIX: Nếu permissions chưa load, hiển thị tất cả
+        if (!userPermissions || userPermissions.length === 0) {
+            console.warn('⚠️ [SIDEBAR] Permissions not loaded yet - showing all items')
+            return true  // Cho phép hiển thị
+        }
+        return userPermissions.includes(permissionKey)
     }
 
     // Lọc các mục menu theo quyền
