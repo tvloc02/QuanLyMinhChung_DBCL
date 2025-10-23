@@ -312,6 +312,14 @@ export const apiMethods = {
             responseType: 'blob'
         }),
 
+        reportRequests: {
+            getAll: (params) => api.get('/api/report-requests', { params }),
+            getById: (id) => api.get(`/api/report-requests/${id}`),
+            create: (data) => api.post('/api/report-requests', data),
+            accept: (id) => api.post(`/api/report-requests/${id}/accept`),
+            reject: (id, data) => api.post(`/api/report-requests/${id}/reject`, data)
+        },
+
         addComment: (id, comment, section) =>
             api.post(`/api/reports/${id}/comments`, { comment, section }),
         getComments: (id) => api.get(`/api/reports/${id}/comments`),
