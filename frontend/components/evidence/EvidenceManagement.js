@@ -358,20 +358,20 @@ export default function EvidenceManagement() {
 
         switch (status) {
             case 'new':
-                return { status: 'new', text: 'Mới tạo', color: 'gray', icon: FileText };
+                return { status: 'new', text: 'Mới', color: 'gray', icon: FileText };
             case 'assigned':
-                return { status: 'assigned', text: 'Đã phân quyền', color: 'yellow', icon: AlertCircle };
+                return { status: 'assigned', text: 'ĐãPQ', color: 'yellow', icon: AlertCircle };
             case 'in_progress':
                 if (fileCount > 0 && pendingCount > 0) {
-                    return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
+                    return { status: 'pending_approval', text: 'ChờD', color: 'purple', icon: Clock };
                 }
-                return { status: 'in_progress', text: 'Đang thực hiện', color: 'blue', icon: Clock };
+                return { status: 'in_progress', text: 'ĐangTH', color: 'blue', icon: Clock };
             case 'pending_approval':
-                return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
+                return { status: 'pending_approval', text: 'ChờD', color: 'purple', icon: Clock };
             case 'approved':
-                return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle };
+                return { status: 'approved', text: 'ĐãD', color: 'green', icon: CheckCircle };
             case 'rejected':
-                return { status: 'rejected', text: 'Đã từ chối', color: 'red', icon: XCircle };
+                return { status: 'rejected', text: 'ĐãTC', color: 'red', icon: XCircle };
             default:
                 if (fileCount === 0) {
                     return { status: 'no_files', text: 'Chưa có file', color: 'gray', icon: FileText };
