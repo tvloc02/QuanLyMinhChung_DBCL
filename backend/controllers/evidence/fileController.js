@@ -388,7 +388,6 @@ const createFolder = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN TẠO FOLDER =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
