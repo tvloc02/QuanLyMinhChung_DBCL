@@ -26,11 +26,10 @@ import {
     CheckSquare,
     X,
     Check,
-    FolderPlus, // ✅ THÊM FolderPlus
-    Folder // ✅ THÊM Folder
+    FolderPlus,
+    Folder
 } from 'lucide-react'
 
-// ✅ COMPONENT MODAL TẠO THƯ MỤC
 const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
     const [folderName, setFolderName] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -38,6 +37,11 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!folderName.trim()) return toast.error('Vui lòng nhập tên thư mục');
+        // ✅ THÊM CHECK NẾU EVIDENCEID KHÔNG CÓ
+        if (!evidenceId) {
+            toast.error('Không tìm thấy ID minh chứng để tạo thư mục.');
+            return;
+        }
 
         try {
             setSubmitting(true);
@@ -50,6 +54,7 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
             onSuccess();
         } catch (error) {
             console.error('Create folder error:', error);
+            // ✅ HIỂN THỊ LỖI CHI TIẾT TỪ BACK-END
             toast.error(error.response?.data?.message || 'Lỗi khi tạo thư mục');
         } finally {
             setSubmitting(false);
@@ -118,23 +123,20 @@ export default function FilesPage() {
     const [submitting, setSubmitting] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
 
-    // ✅ THÊM STATE CHO FOLDER
-    const [currentFolderId, setCurrentFolderId] = useState(null); // null = root folder
+    const [currentFolderId, setCurrentFolderId] = useState(null);
     const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
     const [folderPath, setFolderPath] = useState([{ id: null, name: 'Thư mục gốc' }]);
 
 
-    // Phân quyền theo role
     const isAdmin = user?.role === 'admin'
     const isManager = user?.role === 'manager'
     const isTDG = user?.role === 'tdg'
-    const isEx = user?.role === 'ex' // Người kiểm toán
+    const isEx = user?.role === 'ex'
 
-    // Các quyền hạn
-    const canUpload = isTDG || isManager // TDG/Manager được upload và tạo folder (Back-end sẽ kiểm tra department)
-    const canApprove = isManager // Chỉ Manager được duyệt
-    const canOnlyView = isAdmin || isEx // Admin và Ex chỉ được xem
-    const canSubmit = isTDG // Chỉ TDG được nộp file
+    const canUpload = isTDG || isManager
+    const canApprove = isManager
+    const canOnlyView = isAdmin || isEx
+    const canSubmit = isTDG
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -146,7 +148,7 @@ export default function FilesPage() {
         if (user && evidenceId) {
             fetchData()
         }
-    }, [user, evidenceId, currentFolderId]) // ✅ THÊM currentFolderId
+    }, [user, evidenceId, currentFolderId])
 
     const breadcrumbItems = [
         { name: 'Quản lý minh chứng', href: '/evidence-management', icon: ArrowLeft },
@@ -157,14 +159,12 @@ export default function FilesPage() {
         try {
             setLoading(true)
 
-            // ✅ GỌI API VỚI POPULATE ASSIGNEDTO ĐÃ SỬA Ở CONTROLLER
             let evidenceResponse
             try {
                 evidenceResponse = await apiMethods.evidences.getById(evidenceId)
             } catch (apiError) {
                 if (apiError.response?.status === 403) {
                     console.warn('403 - Không có quyền, thử lấy dữ liệu khác')
-                    // Lỗi 403 ở đây đã được xử lý ở Back-end
                     throw apiError
                 }
                 throw apiError
@@ -173,34 +173,38 @@ export default function FilesPage() {
             const evidenceData = evidenceResponse.data?.data || evidenceResponse.data
             setEvidence(evidenceData)
 
-            // ✅ Lấy nội dung folder hiện tại
             let filesResponse;
+            let filesInFolder = [];
+
             if (currentFolderId === null) {
-                // Lấy files/folders ở thư mục gốc (parentFolder: null)
-                filesResponse = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root' });
+                // Fix Lỗi 400: Gửi tham số page/limit làm query params
+                filesResponse = await apiMethods.files.getByEvidence(evidenceId, { parentFolder: 'root', page: 1, limit: 1000 });
+                filesInFolder = filesResponse.data?.data?.items || [];
             } else {
-                // Lấy files/folders trong thư mục con
                 filesResponse = await apiMethods.files.getFolderContents({
                     folderId: currentFolderId,
                     evidenceId: evidenceId
                 });
+                filesInFolder = filesResponse.data?.data || [];
             }
 
-            const filesInFolder = filesResponse.data?.data || [];
-
-            // Sắp xếp: folders lên trước, rồi files, theo tên
-            filesInFolder.sort((a, b) => {
-                if (a.type === 'folder' && b.type !== 'folder') return -1;
-                if (a.type !== 'folder' && b.type === 'folder') return 1;
-                return a.originalName.localeCompare(b.originalName);
-            });
+            // Fix Lỗi filesInFolder.sort is not a function: Đảm bảo là mảng trước khi sắp xếp
+            if (Array.isArray(filesInFolder)) {
+                filesInFolder.sort((a, b) => {
+                    if (a.type === 'folder' && b.type !== 'folder') return -1;
+                    if (a.type !== 'folder' && b.type === 'folder') return 1;
+                    return (a.originalName || '').localeCompare(b.originalName || '');
+                });
+            } else {
+                console.error("filesInFolder is not an array:", filesInFolder);
+                filesInFolder = [];
+            }
 
             setFiles(filesInFolder)
             setSelectedItems([])
         } catch (error) {
             console.error('Fetch data error:', error)
 
-            // Xử lý lỗi 403
             if (error.response?.status === 403) {
                 toast.error(error.response?.data?.message || 'Bạn không có quyền truy cập minh chứng này')
                 setTimeout(() => {
@@ -225,7 +229,24 @@ export default function FilesPage() {
         e.target.value = ''
     }
 
-    // ✅ CẬP NHẬT HÀM UPLOAD
+    const handleDownload = (fileId, fileName) => {
+        apiMethods.files.downloadFile(fileId).then(response => {
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast.success('Tải file thành công');
+        }).catch(error => {
+            console.error('Download failed:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi tải file');
+        });
+    };
+
+
     const handleUpload = async (filesToUpload) => {
         if (!canUpload) {
             toast.error('Bạn không có quyền upload file')
@@ -237,7 +258,7 @@ export default function FilesPage() {
             return
         }
 
-        const maxSize = 100 * 1024 * 1024 // 100MB
+        const maxSize = 100 * 1024 * 1024
         const oversizedFiles = filesToUpload.filter(file => file.size > maxSize)
         if (oversizedFiles.length > 0) {
             toast.error(`File "${oversizedFiles[0].name}" vượt quá 100MB`)
@@ -249,10 +270,9 @@ export default function FilesPage() {
         let failCount = 0
 
         try {
-            // Sử dụng apiMethods.files.uploadFiles
             const response = await apiMethods.files.uploadFiles(evidenceId, {
                 files: filesToUpload,
-                parentFolderId: currentFolderId || undefined // Gửi parentFolderId nếu có
+                parentFolderId: currentFolderId || undefined
             })
 
             if (response.data?.success) {
@@ -265,7 +285,6 @@ export default function FilesPage() {
         } catch (error) {
             console.error('Upload error:', error)
             failCount = filesToUpload.length
-            // Lỗi sẽ được toast ở interceptor hoặc toast.error dưới đây
             if (!error.response) {
                 toast.error('Lỗi kết nối hoặc hệ thống khi upload')
             }
@@ -284,7 +303,6 @@ export default function FilesPage() {
         fetchData()
     }
 
-    // Hàm nộp file (chỉ TDG) - Dùng apiMethods
     const handleSubmitFiles = async () => {
         if (!canSubmit) {
             toast.error('Bạn không có quyền nộp file')
@@ -315,7 +333,6 @@ export default function FilesPage() {
         }
     }
 
-    // Cập nhật hàm xóa để xóa cả file và folder
     const handleDelete = async (fileId, fileType) => {
         if (!confirm(`Bạn có chắc chắn muốn xóa ${fileType === 'folder' ? 'thư mục' : 'file'} này?`)) {
             return
@@ -358,12 +375,9 @@ export default function FilesPage() {
             return;
         }
 
-        // Hiện tại chỉ xử lý 1 file cho modal, nên tạm thời dùng file đầu tiên
-        // Với bulk, cần modal riêng để xử lý nhiều file (nếu Back-end hỗ trợ bulk approve)
         handleApproveClick(filesToApprove[0], action);
     }
 
-    // Cập nhật hàm duyệt/từ chối để dùng apiMethods
     const handleApprovalSubmit = async () => {
         if (approvalAction === 'reject' && !rejectionReason.trim()) {
             toast.error('Vui lòng nhập lý do từ chối')
@@ -401,7 +415,6 @@ export default function FilesPage() {
     }
 
     const toggleSelectItem = (fileId) => {
-        // Chỉ chọn file, bỏ qua folder
         const file = files.find(f => f._id === fileId);
         if (file && file.type === 'folder') return;
 
@@ -468,7 +481,6 @@ export default function FilesPage() {
         }
     }
 
-    // ✅ HÀM ĐIỀU HƯỚNG FOLDER
     const handleOpenFolder = (folder) => {
         setCurrentFolderId(folder._id);
         setFolderPath(prev => [...prev, { id: folder._id, name: folder.originalName }]);
@@ -482,11 +494,10 @@ export default function FilesPage() {
         }
     };
 
-    // TÍNH LẠI STATS TỪ MỌI NƠI
     const allFiles = evidence?.files || [];
     const approvedFiles = allFiles.filter(f => f.approvalStatus === 'approved').length;
     const rejectedFiles = allFiles.filter(f => f.approvalStatus === 'rejected').length;
-    const totalPending = allFiles.filter(f => f.approvalStatus === 'pending').length; // Tổng pending
+    const totalPending = allFiles.filter(f => f.approvalStatus === 'pending').length;
 
 
     if (isLoading || loading) {
@@ -504,15 +515,12 @@ export default function FilesPage() {
     return (
         <Layout breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header với role info */}
-                {/* ... (Giữ nguyên) ... */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
                     <h1 className="text-3xl font-bold mb-2">Quản lý files minh chứng</h1>
                     <p className="text-blue-100 mb-3">
                         {evidence?.code} - {evidence?.name}
                     </p>
 
-                    {/* Role Badge */}
                     <div className="flex gap-2 flex-wrap">
                         {isTDG && (
                             <span className="inline-flex items-center px-3 py-1 rounded-lg bg-white bg-opacity-20 text-white text-sm font-semibold">
@@ -541,13 +549,12 @@ export default function FilesPage() {
                     </div>
                 </div>
 
-                {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-yellow-600 text-sm font-semibold">Tổng Chờ duyệt</p>
-                                <p className="text-3xl font-bold text-yellow-900">{totalPending}</p> {/* Dùng tổng pending */}
+                                <p className="text-3xl font-bold text-yellow-900">{totalPending}</p>
                             </div>
                             <Clock className="h-8 w-8 text-yellow-600" />
                         </div>
@@ -556,7 +563,7 @@ export default function FilesPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-green-600 text-sm font-semibold">Đã duyệt</p>
-                                <p className="text-3xl font-bold text-green-900">{approvedFiles}</p> {/* Dùng approvedFiles */}
+                                <p className="text-3xl font-bold text-green-900">{approvedFiles}</p>
                             </div>
                             <CheckCircle className="h-8 w-8 text-green-600" />
                         </div>
@@ -565,16 +572,14 @@ export default function FilesPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-red-600 text-sm font-semibold">Từ chối</p>
-                                <p className="text-3xl font-bold text-red-900">{rejectedFiles}</p> {/* Dùng rejectedFiles */}
+                                <p className="text-3xl font-bold text-red-900">{rejectedFiles}</p>
                             </div>
                             <XCircle className="h-8 w-8 text-red-600" />
                         </div>
                     </div>
                 </div>
 
-                {/* ✅ Breadcrumb và Action Buttons */}
                 <div className="flex gap-3 flex-wrap items-center justify-between">
-                    {/* Breadcrumb */}
                     <div className="flex items-center space-x-1 text-sm overflow-x-auto whitespace-nowrap py-1 bg-gray-100 p-2 rounded-xl border border-gray-200 flex-1 min-w-0">
                         {folderPath.length > 1 && (
                             <button
@@ -599,7 +604,6 @@ export default function FilesPage() {
                         ))}
                     </div>
 
-                    {/* Action Buttons */}
                     <div className="flex gap-3 flex-wrap">
                         {canUpload && (
                             <>
@@ -691,7 +695,6 @@ export default function FilesPage() {
                     </div>
                 </div>
 
-                {/* Files/Folders Table */}
                 {files.length > 0 ? (
                     <>
                         <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden">
@@ -781,7 +784,6 @@ export default function FilesPage() {
                                             <div className="flex items-center justify-end gap-2">
                                                 {file.type === 'file' && (
                                                     <>
-                                                        {/* Manager: Duyệt/Từ chối nếu pending */}
                                                         {canApprove && file.approvalStatus === 'pending' && (
                                                             <>
                                                                 <button
@@ -801,7 +803,6 @@ export default function FilesPage() {
                                                             </>
                                                         )}
 
-                                                        {/* Tất cả người dùng: Download */}
                                                         <button
                                                             onClick={() => handleDownload(file._id, getSafeFileName(file.originalName || file.filename))}
                                                             className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
@@ -810,7 +811,6 @@ export default function FilesPage() {
                                                             <Download className="h-5 w-5" />
                                                         </button>
 
-                                                        {/* TDG: Xóa file chưa nộp */}
                                                         {canUpload && file.approvalStatus === 'pending' && (
                                                             <button
                                                                 onClick={() => handleDelete(file._id, 'file')}
@@ -823,7 +823,6 @@ export default function FilesPage() {
                                                     </>
                                                 )}
 
-                                                {/* ✅ Xóa folder */}
                                                 {file.type === 'folder' && canUpload && (
                                                     <button
                                                         onClick={() => handleDelete(file._id, 'folder')}
@@ -841,7 +840,6 @@ export default function FilesPage() {
                             </table>
                         </div>
 
-                        {/* Upload Guidelines */}
                         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6">
                             <h4 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center">
                                 <Sparkles className="h-5 w-5 mr-2" />
@@ -918,10 +916,8 @@ export default function FilesPage() {
                 )}
             </div>
 
-            {/* Approval Modal */}
             {showApprovalModal && selectedFile && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    {/* ... (Approval Modal giữ nguyên) ... */}
                     <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
                         <div className={`px-6 py-5 rounded-t-2xl ${
                             approvalAction === 'approve'
@@ -1023,7 +1019,6 @@ export default function FilesPage() {
                 </div>
             )}
 
-            {/* ✅ Create Folder Modal */}
             {showCreateFolderModal && (
                 <CreateFolderModal
                     evidenceId={evidenceId}
