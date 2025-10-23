@@ -4,6 +4,68 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
+// --- (Helper functions: updateFolderMetadata, checkIfDescendant, buildTree remain the same) ---
+const updateFolderMetadata = async (folderId) => {
+    try {
+        const File = require('../../models/Evidence/File');
+        const children = await File.find({ parentFolder: folderId });
+
+        let fileCount = 0;
+        let totalSize = 0;
+
+        for (const child of children) {
+            if (child.type === 'file') {
+                fileCount++;
+                totalSize += child.size || 0;
+            } else if (child.type === 'folder') {
+                fileCount += child.folderMetadata?.fileCount || 0;
+                totalSize += child.folderMetadata?.totalSize || 0;
+            }
+        }
+
+        await File.findByIdAndUpdate(folderId, {
+            'folderMetadata.fileCount': fileCount,
+            'folderMetadata.totalSize': totalSize,
+            'folderMetadata.lastModified': new Date()
+        });
+    } catch (error) {
+        console.error('Update folder metadata error:', error);
+    }
+};
+
+const checkIfDescendant = async (ancestorId, descendantId) => {
+    let currentId = ancestorId;
+
+    while (currentId) {
+        if (currentId.toString() === descendantId.toString()) {
+            return true;
+        }
+
+        const folder = await File.findById(currentId);
+        if (!folder || !folder.parentFolder) {
+            return false;
+        }
+
+        currentId = folder.parentFolder;
+    }
+
+    return false;
+};
+
+const buildTree = (items, parentId) => {
+    const children = items.filter(item => {
+        const itemParentId = item.parentFolder ? item.parentFolder.toString() : null;
+        return itemParentId === parentId;
+    });
+
+    return children.map(item => ({
+        ...item.toObject(),
+        children: item.type === 'folder' ? buildTree(items, item._id.toString()) : []
+    }));
+};
+// --- (End of Helper functions) ---
+
+
 const uploadFiles = async (req, res) => {
     try {
         const { evidenceId } = req.params;
@@ -52,7 +114,6 @@ const uploadFiles = async (req, res) => {
             }
         }
 
-        // Validate parent folder if provided
         if (parentFolderId) {
             const parentFolder = await File.findOne({
                 _id: parentFolderId,
@@ -430,10 +491,11 @@ const createFolder = async (req, res) => {
             }
         }
 
+        // Fix Lỗi 500: Gán giá trị mặc định cho các trường REQUIRED: true
         const folder = new File({
             originalName: folderName.trim(),
-            storedName: folderName.trim(),
-            filePath: '',
+            storedName: folderName.trim() + '/', // Dùng tên folder + / để thỏa mãn storedName required
+            filePath: path.join('uploads', 'evidences', evidenceId, folderName.trim()), // Đường dẫn vật lý
             size: 0,
             mimeType: 'folder',
             extension: '',
@@ -445,8 +507,18 @@ const createFolder = async (req, res) => {
                 fileCount: 0,
                 totalSize: 0,
                 lastModified: new Date()
-            }
+            },
+            // Dù là folder, vẫn cần approvalStatus
+            approvalStatus: req.user.role === 'admin' ? 'approved' : 'pending'
         });
+
+        // Tạo thư mục vật lý (tùy chọn, nếu cần)
+        try {
+            fs.mkdirSync(folder.filePath, { recursive: true });
+        } catch (e) {
+            console.error(`Error creating physical folder path: ${folder.filePath}`, e);
+        }
+
 
         await folder.save();
 
@@ -465,9 +537,17 @@ const createFolder = async (req, res) => {
 
     } catch (error) {
         console.error('Create folder error:', error);
+        // Trả về lỗi 400 nếu là ValidationError từ mongoose
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo thư mục'
+            message: 'Lỗi hệ thống khi tạo thư mục: ' + error.message
         });
     }
 };
@@ -499,7 +579,6 @@ const renameFolder = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN ĐỔI TÊN FOLDER =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = folder.evidenceId.departmentId?.toString();
@@ -550,9 +629,8 @@ const renameFolder = async (req, res) => {
 const getFolderContents = async (req, res) => {
     try {
         const { folderId } = req.params;
-        const { evidenceId } = req.query; // ✅ Lấy evidenceId từ query để kiểm tra quyền
+        const { evidenceId } = req.query;
 
-        // Cần kiểm tra quyền trước khi truy xuất
         const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
         if (!evidence) {
             return res.status(404).json({
@@ -561,11 +639,10 @@ const getFolderContents = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN TRUY CẬP (Logic nhất quán) =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
+            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -588,7 +665,6 @@ const getFolderContents = async (req, res) => {
                 });
             }
         }
-        // =====================================================
 
         const folder = await File.findOne({ _id: folderId, type: 'folder' });
         if (!folder) {
@@ -600,7 +676,6 @@ const getFolderContents = async (req, res) => {
 
         let query = { parentFolder: folderId, status: 'active' };
 
-        // Nếu là TDG, chỉ lấy file của chính họ hoặc file đã được nộp (submitted)
         if (req.user.role === 'tdg') {
             query.$or = [
                 { uploadedBy: req.user.id },
@@ -610,12 +685,11 @@ const getFolderContents = async (req, res) => {
 
         const items = await File.find(query)
             .populate('uploadedBy', 'fullName email')
-            .sort({ type: -1, originalName: 1 }); // Sắp xếp folder lên trước
+            .sort({ type: -1, originalName: 1 });
 
-        // ✅ TRẢ VỀ MẢNG TRỰC TIẾP (Đồng nhất với logic Front-end mong muốn)
         res.json({
             success: true,
-            data: items // Trả về mảng trực tiếp
+            data: items
         });
 
     } catch (error) {
@@ -640,7 +714,6 @@ const moveFile = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN DI CHUYỂN FILE =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = file.evidenceId.departmentId?.toString();
@@ -731,7 +804,6 @@ const getFolderTree = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM TREE =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
@@ -803,7 +875,6 @@ const searchFiles = async (req, res) => {
                 });
             }
 
-            // ===== KIỂM TRA QUYỀN TÌM KIẾM =====
             if (req.user.role !== 'admin') {
                 const userDeptId = req.user.department?.toString();
                 const evidenceDeptId = evidence.departmentId?._id?.toString();
@@ -900,7 +971,6 @@ const getFileStatistics = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM THỐNG KÊ =====
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?._id?.toString();
@@ -929,7 +999,7 @@ const getFileStatistics = async (req, res) => {
         }
 
         const stats = await File.aggregate([
-            { $match: { evidenceId: mongoose.Types.ObjectId(evidenceId) } },
+            { $match: { evidenceId: new mongoose.Types.ObjectId(evidenceId) } },
             {
                 $group: {
                     _id: null,
@@ -944,7 +1014,7 @@ const getFileStatistics = async (req, res) => {
         const typeStats = await File.aggregate([
             {
                 $match: {
-                    evidenceId: mongoose.Types.ObjectId(evidenceId),
+                    evidenceId: new mongoose.Types.ObjectId(evidenceId),
                     type: 'file'
                 }
             },
@@ -981,42 +1051,10 @@ const getFileStatistics = async (req, res) => {
     }
 };
 
-const checkIfDescendant = async (ancestorId, descendantId) => {
-    let currentId = ancestorId;
-
-    while (currentId) {
-        if (currentId.toString() === descendantId.toString()) {
-            return true;
-        }
-
-        const folder = await File.findById(currentId);
-        if (!folder || !folder.parentFolder) {
-            return false;
-        }
-
-        currentId = folder.parentFolder;
-    }
-
-    return false;
-};
-
-const buildTree = (items, parentId) => {
-    const children = items.filter(item => {
-        const itemParentId = item.parentFolder ? item.parentFolder.toString() : null;
-        return itemParentId === parentId;
-    });
-
-    return children.map(item => ({
-        ...item.toObject(),
-        children: item.type === 'folder' ? buildTree(items, item._id.toString()) : []
-    }));
-};
-
 const submitEvidence = async (req, res) => {
     try {
         const { evidenceId } = req.params;
 
-        // Chỉ TDG được nộp
         if (req.user.role !== 'tdg') {
             return res.status(403).json({
                 success: false,
@@ -1035,7 +1073,6 @@ const submitEvidence = async (req, res) => {
             });
         }
 
-        // Check quyền
         const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
         const userDeptId = req.user.department?.toString();
         const evidenceDeptId = evidence.departmentId?.toString();
@@ -1047,7 +1084,6 @@ const submitEvidence = async (req, res) => {
             });
         }
 
-        // Lấy tất cả file của user chưa nộp
         const filesToSubmit = await File.find({
             evidenceId,
             uploadedBy: req.user.id,
@@ -1065,7 +1101,6 @@ const submitEvidence = async (req, res) => {
 
         const submittedAt = new Date();
 
-        // Update tất cả file thành submitted
         const result = await File.updateMany(
             {
                 evidenceId,
@@ -1084,25 +1119,7 @@ const submitEvidence = async (req, res) => {
             }
         );
 
-        // Log activity
-        await File.findOne({
-            evidenceId,
-            uploadedBy: req.user.id
-        }).then(async file => {
-            if (file) {
-                await file.addActivityLog(
-                    'evidence_submit',
-                    req.user.id,
-                    `Nộp minh chứng với ${filesToSubmit.length} file`,
-                    {
-                        severity: 'medium',
-                        result: 'success',
-                        fileCount: filesToSubmit.length,
-                        submittedAt
-                    }
-                );
-            }
-        });
+        await Evidence.findById(evidenceId).then(e => e?.updateStatus());
 
         res.json({
             success: true,
@@ -1125,8 +1142,8 @@ const submitEvidence = async (req, res) => {
 const approveFile = async (req, res) => {
     try {
         const { fileId } = req.params;
+        const { rejectionReason } = req.body;
 
-        // Chỉ Manager/Admin được duyệt
         if (req.user.role !== 'manager' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
@@ -1135,6 +1152,7 @@ const approveFile = async (req, res) => {
         }
 
         const File = require('../../models/Evidence/File');
+        const Evidence = require('../../models/Evidence/Evidence');
         const file = await File.findById(fileId).populate('evidenceId');
 
         if (!file) {
@@ -1144,7 +1162,6 @@ const approveFile = async (req, res) => {
             });
         }
 
-        // Check file là pending
         if (file.approvalStatus !== 'pending') {
             return res.status(400).json({
                 success: false,
@@ -1152,7 +1169,6 @@ const approveFile = async (req, res) => {
             });
         }
 
-        // Check quyền (Manager chỉ duyệt file của phòng ban mình)
         if (req.user.role === 'manager') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = file.evidenceId.departmentId?.toString();
@@ -1165,23 +1181,12 @@ const approveFile = async (req, res) => {
             }
         }
 
-        // Cập nhật file
         file.approvalStatus = 'approved';
         file.approvedBy = req.user.id;
         file.approvalDate = new Date();
         await file.save();
 
-        // Log activity
-        await file.addActivityLog(
-            'file_approve',
-            req.user.id,
-            `Duyệt file: ${file.originalName}`,
-            {
-                severity: 'medium',
-                result: 'success',
-                approvedBy: req.user.id
-            }
-        );
+        await Evidence.findById(file.evidenceId._id).then(e => e?.updateStatus());
 
         res.json({
             success: true,
@@ -1198,13 +1203,11 @@ const approveFile = async (req, res) => {
     }
 };
 
-// ===== 5. TỪ CHỐI FILE (MANAGER TỪ CHỐI) =====
 const rejectFile = async (req, res) => {
     try {
         const { fileId } = req.params;
         const { rejectionReason } = req.body;
 
-        // Chỉ Manager/Admin được từ chối
         if (req.user.role !== 'manager' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
@@ -1220,6 +1223,7 @@ const rejectFile = async (req, res) => {
         }
 
         const File = require('../../models/Evidence/File');
+        const Evidence = require('../../models/Evidence/Evidence');
         const file = await File.findById(fileId).populate('evidenceId');
 
         if (!file) {
@@ -1229,7 +1233,6 @@ const rejectFile = async (req, res) => {
             });
         }
 
-        // Check file là pending
         if (file.approvalStatus !== 'pending') {
             return res.status(400).json({
                 success: false,
@@ -1237,7 +1240,6 @@ const rejectFile = async (req, res) => {
             });
         }
 
-        // Check quyền (Manager chỉ từ chối file của phòng ban mình)
         if (req.user.role === 'manager') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = file.evidenceId.departmentId?.toString();
@@ -1250,25 +1252,13 @@ const rejectFile = async (req, res) => {
             }
         }
 
-        // Cập nhật file
         file.approvalStatus = 'rejected';
         file.approvedBy = req.user.id;
         file.approvalDate = new Date();
         file.rejectionReason = rejectionReason.trim();
         await file.save();
 
-        // Log activity
-        await file.addActivityLog(
-            'file_reject',
-            req.user.id,
-            `Từ chối file: ${file.originalName}`,
-            {
-                severity: 'medium',
-                result: 'success',
-                rejectionReason: rejectionReason.trim(),
-                approvedBy: req.user.id
-            }
-        );
+        await Evidence.findById(file.evidenceId._id).then(e => e?.updateStatus());
 
         res.json({
             success: true,
@@ -1285,34 +1275,6 @@ const rejectFile = async (req, res) => {
     }
 };
 
-// ===== HELPER: Update folder metadata =====
-const updateFolderMetadata = async (folderId) => {
-    try {
-        const File = require('../../models/Evidence/File');
-        const children = await File.find({ parentFolder: folderId });
-
-        let fileCount = 0;
-        let totalSize = 0;
-
-        for (const child of children) {
-            if (child.type === 'file') {
-                fileCount++;
-                totalSize += child.size || 0;
-            } else if (child.type === 'folder') {
-                fileCount += child.folderMetadata?.fileCount || 0;
-                totalSize += child.folderMetadata?.totalSize || 0;
-            }
-        }
-
-        await File.findByIdAndUpdate(folderId, {
-            'folderMetadata.fileCount': fileCount,
-            'folderMetadata.totalSize': totalSize,
-            'folderMetadata.lastModified': new Date()
-        });
-    } catch (error) {
-        console.error('Update folder metadata error:', error);
-    }
-};
 
 module.exports = {
     uploadFiles,
