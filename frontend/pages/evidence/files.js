@@ -42,8 +42,12 @@ export default function FilesPage() {
     const [rejectionReason, setRejectionReason] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
+    const [userRole] = useState(null)
+
 
     const isAdmin = user?.role === 'admin'
+    const isTDG = userRole === 'tdg'
+    const canUpload = isTDG || isAdmin
 
     useEffect(() => {
         if (!isLoading && !user) {
