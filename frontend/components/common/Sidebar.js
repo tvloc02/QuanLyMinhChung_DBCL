@@ -131,11 +131,13 @@ const ROLE_PERMISSIONS = {
         'evidence_batch_assign',
         'evidence_batch_delete',
         'reports',
+        'reports_request',
         'reports_list',
         'assignments',
         'evaluations',
         'evaluations_supervised',
-        'notifications'
+        'notifications',
+
     ],
 
     expert: [
@@ -311,7 +313,7 @@ const getAllMenuItems = () => [
             },
             {
                 name: 'Danh sách nhiệm vụ',
-                icon: Shield,
+                icon: Target,
                 path: '/reports/requests',
                 permissionKey:'reports_request'
             },
