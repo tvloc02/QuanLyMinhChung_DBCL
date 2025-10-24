@@ -291,6 +291,14 @@ export const apiMethods = {
         streamFile: (id) => api.get(`/api/files/stream/${id}`)
     },
 
+    reportRequests: {
+        getAll: (params) => api.get('/api/report-requests', { params }),
+        getById: (id) => api.get(`/api/report-requests/${id}`),
+        create: (data) => api.post('/api/report-requests', data),
+        accept: (id) => api.post(`/api/report-requests/${id}/accept`),
+        reject: (id, data) => api.post(`/api/report-requests/${id}/reject`, data)
+    },
+
     reports: {
         getAll: (params) => api.get('/api/reports', { params }),
         getById: (id) => api.get(`/api/reports/${id}`),
@@ -311,14 +319,6 @@ export const apiMethods = {
             params: { format },
             responseType: 'blob'
         }),
-
-        reportRequests: {
-            getAll: (params) => api.get('/api/report-requests', { params }),
-            getById: (id) => api.get(`/api/report-requests/${id}`),
-            create: (data) => api.post('/api/report-requests', data),
-            accept: (id) => api.post(`/api/report-requests/${id}/accept`),
-            reject: (id, data) => api.post(`/api/report-requests/${id}/reject`, data)
-        },
 
         addComment: (id, comment, section) =>
             api.post(`/api/reports/${id}/comments`, { comment, section }),
