@@ -204,6 +204,16 @@ const createReport = async (req, res) => {
                     message: 'Yêu cầu này không thể viết báo cáo'
                 });
             }
+
+            // ← THÊM: Kiểm tra loại báo cáo được phép
+            if (reportRequest.types && reportRequest.types.length > 0) {
+                if (!reportRequest.types.includes(type)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
+                    });
+                }
+            }
         }
 
         const code = await Report.generateCode(type, academicYearId, '', '');

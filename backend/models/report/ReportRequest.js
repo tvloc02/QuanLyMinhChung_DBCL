@@ -20,11 +20,11 @@ const reportRequestSchema = new mongoose.Schema({
         maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
     },
 
-    type: {
+    // Hỗ trợ multiple types - có thể chọn 0, 1 hoặc nhiều
+    types: [{
         type: String,
-        enum: ['criteria_analysis', 'standard_analysis', 'comprehensive_report'],
-        required: [true, 'Loại báo cáo là bắt buộc']
-    },
+        enum: ['criteria_analysis', 'standard_analysis', 'comprehensive_report']
+    }],
 
     programId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -40,18 +40,12 @@ const reportRequestSchema = new mongoose.Schema({
 
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Standard',
-        required: function() {
-            return this.type !== 'comprehensive_report';
-        }
+        ref: 'Standard'
     },
 
     criteriaId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Criteria',
-        required: function() {
-            return this.type === 'criteria_analysis';
-        }
+        ref: 'Criteria'
     },
 
     deadline: {

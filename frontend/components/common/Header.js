@@ -588,7 +588,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         fetchNotifications()
                                     }
                                 }}
-                                className="relative p-3 rounded-xl hover:bg-indigo-50 transition-colors border-2"
+                                className="relative p-4 rounded-xl hover:bg-indigo-50 transition-colors border-2"
                                 style={{ borderColor: unreadCount > 0 ? '#EF4444' : '#E5E7EB' }}
                             >
                                 <Bell className="h-5 w-5 text-gray-600" />

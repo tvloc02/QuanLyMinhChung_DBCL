@@ -137,7 +137,7 @@ const createReportRequest = async (req, res) => {
         const {
             title,
             description,
-            type,
+            types,  // ← Thay đổi từ type thành types (array)
             programId,
             organizationId,
             standardId,
@@ -148,6 +148,7 @@ const createReportRequest = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+
         // Chỉ manager tạo request
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
@@ -176,7 +177,7 @@ const createReportRequest = async (req, res) => {
             academicYearId,
             title: title.trim(),
             description: description.trim(),
-            type,
+            types: Array.isArray(types) ? types.filter(t => t) : [],  // ← Xử lý array types
             programId,
             organizationId,
             deadline: new Date(deadline),
@@ -185,11 +186,11 @@ const createReportRequest = async (req, res) => {
             assignedTo
         });
 
-        if (type !== 'comprehensive_report' && standardId) {
+        if (standardId) {
             requestData.standardId = standardId;
         }
 
-        if (type === 'criteria_analysis' && criteriaId) {
+        if (criteriaId) {
             requestData.criteriaId = criteriaId;
         }
 

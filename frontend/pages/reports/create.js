@@ -10,6 +10,12 @@ import reportService from '../../services/reportService'
 import toast from 'react-hot-toast'
 import { FileText, Save, Send, Loader2, X } from 'lucide-react'
 
+const REPORT_TYPES = [
+    { value: 'criteria_analysis', label: 'Phân tích tiêu chí' },
+    { value: 'standard_analysis', label: 'Phân tích tiêu chuẩn' },
+    { value: 'comprehensive_report', label: 'Báo cáo tổng hợp' }
+]
+
 export default function CreateReport() {
     const router = useRouter()
     const { requestId } = router.query
@@ -37,6 +43,7 @@ export default function CreateReport() {
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [request, setRequest] = useState(null)
+    const [allowedTypes, setAllowedTypes] = useState([])  // ← Loại báo cáo được phép từ request
     const [selectedEvidences, setSelectedEvidences] = useState([])
     const [showSelfEvalModal, setShowSelfEvalModal] = useState(false)
     const [selfEvaluation, setSelfEvaluation] = useState(null)
@@ -83,14 +90,30 @@ export default function CreateReport() {
             const response = await apiMethods.reportRequests.getById(requestId)
             const req = response.data?.data || response.data
             setRequest(req)
-            setFormData(prev => ({
-                ...prev,
-                title: req.title || '',
-                type: req.type || '',
-                programId: req.programId?._id || req.programId || '',
-                organizationId: req.organizationId?._id || req.organizationId || '',
-                requestId: req._id
-            }))
+
+            // ← Xử lý types từ request
+            const reqTypes = req.types && Array.isArray(req.types) ? req.types : []
+            setAllowedTypes(reqTypes)
+
+            // Nếu request chỉ cho phép 1 type, tự động chọn
+            if (reqTypes.length === 1) {
+                setFormData(prev => ({
+                    ...prev,
+                    title: req.title || '',
+                    type: reqTypes[0],
+                    programId: req.programId?._id || req.programId || '',
+                    organizationId: req.organizationId?._id || req.organizationId || '',
+                    requestId: req._id
+                }))
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    title: req.title || '',
+                    programId: req.programId?._id || req.programId || '',
+                    organizationId: req.organizationId?._id || req.organizationId || '',
+                    requestId: req._id
+                }))
+            }
         } catch (error) {
             console.error('Fetch request error:', error)
             toast.error('Lỗi khi tải thông tin yêu cầu')
@@ -139,6 +162,12 @@ export default function CreateReport() {
             return
         }
 
+        // ← Kiểm tra loại báo cáo được phép nếu tạo từ request
+        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
+            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
+            return
+        }
+
         if (!formData.programId || !formData.organizationId) {
             toast.error('Vui lòng chọn chương trình và tổ chức')
             return
@@ -184,6 +213,12 @@ export default function CreateReport() {
             return
         }
 
+        // ← Kiểm tra loại báo cáo được phép nếu tạo từ request
+        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
+            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
+            return
+        }
+
         if (!formData.programId || !formData.organizationId) {
             toast.error('Vui lòng chọn chương trình và tổ chức')
             return
@@ -224,6 +259,11 @@ export default function CreateReport() {
         await handleSubmit()
     }
 
+    // ← Danh sách loại báo cáo có thể chọn
+    const availableTypes = allowedTypes.length > 0
+        ? REPORT_TYPES.filter(t => allowedTypes.includes(t.value))
+        : REPORT_TYPES
+
     if (isLoading) {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>
@@ -252,6 +292,11 @@ export default function CreateReport() {
                                 <p className="text-blue-100">
                                     {request ? `Theo yêu cầu: ${request.title}` : 'Điền thông tin để tạo báo cáo'}
                                 </p>
+                                {request && allowedTypes.length > 0 && (
+                                    <p className="text-blue-100 text-sm mt-1">
+                                        Loại báo cáo cho phép: {allowedTypes.length === 1 ? allowedTypes.map(t => REPORT_TYPES.find(rt => rt.value === t)?.label).join(', ') : `${allowedTypes.length} loại`}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -287,15 +332,22 @@ export default function CreateReport() {
                                             name="type"
                                             value={formData.type}
                                             onChange={handleChange}
-                                            disabled={!!request}
+                                            disabled={!!request && allowedTypes.length === 1}
                                             className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                             required
                                         >
                                             <option value="">Chọn loại báo cáo</option>
-                                            <option value="criteria_analysis">Phân tích tiêu chí</option>
-                                            <option value="standard_analysis">Phân tích tiêu chuẩn</option>
-                                            <option value="comprehensive_report">Báo cáo tổng hợp</option>
+                                            {availableTypes.map(type => (
+                                                <option key={type.value} value={type.value}>
+                                                    {type.label}
+                                                </option>
+                                            ))}
                                         </select>
+                                        {request && allowedTypes.length === 1 && (
+                                            <p className="text-xs text-blue-600 mt-1">
+                                                ✓ Tự động chọn loại duy nhất cho phép
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div>

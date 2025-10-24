@@ -27,7 +27,8 @@ router.get('/:id', auth, setAcademicYearContext, [
 router.post('/', auth, requireManager, setAcademicYearContext, [
     body('title').notEmpty().isLength({ max: 500 }),
     body('description').notEmpty().isLength({ max: 2000 }),
-    body('type').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
+    body('types').optional().isArray(),  // ← Thay đổi: types là optional array
+    body('types.*').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
     body('programId').isMongoId(),
     body('organizationId').isMongoId(),
     body('standardId').optional().isMongoId(),

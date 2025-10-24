@@ -8,6 +8,12 @@ import {
 } from 'lucide-react'
 import { apiMethods } from '../../services/api'
 
+const REPORT_TYPES = [
+    { value: 'criteria_analysis', label: 'Phân tích tiêu chí' },
+    { value: 'standard_analysis', label: 'Phân tích tiêu chuẩn' },
+    { value: 'comprehensive_report', label: 'Báo cáo tổng hợp' }
+]
+
 export default function CreateRequestPage() {
     const { user, isLoading } = useAuth()
     const router = useRouter()
@@ -21,6 +27,7 @@ export default function CreateRequestPage() {
     const [tdgUsers, setTdgUsers] = useState([])
 
     const [showUserModal, setShowUserModal] = useState(false)
+    const [showTypesModal, setShowTypesModal] = useState(false)
 
     const [formData, setFormData] = useState({
         title: '',
@@ -29,7 +36,8 @@ export default function CreateRequestPage() {
         organizationId: '',
         deadline: '',
         priority: 'normal',
-        assignedTo: []  // ← Thay thành array
+        types: [],  // ← Array chứa các loại báo cáo được phép
+        assignedTo: []
     })
 
     const [formErrors, setFormErrors] = useState({})
@@ -95,7 +103,7 @@ export default function CreateRequestPage() {
                 return apiMethods.reportRequests.create({
                     title: formData.title,
                     description: formData.description,
-                    type: '',  // Mặc định là tổng hợp vì ko chọn tiêu chuẩn
+                    types: formData.types,  // ← Gửi array types
                     programId: formData.programId,
                     organizationId: formData.organizationId,
                     deadline: formData.deadline,
@@ -135,10 +143,19 @@ export default function CreateRequestPage() {
         }))
     }
 
-    const getSelectedUserNames = () => {
-        return tdgUsers
-            .filter(u => formData.assignedTo.includes(u._id))
-            .map(u => u.fullName)
+    const toggleTypeSelection = (type) => {
+        setFormData(prev => ({
+            ...prev,
+            types: prev.types.includes(type)
+                ? prev.types.filter(t => t !== type)
+                : [...prev.types, type]
+        }))
+    }
+
+    const getSelectedTypeLabels = () => {
+        return formData.types
+            .map(t => REPORT_TYPES.find(rt => rt.value === t)?.label)
+            .filter(Boolean)
             .join(', ')
     }
 
@@ -322,7 +339,54 @@ export default function CreateRequestPage() {
                                 </div>
                             </div>
 
-                            {/* Giao cho TDG - Popup */}
+                            {/* Chọn loại báo cáo */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Loại báo cáo được phép
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTypesModal(true)}
+                                    className="w-full px-4 py-3 border-2 border-blue-300 bg-blue-50 rounded-xl text-left flex items-center justify-between font-medium text-blue-700 hover:bg-blue-100 transition-all"
+                                >
+                                    <span>
+                                        {formData.types.length === 0
+                                            ? 'Chọn loại báo cáo'
+                                            : `Đã chọn ${formData.types.length} loại`
+                                        }
+                                    </span>
+                                    <Plus className="w-5 h-5" />
+                                </button>
+
+                                {/* Danh sách loại được chọn */}
+                                {formData.types.length > 0 && (
+                                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                        <p className="text-sm font-semibold text-blue-900 mb-2">Các loại báo cáo được phép:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {formData.types.map(type => {
+                                                const typeInfo = REPORT_TYPES.find(t => t.value === type);
+                                                return (
+                                                    <span
+                                                        key={type}
+                                                        className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-medium"
+                                                    >
+                                                        {typeInfo?.label}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleTypeSelection(type)}
+                                                            className="ml-2 text-blue-200 hover:text-white"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Giao cho TDG */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                     Giao cho TDG <span className="text-red-500">*</span>
@@ -405,6 +469,62 @@ export default function CreateRequestPage() {
                     </div>
                 </form>
             </div>
+
+            {/* Modal chọn loại báo cáo */}
+            {showTypesModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
+                            <h3 className="text-xl font-bold">Chọn loại báo cáo được phép</h3>
+                            <button
+                                onClick={() => setShowTypesModal(false)}
+                                className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded-lg"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-3">
+                            <p className="text-sm text-gray-600 mb-4">
+                            </p>
+                            {REPORT_TYPES.map(type => (
+                                <label
+                                    key={type.value}
+                                    className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.types.includes(type.value)}
+                                        onChange={() => toggleTypeSelection(type.value)}
+                                        className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <div className="ml-3 flex-1">
+                                        <p className="font-semibold text-gray-900">{type.label}</p>
+                                    </div>
+                                    {formData.types.includes(type.value) && (
+                                        <Check className="w-5 h-5 text-blue-600" />
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 border-t-2 border-gray-200 p-6 flex items-center justify-between">
+                            <p className="text-sm font-semibold text-gray-700">
+                                Đã chọn: <span className="text-blue-600">{formData.types.length}</span> loại
+                            </p>
+                            <button
+                                onClick={() => setShowTypesModal(false)}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                            >
+                                Xong
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal chọn TDG */}
             {showUserModal && (
