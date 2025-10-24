@@ -108,7 +108,10 @@ const ROLE_PERMISSIONS = {
         'analytics',
         'analytics_dashboard',
         'analytics_comprehensive',
-        'analytics_logs'
+        'analytics_logs',
+        'reports_create_request',
+        'reports_request'
+
     ],
 
     tdg: [
@@ -307,10 +310,22 @@ const getAllMenuItems = () => [
                 permissionKey: 'reports_list'
             },
             {
+                name: 'Danh sách nhiệm vụ',
+                icon: Shield,
+                path: '/reports/requests',
+                permissionKey:'reports_request'
+            },
+            {
                 name: 'Tạo báo cáo mới',
                 icon: UserPlus,
                 path: '/reports/create',
                 permissionKey: 'reports_create'
+            },
+            {
+                name: 'Tạo yêu cầu mới',
+                icon: UserPlus,
+                path: '/reports/create-request',
+                permissionKey: 'reports_create_request'
             },
             {
                 name: 'Phân quyền báo cáo',
