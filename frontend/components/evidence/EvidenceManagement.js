@@ -481,7 +481,6 @@ export default function EvidenceManagement() {
                 show: true
             });
         } else if (isTDG) {
-            // TDG: xem, upload file (chỉ nếu được phân quyền)
             const isAssignedToThisUser = evidence.assignedTo?.some(user => user._id?.toString() === user?.id);
 
             buttons.push({
