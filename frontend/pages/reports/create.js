@@ -16,6 +16,15 @@ const REPORT_TYPES = [
     { value: 'comprehensive_report', label: 'Báo cáo tổng hợp' }
 ]
 
+const cleanData = (data) => {
+    return Object.keys(data).reduce((acc, key) => {
+        if (data[key] !== undefined && data[key] !== null) {
+            acc[key] = data[key];
+        }
+        return acc;
+    }, {});
+};
+
 export default function CreateReport() {
     const router = useRouter()
     const { requestId } = router.query
@@ -34,16 +43,16 @@ export default function CreateReport() {
         type: '',
         programId: '',
         organizationId: '',
-        content: '',
         summary: '',
         keywords: [],
-        requestId: requestId || ''
+        requestId: requestId || '',
+        content: ''
     })
 
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
     const [request, setRequest] = useState(null)
-    const [allowedTypes, setAllowedTypes] = useState([])  // ← Loại báo cáo được phép từ request
+    const [allowedTypes, setAllowedTypes] = useState([])
     const [selectedEvidences, setSelectedEvidences] = useState([])
     const [showSelfEvalModal, setShowSelfEvalModal] = useState(false)
     const [selfEvaluation, setSelfEvaluation] = useState(null)
@@ -91,11 +100,9 @@ export default function CreateReport() {
             const req = response.data?.data || response.data
             setRequest(req)
 
-            // ← Xử lý types từ request
             const reqTypes = req.types && Array.isArray(req.types) ? req.types : []
             setAllowedTypes(reqTypes)
 
-            // Nếu request chỉ cho phép 1 type, tự động chọn
             if (reqTypes.length === 1) {
                 setFormData(prev => ({
                     ...prev,
@@ -151,6 +158,19 @@ export default function CreateReport() {
         setSelectedEvidences(prev => prev.filter(e => e.evidenceId !== evidenceId))
     }
 
+    // Sửa: Hàm lấy nội dung phải ưu tiên lấy từ REF (DOM) nếu tồn tại, nếu không lấy từ state
+    const getContentFromEditor = () => {
+        const contentFromRef = editorRef.current?.getContent();
+        // Lấy từ Ref (nếu nó không rỗng) HOẶC lấy từ state (nếu state có nội dung)
+        return contentFromRef || formData.content || '';
+    }
+
+    // Hàm cập nhật content state từ RichTextEditor
+    const handleContentChange = (content) => {
+        setFormData(prev => ({ ...prev, content }))
+    }
+
+
     const handleSave = async () => {
         if (!formData.title.trim()) {
             toast.error('Vui lòng nhập tiêu đề báo cáo')
@@ -162,7 +182,6 @@ export default function CreateReport() {
             return
         }
 
-        // ← Kiểm tra loại báo cáo được phép nếu tạo từ request
         if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
             toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
             return
@@ -173,7 +192,7 @@ export default function CreateReport() {
             return
         }
 
-        const content = editorRef.current?.getContent() || ''
+        const content = getContentFromEditor()
         if (!content.trim()) {
             toast.error('Vui lòng nhập nội dung báo cáo')
             return
@@ -181,12 +200,18 @@ export default function CreateReport() {
 
         try {
             setLoading(true)
-            const data = {
+
+            const rawData = {
                 ...formData,
                 content,
-                linkedEvidences: selectedEvidences
-            }
-            const response = await reportService.create(data)
+                linkedEvidences: selectedEvidences,
+                description: formData.summary.trim() || '',
+                summary: formData.summary.trim() || ''
+            };
+
+            const dataToSend = cleanData(rawData);
+
+            const response = await reportService.create(dataToSend)
             toast.success('Lưu báo cáo thành công')
             router.push(`/reports/${response.data?.data?._id || response.data?._id}`)
         } catch (error) {
@@ -213,7 +238,6 @@ export default function CreateReport() {
             return
         }
 
-        // ← Kiểm tra loại báo cáo được phép nếu tạo từ request
         if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
             toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
             return
@@ -224,7 +248,7 @@ export default function CreateReport() {
             return
         }
 
-        const content = editorRef.current?.getContent() || ''
+        const content = getContentFromEditor()
         if (!content.trim()) {
             toast.error('Vui lòng nhập nội dung báo cáo')
             return
@@ -232,12 +256,18 @@ export default function CreateReport() {
 
         try {
             setSubmitting(true)
-            const data = {
+
+            const rawData = {
                 ...formData,
                 content,
-                linkedEvidences: selectedEvidences
-            }
-            const createResponse = await reportService.create(data)
+                linkedEvidences: selectedEvidences,
+                description: formData.summary.trim() || '',
+                summary: formData.summary.trim() || ''
+            };
+
+            const dataToSend = cleanData(rawData);
+
+            const createResponse = await reportService.create(dataToSend)
             const reportId = createResponse.data?.data?._id || createResponse.data?._id
 
             await reportService.addSelfEvaluation(reportId, selfEvaluation)
@@ -259,7 +289,6 @@ export default function CreateReport() {
         await handleSubmit()
     }
 
-    // ← Danh sách loại báo cáo có thể chọn
     const availableTypes = allowedTypes.length > 0
         ? REPORT_TYPES.filter(t => allowedTypes.includes(t.value))
         : REPORT_TYPES
@@ -294,7 +323,7 @@ export default function CreateReport() {
                                 </p>
                                 {request && allowedTypes.length > 0 && (
                                     <p className="text-blue-100 text-sm mt-1">
-                                        Loại báo cáo cho phép: {allowedTypes.length === 1 ? allowedTypes.map(t => REPORT_TYPES.find(rt => rt.value === t)?.label).join(', ') : `${allowedTypes.length} loại`}
+                                        Loại báo cáo cho phép: {allowedTypes.length === 1 ? availableTypes.map(t => t.label).join(', ') : `${allowedTypes.length} loại`}
                                     </p>
                                 )}
                             </div>
@@ -396,7 +425,7 @@ export default function CreateReport() {
                             <RichTextEditor
                                 ref={editorRef}
                                 value={formData.content}
-                                onChange={(content) => setFormData(prev => ({ ...prev, content }))}
+                                onChange={handleContentChange}
                                 placeholder="Nhập nội dung báo cáo..."
                             />
                         </div>

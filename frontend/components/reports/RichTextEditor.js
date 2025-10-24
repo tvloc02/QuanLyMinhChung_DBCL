@@ -27,15 +27,13 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     const [linkText, setLinkText] = useState('')
     const [detectedCodes, setDetectedCodes] = useState(new Set())
 
-    // Load content when value changes
+    // Khởi tạo và cập nhật codes khi nội dung thay đổi
     useEffect(() => {
-        if (editorRef.current && value !== editorRef.current.innerHTML) {
-            editorRef.current.innerHTML = value || ''
+        if (editorRef.current) {
             detectExistingEvidenceCodes()
         }
-    }, [value])
+    }, [value]) // Chạy khi nội dung từ cha (value) thay đổi
 
-    // Detect evidence codes from existing links only (SCAN, NO EDIT)
     const detectExistingEvidenceCodes = () => {
         if (!editorRef.current) return
 
@@ -52,13 +50,14 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         setDetectedCodes(foundCodes)
     }
 
-    // On input: just notify parent, don't auto-wrap
     const handleInput = () => {
-        if (onChange && editorRef.current) {
+        if (editorRef.current) {
             const content = editorRef.current.innerHTML
-            onChange(content)
 
-            // Scan for existing links (ONLY, no wrapping)
+            if (onChange) {
+                onChange(content) // Gửi nội dung đã thay đổi lên component cha
+            }
+
             detectExistingEvidenceCodes()
         }
     }
@@ -66,7 +65,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     const execCommand = (command, value = null) => {
         document.execCommand(command, false, value)
         editorRef.current?.focus()
-        handleInput()
+        handleInput() // Kích hoạt cập nhật state
     }
 
     const handleTextColor = () => {
@@ -123,35 +122,9 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             document.execCommand('insertHTML', false, linkHTML)
 
             setTimeout(() => {
-                detectCodesFromContent()
-                handleInput()
+                handleInput() // Kích hoạt cập nhật state
             }, 0)
         }
-    }
-
-    const detectCodesFromContent = () => {
-        if (!editorRef.current) return
-
-        const foundCodes = new Set()
-        const content = editorRef.current.innerHTML
-
-        // Find plain codes in text
-        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
-        let match
-        while ((match = evidencePattern.exec(content)) !== null) {
-            foundCodes.add(match[1])
-        }
-
-        // Also find codes from existing links
-        const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link, span.evidence-code')
-        evidenceLinks.forEach(link => {
-            const code = link.getAttribute('data-code') || link.textContent
-            if (code && /^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
-                foundCodes.add(code)
-            }
-        })
-
-        setDetectedCodes(foundCodes)
     }
 
     useImperativeHandle(ref, () => ({
@@ -333,6 +306,8 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 ref={editorRef}
                 contentEditable={!disabled}
                 onInput={handleInput}
+                // Khởi tạo nội dung ban đầu từ prop 'value'
+                dangerouslySetInnerHTML={{ __html: value || '' }}
                 suppressContentEditableWarning={true}
                 className={`min-h-[400px] p-4 focus:outline-none ${disabled ? 'bg-gray-50' : 'bg-white'}`}
                 style={{

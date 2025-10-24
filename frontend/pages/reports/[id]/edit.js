@@ -3,16 +3,13 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../../contexts/AuthContext'
 import Layout from '../../../components/common/Layout'
 import { apiMethods } from '../../../services/api'
-import ReportContentEditor from '../../../components/reports/ReportContentEditor'
+import RichTextEditor from '../../../components/reports/RichTextEditor' // <-- ĐÃ THAY ĐỔI
 import EvidencePicker from '../../../components/reports/EvidencePicker'
 import toast from 'react-hot-toast'
 import { FileText, Save, Loader2, Edit, X, Link as LinkIcon } from 'lucide-react'
 import { formatDate } from '../../../utils/helpers'
 
-const isMongoId = (id) => {
-    if (typeof id !== 'string') return false;
-    return id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
-};
+const isMongoId = (id) => typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
 
 export default function EditReportPage() {
     const router = useRouter()
@@ -28,11 +25,11 @@ export default function EditReportPage() {
         summary: '',
         keywords: [],
         programId: '',
-        organizationId: '', // Thêm trường OrganizationId để dùng cho EvidencePicker
-        type: '' // Thêm trường type để dùng cho EvidencePicker
+        organizationId: '',
+        type: ''
     })
     const [content, setContent] = useState('')
-    const [selectedEvidences, setSelectedEvidences] = useState([]) // <-- STATE MỚI CHO MINH CHỨNG
+    const [selectedEvidences, setSelectedEvidences] = useState([])
 
     const breadcrumbItems = [
         { name: 'Báo cáo', path: '/reports' },
@@ -77,7 +74,6 @@ export default function EditReportPage() {
             })
             setContent(reportData.content || '')
 
-            // Khôi phục linkedEvidences
             const initialEvidences = reportData.linkedEvidences?.map(item => ({
                 evidenceId: item.evidenceId?._id || item.evidenceId,
                 code: item.evidenceId?.code,
@@ -98,41 +94,30 @@ export default function EditReportPage() {
 
     const handleChange = (e) => {
         const { name, value } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }))
+        setFormData(prev => ({ ...prev, [name]: value }))
     }
 
     const handleKeywordsChange = (e) => {
         const value = e.target.value
         const keywords = value.split(',').map(k => k.trim()).filter(k => k)
-        setFormData(prev => ({
-            ...prev,
-            keywords
-        }))
+        setFormData(prev => ({ ...prev, keywords }))
     }
 
-    // Hàm xử lý khi chọn minh chứng từ EvidencePicker
     const handleSelectEvidence = (evidence) => {
         const exists = selectedEvidences.find(e => e.evidenceId === evidence.evidenceId)
         if (!exists) {
             setSelectedEvidences(prev => [...prev, evidence])
             if (editorRef.current) {
-                // Tùy chọn: Tự động chèn mã minh chứng vào editor
+                // Sử dụng RichTextEditor tùy chỉnh của bạn
                 editorRef.current.insertEvidenceCode(evidence.code)
             }
-        } else {
-            toast.error('Minh chứng đã được thêm')
         }
     }
 
-    // Hàm xóa minh chứng
     const handleRemoveEvidence = (evidenceId) => {
         setSelectedEvidences(prev => prev.filter(e => e.evidenceId !== evidenceId))
     }
 
-    // Hàm cập nhật ngữ cảnh/file cho minh chứng
     const handleUpdateEvidence = (evidenceId, updates) => {
         setSelectedEvidences(prev => prev.map(e =>
             e.evidenceId === evidenceId ? { ...e, ...updates } : e
@@ -155,7 +140,6 @@ export default function EditReportPage() {
         try {
             setSaving(true)
 
-            // Map lại cấu trúc linkedEvidences trước khi gửi đi
             const linkedEvidencesToSend = selectedEvidences.map(item => ({
                 evidenceId: item.evidenceId,
                 contextText: item.contextText,
@@ -167,17 +151,15 @@ export default function EditReportPage() {
                 summary: formData.summary.trim(),
                 keywords: formData.keywords,
                 content: contentToSave,
-                linkedEvidences: linkedEvidencesToSend // <-- GỬI MINH CHỨNG
+                linkedEvidences: linkedEvidencesToSend
             }
 
             const response = await apiMethods.reports.update(id, dataToUpdate)
             toast.success('Lưu báo cáo thành công')
 
-            // Cập nhật lại trạng thái local sau khi lưu thành công
             const updatedReportData = response.data.data
             setReport(updatedReportData)
 
-            // Cập nhật lại danh sách minh chứng từ response (nếu có populate)
             const reloadedEvidences = updatedReportData.linkedEvidences?.map(item => ({
                 evidenceId: item.evidenceId?._id || item.evidenceId,
                 code: item.evidenceId?.code,
@@ -218,6 +200,8 @@ export default function EditReportPage() {
         )
     }
 
+    const isTitleDisabled = !!report?.requestId;
+
     return (
         <Layout title={`Chỉnh sửa: ${report.code}`} breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
@@ -237,14 +221,15 @@ export default function EditReportPage() {
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tiêu đề báo cáo
+                                        Tiêu đề báo cáo {isTitleDisabled && <span className="text-sm text-gray-500">(Khóa - theo Yêu cầu)</span>}
                                     </label>
                                     <input
                                         type="text"
                                         name="title"
                                         value={formData.title}
                                         onChange={handleChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        disabled={isTitleDisabled}
+                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                         placeholder="Nhập tiêu đề báo cáo"
                                         required
                                     />
@@ -255,7 +240,7 @@ export default function EditReportPage() {
                         {/* Nội dung báo cáo */}
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                             <h2 className="text-xl font-bold text-gray-900 mb-4">Nội dung báo cáo</h2>
-                            <ReportContentEditor
+                            <RichTextEditor // <-- SỬ DỤNG RichTextEditor
                                 ref={editorRef}
                                 value={content}
                                 onChange={setContent}
@@ -299,15 +284,17 @@ export default function EditReportPage() {
 
                     {/* Cột bên phải: Minh chứng */}
                     <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <EvidencePicker
-                                reportType={formData.type}
-                                programId={formData.programId}
-                                organizationId={formData.organizationId}
-                                onSelectEvidence={handleSelectEvidence}
-                                selectedEvidences={selectedEvidences}
-                            />
-                        </div>
+                        {formData.type && formData.programId && formData.organizationId && (
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                                <EvidencePicker
+                                    reportType={formData.type}
+                                    programId={formData.programId}
+                                    organizationId={formData.organizationId}
+                                    onSelectEvidence={handleSelectEvidence}
+                                    selectedEvidences={selectedEvidences}
+                                />
+                            </div>
+                        )}
 
                         {selectedEvidences.length > 0 && (
                             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
