@@ -19,7 +19,6 @@ export const evidenceService = {
         }
     },
 
-    // Alias for backward compatibility
     getEvidenceById: async (id) => {
         try {
             const response = await apiMethods.evidences.getById(id)
@@ -150,6 +149,24 @@ export const evidenceService = {
     getByAcademicYear: async (academicYearId) => {
         try {
             const response = await apiMethods.evidences.getByAcademicYear(academicYearId)
+            return response.data
+        } catch (error) {
+            throw error
+        }
+    },
+
+    getStandards: async (params) => {
+        try {
+            const response = await apiMethods.standards.getAll(params)
+            return response.data
+        } catch (error) {
+            throw error
+        }
+    },
+
+    getCriteria: async (params) => {
+        try {
+            const response = await apiMethods.criteria.getAll(params)
             return response.data
         } catch (error) {
             throw error

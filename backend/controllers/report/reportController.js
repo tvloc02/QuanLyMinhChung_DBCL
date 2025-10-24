@@ -29,17 +29,15 @@ const getReports = async (req, res) => {
             const userAccessQuery = {
                 $or: [
                     { createdBy: req.user.id },
-                    { status: 'published' }
+                    { status: { $in: ['published', 'submitted'] } }
                 ]
             };
-
             if (req.user.standardAccess && req.user.standardAccess.length > 0) {
                 userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
             }
             if (req.user.criteriaAccess && req.user.criteriaAccess.length > 0) {
                 userAccessQuery.$or.push({ criteriaId: { $in: req.user.criteriaAccess } });
             }
-
             query = { ...query, ...userAccessQuery };
         }
 
@@ -74,6 +72,7 @@ const getReports = async (req, res) => {
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .populate('attachedFile', 'originalName size')
+                .populate('requestId', 'title status')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -118,6 +117,15 @@ const getReportById = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
             .populate('attachedFile')
+            .populate('requestId')
+            .populate({
+                path: 'linkedEvidences.evidenceId',
+                select: 'code name files'
+            })
+            .populate({
+                path: 'linkedEvidences.selectedFileIds',
+                select: 'originalName size mimetype'
+            })
             .populate({
                 path: 'evaluations',
                 select: 'averageScore rating status evaluatorId',
@@ -125,6 +133,10 @@ const getReportById = async (req, res) => {
                     path: 'evaluatorId',
                     select: 'fullName email'
                 }
+            })
+            .populate({
+                path: 'selfEvaluation.evaluatedBy',
+                select: 'fullName email'
             });
 
         if (!report) {
@@ -157,18 +169,16 @@ const createReport = async (req, res) => {
             type,
             programId,
             organizationId,
-            standardId,
-            criteriaId,
             content,
             contentMethod,
             summary,
             keywords,
-            requestId
+            requestId,
+            linkedEvidences
         } = req.body;
 
         const academicYearId = req.academicYearId;
 
-        // Nếu là từ request, kiểm tra request
         let reportRequest = null;
         if (requestId) {
             const ReportRequest = mongoose.model('ReportRequest');
@@ -196,36 +206,7 @@ const createReport = async (req, res) => {
             }
         }
 
-        // Phần còn lại giữ nguyên...
-        let standardCode = '';
-        let criteriaCode = '';
-
-        if (standardId) {
-            try {
-                const StandardModel = mongoose.model('Standard');
-                const standard = await StandardModel.findById(standardId).select('code');
-                standardCode = standard?.code || '';
-            } catch (error) {
-                console.error('Error fetching standard code:', error);
-            }
-        }
-
-        if (criteriaId) {
-            try {
-                const CriteriaModel = mongoose.model('Criteria');
-                const criteria = await CriteriaModel.findById(criteriaId).select('code');
-                criteriaCode = criteria?.code || '';
-            } catch (error) {
-                console.error('Error fetching criteria code:', error);
-            }
-        }
-
-        const code = await Report.generateCode(
-            type,
-            academicYearId,
-            standardCode,
-            criteriaCode
-        );
+        const code = await Report.generateCode(type, academicYearId, '', '');
 
         const reportData = {
             academicYearId,
@@ -245,14 +226,6 @@ const createReport = async (req, res) => {
             reportData.requestId = requestId;
         }
 
-        if (standardId) {
-            reportData.standardId = standardId;
-        }
-
-        if (criteriaId) {
-            reportData.criteriaId = criteriaId;
-        }
-
         if (contentMethod === 'online_editor') {
             if (!content || content.trim().length === 0) {
                 return res.status(400).json({
@@ -265,10 +238,22 @@ const createReport = async (req, res) => {
             reportData.content = '';
         }
 
+        if (linkedEvidences && Array.isArray(linkedEvidences)) {
+            reportData.linkedEvidences = linkedEvidences.map(item => {
+                const evidence = {
+                    evidenceId: item.evidenceId,
+                    contextText: item.contextText || ''
+                };
+                if (item.selectedFileIds && item.selectedFileIds.length > 0) {
+                    evidence.selectedFileIds = item.selectedFileIds;
+                }
+                return evidence;
+            });
+        }
+
         const report = new Report(reportData);
         await report.save();
 
-        // Update request status
         if (reportRequest) {
             await reportRequest.markInProgress();
         }
@@ -277,9 +262,9 @@ const createReport = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'standardId', select: 'name code' },
-            { path: 'criteriaId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' }
+            { path: 'createdBy', select: 'fullName email' },
+            { path: 'linkedEvidences.evidenceId', select: 'code name' },
+            { path: 'linkedEvidences.selectedFileIds', select: 'originalName size' }
         ]);
 
         res.status(201).json({
@@ -289,7 +274,6 @@ const createReport = async (req, res) => {
         });
 
     } catch (error) {
-        // Giữ nguyên phần xử lý lỗi
         console.error('Create report error:', error);
         if (error.code === 11000) {
             return res.status(400).json({
@@ -314,7 +298,7 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, ...updateData } = req.body;
+        const { content, linkedEvidences, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
 
         const report = await Report.findOne({ _id: id, academicYearId });
@@ -344,6 +328,19 @@ const updateReport = async (req, res) => {
             report.content = processEvidenceLinksInContent(content);
         }
 
+        if (linkedEvidences && Array.isArray(linkedEvidences)) {
+            report.linkedEvidences = linkedEvidences.map(item => {
+                const evidence = {
+                    evidenceId: item.evidenceId,
+                    contextText: item.contextText || ''
+                };
+                if (item.selectedFileIds && item.selectedFileIds.length > 0) {
+                    evidence.selectedFileIds = item.selectedFileIds;
+                }
+                return evidence;
+            });
+        }
+
         report.updatedBy = req.user.id;
         await report.save();
 
@@ -353,7 +350,9 @@ const updateReport = async (req, res) => {
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+            { path: 'updatedBy', select: 'fullName email' },
+            { path: 'linkedEvidences.evidenceId', select: 'code name' },
+            { path: 'linkedEvidences.selectedFileIds', select: 'originalName size' }
         ]);
 
         res.json({
@@ -391,10 +390,10 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        if (report.status === 'published') {
+        if (report.status === 'published' || report.status === 'submitted') {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa báo cáo đã xuất bản'
+                message: 'Không thể xóa báo cáo đã nộp hoặc đã xuất bản'
             });
         }
 
@@ -415,6 +414,74 @@ const deleteReport = async (req, res) => {
     }
 };
 
+const submitReport = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền nộp báo cáo này'
+            });
+        }
+
+        if (report.status !== 'draft') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể nộp báo cáo ở trạng thái bản nháp'
+            });
+        }
+
+        if (!report.selfEvaluation || !report.selfEvaluation.content || !report.selfEvaluation.score) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo'
+            });
+        }
+
+        if (report.contentMethod === 'online_editor') {
+            if (!report.content || report.content.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có nội dung trước khi nộp'
+                });
+            }
+        } else if (report.contentMethod === 'file_upload') {
+            if (!report.attachedFile) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có file đính kèm trước khi nộp'
+                });
+            }
+        }
+
+        await report.submit(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Nộp báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Submit report error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi hệ thống khi nộp báo cáo'
+        });
+    }
+};
+
 const publishReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -430,10 +497,10 @@ const publishReport = async (req, res) => {
             });
         }
 
-        if (!report.canEdit(req.user.id, req.user.role)) {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xuất bản báo cáo này'
+                message: 'Không có quyền xuất bản báo cáo'
             });
         }
 
@@ -442,22 +509,6 @@ const publishReport = async (req, res) => {
                 success: false,
                 message: 'Báo cáo đã được xuất bản'
             });
-        }
-
-        if (report.contentMethod === 'online_editor') {
-            if (!report.content || report.content.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Báo cáo phải có nội dung trước khi xuất bản'
-                });
-            }
-        } else if (report.contentMethod === 'file_upload') {
-            if (!report.attachedFile) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Báo cáo phải có file đính kèm trước khi xuất bản'
-                });
-            }
         }
 
         await report.publish(req.user.id);
@@ -491,10 +542,10 @@ const unpublishReport = async (req, res) => {
             });
         }
 
-        if (!report.canEdit(req.user.id, req.user.role)) {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền thu hồi báo cáo này'
+                message: 'Không có quyền thu hồi báo cáo'
             });
         }
 
@@ -522,6 +573,63 @@ const unpublishReport = async (req, res) => {
     }
 };
 
+const addSelfEvaluation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { content, score } = req.body;
+        const academicYearId = req.academicYearId;
+
+        if (!content || content.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nội dung đánh giá là bắt buộc'
+            });
+        }
+
+        if (!score || score < 1 || score > 7) {
+            return res.status(400).json({
+                success: false,
+                message: 'Điểm đánh giá phải từ 1 đến 7'
+            });
+        }
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền tự đánh giá báo cáo này'
+            });
+        }
+
+        await report.addSelfEvaluation({ content: content.trim(), score: parseInt(score) }, req.user.id);
+
+        await report.populate({
+            path: 'selfEvaluation.evaluatedBy',
+            select: 'fullName email'
+        });
+
+        res.json({
+            success: true,
+            message: 'Thêm tự đánh giá thành công',
+            data: report.selfEvaluation
+        });
+
+    } catch (error) {
+        console.error('Add self evaluation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thêm tự đánh giá'
+        });
+    }
+};
+
 const downloadReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -545,23 +653,18 @@ const downloadReport = async (req, res) => {
         let linkedEvidencesHtml = '';
         if (report.linkedEvidences && report.linkedEvidences.length > 0) {
             linkedEvidencesHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan</h2><ul>';
-
             const baseUrl = process.env.CLIENT_URL;
-
             report.linkedEvidences.forEach(linkItem => {
                 if (linkItem.evidenceId) {
                     const evidence = linkItem.evidenceId;
                     const evidenceUrl = `${baseUrl}/public/evidences/${evidence.code}`;
                     linkedEvidencesHtml += `<li><strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>`;
-
                     if (linkItem.contextText) {
                         linkedEvidencesHtml += ` (Ngữ cảnh: ${linkItem.contextText})`;
                     }
-
                     linkedEvidencesHtml += '</li>';
                 }
             });
-
             linkedEvidencesHtml += '</ul>';
         }
 
@@ -710,6 +813,7 @@ const getReportStats = async (req, res) => {
                     _id: null,
                     totalReports: { $sum: 1 },
                     draftReports: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } },
+                    submittedReports: { $sum: { $cond: [{ $eq: ['$status', 'submitted'] }, 1, 0] } },
                     publishedReports: { $sum: { $cond: [{ $eq: ['$status', 'published'] }, 1, 0] } },
                     totalViews: { $sum: '$metadata.viewCount' },
                     totalDownloads: { $sum: '$metadata.downloadCount' },
@@ -731,6 +835,7 @@ const getReportStats = async (req, res) => {
         const result = stats[0] || {
             totalReports: 0,
             draftReports: 0,
+            submittedReports: 0,
             publishedReports: 0,
             totalViews: 0,
             totalDownloads: 0,
@@ -972,7 +1077,11 @@ const getReportEvidences = async (req, res) => {
             .select('linkedEvidences')
             .populate({
                 path: 'linkedEvidences.evidenceId',
-                select: 'code name'
+                select: 'code name files'
+            })
+            .populate({
+                path: 'linkedEvidences.selectedFileIds',
+                select: 'originalName size mimetype'
             });
 
         if (!report) {
@@ -1223,137 +1332,18 @@ const resolveReportComment = async (req, res) => {
 
 function processEvidenceLinksInContent(content) {
     if (!content) return ''
-
     const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000'
-
     content = normalizeExistingLinks(content, baseUrl)
-
     return content
 }
 
 function normalizeExistingLinks(content, baseUrl) {
     const pattern = /<a[^>]*class="evidence-link"[^>]*data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*>.*?<\/a>/gi
-
     content = content.replace(pattern, (match, code) => {
         const url = `${baseUrl}/public/evidences/${code}`
         return `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`
     })
-
     return content
-}
-
-function cleanDuplicateLinks(content) {
-    content = content.replace(
-        />"[^<]*"?\s*class="evidence-link"\s+data-code="/g,
-        '>data-code="'
-    );
-
-    content = content.replace(
-        /class="evidence-link"[^>]*class="evidence-link"/g,
-        'class="evidence-link"'
-    );
-
-    content = content.replace(
-        /data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*data-code="[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}"/g,
-        'data-code="$1"'
-    );
-
-    content = content.replace(
-        /target="_blank"[^>]*target="_blank"/g,
-        'target="_blank"'
-    );
-
-    content = content.replace(
-        /([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})>"[^<]*">(?=.*rel="noopener")/g,
-        '$1">'
-    );
-
-    content = content.replace(
-        /(<a[^>]*>)([^<]*?)(?:"[^<]*class="evidence-link"[^<]*)*([^<]*?)<\/a>/g,
-        (match, openTag, textBefore, textAfter) => {
-            const fullText = textBefore + textAfter;
-            const codeMatch = fullText.match(/([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})/);
-            if (codeMatch) {
-                return `${openTag}${codeMatch[1]}</a>`;
-            }
-            return match;
-        }
-    );
-
-    return content;
-}
-
-
-function wrapPlainCodes(content, baseUrl) {
-    const evidenceRegex = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
-
-    let processedContent = '';
-    let lastIndex = 0;
-    let match;
-
-    while ((match = evidenceRegex.exec(content)) !== null) {
-        const code = match[1];
-        const startIndex = match.index;
-        const endIndex = startIndex + code.length;
-
-        const lookbackLength = 200;
-        const lookaheadLength = 200;
-
-        const beforeText = content.substring(
-            Math.max(0, startIndex - lookbackLength),
-            startIndex
-        );
-        const afterText = content.substring(
-            endIndex,
-            Math.min(content.length, endIndex + lookaheadLength)
-        );
-
-        const isWrapped =
-            beforeText.includes('<a') &&
-            beforeText.includes('class="evidence-link"') &&
-            beforeText.includes(`data-code="${code}"`) &&
-            afterText.includes('</a>');
-
-        if (isWrapped) {
-            processedContent += content.substring(lastIndex, endIndex);
-            lastIndex = endIndex;
-            continue;
-        }
-
-        processedContent += content.substring(lastIndex, startIndex);
-        const url = `${baseUrl}/public/evidences/${code}`;
-        processedContent += `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`;
-
-        lastIndex = endIndex;
-    }
-
-    processedContent += content.substring(lastIndex);
-    return processedContent;
-}
-
-function validateHTML(html) {
-    const errors = [];
-
-    const openCount = (html.match(/<a/g) || []).length;
-    const closeCount = (html.match(/<\/a>/g) || []).length;
-    if (openCount !== closeCount) {
-        errors.push(`Unclosed <a> tags: ${openCount} open, ${closeCount} closed`);
-    }
-
-    const duplicatePattern = /class="evidence-link"[^>]*class="evidence-link"/g;
-    if (duplicatePattern.test(html)) {
-        errors.push('Found duplicate class="evidence-link" in same tag');
-    }
-
-    const corruptedPattern = /evidence-link"[^>]*"[^>]*class="evidence-link"/g;
-    if (corruptedPattern.test(html)) {
-        errors.push('Found corrupted link structure with mixed attributes');
-    }
-
-    return {
-        valid: errors.length === 0,
-        errors: errors
-    };
 }
 
 function escapeHtml(text) {
@@ -1374,8 +1364,10 @@ module.exports = {
     createReport,
     updateReport,
     deleteReport,
+    submitReport,
     publishReport,
     unpublishReport,
+    addSelfEvaluation,
     downloadReport,
     getReportStats,
     uploadReportFile,
@@ -1386,10 +1378,5 @@ module.exports = {
     addReportVersion,
     getReportComments,
     addReportComment,
-    resolveReportComment,
-    processEvidenceLinksInContent,
-    cleanDuplicateLinks,
-    normalizeExistingLinks,
-    wrapPlainCodes,
-    validateHTML
+    resolveReportComment
 };

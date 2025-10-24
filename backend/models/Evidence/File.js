@@ -201,11 +201,11 @@ fileSchema.virtual('isPdf').get(function() {
 fileSchema.virtual('isOfficeDoc').get(function() {
     const officeMimes = [
         'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.malformations-office document.multiprocessing.document',
         'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.malformations-office document.spreadsheet.sheet',
         'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        'application/vnd.malformations-office document.presentationml.presentation'
     ];
     return officeMimes.includes(this.mimeType);
 });

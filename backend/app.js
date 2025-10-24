@@ -39,7 +39,6 @@ const evaluationRoutes = require('./routes/report/evaluations');
 const notificationRoutes = require('./routes/system/notifications');
 const userGroupRoutes = require('./routes/user/userGroup');
 const systemRoutes = require('./routes/system/system');
-const importBatchRoutes = require('./routes/report/importBatch');
 const permissionRoutes = require('./routes/user/permission');
 const aiChatRoutes = require('./routes/aiChat/aiChat');
 
@@ -48,7 +47,6 @@ app.use('/api/public/evidences', publicEvidenceRoutes);
 app.use('/api', aiChatRoutes);
 app.use('/api/user-groups', userGroupRoutes);
 app.use('/api/permissions', permissionRoutes);
-app.use('/api/import-batches', importBatchRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);

@@ -305,38 +305,27 @@ export const apiMethods = {
         create: (data) => api.post('/api/reports', data),
         update: (id, data) => api.put(`/api/reports/${id}`, data),
         delete: (id) => api.delete(`/api/reports/${id}`),
+        submit: (id) => api.post(`/api/reports/${id}/submit`),
         publish: (id) => api.post(`/api/reports/${id}/publish`),
-
-        addVersion: (id, content, changeNote) =>
-            api.post(`/api/reports/${id}/versions`, { content, changeNote }),
-        getVersions: (id) => api.get(`/api/reports/${id}/versions`),
-
-        linkEvidences: (id) => api.post(`/api/reports/${id}/link-evidences`),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
-        validateEvidenceLinks: (id) => api.post(`/api/reports/${id}/validate-evidence-links`),
-
-        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
-            params: { format },
-            responseType: 'blob'
-        }),
-
-        addComment: (id, comment, section) =>
-            api.post(`/api/reports/${id}/comments`, { comment, section }),
-        getComments: (id) => api.get(`/api/reports/${id}/comments`),
-        resolveComment: (id, commentId) =>
-            api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
-
-        getStats: (params) => api.get('/api/reports/stats', { params }),
-        generateCode: (type, standardCode, criteriaCode) =>
-            api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
-
-        bulkDelete: (reportIds) =>
-            api.post('/api/reports/bulk/delete', { reportIds }),
-        bulkPublish: (reportIds) =>
-            api.post('/api/reports/bulk/publish', { reportIds }),
-        bulkArchive: (reportIds) =>
-            api.post('/api/reports/bulk/archive', { reportIds }),
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
+        addSelfEvaluation: (id, data) => api.post(`/api/reports/${id}/self-evaluation`, data),
+        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format }, responseType: 'blob' }),
+        getStats: (params) => api.get('/api/reports/stats', { params }),
+        uploadFile: (id, file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            return api.post(`/api/reports/${id}/upload`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        downloadFile: (id) => api.get(`/api/reports/${id}/download-file`, { responseType: 'blob' }),
+        convertFile: (id) => api.post(`/api/reports/${id}/convert`),
+        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
+        getVersions: (id) => api.get(`/api/reports/${id}/versions`),
+        addVersion: (id, data) => api.post(`/api/reports/${id}/versions`, data),
+        getComments: (id) => api.get(`/api/reports/${id}/comments`),
+        addComment: (id, data) => api.post(`/api/reports/${id}/comments`, data),
+        resolveComment: (id, commentId) => api.put(`/api/reports/${id}/comments/${commentId}/resolve`)
     },
 
     assignments: {
