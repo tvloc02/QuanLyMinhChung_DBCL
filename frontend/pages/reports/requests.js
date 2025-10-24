@@ -2,20 +2,23 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import { apiMethods } from '../../services/api'
 import { ActionButton } from '../../components/ActionButtons'
+import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {
+    Plus,
     Search,
     Filter,
+    Eye,
+    Edit,
+    Trash2,
     RefreshCw,
     FileText,
     Loader2,
-    ChevronLeft,
-    ChevronRight,
-    Plus,
-    Eye,
-    Edit
+    X,
+    Users,
+    CheckCircle,
+    Send
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -39,9 +42,7 @@ export default function ReportRequestsPage() {
     const [pagination, setPagination] = useState({
         current: 1,
         pages: 1,
-        total: 0,
-        hasNext: false,
-        hasPrev: false
+        total: 0
     })
 
     const [filters, setFilters] = useState({
@@ -80,7 +81,7 @@ export default function ReportRequestsPage() {
             const data = response.data?.data || response.data
 
             setRequests(data?.requests || [])
-            setPagination(data?.pagination || { current: 1, pages: 1, total: 0, hasNext: false, hasPrev: false })
+            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
         } catch (error) {
             console.error('Fetch requests error:', error)
             toast.error('Lỗi khi tải danh sách yêu cầu')
@@ -127,7 +128,7 @@ export default function ReportRequestsPage() {
     const getPriorityLabel = (priority) => {
         const labels = {
             low: 'Thấp',
-            normal: 'Bình thường',
+            normal: 'Thường',
             high: 'Cao',
             urgent: 'Khẩn cấp'
         }
@@ -144,63 +145,71 @@ export default function ReportRequestsPage() {
         return colors[priority] || 'bg-gray-100 text-gray-700'
     }
 
-    const renderPageNumbers = () => {
-        const pages = []
-        const maxPagesToShow = 5
-        let startPage = Math.max(1, pagination.current - 2)
-        let endPage = Math.min(pagination.pages, startPage + maxPagesToShow - 1)
+    const renderActionButtons = (req) => {
+        // Manager
+        if (user.role === 'manager') {
+            return (
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                    <ActionButton
+                        icon={Eye}
+                        title="Xem chi tiết"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push(`/reports/requests/${req._id}`)}
+                    />
 
-        if (endPage - startPage < maxPagesToShow - 1) {
-            startPage = Math.max(1, endPage - maxPagesToShow + 1)
-        }
+                    <ActionButton
+                        icon={Users}
+                        title="Thêm người viết báo cáo"
+                        variant="success"
+                        size="sm"
+                        onClick={() => router.push(`/reports/requests/${req._id}`)}
+                    />
 
-        if (startPage > 1) {
-            pages.push(
-                <button
-                    key="1"
-                    onClick={() => handlePageChange(1)}
-                    className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-semibold text-sm"
-                >
-                    1
-                </button>
-            )
-            if (startPage > 2) {
-                pages.push(<span key="dots1" className="px-2 py-2">...</span>)
-            }
-        }
+                    <ActionButton
+                        icon={Edit}
+                        title="Sửa yêu cầu"
+                        variant="warning"
+                        size="sm"
+                        onClick={() => router.push(`/reports/requests/${req._id}/edit`)}
+                    />
 
-        for (let i = startPage; i <= endPage; i++) {
-            pages.push(
-                <button
-                    key={i}
-                    onClick={() => handlePageChange(i)}
-                    className={`px-3 py-2 rounded-lg font-semibold text-sm ${
-                        i === pagination.current
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                    }`}
-                >
-                    {i}
-                </button>
-            )
-        }
-
-        if (endPage < pagination.pages) {
-            if (endPage < pagination.pages - 1) {
-                pages.push(<span key="dots2" className="px-2 py-2">...</span>)
-            }
-            pages.push(
-                <button
-                    key={pagination.pages}
-                    onClick={() => handlePageChange(pagination.pages)}
-                    className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-semibold text-sm"
-                >
-                    {pagination.pages}
-                </button>
+                    <ActionButton
+                        icon={Send}
+                        title={req.reportId ? 'Phân cho chuyên gia' : 'Tạo báo cáo trước'}
+                        variant="purple"
+                        size="sm"
+                        disabled={!req.reportId}
+                        onClick={() => router.push(`/reports/requests/${req._id}`)}
+                    />
+                </div>
             )
         }
 
-        return pages
+        // TDG (Người viết báo cáo)
+        if (user.role === 'tdg') {
+            return (
+                <div className="flex items-center gap-3 flex-wrap justify-center">
+                    <ActionButton
+                        icon={Eye}
+                        title="Xem chi tiết"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push(`/reports/requests/${req._id}`)}
+                    />
+
+                    <ActionButton
+                        icon={Plus}
+                        title="Tạo báo cáo"
+                        variant="success"
+                        size="sm"
+                        onClick={() => router.push(`/reports/create?requestId=${req._id}`)}
+                    />
+                </div>
+            )
+        }
+
+        return null
     }
 
     if (isLoading) {
@@ -213,120 +222,85 @@ export default function ReportRequestsPage() {
         )
     }
 
-    if (!user) return null
-
-    const showCreateButton = user.role === 'manager'
-
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-xl p-8 text-white">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 rounded-xl">
-                                <FileText className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold mb-1">Quản lý yêu cầu viết báo cáo</h1>
-                                <p className="text-blue-100">
-                                    {user.role === 'manager'
-                                        ? 'Tạo và quản lý yêu cầu viết báo cáo'
-                                        : user.role === 'tdg'
-                                            ? 'Danh sách yêu cầu của bạn'
-                                            : 'Danh sách báo cáo cần đánh giá'
-                                    }
-                                </p>
-                            </div>
+                <div className="bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 rounded-2xl shadow-lg p-6 text-white">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-4xl font-black mb-2">Quản lý yêu cầu viết báo cáo</h1>
+                            <p className="text-blue-100 text-lg">
+                                Tổng: <span className="font-bold text-white">{pagination.total}</span> yêu cầu
+                            </p>
                         </div>
-                        {showCreateButton && (
-                            <ActionButton
-                                icon={Plus}
-                                label="Tạo yêu cầu mới"
-                                onClick={() => router.push('/reports/create-request')}
-                                variant="primary"
-                                size="lg"
-                                title="Tạo yêu cầu viết báo cáo mới"
-                            />
-                        )}
+                        <FileText className="w-16 h-16 text-blue-100 opacity-50" />
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Search and Filter */}
                 <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-6">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        <div className="flex-1">
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Tìm kiếm yêu cầu..."
-                                    value={filters.search}
-                                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={`inline-flex items-center px-4 py-3 rounded-xl font-semibold transition-all ${
-                                    showFilters
-                                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                                        : 'bg-white border-2 border-gray-300'
-                                }`}
-                            >
-                                <Filter className="h-5 w-5 mr-2" />
-                                Bộ lọc
-                            </button>
-                            <ActionButton
-                                icon={RefreshCw}
-                                onClick={fetchRequests}
-                                disabled={loading}
-                                variant="primary"
-                                size="md"
-                                title="Làm mới danh sách"
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex-1 min-w-xs relative">
+                            <Search className="w-5 h-5 absolute left-4 top-3.5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm yêu cầu..."
+                                value={filters.search}
+                                onChange={(e) => handleFilterChange('search', e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="inline-flex items-center px-6 py-3 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200 font-bold border-2 border-blue-200 transition-colors gap-2"
+                        >
+                            <Filter className="w-5 h-5" />
+                            Lọc
+                        </button>
+                        <button
+                            onClick={fetchRequests}
+                            className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-xl hover:bg-green-200 font-bold border-2 border-green-200 transition-colors gap-2"
+                        >
+                            <RefreshCw className="w-5 h-5" />
+                            Làm mới
+                        </button>
                     </div>
 
                     {showFilters && (
-                        <div className="mt-6 pt-6 border-t-2 border-gray-200">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Trạng thái
-                                    </label>
-                                    <select
-                                        value={filters.status}
-                                        onChange={(e) => handleFilterChange('status', e.target.value)}
-                                        className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">Tất cả trạng thái</option>
-                                        <option value="pending">Chờ xử lý</option>
-                                        <option value="accepted">Đã chấp nhận</option>
-                                        <option value="in_progress">Đang thực hiện</option>
-                                        <option value="completed">Hoàn thành</option>
-                                        <option value="rejected">Từ chối</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Độ ưu tiên
-                                    </label>
-                                    <select
-                                        value={filters.priority}
-                                        onChange={(e) => handleFilterChange('priority', e.target.value)}
-                                        className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">Tất cả độ ưu tiên</option>
-                                        <option value="low">Thấp</option>
-                                        <option value="normal">Bình thường</option>
-                                        <option value="high">Cao</option>
-                                        <option value="urgent">Khẩn cấp</option>
-                                    </select>
-                                </div>
+                        <div className="mt-6 pt-6 border-t-2 border-gray-300 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-3">
+                                    Trạng thái
+                                </label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="pending">Chờ xử lý</option>
+                                    <option value="accepted">Đã chấp nhận</option>
+                                    <option value="in_progress">Đang thực hiện</option>
+                                    <option value="completed">Hoàn thành</option>
+                                    <option value="rejected">Từ chối</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-3">
+                                    Độ ưu tiên
+                                </label>
+                                <select
+                                    value={filters.priority}
+                                    onChange={(e) => handleFilterChange('priority', e.target.value)}
+                                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Tất cả độ ưu tiên</option>
+                                    <option value="low">Thấp</option>
+                                    <option value="normal">Bình thường</option>
+                                    <option value="high">Cao</option>
+                                    <option value="urgent">Khẩn cấp</option>
+                                </select>
                             </div>
                         </div>
                     )}
@@ -350,29 +324,32 @@ export default function ReportRequestsPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                    <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white border-b-2 border-blue-800">
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-12">
+                                    <tr className="bg-gradient-to-r from-blue-400 to-blue-300 text-blue-900 border-b-2 border-blue-400">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-12">
                                             STT
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider border-r border-blue-300">
                                             Tiêu đề yêu cầu
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-28">
                                             Trạng thái
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-28">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-24">
                                             Độ ưu tiên
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-40">
-                                            Hạn chót
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-20">
+                                            Nộp/Tổng
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-40">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-28">
                                             Ngày tạo
+                                        </th>
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-32">
+                                            Hạn chót
                                         </th>
                                         <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-32">
                                             Giao cho
                                         </th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
+                                        <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider w-48">
                                             Thao tác
                                         </th>
                                     </tr>
@@ -394,15 +371,25 @@ export default function ReportRequestsPage() {
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(req.status)}`}>
-                                                    {getStatusLabel(req.status)}
-                                                </span>
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(req.status)}`}>
+                                                        {getStatusLabel(req.status)}
+                                                    </span>
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border-2 border-current ${getPriorityColor(req.priority)}`}>
-                                                    {getPriorityLabel(req.priority)}
-                                                </span>
+                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border-2 border-current ${getPriorityColor(req.priority)}`}>
+                                                        {getPriorityLabel(req.priority)}
+                                                    </span>
+                                            </td>
+
+                                            <td className="px-4 py-4 text-center border-r border-gray-200">
+                                                    <span className="inline-flex items-center justify-center w-full px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg font-bold text-xs border-2 border-blue-300">
+                                                        {req.submitCount || 0}/{req.totalAssigned || 1}
+                                                    </span>
+                                            </td>
+
+                                            <td className="px-4 py-4 text-center border-r border-gray-200 text-xs font-semibold text-gray-700">
+                                                {formatDate(req.createdAt)}
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200 text-sm font-semibold text-gray-700">
@@ -410,32 +397,11 @@ export default function ReportRequestsPage() {
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200 text-sm font-semibold text-gray-700">
-                                                {formatDate(req.createdAt)}
-                                            </td>
-
-                                            <td className="px-4 py-4 text-center border-r border-gray-200 text-sm font-semibold text-gray-700">
                                                 {req.assignedTo?.fullName || 'N/A'}
                                             </td>
 
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <ActionButton
-                                                        icon={Eye}
-                                                        onClick={() => router.push(`/reports/requests/${req._id}`)}
-                                                        variant="view"
-                                                        size="sm"
-                                                        title="Xem chi tiết yêu cầu"
-                                                    />
-                                                    {user.role === 'manager' && user.id === req.createdBy?._id && (
-                                                        <ActionButton
-                                                            icon={Edit}
-                                                            onClick={() => router.push(`/reports/requests/${req._id}/edit`)}
-                                                            variant="edit"
-                                                            size="sm"
-                                                            title="Sửa yêu cầu"
-                                                        />
-                                                    )}
-                                                </div>
+                                                {renderActionButtons(req)}
                                             </td>
                                         </tr>
                                     ))}
@@ -445,38 +411,30 @@ export default function ReportRequestsPage() {
 
                             {/* Pagination */}
                             {pagination.pages > 1 && (
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-6 border-t-2 border-blue-200">
-                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                        <p className="text-sm font-semibold text-gray-700">
-                                            Hiển thị <span className="text-blue-600 font-bold">{((pagination.current - 1) * filters.limit) + 1}</span> đến{' '}
-                                            <span className="text-blue-600 font-bold">{Math.min(pagination.current * filters.limit, pagination.total)}</span> trong tổng số{' '}
-                                            <span className="text-blue-600 font-bold">{pagination.total}</span> yêu cầu
-                                        </p>
-
-                                        <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end">
-                                            {/* Previous Button */}
-                                            <button
-                                                onClick={() => handlePageChange(pagination.current - 1)}
-                                                disabled={!pagination.hasPrev}
-                                                className="p-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                            >
-                                                <ChevronLeft className="w-5 h-5" />
-                                            </button>
-
-                                            {/* Page Numbers */}
-                                            <div className="flex items-center gap-1">
-                                                {renderPageNumbers()}
-                                            </div>
-
-                                            {/* Next Button */}
-                                            <button
-                                                onClick={() => handlePageChange(pagination.current + 1)}
-                                                disabled={!pagination.hasNext}
-                                                className="p-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                            >
-                                                <ChevronRight className="w-5 h-5" />
-                                            </button>
-                                        </div>
+                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-gray-700">
+                                        Hiển thị <span className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</span> đến{' '}
+                                        <span className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</span> trong tổng số{' '}
+                                        <span className="text-blue-600">{pagination.total}</span>
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current - 1)}
+                                            disabled={!pagination.hasPrev}
+                                            className="px-4 py-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 font-bold"
+                                        >
+                                            ← Trước
+                                        </button>
+                                        <span className="px-4 py-2 font-bold text-blue-600">
+                                            {pagination.current} / {pagination.pages}
+                                        </span>
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current + 1)}
+                                            disabled={!pagination.hasNext}
+                                            className="px-4 py-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 font-bold"
+                                        >
+                                            Sau →
+                                        </button>
                                     </div>
                                 </div>
                             )}
