@@ -200,6 +200,19 @@ export default function EvidenceTree() {
     }
 
     const handleDragStart = (e, evidence, standardId, criteriaId) => {
+        if (userRole !== 'admin' && userRole !== 'manager') {
+            e.preventDefault()
+            return
+        }
+
+        if (userRole === 'manager') {
+            const deptIdToCompare = evidence.departmentId?._id || evidence.departmentId
+            if (deptIdToCompare.toString() !== userDepartment?.toString()) {
+                e.preventDefault()
+                return
+            }
+        }
+
         setDraggedEvidence({ evidence, standardId, criteriaId })
         e.dataTransfer.effectAllowed = 'move'
     }
@@ -221,6 +234,23 @@ export default function EvidenceTree() {
             return
         }
 
+        // ✅ KIỂM TRA QUYỀN: Chỉ manager của CHÍNH phòng ban đó mới được di chuyển
+        if (userRole !== 'admin' && userRole !== 'manager') {
+            toast.error('Chỉ Manager mới có quyền di chuyển minh chứng')
+            setDraggedEvidence(null)
+            return
+        }
+
+        // ✅ KIỂM TRA: Manager chỉ được di chuyển minh chứng của phòng ban mình
+        if (userRole === 'manager') {
+            const deptIdToCompare = draggedEvidence.evidence.departmentId?._id || draggedEvidence.evidence.departmentId
+            if (deptIdToCompare.toString() !== userDepartment?.toString()) {
+                toast.error('Bạn chỉ được di chuyển minh chứng của phòng ban mình')
+                setDraggedEvidence(null)
+                return
+            }
+        }
+
         const standard = treeData.find(s => s.id === targetStandardId)
         const criteria = standard?.criteria.find(c => c.id === targetCriteriaId)
 
@@ -230,19 +260,35 @@ export default function EvidenceTree() {
             return
         }
 
+        // ✅ TÍNH MÃ MINH CHỨNG MỚI - Tự động tăng số thứ tự
         const currentCode = draggedEvidence.evidence.code
         const currentCodeParts = currentCode.split('.')
 
+        // Giữ nguyên phần đầu: [0] = prefix/box, [1] = std, [2] = criteria, [3] = sequence
         const prefixAndBox = currentCodeParts[0]
 
         const newStandardCode = String(standard.code).padStart(2, '0')
         const newCriteriaCode = String(criteria.code).padStart(2, '0')
 
-        const sequenceNumber = currentCodeParts[3]
+        // ✅ TÌM SỐ THỨ TỰ TIẾP THEO trong tiêu chí đích
+        // Lấy tất cả mã của minh chứng trong tiêu chí đích
+        const existingEvidences = criteria.evidences || [];
+        let maxSequence = 0;
 
-        const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${sequenceNumber}`
+        existingEvidences.forEach(ev => {
+            const parts = ev.code.split('.');
+            if (parts.length >= 4) {
+                const sequence = parseInt(parts[3]) || 0;
+                if (sequence > maxSequence) {
+                    maxSequence = sequence;
+                }
+            }
+        });
 
-        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới: ${newCode}`)) {
+        const nextSequence = String(maxSequence + 1).padStart(2, '0');
+        const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${nextSequence}`
+
+        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\n\nMã cũ: ${currentCode}\nMã mới: ${newCode}`)) {
             setDraggedEvidence(null)
             return
         }
@@ -867,28 +913,34 @@ export default function EvidenceTree() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
-                                                                            {userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId) && (
+                                                                            {userRole === 'manager' &&
+                                                                                userDepartment === (evidence.departmentId?._id || evidence.departmentId) &&
+                                                                                (
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation()
+                                                                                            handleOpenAssignModal(evidence)
+                                                                                        }}
+                                                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                                                        title="Phân quyền cho thành viên"
+                                                                                    >
+                                                                                        <Users className="h-4 w-4" />
+                                                                                    </button>
+                                                                                )}
+
+                                                                            {(userRole === 'admin' ||
+                                                                                (userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId))) && (
                                                                                 <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation()
-                                                                                        handleOpenAssignModal(evidence)
+                                                                                        setSelectedEvidence(evidence)
                                                                                     }}
-                                                                                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                                                    title="Phân quyền cho thành viên"
+                                                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                                    title="Upload file"
                                                                                 >
-                                                                                    <Users className="h-4 w-4" />
+                                                                                    <Upload className="h-4 w-4" />
                                                                                 </button>
                                                                             )}
-
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation()
-                                                                                    setSelectedEvidence(evidence)
-                                                                                }}
-                                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                            >
-                                                                                <Upload className="h-4 w-4" />
-                                                                            </button>
                                                                         </div>
                                                                     </div>
                                                                 ))}
