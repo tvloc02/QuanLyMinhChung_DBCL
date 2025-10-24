@@ -148,7 +148,6 @@ const createReportRequest = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
-
         // Chỉ manager tạo request
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
