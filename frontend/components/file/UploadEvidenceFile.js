@@ -1,7 +1,140 @@
 import { useState, useEffect } from 'react'
-import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2 } from 'lucide-react'
+import { Upload, X, AlertCircle, CheckCircle, Loader2, File, Info, Check, Folder, FolderPlus, Trash2, Eye, History, Download, Clock, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
+
+// ============ COMPONENT LỊCH SỬ FILE ĐÃ UPLOAD ============
+
+const UploadHistoryPanel = ({ evidenceId, uploadedByCurrentUser }) => {
+    const [historyFiles, setHistoryFiles] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        fetchUploadHistory()
+    }, [evidenceId])
+
+    const fetchUploadHistory = async () => {
+        try {
+            setLoading(true)
+            const response = await apiMethods.files.getByEvidence(evidenceId, {
+                uploadedBy: 'current', // Filter file của user hiện tại
+                limit: 100
+            })
+
+            const files = response.data?.data?.items || response.data?.data || []
+            // Chỉ lấy file loại 'file' (không phải folder) được upload bởi user hiện tại
+            const userFiles = files.filter(f => f.type === 'file' && f.uploadedBy)
+            setHistoryFiles(userFiles)
+        } catch (error) {
+            console.error('Fetch upload history error:', error)
+            toast.error('Lỗi khi tải lịch sử upload')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const getStatusBadge = (status) => {
+        const statusConfig = {
+            'approved': { color: 'bg-green-100 text-green-700', icon: Check, label: 'Đã duyệt' },
+            'pending': { color: 'bg-yellow-100 text-yellow-700', icon: Clock, label: 'Chờ duyệt' },
+            'rejected': { color: 'bg-red-100 text-red-700', icon: AlertTriangle, label: 'Từ chối' },
+        }
+        const config = statusConfig[status] || statusConfig['pending']
+        const Icon = config.icon
+        return (
+            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${config.color}`}>
+                <Icon className="h-3 w-3 mr-1" />
+                {config.label}
+            </span>
+        )
+    }
+
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes'
+        const k = 1024
+        const sizes = ['Bytes', 'KB', 'MB', 'GB']
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+    }
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleString('vi-VN')
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <History className="h-5 w-5 text-blue-600" />
+                    Lịch sử file của bạn ({historyFiles.length})
+                </h3>
+                <button
+                    onClick={fetchUploadHistory}
+                    disabled={loading}
+                    className="text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-all"
+                >
+                    Làm mới
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-6">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                </div>
+            ) : historyFiles.length === 0 ? (
+                <div className="p-6 text-center bg-gray-50 rounded-lg border border-gray-200">
+                    <File className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Chưa upload file nào</p>
+                </div>
+            ) : (
+                <div className="max-h-96 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
+                    {historyFiles.map((file) => (
+                        <div
+                            key={file._id}
+                            className="flex items-start justify-between p-3 bg-white rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                        >
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <File className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {file.originalName}
+                                        </p>
+                                        {getStatusBadge(file.approvalStatus)}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                        <span>{formatFileSize(file.size)}</span>
+                                        <span>•</span>
+                                        <span>{formatDate(file.uploadedAt)}</span>
+                                    </div>
+                                    {file.rejectionReason && (
+                                        <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                                            <p className="text-xs text-red-700">
+                                                <strong>Lý do từ chối:</strong> {file.rejectionReason}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                <a
+                                    href={file.filePath || `/uploads/evidences/${file.storedName}`}
+                                    download={file.originalName}
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-all"
+                                    title="Tải file"
+                                >
+                                    <Download className="h-4 w-4" />
+                                </a>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ============ COMPONENT CHÍNH UploadEvidenceFile ============
 
 const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
     const [folderName, setFolderName] = useState('')
@@ -215,6 +348,7 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
     const [dragActive, setDragActive] = useState(false)
     const [uploadedFiles, setUploadedFiles] = useState([])
     const [selectedFolderId, setSelectedFolderId] = useState(null)
+    const [showHistory, setShowHistory] = useState(false)
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -373,12 +507,25 @@ export default function UploadEvidenceFile({ evidence, onClose, onSuccess }) {
                         onFolderCreated={onSuccess}
                     />
 
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center gap-3">
-                        <Folder className="h-5 w-5 text-purple-600 flex-shrink-0" />
-                        <p className="text-sm text-purple-800 font-semibold">
-                            Thư mục đích upload: <span className="text-purple-900 font-bold">{selectedFolderId || 'Thư mục gốc'}</span>
-                        </p>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Folder className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                            <p className="text-sm text-purple-800 font-semibold">
+                                Thư mục đích upload: <span className="text-purple-900 font-bold">{selectedFolderId || 'Thư mục gốc'}</span>
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowHistory(!showHistory)}
+                            className="inline-flex items-center px-3 py-1.5 text-xs bg-purple-200 text-purple-700 rounded-lg font-semibold hover:bg-purple-300 transition-all"
+                        >
+                            <History className="h-4 w-4 mr-1.5" />
+                            Lịch sử
+                        </button>
                     </div>
+
+                    {showHistory && (
+                        <UploadHistoryPanel evidenceId={evidence._id} uploadedByCurrentUser={true} />
+                    )}
 
                     <div
                         onDragEnter={handleDrag}
