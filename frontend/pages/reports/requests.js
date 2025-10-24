@@ -3,21 +3,19 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
+import { ActionButton } from '../../components/ActionButtons'
 import toast from 'react-hot-toast'
 import {
-    Plus,
     Search,
     Filter,
-    Eye,
-    Edit,
-    Trash2,
     RefreshCw,
     FileText,
     Loader2,
-    X,
-    Users,
-    CheckCircle,
-    Send
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Eye,
+    Edit
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -41,7 +39,9 @@ export default function ReportRequestsPage() {
     const [pagination, setPagination] = useState({
         current: 1,
         pages: 1,
-        total: 0
+        total: 0,
+        hasNext: false,
+        hasPrev: false
     })
 
     const [filters, setFilters] = useState({
@@ -80,7 +80,7 @@ export default function ReportRequestsPage() {
             const data = response.data?.data || response.data
 
             setRequests(data?.requests || [])
-            setPagination(data?.pagination || { current: 1, pages: 1, total: 0 })
+            setPagination(data?.pagination || { current: 1, pages: 1, total: 0, hasNext: false, hasPrev: false })
         } catch (error) {
             console.error('Fetch requests error:', error)
             toast.error('Lỗi khi tải danh sách yêu cầu')
@@ -144,101 +144,63 @@ export default function ReportRequestsPage() {
         return colors[priority] || 'bg-gray-100 text-gray-700'
     }
 
-    const renderActionButtons = (req) => {
-        // Manager
-        if (user.role === 'manager') {
-            return (
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                    <button
-                        onClick={() => router.push(`/reports/requests/${req._id}`)}
-                        className="inline-flex items-center px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-semibold text-sm border border-blue-200"
-                        title="Xem chi tiết"
-                    >
-                        <Eye className="w-4 h-4 mr-1" />
-                    </button>
+    const renderPageNumbers = () => {
+        const pages = []
+        const maxPagesToShow = 5
+        let startPage = Math.max(1, pagination.current - 2)
+        let endPage = Math.min(pagination.pages, startPage + maxPagesToShow - 1)
 
-                    <button
-                        onClick={() => toast.info('Thêm người viết báo cáo')}
-                        className="inline-flex items-center px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg font-semibold text-sm border border-green-200"
-                        title="Thêm người viết báo cáo"
-                    >
-                        <Users className="w-4 h-4 mr-1" />
-                        Thêm người
-                    </button>
+        if (endPage - startPage < maxPagesToShow - 1) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1)
+        }
 
-                    <button
-                        onClick={() => router.push(`/reports/requests/${req._id}/edit`)}
-                        className="inline-flex items-center px-3 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg font-semibold text-sm border border-orange-200"
-                        title="Sửa yêu cầu"
-                    >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Sửa
-                    </button>
+        if (startPage > 1) {
+            pages.push(
+                <button
+                    key="1"
+                    onClick={() => handlePageChange(1)}
+                    className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-semibold text-sm"
+                >
+                    1
+                </button>
+            )
+            if (startPage > 2) {
+                pages.push(<span key="dots1" className="px-2 py-2">...</span>)
+            }
+        }
 
-                    <button
-                        onClick={() => toast.info('Phân cho chuyên gia đánh giá')}
-                        disabled={req.status !== 'completed'}
-                        className="inline-flex items-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg font-semibold text-sm border border-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={req.status === 'completed' ? 'Phân cho chuyên gia' : 'Chỉ phân khi tất cả nộp'}
-                    >
-                        <Send className="w-4 h-4 mr-1" />
-                        Phân expert
-                    </button>
-                </div>
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+                <button
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={`px-3 py-2 rounded-lg font-semibold text-sm ${
+                        i === pagination.current
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                    }`}
+                >
+                    {i}
+                </button>
             )
         }
 
-        // TDG (Người viết báo cáo)
-        if (user.role === 'tdg') {
-            return (
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                    <button
-                        onClick={() => router.push(`/reports/requests/${req._id}`)}
-                        className="inline-flex items-center px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-semibold text-sm border border-blue-200"
-                        title="Xem chi tiết"
-                    >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Xem
-                    </button>
-
-                    <button
-                        onClick={() => router.push(`/reports/create?requestId=${req._id}`)}
-                        className="inline-flex items-center px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg font-semibold text-sm border border-green-200"
-                        title="Tạo báo cáo"
-                    >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Tạo báo cáo
-                    </button>
-                </div>
+        if (endPage < pagination.pages) {
+            if (endPage < pagination.pages - 1) {
+                pages.push(<span key="dots2" className="px-2 py-2">...</span>)
+            }
+            pages.push(
+                <button
+                    key={pagination.pages}
+                    onClick={() => handlePageChange(pagination.pages)}
+                    className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 font-semibold text-sm"
+                >
+                    {pagination.pages}
+                </button>
             )
         }
 
-        // Expert
-        if (user.role === 'expert') {
-            return (
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                    <button
-                        onClick={() => router.push(`/reports/requests/${req._id}`)}
-                        className="inline-flex items-center px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-semibold text-sm border border-blue-200"
-                        title="Xem chi tiết"
-                    >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Xem
-                    </button>
-
-                    <button
-                        onClick={() => toast.info('Nộp đánh giá')}
-                        className="inline-flex items-center px-3 py-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg font-semibold text-sm border border-purple-200"
-                        title="Nộp tất cả đánh giá"
-                    >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Nộp đánh giá
-                    </button>
-                </div>
-            )
-        }
-
-        return null
+        return pages
     }
 
     if (isLoading) {
@@ -278,13 +240,14 @@ export default function ReportRequestsPage() {
                             </div>
                         </div>
                         {showCreateButton && (
-                            <button
+                            <ActionButton
+                                icon={Plus}
+                                label="Tạo yêu cầu mới"
                                 onClick={() => router.push('/reports/create-request')}
-                                className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl font-semibold"
-                            >
-                                <Plus className="h-5 w-5 mr-2" />
-                                Tạo yêu cầu mới
-                            </button>
+                                variant="primary"
+                                size="lg"
+                                title="Tạo yêu cầu viết báo cáo mới"
+                            />
                         )}
                     </div>
                 </div>
@@ -316,14 +279,14 @@ export default function ReportRequestsPage() {
                                 <Filter className="h-5 w-5 mr-2" />
                                 Bộ lọc
                             </button>
-                            <button
+                            <ActionButton
+                                icon={RefreshCw}
                                 onClick={fetchRequests}
                                 disabled={loading}
-                                className="inline-flex items-center px-4 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50 font-semibold"
-                            >
-                                <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                                Làm mới
-                            </button>
+                                variant="primary"
+                                size="md"
+                                title="Làm mới danh sách"
+                            />
                         </div>
                     </div>
 
@@ -391,25 +354,22 @@ export default function ReportRequestsPage() {
                                         <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-12">
                                             STT
                                         </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider border-r border-blue-500">
+                                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider border-r border-blue-300">
                                             Tiêu đề yêu cầu
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-32">
                                             Trạng thái
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-28">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-28">
                                             Độ ưu tiên
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-20">
-                                            Nộp/Tổng
-                                        </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-40">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-40">
                                             Hạn chót
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-40">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-40">
                                             Ngày tạo
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-500 w-32">
+                                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider border-r border-blue-300 w-32">
                                             Giao cho
                                         </th>
                                         <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
@@ -434,21 +394,15 @@ export default function ReportRequestsPage() {
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(req.status)}`}>
-                                                        {getStatusLabel(req.status)}
-                                                    </span>
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(req.status)}`}>
+                                                    {getStatusLabel(req.status)}
+                                                </span>
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border-2 border-current ${getPriorityColor(req.priority)}`}>
-                                                        {getPriorityLabel(req.priority)}
-                                                    </span>
-                                            </td>
-
-                                            <td className="px-4 py-4 text-center border-r border-gray-200">
-                                                    <span className="inline-flex items-center justify-center w-full px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg font-bold text-sm border-2 border-blue-300">
-                                                        {req.submitCount || 0}/{req.totalAssigned || 1}
-                                                    </span>
+                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border-2 border-current ${getPriorityColor(req.priority)}`}>
+                                                    {getPriorityLabel(req.priority)}
+                                                </span>
                                             </td>
 
                                             <td className="px-4 py-4 text-center border-r border-gray-200 text-sm font-semibold text-gray-700">
@@ -464,7 +418,24 @@ export default function ReportRequestsPage() {
                                             </td>
 
                                             <td className="px-6 py-4">
-                                                {renderActionButtons(req)}
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        onClick={() => router.push(`/reports/requests/${req._id}`)}
+                                                        variant="view"
+                                                        size="sm"
+                                                        title="Xem chi tiết yêu cầu"
+                                                    />
+                                                    {user.role === 'manager' && user.id === req.createdBy?._id && (
+                                                        <ActionButton
+                                                            icon={Edit}
+                                                            onClick={() => router.push(`/reports/requests/${req._id}/edit`)}
+                                                            variant="edit"
+                                                            size="sm"
+                                                            title="Sửa yêu cầu"
+                                                        />
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -474,30 +445,38 @@ export default function ReportRequestsPage() {
 
                             {/* Pagination */}
                             {pagination.pages > 1 && (
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        Hiển thị <span className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</span> đến{' '}
-                                        <span className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</span> trong tổng số{' '}
-                                        <span className="text-blue-600">{pagination.total}</span>
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handlePageChange(pagination.current - 1)}
-                                            disabled={!pagination.hasPrev}
-                                            className="px-4 py-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 font-bold"
-                                        >
-                                            ← Trước
-                                        </button>
-                                        <span className="px-4 py-2 font-bold text-blue-600">
-                                            {pagination.current} / {pagination.pages}
-                                        </span>
-                                        <button
-                                            onClick={() => handlePageChange(pagination.current + 1)}
-                                            disabled={!pagination.hasNext}
-                                            className="px-4 py-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 font-bold"
-                                        >
-                                            Sau →
-                                        </button>
+                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-6 border-t-2 border-blue-200">
+                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                        <p className="text-sm font-semibold text-gray-700">
+                                            Hiển thị <span className="text-blue-600 font-bold">{((pagination.current - 1) * filters.limit) + 1}</span> đến{' '}
+                                            <span className="text-blue-600 font-bold">{Math.min(pagination.current * filters.limit, pagination.total)}</span> trong tổng số{' '}
+                                            <span className="text-blue-600 font-bold">{pagination.total}</span> yêu cầu
+                                        </p>
+
+                                        <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end">
+                                            {/* Previous Button */}
+                                            <button
+                                                onClick={() => handlePageChange(pagination.current - 1)}
+                                                disabled={!pagination.hasPrev}
+                                                className="p-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                            >
+                                                <ChevronLeft className="w-5 h-5" />
+                                            </button>
+
+                                            {/* Page Numbers */}
+                                            <div className="flex items-center gap-1">
+                                                {renderPageNumbers()}
+                                            </div>
+
+                                            {/* Next Button */}
+                                            <button
+                                                onClick={() => handlePageChange(pagination.current + 1)}
+                                                disabled={!pagination.hasNext}
+                                                className="p-2 border-2 border-blue-300 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                            >
+                                                <ChevronRight className="w-5 h-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
