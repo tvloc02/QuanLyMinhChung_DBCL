@@ -90,7 +90,7 @@ const uploadFiles = async (req, res) => {
         if (req.user.role !== 'admin') {
             const userDeptId = req.user.department?.toString();
             const evidenceDeptId = evidence.departmentId?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
+            const isAssignedToThisUser = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
 
             if (req.user.role === 'manager') {
                 if (userDeptId !== evidenceDeptId) {
@@ -100,10 +100,10 @@ const uploadFiles = async (req, res) => {
                     });
                 }
             } else if (req.user.role === 'tdg') {
-                if (!isAssigned && userDeptId !== evidenceDeptId) {
+                if (!isAssignedToThisUser) {
                     return res.status(403).json({
                         success: false,
-                        message: 'Bạn không có quyền upload file cho minh chứng này'
+                        message: 'Bạn không được phân quyền nộp file cho minh chứng này'
                     });
                 }
             } else {
