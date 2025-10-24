@@ -1,30 +1,28 @@
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
-import { useAuth } from '../../contexts/AuthContext'
+import {useEffect, useState} from 'react'
+import {useRouter} from 'next/router'
+import {useAuth} from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import { apiMethods } from '../../services/api'
+import {apiMethods} from '../../services/api'
 import {
+    AlertCircle,
     ArrowLeft,
-    FileText,
+    CheckCircle,
+    Clock,
+    Code,
     Download,
     Edit,
-    Share2,
     Eye,
-    Clock,
-    User,
-    CheckCircle,
-    AlertCircle,
+    FileText,
+    Link as LinkIcon,
     Loader2,
-    Code,
-    Link as LinkIcon
+    Settings,
+    User
 } from 'lucide-react'
-import { formatDate } from '../../utils/helpers'
+import {formatDate} from '../../utils/helpers'
 import toast from 'react-hot-toast'
 
-// Hàm kiểm tra tính hợp lệ của MongoDB ObjectId (chuỗi 24 ký tự hex)
 const isMongoId = (id) => {
     if (typeof id !== 'string') return false;
-    // Kiểm tra phải là chuỗi 24 ký tự hex
     return id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
 };
 
@@ -45,17 +43,14 @@ export default function ReportDetailPage() {
 
     useEffect(() => {
         if (user && router.isReady && id) {
-            // ✅ ĐÃ SỬA: CHỈ gọi fetchReport nếu ID là một MongoDB ObjectId hợp lệ
             if (isMongoId(id)) {
                 fetchReport(id);
             } else {
-                // Nếu ID không hợp lệ (ví dụ: 'id1,id2,id3'), chặn fetch API.
                 console.warn(`[REPORT DETAIL] Invalid ID format or multiple IDs detected: ${id}. Blocking fetch.`);
-                // Ngừng hiển thị loading spinner nếu component đã sẵn sàng và ID không hợp lệ
                 if (loading) setLoading(false);
             }
         }
-    }, [user, id, router.isReady]) // Không cần 'loading' trong dependency array vì nó có thể gây lỗi
+    }, [user, id, router.isReady])
 
     const breadcrumbItems = [
         { name: 'Báo cáo', path: '/reports' },
@@ -67,7 +62,6 @@ export default function ReportDetailPage() {
             setLoading(true)
             console.log('📥 Fetching report detail:', reportId)
 
-            // Gọi API với ID đã được xác nhận là hợp lệ
             const response = await apiMethods.reports.getById(reportId)
             console.log('📦 Report response:', response)
 
@@ -75,7 +69,7 @@ export default function ReportDetailPage() {
 
             if (!reportData || !reportData._id) {
                 toast.error('Không tìm thấy báo cáo')
-                router.push('/reports/reports')
+                await router.push('/reports/reports')
                 return
             }
 
@@ -94,13 +88,10 @@ export default function ReportDetailPage() {
             } else if (error.response?.status === 404) {
                 toast.error('Không tìm thấy báo cáo')
             } else if (error.response?.status === 400) {
-                // Lỗi 400 (Bad Request)
                 toast.error('ID báo cáo không hợp lệ hoặc lỗi API')
             } else {
                 toast.error('Lỗi tải báo cáo')
             }
-
-            // Chỉ chuyển hướng nếu lỗi là nghiêm trọng
             if (error.response?.status !== 400) {
                 setTimeout(() => {
                     router.push('/reports/reports')
@@ -124,15 +115,10 @@ export default function ReportDetailPage() {
             document.body.removeChild(link)
             window.URL.revokeObjectURL(url)
 
-            toast.success('Tải báo cáo Word thành công')
+            toast.success('Tải báo cáo Word (.doc) thành công')
         } catch (error) {
             console.error('Download Word error:', error)
-            if (error.response?.status === 400) {
-                toast.error('Định dạng Word chưa được hỗ trợ. Đang tải HTML...')
-                handleDownloadHtml()
-            } else {
-                toast.error('Lỗi tải báo cáo')
-            }
+            toast.error('Lỗi tải báo cáo Word')
         }
     }
 
@@ -156,6 +142,10 @@ export default function ReportDetailPage() {
         }
     }
 
+    const handleDownloadConfig = () => {
+        router.push(`/reports/${id}/download-config`)
+    }
+
     const handleEdit = () => {
         router.push(`/reports/${id}/edit`)
     }
@@ -163,11 +153,11 @@ export default function ReportDetailPage() {
     const getStatusBadge = (status) => {
         const badges = {
             draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Bản nháp' },
+            submitted: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Đã nộp' },
             published: { bg: 'bg-green-100', text: 'text-green-800', label: 'Đã xuất bản' },
             archived: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Lưu trữ' }
         }
-        const badge = badges[status] || badges.draft
-        return badge
+        return badges[status] || badges.draft
     }
 
     const getTypeBadge = (type) => {
@@ -176,11 +166,11 @@ export default function ReportDetailPage() {
             standard_analysis: { bg: 'bg-sky-100', text: 'text-sky-800', label: 'Phân tích tiêu chuẩn' },
             comprehensive_report: { bg: 'bg-cyan-100', text: 'text-cyan-800', label: 'Báo cáo tổng hợp' }
         }
-        const badge = badges[type] || badges.criteria_analysis
-        return badge
+        return badges[type] || badges.criteria_analysis
     }
 
-    // Chỉ hiển thị loading nếu đang thực hiện fetch và ID hợp lệ
+    const canEdit = report?.status === 'draft' && (user?.role === 'tdg' || user?.role === 'manager')
+
     if (isLoading || (loading && isMongoId(id))) {
         return (
             <Layout breadcrumbItems={breadcrumbItems}>
@@ -192,7 +182,6 @@ export default function ReportDetailPage() {
         )
     }
 
-    // Nếu ID không hợp lệ và đã dừng loading (lỗi 400 giả định)
     if (!report && !isMongoId(id)) {
         return (
             <Layout breadcrumbItems={breadcrumbItems}>
@@ -230,7 +219,7 @@ export default function ReportDetailPage() {
     const typeBadge = getTypeBadge(report.type)
 
     return (
-        <Layout title={`${report.title}`} breadcrumbItems={breadcrumbItems}>
+        <Layout title={``} breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
@@ -486,28 +475,20 @@ export default function ReportDetailPage() {
                     <h2 className="text-lg font-bold text-gray-900 mb-4">Thao tác</h2>
                     <div className="flex flex-wrap gap-3">
                         <button
-                            onClick={handleDownloadWord}
+                            onClick={handleDownloadConfig}
                             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition-colors"
                         >
-                            <Download className="h-4 w-4 mr-2" />
-                            Tải Word (.docx)
+                            <Settings className="h-4 w-4 mr-2" />
+                            Cấu hình & Tải về
                         </button>
 
-                        <button
-                            onClick={handleDownloadHtml}
-                            className="inline-flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold transition-colors"
-                        >
-                            <Download className="h-4 w-4 mr-2" />
-                            Tải HTML
-                        </button>
-
-                        {report.status === 'draft' && (
+                        {canEdit && (
                             <button
                                 onClick={handleEdit}
                                 className="inline-flex items-center px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold transition-colors"
                             >
                                 <Edit className="h-4 w-4 mr-2" />
-                                Chỉnh sửa
+                                Chỉnh sửa báo cáo
                             </button>
                         )}
 
