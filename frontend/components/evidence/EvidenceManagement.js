@@ -480,14 +480,19 @@ export default function EvidenceManagement() {
                 variant: 'delete',
                 show: true
             });
-        } else if (isTDG && canEditEvidence(evidence)) {
-            // TDG: xem, thêm file
+        } else if (isTDG) {
+            // TDG: xem, upload file (chỉ nếu được phân quyền)
+            const isAssignedToThisUser = evidence.assignedTo?.some(user => user._id?.toString() === user?.id);
+
             buttons.push({
                 icon: Upload,
-                title: 'Thêm file minh chứng',
-                onClick: () => handleUploadFiles(evidence),
-                variant: 'success',
-                show: true
+                title: isAssignedToThisUser
+                    ? 'Thêm file minh chứng'
+                    : 'Bạn chưa được phân quyền upload file',
+                onClick: isAssignedToThisUser ? () => handleUploadFiles(evidence) : undefined,
+                variant: isAssignedToThisUser ? 'success' : 'disabled',
+                show: true,
+                disabled: !isAssignedToThisUser
             });
         }
 
@@ -507,18 +512,14 @@ export default function EvidenceManagement() {
                         onClick={btn.onClick}
                         variant={btn.variant}
                         size="sm"
+                        disabled={btn.disabled}
                     />
                 ))}
             </div>
         );
     }
 
-    // Tính toán bề rộng cột động - lấy gốc là Manager (5 button) làm max
     const getColumnWidths = () => {
-        // Gốc: Manager có 5 button (Xem, Sửa, Phân quyền, Chuyển, Xóa)
-        // Mỗi button ~ 32px (h-8 w-8) + gap-1 (4px) = 36px mỗi button
-        // 5 button = ~180px + padding
-        // Để safe, cột action = w-72 (288px)
 
         return {
             standard: 'w-28',
