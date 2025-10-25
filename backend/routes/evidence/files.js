@@ -10,6 +10,8 @@ const {
     deleteFile,
     getFileInfo,
     createFolder,
+    renameFile,
+    renameFolder,
     getFolderContents,
     submitEvidence,
     approveFile,
@@ -52,6 +54,15 @@ router.delete('/:id',
     ],
     validation,
     deleteFile
+);
+
+router.post('/rename/:id',
+    auth,
+    [
+        param('id').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    renameFile
 );
 
 router.post('/create-folder/:evidenceId',

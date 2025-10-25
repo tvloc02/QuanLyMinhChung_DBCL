@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import {
     ArrowLeft, Save, User, Mail, Phone, Briefcase, Building,
-    Shield, AlertCircle, Check, Eye, EyeOff, X, UserPlus
+    Shield, AlertCircle, Check, Eye, EyeOff, X, UserPlus, Loader2
 } from 'lucide-react'
 import api from '../../services/api'
 
@@ -18,7 +18,7 @@ export default function CreateUserForm() {
         email: '',
         fullName: '',
         phoneNumber: '',
-        roles: ['expert'],
+        roles: [''],
         department: '',
         position: ''
     })
@@ -29,25 +29,25 @@ export default function CreateUserForm() {
         {
             value: 'admin',
             label: 'Quản trị viên',
-            color: 'from-red-500 to-pink-500',
+            color: 'from-red-600 to-pink-600', // Đã giữ nguyên cho Admin
             description: 'Quản trị hệ thống'
         },
         {
             value: 'manager',
             label: 'Cán bộ quản lý tự đánh giá',
-            color: 'from-blue-500 to-cyan-500',
+            color: 'from-indigo-600 to-blue-600', // Tông xanh/indigo
             description: 'Chức vụ cao nhất trong phòng ban'
         },
         {
             value: 'tdg',
             label: 'Cán bộ TĐG',
-            color: 'from-sky-500 to-blue-500',
+            color: 'from-sky-600 to-blue-600', // Tông xanh lam
             description: 'Được giao đẩy file minh chứng và báo cáo'
         },
         {
             value: 'expert',
             label: 'Chuyên gia đánh giá',
-            color: 'from-teal-500 to-cyan-500',
+            color: 'from-teal-600 to-emerald-600', // Tông xanh ngọc
             description: 'Thực hiện đánh giá các tiêu chí'
         }
     ]
@@ -278,14 +278,14 @@ export default function CreateUserForm() {
                                     <button
                                         type="button"
                                         onClick={handleCreateAnother}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all"
+                                        className="px-6 py-3 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all"
                                     >
                                         Tạo người dùng khác
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleBackToList}
-                                        className="px-4 py-2 text-sm font-medium text-green-600 border-2 border-green-300 hover:bg-green-50 rounded-lg transition-all"
+                                        className="px-6 py-3 text-sm font-semibold text-green-700 border-2 border-green-300 hover:bg-green-50 rounded-xl transition-all"
                                     >
                                         Quay lại danh sách
                                     </button>
@@ -299,7 +299,8 @@ export default function CreateUserForm() {
                 </div>
             )}
 
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-start space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -312,7 +313,7 @@ export default function CreateUserForm() {
                     </div>
                     <button
                         onClick={handleBackToList}
-                        className="flex items-center space-x-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all font-medium"
+                        className="flex items-center space-x-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
                     >
                         <ArrowLeft className="w-5 h-5" />
                         <span>Quay lại</span>
@@ -321,8 +322,9 @@ export default function CreateUserForm() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
+                {/* Thông tin cơ bản */}
+                <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+                    <div className="bg-blue-50 px-6 py-4 border-b-2 border-blue-200">
                         <div className="flex items-center space-x-3">
                             <div className="p-2 bg-blue-100 rounded-lg">
                                 <User className="w-5 h-5 text-blue-600" />
@@ -344,7 +346,7 @@ export default function CreateUserForm() {
                                 onChange={handleInputChange}
                                 placeholder="nguyenvana hoặc nguyenvana@example.com"
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                    errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    errors.email ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                 }`}
                             />
                             {errors.email && (
@@ -367,7 +369,7 @@ export default function CreateUserForm() {
                                 onChange={handleInputChange}
                                 placeholder="Nhập họ và tên đầy đủ"
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                    errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    errors.fullName ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                 }`}
                             />
                             {errors.fullName && (
@@ -378,42 +380,44 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
-                        <div>
-                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Phone className="w-4 h-4 text-blue-600" />
-                                <span>Số điện thoại</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="phoneNumber"
-                                value={formData.phoneNumber}
-                                onChange={handleInputChange}
-                                placeholder="0912345678"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                    errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                }`}
-                            />
-                            {errors.phoneNumber && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <AlertCircle className="w-4 h-4 mr-1" />
-                                    {errors.phoneNumber}
-                                </p>
-                            )}
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Phone className="w-4 h-4 text-blue-600" />
+                                    <span>Số điện thoại</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="phoneNumber"
+                                    value={formData.phoneNumber}
+                                    onChange={handleInputChange}
+                                    placeholder="0912345678"
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                        errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-blue-200'
+                                    }`}
+                                />
+                                {errors.phoneNumber && (
+                                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.phoneNumber}
+                                    </p>
+                                )}
+                            </div>
 
-                        <div>
-                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Briefcase className="w-4 h-4 text-blue-600" />
-                                <span>Chức vụ</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="position"
-                                value={formData.position}
-                                onChange={handleInputChange}
-                                placeholder="Nhập chức vụ"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                            />
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Briefcase className="w-4 h-4 text-blue-600" />
+                                    <span>Chức vụ</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="position"
+                                    value={formData.position}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập chức vụ"
+                                    className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                />
+                            </div>
                         </div>
 
                         <div>
@@ -426,7 +430,7 @@ export default function CreateUserForm() {
                                 value={formData.department}
                                 onChange={handleInputChange}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                    errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    errors.department ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                 }`}
                             >
                                 <option value="">Chọn phòng ban</option>
@@ -446,8 +450,9 @@ export default function CreateUserForm() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
+                {/* Vai trò */}
+                <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+                    <div className="bg-blue-50 px-6 py-4 border-b-2 border-blue-200">
                         <div className="flex items-center space-x-3">
                             <div className="p-2 bg-blue-100 rounded-lg">
                                 <Shield className="w-5 h-5 text-blue-600" />
@@ -470,8 +475,8 @@ export default function CreateUserForm() {
                                         key={role.value}
                                         className={`relative p-5 border-2 rounded-xl cursor-pointer transition-all ${
                                             isSelected
-                                                ? 'border-blue-500 bg-blue-50 shadow-md'
-                                                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                                ? 'border-blue-600 bg-blue-50 shadow-md'
+                                                : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
                                         }`}
                                     >
                                         <div className="flex items-start space-x-3">
@@ -518,17 +523,26 @@ export default function CreateUserForm() {
                         type="button"
                         onClick={handleBackToList}
                         disabled={loading}
-                        className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium disabled:opacity-50"
+                        className="px-8 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 rounded-xl transition-all font-medium disabled:opacity-50"
                     >
                         Hủy
                     </button>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold disabled:opacity-50"
                     >
-                        <Save className="w-5 h-5" />
-                        <span>{loading ? 'Đang tạo...' : 'Tạo người dùng'}</span>
+                        {loading ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Đang tạo...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-5 h-5" />
+                                <span>Tạo người dùng</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </form>

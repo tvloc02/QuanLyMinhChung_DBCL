@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 
-// --- (Helper functions: updateFolderMetadata, checkIfDescendant, buildTree remain the same) ---
 const updateFolderMetadata = async (folderId) => {
     try {
         const File = require('../../models/Evidence/File');
@@ -63,8 +62,6 @@ const buildTree = (items, parentId) => {
         children: item.type === 'folder' ? buildTree(items, item._id.toString()) : []
     }));
 };
-// --- (End of Helper functions) ---
-
 
 const uploadFiles = async (req, res) => {
     try {
@@ -138,20 +135,11 @@ const uploadFiles = async (req, res) => {
                 const ext = path.extname(file.originalname);
                 const nameWithoutExt = path.basename(file.originalname, ext);
 
-                const sanitizedName = nameWithoutExt
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/đ/g, 'd')
-                    .replace(/Đ/g, 'D')
-                    .replace(/[^a-zA-Z0-9_-]/g, '_')
-                    .replace(/_+/g, '_')
-                    .substring(0, 100);
-
                 const timestamp = Date.now();
                 const random = Math.random().toString(36).substring(2, 8);
-                storedName = `${sanitizedName}_${timestamp}_${random}${ext}`;
+                storedName = `${nameWithoutExt}_${timestamp}_${random}${ext}`;
             } catch (err) {
-                console.warn('Error sanitizing filename, using original:', err);
+                console.warn('Error processing filename, using original:', err);
                 const timestamp = Date.now();
                 storedName = `file_${timestamp}${path.extname(file.originalname)}`;
             }
@@ -547,6 +535,78 @@ const createFolder = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi tạo thư mục: ' + error.message
+        });
+    }
+};
+
+const renameFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newName } = req.body;
+
+        if (!newName || !newName.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tên mới là bắt buộc'
+            });
+        }
+
+        const file = await File.findById(id).populate('evidenceId');
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file/thư mục'
+            });
+        }
+
+        if (req.user.role !== 'admin') {
+            const userDeptId = req.user.department?.toString();
+            const evidenceDeptId = file.evidenceId.departmentId?.toString();
+            const isFileUploader = file.uploadedBy?.toString() === req.user.id;
+
+            if (req.user.role === 'manager') {
+                if (userDeptId !== evidenceDeptId) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền sửa tên của phòng ban mình'
+                    });
+                }
+            } else if (req.user.role === 'tdg') {
+                if (!isFileUploader) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn chỉ có quyền sửa tên file của mình'
+                    });
+                }
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền sửa tên'
+                });
+            }
+        }
+
+        if (file.type === 'file') {
+            const ext = path.extname(file.originalName);
+            file.originalName = newName.trim() + ext;
+        } else {
+            file.originalName = newName.trim();
+        }
+
+        file.folderMetadata.lastModified = new Date();
+        await file.save();
+
+        res.json({
+            success: true,
+            message: 'Sửa tên thành công',
+            data: file
+        });
+
+    } catch (error) {
+        console.error('Rename file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi sửa tên'
         });
     }
 };
@@ -998,12 +1058,11 @@ const getFileStatistics = async (req, res) => {
         }
 
         const stats = await File.aggregate([
-            { $match: { evidenceId: new mongoose.Types.ObjectId(evidenceId) } },
+            { $match: { evidenceId: new mongoose.Types.ObjectId(evidenceId), type: 'file' } },
             {
                 $group: {
                     _id: null,
-                    totalFiles: { $sum: { $cond: [{ $eq: ['$type', 'file'] }, 1, 0] } },
-                    totalFolders: { $sum: { $cond: [{ $eq: ['$type', 'folder'] }, 1, 0] } },
+                    totalFiles: { $sum: 1 },
                     totalSize: { $sum: '$size' },
                     totalDownloads: { $sum: '$downloadCount' }
                 }
@@ -1028,7 +1087,6 @@ const getFileStatistics = async (req, res) => {
 
         const result = stats[0] || {
             totalFiles: 0,
-            totalFolders: 0,
             totalSize: 0,
             totalDownloads: 0
         };
@@ -1274,13 +1332,13 @@ const rejectFile = async (req, res) => {
     }
 };
 
-
 module.exports = {
     uploadFiles,
     downloadFile,
     deleteFile,
     getFileInfo,
     createFolder,
+    renameFile,
     renameFolder,
     getFolderContents,
     moveFile,

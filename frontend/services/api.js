@@ -263,6 +263,8 @@ export const apiMethods = {
         }),
         getFileInfo: (id) => api.get(`/api/files/${id}/info`),
         deleteFile: (id) => api.delete(`/api/files/${id}`),
+        renameFile: (id, data) =>
+            api.post(`/api/files/rename/${id}`, data),
         getByEvidence: (evidenceId, params = {}) => {
             const queryParams = { ...params };
             return api.get(`/api/files/list/${evidenceId}`, { params: queryParams });

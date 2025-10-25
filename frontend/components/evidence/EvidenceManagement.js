@@ -395,6 +395,8 @@ export default function EvidenceManagement() {
             assigned: 'bg-yellow-100 text-yellow-700 border-yellow-200',
             in_progress: 'bg-blue-100 text-blue-700 border-blue-200',
             pending_approval: 'bg-purple-100 text-purple-700 border-purple-200',
+            approved: 'bg-green-100 text-green-700 border-green-200',
+            rejected: 'bg-red-100 text-red-700 border-red-200',
             unknown: 'bg-red-100 text-red-700 border-red-200'
         }
 
@@ -448,7 +450,6 @@ export default function EvidenceManagement() {
                 show: true
             });
         } else if (isManager && canEditEvidence(evidence)) {
-            // MANAGER: xem, sửa, phân quyền, chuyển, xóa
             buttons.push({
                 icon: Edit,
                 title: 'Chỉnh sửa minh chứng',
@@ -493,6 +494,7 @@ export default function EvidenceManagement() {
                 show: true,
                 disabled: !isAssignedToThisUser
             });
+        } else if (user?.role === 'ex' || user?.role === 'viewer') {
         }
 
         return buttons.filter(b => b.show);
@@ -502,7 +504,7 @@ export default function EvidenceManagement() {
         const buttons = getActionButtons(evidence);
 
         return (
-            <div className="flex items-center justify-center gap-3 flex-wrap">
+            <div className="flex items-center justify-center gap-1 flex-nowrap">
                 {buttons.map((btn, idx) => (
                     <ActionButton
                         key={idx}
@@ -519,12 +521,19 @@ export default function EvidenceManagement() {
     }
 
     const getColumnWidths = () => {
+        let actionWidthClass = 'w-60';
+
+        if (isTDG) {
+            actionWidthClass = 'w-28';
+        } else if (user?.role === 'ex' || user?.role === 'viewer') {
+            actionWidthClass = 'w-16';
+        }
 
         return {
             standard: 'w-28',
             criteria: 'w-28',
             status: 'w-24',
-            action: 'w-72'  // Hẹp lại, vừa đủ cho 5 button
+            action: actionWidthClass
         };
     };
 
@@ -581,7 +590,7 @@ export default function EvidenceManagement() {
             </div>
 
             {/* Search & Filters */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
                 <div className="flex flex-col lg:flex-row gap-4">
                     <div className="flex-1">
                         <form onSubmit={handleSearch} className="relative">
@@ -591,7 +600,7 @@ export default function EvidenceManagement() {
                                 placeholder="Tìm kiếm theo tên, mã, số hiệu văn bản..."
                                 value={filters.search}
                                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                className="w-full pl-12 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                             />
                         </form>
                     </div>
@@ -601,7 +610,7 @@ export default function EvidenceManagement() {
                             className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
                                 showFilters || hasActiveFilters
                                     ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    : 'bg-white border-2 border-blue-200 text-gray-700 hover:bg-blue-50'
                             }`}
                         >
                             <Filter className="h-5 w-5 mr-2" />
@@ -616,7 +625,7 @@ export default function EvidenceManagement() {
                         <button
                             onClick={fetchEvidences}
                             disabled={loading}
-                            className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-semibold"
+                            className="inline-flex items-center px-4 py-3 border-2 border-blue-200 rounded-xl hover:bg-blue-50 disabled:opacity-50 transition-all font-semibold text-gray-700"
                         >
                             <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Làm mới
@@ -625,7 +634,7 @@ export default function EvidenceManagement() {
                 </div>
 
                 {showFilters && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="mt-6 pt-6 border-t border-blue-200">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-sm font-bold text-gray-900">Lọc nâng cao</h3>
                             {hasActiveFilters && (
@@ -645,7 +654,7 @@ export default function EvidenceManagement() {
                                 <select
                                     value={filters.programId}
                                     onChange={(e) => handleFilterChange('programId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả chương trình</option>
                                     {programs.map(p => (
@@ -661,7 +670,7 @@ export default function EvidenceManagement() {
                                 <select
                                     value={filters.organizationId}
                                     onChange={(e) => handleFilterChange('organizationId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả tổ chức</option>
                                     {organizations.map(o => (
@@ -678,7 +687,7 @@ export default function EvidenceManagement() {
                                     value={filters.standardId}
                                     onChange={(e) => handleFilterChange('standardId', e.target.value)}
                                     disabled={!filters.programId || !filters.organizationId}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-blue-50"
                                 >
                                     <option value="">Tất cả tiêu chuẩn</option>
                                     {standards.map(s => (
@@ -695,7 +704,7 @@ export default function EvidenceManagement() {
                                     value={filters.criteriaId}
                                     onChange={(e) => handleFilterChange('criteriaId', e.target.value)}
                                     disabled={!filters.standardId}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-blue-50"
                                 >
                                     <option value="">Tất cả tiêu chí</option>
                                     {criteria.map(c => (
@@ -715,10 +724,11 @@ export default function EvidenceManagement() {
                         <span className="text-sm text-blue-900 font-semibold">
                             Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> minh chứng
                         </span>
-                        <div className="flex space-x-3 flex-wrap">
+                        {/* Đã xóa flex-wrap và thêm flex-nowrap để ngăn xuống dòng */}
+                        <div className="flex space-x-3 flex-nowrap overflow-x-auto pb-1">
                             <button
                                 onClick={() => setSelectedItems([])}
-                                className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
+                                className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-blue-50 border-2 border-blue-300 font-semibold transition-all shadow-md flex-shrink-0"
                             >
                                 <X className="h-4 w-4 mr-2" />
                                 Hủy chọn
@@ -727,7 +737,7 @@ export default function EvidenceManagement() {
                             {isManager && (
                                 <button
                                     onClick={handleBulkAssign}
-                                    className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                                    className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
                                 >
                                     <UserPlus className="h-4 w-4 mr-2" />
                                     Phân Quyền Nộp File
@@ -737,7 +747,7 @@ export default function EvidenceManagement() {
                             {isAdmin && (
                                 <button
                                     onClick={handleBulkApprove}
-                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Duyệt File Hàng Loạt
@@ -747,7 +757,7 @@ export default function EvidenceManagement() {
                             {(isAdmin || isManager) && (
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
                                 >
                                     <Trash className="h-4 w-4 mr-2" />
                                     Xóa tất cả
@@ -759,7 +769,7 @@ export default function EvidenceManagement() {
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
                 <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-bold text-gray-900">
@@ -811,14 +821,14 @@ export default function EvidenceManagement() {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
-                                <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
+                                <thead className="bg-blue-100">
                                 <tr>
                                     <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === evidences.length}
                                             onChange={toggleSelectAll}
-                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                         />
                                     </th>
                                     <th className="px-2 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
@@ -853,26 +863,27 @@ export default function EvidenceManagement() {
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => {
                                     return (
-                                        <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                        <tr key={evidence._id}
+                                            className={`border-b border-blue-200 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors`}>
+                                            <td className="px-3 py-3 text-center border-r border-blue-200">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedItems.includes(evidence._id)}
                                                     onChange={() => toggleSelectItem(evidence._id)}
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                    className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                                 />
                                             </td>
-                                            <td className="px-2 py-3 text-center border-r border-gray-200">
+                                            <td className="px-2 py-3 text-center border-r border-blue-200">
                                             <span className="text-sm font-semibold text-gray-700">
                                                 {((pagination.current - 1) * filters.limit) + index + 1}
                                             </span>
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
-                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
+                                            <td className="px-3 py-3 text-center border-r border-blue-200">
+                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded-lg border border-blue-200">
                                                 {evidence.code}
                                             </span>
                                             </td>
-                                            <td className="px-4 py-3 border-r border-gray-200">
+                                            <td className="px-4 py-3 border-r border-blue-200">
                                                 <div className="max-w-md">
                                                     <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
                                                         {evidence.name}
@@ -884,7 +895,7 @@ export default function EvidenceManagement() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 border-r border-gray-200">
+                                            <td className="px-3 py-3 border-r border-blue-200">
                                                 {evidence.standardId && (
                                                     <div>
                                                         <button
@@ -908,7 +919,7 @@ export default function EvidenceManagement() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3 border-r border-gray-200">
+                                            <td className="px-3 py-3 border-r border-blue-200">
                                                 {evidence.criteriaId && (
                                                     <div>
                                                         <button
@@ -932,15 +943,15 @@ export default function EvidenceManagement() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-center border-r border-gray-200">
+                                            <td className="px-2 py-3 text-center border-r border-blue-200">
                                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                                 {evidence.files?.length || 0}
                                             </span>
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            <td className="px-3 py-3 text-center border-r border-blue-200">
                                                 <ApprovalStatusBadge evidence={evidence} />
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
+                                            <td className="px-3 py-3 text-center border-r border-blue-200 text-xs font-medium text-gray-600">
                                                 {formatDate(evidence.createdAt)}
                                             </td>
                                             <td className="px-4 py-3">

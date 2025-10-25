@@ -5,6 +5,7 @@ import Layout from '../../components/common/Layout'
 import { formatDate, formatFileSize } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
+import { ActionButton } from '../../components/ActionButtons'
 import {
     FileText,
     Upload,
@@ -27,7 +28,10 @@ import {
     X,
     Check,
     FolderPlus,
-    Folder
+    Folder,
+    Edit,
+    Eye,
+    Send
 } from 'lucide-react'
 
 const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) => {
@@ -121,6 +125,170 @@ const CreateFolderModal = ({ evidenceId, parentFolderId, onClose, onSuccess }) =
     );
 };
 
+const RenameModal = ({ item, onClose, onSuccess }) => {
+    const [newName, setNewName] = useState(item?.type === 'file' ? item?.originalName || '' : item?.originalName || '')
+    const [submitting, setSubmitting] = useState(false)
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!newName.trim()) {
+            toast.error('Vui lòng nhập tên mới');
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+
+            const response = await apiMethods.files.renameFile(item._id, { newName: newName.trim() });
+
+            if (response.data?.success) {
+                toast.success('Sửa tên thành công');
+                onSuccess();
+            } else {
+                toast.error(response.data?.message || 'Lỗi khi sửa tên');
+            }
+        } catch (error) {
+            console.error('Rename error:', error);
+            const errorMsg = error.response?.data?.message || error.message || 'Lỗi khi sửa tên';
+            toast.error(errorMsg);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                <div className="px-6 py-5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-t-2xl text-white flex justify-between items-center">
+                    <h3 className="text-xl font-bold flex items-center"><Edit className="h-6 w-6 mr-2" /> Sửa Tên</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"><X className="h-6 w-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Tên mới <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            placeholder="Nhập tên mới..."
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            disabled={submitting}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="flex items-center justify-end space-x-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={submitting}
+                            className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={submitting || !newName.trim()}
+                            className="inline-flex items-center px-6 py-2.5 rounded-xl font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:shadow-xl"
+                        >
+                            {submitting ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Đang sửa...</> : 'Sửa Tên'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const PreviewModal = ({ file, onClose }) => {
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+        setLoading(true)
+        setError(null)
+        const timer = setTimeout(() => setLoading(false), 500)
+        return () => clearTimeout(timer)
+    }, [file])
+
+    const getFileType = () => {
+        if (!file.mimeType) return 'unknown'
+        if (file.mimeType.startsWith('image/')) return 'image'
+        if (file.mimeType === 'application/pdf') return 'pdf'
+        if (file.mimeType.startsWith('video/')) return 'video'
+        if (file.mimeType.startsWith('text/')) return 'text'
+        if (file.mimeType.includes('word') || file.mimeType.includes('document')) return 'document'
+        if (file.mimeType.includes('sheet') || file.mimeType.includes('excel')) return 'spreadsheet'
+        return 'unknown'
+    }
+
+    const fileType = getFileType()
+    const fileUrl = `/api/files/stream/${file._id}`
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <FileText className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                            <h3 className="text-lg font-medium text-gray-900 truncate">
+                                {file.originalName}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                                {formatFileSize(file.size)} • {formatDate(file.uploadedAt || file.createdAt)}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
+                    >
+                        <X className="h-6 w-6" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center">
+                    {loading ? (
+                        <div className="text-center">
+                            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                            <p className="text-gray-600">Đang tải file...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center">
+                            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                            <p className="text-gray-600">{error}</p>
+                        </div>
+                    ) : (
+                        <>
+                            {fileType === 'image' && (
+                                <img src={fileUrl} alt={file.originalName} className="max-w-full max-h-full object-contain" onError={() => setError('Không thể tải hình ảnh')} />
+                            )}
+                            {fileType === 'pdf' && (
+                                <iframe src={fileUrl} className="w-full h-full border-0" title={file.originalName} onError={() => setError('Không thể tải PDF')} />
+                            )}
+                            {fileType === 'video' && (
+                                <video src={fileUrl} controls className="max-w-full max-h-full" onError={() => setError('Không thể phát video')}>Trình duyệt không hỗ trợ video</video>
+                            )}
+                            {(fileType === 'text' || fileType === 'document' || fileType === 'spreadsheet') && (
+                                <iframe src={fileUrl} className="w-full h-full border-0 bg-white" title={file.originalName} onError={() => setError('Không thể đọc file')} />
+                            )}
+                            {fileType === 'unknown' && (
+                                <div className="text-center">
+                                    <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                                    <p className="text-gray-600 font-medium">Không hỗ trợ xem trước file này</p>
+                                    <p className="text-gray-500 text-sm mt-2">Loại file: {file.mimeType || 'Không xác định'}</p>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default function FilesPage() {
     const { user, isLoading } = useAuth()
@@ -132,17 +300,19 @@ export default function FilesPage() {
     const [files, setFiles] = useState([])
     const [uploading, setUploading] = useState(false)
     const [submittingFile, setSubmittingFile] = useState(false)
+    const [submittingSingleFile, setSubmittingSingleFile] = useState(null)
     const [showApprovalModal, setShowApprovalModal] = useState(false)
     const [selectedFile, setSelectedFile] = useState(null)
     const [approvalAction, setApprovalAction] = useState('approve')
     const [rejectionReason, setRejectionReason] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
-
     const [currentFolderId, setCurrentFolderId] = useState(null);
     const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
     const [folderPath, setFolderPath] = useState([{ id: null, name: 'Thư mục gốc' }]);
-
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [renameItem, setRenameItem] = useState(null);
+    const [previewFile, setPreviewFile] = useState(null);
 
     const isAdmin = user?.role === 'admin'
     const isManager = user?.role === 'manager'
@@ -180,7 +350,6 @@ export default function FilesPage() {
                 evidenceResponse = await apiMethods.evidences.getById(evidenceId)
             } catch (apiError) {
                 if (apiError.response?.status === 403) {
-                    console.warn('403 - Không có quyền, thử lấy dữ liệu khác')
                     throw apiError
                 }
                 throw apiError
@@ -216,7 +385,6 @@ export default function FilesPage() {
                     return (a.originalName || '').localeCompare(b.originalName || '');
                 });
             } else {
-                console.error("filesInFolder is not an array:", filesInFolder);
                 filesInFolder = [];
             }
 
@@ -265,7 +433,6 @@ export default function FilesPage() {
             toast.error(error.response?.data?.message || 'Lỗi khi tải file');
         });
     };
-
 
     const handleUpload = async (filesToUpload) => {
         if (!canUpload) {
@@ -323,7 +490,7 @@ export default function FilesPage() {
         fetchData()
     }
 
-    const handleSubmitFiles = async () => {
+    const handleSubmitAllFiles = async () => {
         if (!canSubmit) {
             toast.error('Bạn không có quyền nộp file')
             return
@@ -343,13 +510,44 @@ export default function FilesPage() {
                 throw new Error(response.data?.message || 'Lỗi khi nộp file')
             }
 
-            toast.success('Đã nộp file thành công. Manager sẽ duyệt trong thời gian sớm nhất.')
+            toast.success('Đã nộp tất cả file thành công. Manager sẽ duyệt trong thời gian sớm nhất.')
             fetchData()
         } catch (error) {
             console.error('Submit error:', error)
             toast.error(error.message || 'Lỗi khi nộp file')
         } finally {
             setSubmittingFile(false)
+        }
+    }
+
+    const handleSubmitSingleFile = async (fileId) => {
+        if (!canSubmit) {
+            toast.error('Bạn không có quyền nộp file')
+            return
+        }
+
+        const file = files.find(f => f._id === fileId)
+        if (!file || file.type === 'folder') {
+            toast.error('File không tồn tại hoặc không hợp lệ')
+            return
+        }
+
+        try {
+            setSubmittingSingleFile(fileId)
+
+            const response = await apiMethods.files.submitFiles(evidenceId)
+
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Lỗi khi nộp file')
+            }
+
+            toast.success('Nộp file thành công. Manager sẽ duyệt trong thời gian sớm nhất.')
+            fetchData()
+        } catch (error) {
+            console.error('Submit error:', error)
+            toast.error(error.message || 'Lỗi khi nộp file')
+        } finally {
+            setSubmittingSingleFile(null)
         }
     }
 
@@ -370,6 +568,11 @@ export default function FilesPage() {
             const errorMsg = error.response?.data?.message || 'Lỗi khi xóa'
             toast.error(errorMsg)
         }
+    }
+
+    const handleRename = (item) => {
+        setRenameItem(item)
+        setShowRenameModal(true)
     }
 
     const handleApproveClick = (file, action) => {
@@ -455,24 +658,7 @@ export default function FilesPage() {
 
     const getSafeFileName = (fileName) => {
         if (!fileName) return 'Tên file không xác định';
-
-        try {
-            let decoded = fileName;
-
-            if (fileName.includes('%')) {
-                try {
-                    decoded = decodeURIComponent(fileName);
-                } catch (e) {
-                    console.warn('Cannot decode filename:', e);
-                    decoded = fileName;
-                }
-            }
-
-            return decoded;
-        } catch (e) {
-            console.error('Error processing filename:', e);
-            return fileName;
-        }
+        return fileName;
     };
 
     const getFileIcon = (mimeType) => {
@@ -529,10 +715,20 @@ export default function FilesPage() {
     };
 
     const allFiles = evidence?.files || [];
-    const approvedFiles = allFiles.filter(f => f.approvalStatus === 'approved').length;
-    const rejectedFiles = allFiles.filter(f => f.approvalStatus === 'rejected').length;
-    const totalPending = allFiles.filter(f => f.approvalStatus === 'pending').length;
+    const onlyFiles = allFiles.filter(f => f.type === 'file');
 
+    // Logic phân quyền cho các chỉ số tổng kết (ví dụ)
+    let relevantFiles = onlyFiles;
+
+    if (isTDG) {
+        relevantFiles = onlyFiles.filter(f => f.uploadedBy?._id === user?._id);
+    }
+    // Admin, Manager, Ex sẽ xem tất cả files (mặc định)
+
+    const totalFilesUploaded = relevantFiles.length;
+    const approvedFiles = relevantFiles.filter(f => f.approvalStatus === 'approved').length;
+    const rejectedFiles = relevantFiles.filter(f => f.approvalStatus === 'rejected').length;
+    const totalPending = relevantFiles.filter(f => f.approvalStatus === 'pending').length;
 
     if (isLoading || loading) {
         return (
@@ -583,7 +779,16 @@ export default function FilesPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-indigo-600 text-sm font-semibold">Tổng File đã Upload</p>
+                                <p className="text-3xl font-bold text-indigo-900">{totalFilesUploaded}</p>
+                            </div>
+                            <File className="h-8 w-8 text-indigo-600" />
+                        </div>
+                    </div>
                     <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -664,7 +869,7 @@ export default function FilesPage() {
 
                                 {pendingFiles.length > 0 && (
                                     <button
-                                        onClick={handleSubmitFiles}
+                                        onClick={handleSubmitAllFiles}
                                         disabled={submittingFile}
                                         className="inline-flex items-center px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold disabled:opacity-50"
                                     >
@@ -676,7 +881,7 @@ export default function FilesPage() {
                                         ) : (
                                             <>
                                                 <Check className="h-5 w-5 mr-2" />
-                                                Nộp file ({pendingFiles.length})
+                                                Nộp tất cả ({pendingFiles.length})
                                             </>
                                         )}
                                     </button>
@@ -731,140 +936,215 @@ export default function FilesPage() {
 
                 {files.length > 0 ? (
                     <>
-                        <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden">
-                            <table className="w-full">
+                        <div className="bg-white rounded-xl overflow-hidden border-2 border-blue-300">
+                            <table className="w-full text-sm">
                                 <thead>
-                                <tr className="bg-gray-50 border-b-2 border-gray-200">
-                                    <th className="px-6 py-4 text-left">
+                                <tr className="bg-blue-100 border-b-2 border-blue-300">
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === files.filter(f => f.type === 'file').length && files.filter(f => f.type === 'file').length > 0}
                                             onChange={toggleSelectAll}
-                                            className="h-4 w-4 rounded border-gray-300"
+                                            className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                                         />
                                     </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Tên File/Folder
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Kích thước/Nội dung
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Trạng thái duyệt
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Ngày upload
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                                        Thao tác
-                                    </th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200 w-12">STT</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">Tên File/Folder</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">Người upload</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">Kích thước</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">Trạng thái</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900 border-r border-blue-200">Ngày upload</th>
+                                    <th className="px-4 py-3 text-center font-semibold text-gray-900">Thao tác</th>
                                 </tr>
                                 </thead>
-                                <tbody className="divide-y-2 divide-gray-100">
-                                {files.map((file) => (
-                                    <tr key={file._id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4">
+                                <tbody>
+                                {files.map((file, index) => (
+                                    <tr key={file._id} className={`border-b border-blue-200 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors`}>
+                                        <td className="px-4 py-3 text-center border-r border-blue-200">
                                             {file.type === 'file' && (
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedItems.includes(file._id)}
                                                     onChange={() => toggleSelectItem(file._id)}
-                                                    className="h-4 w-4 rounded border-gray-300"
+                                                    className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                                                 />
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
+                                        <td className="px-4 py-3 text-center text-gray-800 border-r border-blue-200 font-medium">
+                                            {index + 1}
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-blue-200">
+                                            <div className="flex items-center gap-2">
                                                 {file.type === 'folder' ? (
                                                     <button
                                                         onClick={() => handleOpenFolder(file)}
-                                                        className="flex items-center gap-3 group"
+                                                        className="flex items-center gap-2 group hover:text-blue-600"
                                                     >
-                                                        <Folder className="h-8 w-8 text-yellow-500" />
-                                                        <span className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                                        <Folder className="h-5 w-5 text-yellow-500" />
+                                                        <span className="font-medium text-gray-900 group-hover:text-blue-600">
                                                             {file.originalName}
                                                         </span>
                                                     </button>
                                                 ) : (
-                                                    getFileIcon(file.mimeType)
-                                                )}
-                                                {file.type === 'file' && (
-                                                    <span className="font-semibold text-gray-900">
-                                                        {getSafeFileName(file.originalName)}
-                                                    </span>
+                                                    <>
+                                                        {getFileIcon(file.mimeType)}
+                                                        <span className="font-medium text-gray-900">
+                                                            {getSafeFileName(file.originalName)}
+                                                        </span>
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                        <td className="px-4 py-3 text-center text-gray-600 border-r border-blue-200">
+                                            {file.uploadedBy?.fullName || 'N/A'}
+                                        </td>
+                                        <td className="px-4 py-3 text-center text-gray-600 border-r border-blue-200">
                                             {file.type === 'folder' ? (
-                                                <span className="font-semibold">
-                                                    {file.folderMetadata?.fileCount || 0} mục
-                                                </span>
+                                                <span className="text-xs text-gray-500">{file.folderMetadata?.fileCount || 0} mục</span>
                                             ) : (
                                                 formatFileSize(file.size)
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-3 text-center border-r border-blue-200">
                                             {file.type === 'file' ? (
                                                 getApprovalStatusBadge(file.approvalStatus)
                                             ) : (
                                                 <span className="text-xs text-gray-500">Folder</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600">
-                                            {formatDate(file.createdAt)}
+                                        <td className="px-4 py-3 text-center text-gray-600 border-r border-blue-200">
+                                            {formatDate(file.uploadedAt || file.createdAt)}
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center justify-center gap-1">
                                                 {file.type === 'file' && (
                                                     <>
-                                                        {canApprove && file.approvalStatus === 'pending' && (
+                                                        {canApprove && file.approvalStatus === 'pending' ? (
                                                             <>
-                                                                <button
+                                                                <ActionButton
+                                                                    icon={CheckCircle}
                                                                     onClick={() => handleApproveClick(file, 'approve')}
-                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                                                                    variant="success"
+                                                                    size="sm"
                                                                     title="Duyệt"
-                                                                >
-                                                                    <CheckCircle className="h-5 w-5" />
-                                                                </button>
-                                                                <button
+                                                                />
+                                                                <ActionButton
+                                                                    icon={XCircle}
                                                                     onClick={() => handleApproveClick(file, 'reject')}
-                                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                                    variant="warning"
+                                                                    size="sm"
                                                                     title="Từ chối"
-                                                                >
-                                                                    <XCircle className="h-5 w-5" />
-                                                                </button>
+                                                                />
                                                             </>
-                                                        )}
+                                                        ) : canApprove ? (
+                                                            <>
+                                                                <ActionButton
+                                                                    icon={CheckCircle}
+                                                                    onClick={() => {}}
+                                                                    variant="success"
+                                                                    size="sm"
+                                                                    title="Duyệt"
+                                                                    disabled
+                                                                />
+                                                                <ActionButton
+                                                                    icon={XCircle}
+                                                                    onClick={() => {}}
+                                                                    variant="warning"
+                                                                    size="sm"
+                                                                    title="Từ chối"
+                                                                    disabled
+                                                                />
+                                                            </>
+                                                        ) : null}
 
-                                                        <button
+                                                        <ActionButton
+                                                            icon={Eye}
+                                                            onClick={() => setPreviewFile(file)}
+                                                            variant="primary"
+                                                            size="sm"
+                                                            title="Xem"
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={Download}
                                                             onClick={() => handleDownload(file._id, getSafeFileName(file.originalName || file.filename))}
-                                                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                            variant="primary"
+                                                            size="sm"
                                                             title="Tải xuống"
-                                                        >
-                                                            <Download className="h-5 w-5" />
-                                                        </button>
+                                                        />
 
-                                                        {canUpload && file.approvalStatus === 'pending' && (
-                                                            <button
-                                                                onClick={() => handleDelete(file._id, 'file')}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                                                title="Xóa"
-                                                            >
-                                                                <Trash2 className="h-5 w-5" />
-                                                            </button>
-                                                        )}
+                                                        {canUpload ? (
+                                                            <>
+                                                                <ActionButton
+                                                                    icon={Edit}
+                                                                    onClick={() => handleRename(file)}
+                                                                    variant="edit"
+                                                                    size="sm"
+                                                                    title="Sửa tên"
+                                                                    disabled={file.approvalStatus !== 'pending'}
+                                                                />
+
+                                                                {file.approvalStatus === 'pending' ? (
+                                                                    <>
+                                                                        <ActionButton
+                                                                            icon={Trash2}
+                                                                            onClick={() => handleDelete(file._id, 'file')}
+                                                                            variant="delete"
+                                                                            size="sm"
+                                                                            title="Xóa"
+                                                                        />
+                                                                        <ActionButton
+                                                                            icon={Send}
+                                                                            onClick={() => handleSubmitSingleFile(file._id)}
+                                                                            variant="success"
+                                                                            size="sm"
+                                                                            title="Nộp file"
+                                                                            disabled={submittingSingleFile === file._id}
+                                                                        />
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <ActionButton
+                                                                            icon={Trash2}
+                                                                            onClick={() => {}}
+                                                                            variant="delete"
+                                                                            size="sm"
+                                                                            title="Xóa"
+                                                                            disabled
+                                                                        />
+                                                                        <ActionButton
+                                                                            icon={Send}
+                                                                            onClick={() => {}}
+                                                                            variant="success"
+                                                                            size="sm"
+                                                                            title="Nộp file"
+                                                                            disabled
+                                                                        />
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        ) : null}
                                                     </>
                                                 )}
 
                                                 {file.type === 'folder' && canUpload && (
-                                                    <button
-                                                        onClick={() => handleDelete(file._id, 'folder')}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                                        title="Xóa thư mục"
-                                                    >
-                                                        <Trash2 className="h-5 w-5" />
-                                                    </button>
+                                                    <>
+                                                        <ActionButton
+                                                            icon={Edit}
+                                                            onClick={() => handleRename(file)}
+                                                            variant="edit"
+                                                            size="sm"
+                                                            title="Sửa tên"
+                                                        />
+
+                                                        <ActionButton
+                                                            icon={Trash2}
+                                                            onClick={() => handleDelete(file._id, 'folder')}
+                                                            variant="delete"
+                                                            size="sm"
+                                                            title="Xóa thư mục"
+                                                        />
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -883,27 +1163,19 @@ export default function FilesPage() {
                                 <ul className="text-sm text-indigo-800 space-y-2">
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
-                                        <span><strong>Quản lý Folder:</strong> Bạn có thể Tạo Folder, click vào Folder để xem nội dung, và Upload file vào Folder đó.</span>
+                                        <span><strong>Quản lý Folder:</strong> Tạo Folder, click vào để xem nội dung, upload file vào Folder</span>
                                     </li>
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
-                                        <span><strong>Bước 1:</strong> Click "Upload file" để chọn file từ máy tính</span>
+                                        <span><strong>Nộp file:</strong> Nộp tất cả hoặc nộp từng file riêng (click nút gửi)</span>
                                     </li>
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
-                                        <span><strong>Bước 2:</strong> File sẽ được thêm vào danh sách (chờ duyệt)</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span><strong>Bước 3:</strong> Click "Nộp file" để gửi cho Manager duyệt</span>
+                                        <span><strong>Xem file:</strong> Click nút mắt để xem nội dung file</span>
                                     </li>
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
                                         <span>Tối đa 10 file, mỗi file ≤ 100MB</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span>Chỉ có thể xóa file/folder ở trạng thái "Chờ duyệt"</span>
                                     </li>
                                 </ul>
                             )}
@@ -911,27 +1183,11 @@ export default function FilesPage() {
                                 <ul className="text-sm text-indigo-800 space-y-2">
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
-                                        <span>Chọn file từ danh sách → Click "Duyệt" hoặc "Từ chối"</span>
+                                        <span>Chọn file và click "Duyệt" hoặc "Từ chối"</span>
                                     </li>
                                     <li className="flex items-start">
                                         <span className="mr-2">•</span>
-                                        <span>Nếu từ chối, vui lòng ghi rõ lý do</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span>File được duyệt sẽ được xác nhận trong hệ thống</span>
-                                    </li>
-                                </ul>
-                            )}
-                            {canOnlyView && (
-                                <ul className="text-sm text-indigo-800 space-y-2">
-                                    <li className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span>Bạn có quyền xem tất cả file/folder</span>
-                                    </li>
-                                    <li className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span>Click biểu tượng download để tải file</span>
+                                        <span>Nút duyệt sẽ mờ khi file đã được xử lý</span>
                                     </li>
                                 </ul>
                             )}
@@ -943,7 +1199,7 @@ export default function FilesPage() {
                         <p className="text-gray-600 font-semibold mb-4">Chưa có file nào trong thư mục này</p>
                         {canUpload && (
                             <p className="text-gray-500 text-sm">
-                                Nhấn "Upload file" hoặc "Tạo thư mục" để bắt đầu thêm file/folder
+                                Nhấn "Upload file" hoặc "Tạo thư mục" để bắt đầu
                             </p>
                         )}
                     </div>
@@ -1062,6 +1318,28 @@ export default function FilesPage() {
                         setShowCreateFolderModal(false);
                         fetchData();
                     }}
+                />
+            )}
+
+            {showRenameModal && renameItem && (
+                <RenameModal
+                    item={renameItem}
+                    onClose={() => {
+                        setShowRenameModal(false);
+                        setRenameItem(null);
+                    }}
+                    onSuccess={() => {
+                        setShowRenameModal(false);
+                        setRenameItem(null);
+                        fetchData();
+                    }}
+                />
+            )}
+
+            {previewFile && (
+                <PreviewModal
+                    file={previewFile}
+                    onClose={() => setPreviewFile(null)}
                 />
             )}
         </Layout>

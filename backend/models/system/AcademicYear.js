@@ -244,9 +244,38 @@ academicYearSchema.methods.canDelete = async function() {
     return programCount === 0 && evidenceCount === 0;
 };
 
+// Hàm tiện ích để xóa các trường hệ thống trước khi sao chép
+const cleanObjectForCopy = (obj) => {
+    // Chuyển Mongoose Document thành Plain JavaScript Object
+    const newObj = obj.toObject();
+
+    // Xóa các trường ID, versioning và metadata để Mongoose tạo mới
+    delete newObj._id;
+    delete newObj.__v;
+    delete newObj.createdBy;
+    delete newObj.updatedBy;
+    delete newObj.createdAt;
+    delete newObj.updatedAt;
+
+    // Xóa các trường không nên được sao chép
+    delete newObj.isCurrent;
+    delete newObj.metadata;
+
+    // Xóa các trường ảo (Virtuals) có thể bị thêm vào khi gọi toObject()
+    delete newObj.url;
+    delete newObj.displayName;
+    delete newObj.duration;
+    delete newObj.isActive;
+
+    return newObj;
+};
+
+
 academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings = {}, userId) {
     const Program = require('../Evidence/Program');
-    const { Organization, Standard, Criteria } = require('../Evidence/Program');
+    const Organization = require('../Evidence/Organization');
+    const Standard = require('../Evidence/Standard');
+    const Criteria = require('../Evidence/Criteria');
     const Evidence = require('../Evidence/Evidence');
 
     const copySettings = { ...this.copySettings, ...settings };
@@ -263,9 +292,10 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         if (copySettings.programs) {
             const programs = await Program.find({ academicYearId: sourceYearId });
             for (const program of programs) {
+                const programObject = cleanObjectForCopy(program);
+
                 const newProgram = new Program({
-                    ...program.toObject(),
-                    _id: undefined,
+                    ...programObject,
                     academicYearId: this._id,
                     status: 'draft',
                     createdBy: userId,
@@ -279,12 +309,12 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.organizations) {
-            const Organization = require('../Evidence/Organization');
             const organizations = await Organization.find({ academicYearId: sourceYearId });
             for (const org of organizations) {
+                const orgObject = cleanObjectForCopy(org);
+
                 const newOrg = new Organization({
-                    ...org.toObject(),
-                    _id: undefined,
+                    ...orgObject,
                     academicYearId: this._id,
                     createdBy: userId,
                     updatedBy: userId,
@@ -297,12 +327,12 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.standards) {
-            const Standard = require('../Evidence/Standard');
             const standards = await Standard.find({ academicYearId: sourceYearId });
             for (const standard of standards) {
+                const standardObject = cleanObjectForCopy(standard);
+
                 const newStandard = new Standard({
-                    ...standard.toObject(),
-                    _id: undefined,
+                    ...standardObject,
                     academicYearId: this._id,
                     status: 'draft',
                     createdBy: userId,
@@ -316,12 +346,12 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         }
 
         if (copySettings.criteria) {
-            const Criteria = require('../Evidence/Criteria');
             const criterias = await Criteria.find({ academicYearId: sourceYearId });
             for (const criteria of criterias) {
+                const criteriaObject = cleanObjectForCopy(criteria);
+
                 const newCriteria = new Criteria({
-                    ...criteria.toObject(),
-                    _id: undefined,
+                    ...criteriaObject,
                     academicYearId: this._id,
                     status: 'draft',
                     createdBy: userId,
@@ -341,9 +371,10 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
             });
 
             for (const evidence of evidences) {
+                const evidenceObject = cleanObjectForCopy(evidence);
+
                 const newEvidence = new Evidence({
-                    ...evidence.toObject(),
-                    _id: undefined,
+                    ...evidenceObject,
                     academicYearId: this._id,
                     files: [],
                     status: 'draft',
@@ -367,6 +398,9 @@ academicYearSchema.methods.copyDataFrom = async function(sourceYearId, settings 
         return results;
 
     } catch (error) {
+        // Log lỗi chi tiết (ví dụ: in ra console để debug)
+        console.error('Lỗi chi tiết trong quá trình sao chép:', error);
+
         results.errors.push(error.message);
 
         await this.addActivityLog('academic_year_copy', userId,
