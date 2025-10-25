@@ -452,40 +452,74 @@ const submitReport = async (req, res) => {
             });
         }
 
-        if (!report.selfEvaluation || !report.selfEvaluation.content || !report.selfEvaluation.score) {
+        if (!report.selfEvaluation?.content || !report.selfEvaluation?.score) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo'
             });
         }
 
-        if (report.contentMethod === 'online_editor') {
-            if (!report.content || report.content.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Báo cáo phải có nội dung trước khi nộp'
-                });
-            }
-        } else if (report.contentMethod === 'file_upload') {
-            if (!report.attachedFile) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Báo cáo phải có file đính kèm trước khi nộp'
-                });
+        if (report.contentMethod === 'online_editor' && (!report.content || report.content.trim().length === 0)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Báo cáo phải có nội dung trước khi nộp'
+            });
+        }
+
+        if (report.contentMethod === 'file_upload' && !report.attachedFile) {
+            return res.status(400).json({
+                success: false,
+                message: 'Báo cáo phải có file đính kèm trước khi nộp'
+            });
+        }
+
+        const oldStatus = report.status;
+        report.status = 'submitted';
+        report.submittedAt = new Date();
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        try {
+            await report.addActivityLog('report_submit', req.user.id, `Nộp báo cáo: ${report.title}`, {
+                severity: 'high',
+                oldData: { status: oldStatus },
+                newData: { status: 'submitted' },
+                isAuditRequired: true
+            });
+        } catch (logError) {
+            console.error('Activity log error:', logError);
+        }
+
+        if (report.requestId) {
+            try {
+                const ReportRequest = require('../report/ReportRequest');
+                const request = await ReportRequest.findById(report.requestId);
+                if (request && request.complete && typeof request.complete === 'function') {
+                    await request.complete(report._id);
+                }
+            } catch (reqError) {
+                console.error('Report request update error:', reqError);
             }
         }
 
-        await report.submit(req.user.id);
+        await report.populate([
+            { path: 'academicYearId', select: 'name code' },
+            { path: 'programId', select: 'name code' },
+            { path: 'organizationId', select: 'name code' },
+            { path: 'createdBy', select: 'fullName email' },
+            { path: 'selfEvaluation.evaluatedBy', select: 'fullName email' }
+        ]);
 
         res.json({
             success: true,
-            message: 'Nộp báo cáo thành công',
+            message: 'Nộp báo cáo thành công. Manager sẽ phân quyền đánh giá.',
             data: report
         });
 
     } catch (error) {
         console.error('Submit report error:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message || 'Lỗi hệ thống khi nộp báo cáo'
         });

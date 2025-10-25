@@ -218,13 +218,14 @@ reportSchema.pre('save', function(next) {
         this.updatedAt = Date.now();
         if (this.isModified('content')) {
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
-            if (this.versions) {
-                this.versions.push({
-                    content: this.content,
-                    changeNote: 'Cập nhật nội dung tự động',
-                    changedBy: this.updatedBy
-                });
+            if (!this.versions) {
+                this.versions = [];
             }
+            this.versions.push({
+                content: this.content,
+                changeNote: 'Cập nhật nội dung tự động',
+                changedBy: this.updatedBy
+            });
         }
     } else if (this.isNew && this.content) {
         this.wordCount = this.content.split(/\s+/).length;
@@ -299,28 +300,62 @@ reportSchema.methods.incrementDownload = async function(userId) {
 };
 
 reportSchema.methods.submit = async function(userId) {
-    if (!this.selfEvaluation || !this.selfEvaluation.content || !this.selfEvaluation.score) {
-        throw new Error('Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo');
-    }
-    const oldStatus = this.status;
-    this.status = 'submitted';
-    this.submittedAt = new Date();
-    this.updatedBy = userId;
-    await this.save();
-    await this.addActivityLog('report_submit', userId, `Nộp báo cáo: ${this.title}`, {
-        severity: 'high',
-        oldData: { status: oldStatus },
-        newData: { status: 'submitted' },
-        isAuditRequired: true
-    });
-    if (this.requestId) {
-        const ReportRequest = require('./ReportRequest');
-        const request = await ReportRequest.findById(this.requestId);
-        if (request) {
-            await request.complete(this._id);
+    try {
+        if (!this.selfEvaluation) {
+            throw new Error('Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo');
         }
+
+        if (!this.selfEvaluation.content || !this.selfEvaluation.score) {
+            throw new Error('Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo');
+        }
+
+        if (this.selfEvaluation.score < 1 || this.selfEvaluation.score > 7) {
+            throw new Error('Điểm đánh giá phải từ 1 đến 7');
+        }
+
+        if (!this.content && this.contentMethod === 'online_editor') {
+            throw new Error('Báo cáo phải có nội dung trước khi nộp');
+        }
+
+        if (!this.attachedFile && this.contentMethod === 'file_upload') {
+            throw new Error('Báo cáo phải có file đính kèm trước khi nộp');
+        }
+
+        const oldStatus = this.status;
+        this.status = 'submitted';
+        this.submittedAt = new Date();
+        this.updatedBy = userId;
+
+        await this.save();
+
+        try {
+            await this.addActivityLog('report_submit', userId, `Nộp báo cáo: ${this.title}`, {
+                severity: 'high',
+                oldData: { status: oldStatus },
+                newData: { status: 'submitted' },
+                isAuditRequired: true
+            });
+        } catch (logError) {
+            console.error('Activity log error:', logError);
+        }
+
+        if (this.requestId) {
+            try {
+                const ReportRequest = require('./ReportRequest');
+                const request = await ReportRequest.findById(this.requestId);
+                if (request && request.complete && typeof request.complete === 'function') {
+                    await request.complete(this._id);
+                }
+            } catch (reqError) {
+                console.error('Report request update error:', reqError);
+            }
+        }
+
+        return this;
+    } catch (error) {
+        console.error('Submit method error:', error);
+        throw error;
     }
-    return this;
 };
 
 reportSchema.methods.publish = async function(userId) {

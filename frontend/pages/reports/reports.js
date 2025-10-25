@@ -481,7 +481,7 @@ export default function ReportsManagement() {
             buttons.push(
                 <ActionButton
                     key="publish"
-                    icon={Send}
+                    icon={CheckCircle} // Đã thay đổi icon từ Send sang CheckCircle
                     variant="success"
                     size="sm"
                     disabled={submitting}

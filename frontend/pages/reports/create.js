@@ -1,3 +1,4 @@
+// frontend/pages/reports/create.js
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -46,7 +47,7 @@ export default function CreateReport() {
         summary: '',
         keywords: [],
         requestId: requestId || '',
-        content: ''
+        contentMethod: 'online_editor'
     })
 
     const [programs, setPrograms] = useState([])
@@ -110,7 +111,8 @@ export default function CreateReport() {
                     type: reqTypes[0],
                     programId: req.programId?._id || req.programId || '',
                     organizationId: req.organizationId?._id || req.organizationId || '',
-                    requestId: req._id
+                    requestId: req._id,
+                    contentMethod: 'online_editor'
                 }))
             } else {
                 setFormData(prev => ({
@@ -118,7 +120,8 @@ export default function CreateReport() {
                     title: req.title || '',
                     programId: req.programId?._id || req.programId || '',
                     organizationId: req.organizationId?._id || req.organizationId || '',
-                    requestId: req._id
+                    requestId: req._id,
+                    contentMethod: 'online_editor'
                 }))
             }
         } catch (error) {
@@ -158,18 +161,9 @@ export default function CreateReport() {
         setSelectedEvidences(prev => prev.filter(e => e.evidenceId !== evidenceId))
     }
 
-    // Sửa: Hàm lấy nội dung phải ưu tiên lấy từ REF (DOM) nếu tồn tại, nếu không lấy từ state
     const getContentFromEditor = () => {
-        const contentFromRef = editorRef.current?.getContent();
-        // Lấy từ Ref (nếu nó không rỗng) HOẶC lấy từ state (nếu state có nội dung)
-        return contentFromRef || formData.content || '';
+        return editorRef.current?.getContent() || ''
     }
-
-    // Hàm cập nhật content state từ RichTextEditor
-    const handleContentChange = (content) => {
-        setFormData(prev => ({ ...prev, content }))
-    }
-
 
     const handleSave = async () => {
         if (!formData.title.trim()) {
@@ -201,17 +195,21 @@ export default function CreateReport() {
         try {
             setLoading(true)
 
-            const rawData = {
-                ...formData,
-                content,
+            const dataToSend = {
+                title: formData.title.trim(),
+                type: formData.type,
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                summary: formData.summary.trim(),
+                keywords: formData.keywords,
+                content: content,
+                contentMethod: formData.contentMethod,
                 linkedEvidences: selectedEvidences,
-                description: formData.summary.trim() || '',
-                summary: formData.summary.trim() || ''
-            };
+                requestId: formData.requestId || undefined
+            }
 
-            const dataToSend = cleanData(rawData);
-
-            const response = await reportService.create(dataToSend)
+            const cleanedData = cleanData(dataToSend)
+            const response = await reportService.create(cleanedData)
             toast.success('Lưu báo cáo thành công')
             router.push(`/reports/${response.data?.data?._id || response.data?._id}`)
         } catch (error) {
@@ -257,17 +255,21 @@ export default function CreateReport() {
         try {
             setSubmitting(true)
 
-            const rawData = {
-                ...formData,
-                content,
+            const dataToSend = {
+                title: formData.title.trim(),
+                type: formData.type,
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                summary: formData.summary.trim(),
+                keywords: formData.keywords,
+                content: content,
+                contentMethod: formData.contentMethod,
                 linkedEvidences: selectedEvidences,
-                description: formData.summary.trim() || '',
-                summary: formData.summary.trim() || ''
-            };
+                requestId: formData.requestId || undefined
+            }
 
-            const dataToSend = cleanData(rawData);
-
-            const createResponse = await reportService.create(dataToSend)
+            const cleanedData = cleanData(dataToSend)
+            const createResponse = await reportService.create(cleanedData)
             const reportId = createResponse.data?.data?._id || createResponse.data?._id
 
             await reportService.addSelfEvaluation(reportId, selfEvaluation)
@@ -286,7 +288,70 @@ export default function CreateReport() {
     const handleSelfEvaluationSubmit = async (evalData) => {
         setSelfEvaluation(evalData)
         setShowSelfEvalModal(false)
-        await handleSubmit()
+
+        if (!formData.title.trim()) {
+            toast.error('Vui lòng nhập tiêu đề báo cáo')
+            return
+        }
+
+        if (!formData.type) {
+            toast.error('Vui lòng chọn loại báo cáo')
+            return
+        }
+
+        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
+            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
+            return
+        }
+
+        if (!formData.programId || !formData.organizationId) {
+            toast.error('Vui lòng chọn chương trình và tổ chức')
+            return
+        }
+
+        const content = getContentFromEditor()
+        if (!content.trim()) {
+            toast.error('Vui lòng nhập nội dung báo cáo')
+            return
+        }
+
+        try {
+            setSubmitting(true)
+
+            const dataToSend = {
+                title: formData.title.trim(),
+                type: formData.type,
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                summary: formData.summary.trim(),
+                keywords: formData.keywords,
+                content: content,
+                contentMethod: formData.contentMethod,
+                linkedEvidences: selectedEvidences,
+                requestId: formData.requestId || undefined
+            }
+
+            const cleanedData = cleanData(dataToSend)
+            console.log('Creating report with:', cleanedData)
+            const createResponse = await reportService.create(cleanedData)
+            const reportId = createResponse.data?.data?._id || createResponse.data?._id
+
+            console.log('Report created:', reportId)
+            console.log('Adding self evaluation:', evalData)
+            await reportService.addSelfEvaluation(reportId, evalData)
+
+            console.log('Submitting report...')
+            await reportService.submit(reportId)
+
+            toast.success('Nộp báo cáo thành công')
+            router.push(`/reports/${reportId}`)
+        } catch (error) {
+            console.error('Submit error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo')
+            setShowSelfEvalModal(true)
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     const availableTypes = allowedTypes.length > 0
@@ -424,8 +489,6 @@ export default function CreateReport() {
                             <h2 className="text-xl font-bold text-gray-900 mb-4">Nội dung báo cáo</h2>
                             <RichTextEditor
                                 ref={editorRef}
-                                value={formData.content}
-                                onChange={handleContentChange}
                                 placeholder="Nhập nội dung báo cáo..."
                             />
                         </div>

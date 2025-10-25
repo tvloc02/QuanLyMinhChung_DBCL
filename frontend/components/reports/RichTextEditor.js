@@ -1,3 +1,4 @@
+// frontend/components/reports/RichTextEditor.js
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import {
     Bold,
@@ -26,13 +27,14 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     const [linkUrl, setLinkUrl] = useState('')
     const [linkText, setLinkText] = useState('')
     const [detectedCodes, setDetectedCodes] = useState(new Set())
+    const [isInitialized, setIsInitialized] = useState(false)
 
-    // Khởi tạo và cập nhật codes khi nội dung thay đổi
     useEffect(() => {
-        if (editorRef.current) {
-            detectExistingEvidenceCodes()
+        if (editorRef.current && value && !isInitialized) {
+            editorRef.current.innerHTML = value
+            setIsInitialized(true)
         }
-    }, [value]) // Chạy khi nội dung từ cha (value) thay đổi
+    }, [value, isInitialized])
 
     const detectExistingEvidenceCodes = () => {
         if (!editorRef.current) return
@@ -55,7 +57,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             const content = editorRef.current.innerHTML
 
             if (onChange) {
-                onChange(content) // Gửi nội dung đã thay đổi lên component cha
+                onChange(content)
             }
 
             detectExistingEvidenceCodes()
@@ -65,7 +67,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
     const execCommand = (command, value = null) => {
         document.execCommand(command, false, value)
         editorRef.current?.focus()
-        handleInput() // Kích hoạt cập nhật state
+        handleInput()
     }
 
     const handleTextColor = () => {
@@ -122,7 +124,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             document.execCommand('insertHTML', false, linkHTML)
 
             setTimeout(() => {
-                handleInput() // Kích hoạt cập nhật state
+                handleInput()
             }, 0)
         }
     }
@@ -148,7 +150,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
     return (
         <div className="border border-gray-300 rounded-lg overflow-hidden">
-            {/* TOOLBAR */}
             <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('bold')} title="Bold (Ctrl+B)">
@@ -255,7 +256,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             </div>
 
-            {/* LINK INPUT */}
             {showLinkInput && (
                 <div className="bg-blue-50 border-b border-blue-200 p-3">
                     <div className="flex gap-2 items-end">
@@ -301,13 +301,10 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
-            {/* EDITOR */}
             <div
                 ref={editorRef}
                 contentEditable={!disabled}
                 onInput={handleInput}
-                // Khởi tạo nội dung ban đầu từ prop 'value'
-                dangerouslySetInnerHTML={{ __html: value || '' }}
                 suppressContentEditableWarning={true}
                 className={`min-h-[400px] p-4 focus:outline-none ${disabled ? 'bg-gray-50' : 'bg-white'}`}
                 style={{
@@ -317,7 +314,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 data-placeholder={placeholder || 'Nhập nội dung báo cáo...'}
             />
 
-            {/* DETECTED CODES COUNTER */}
             {detectedCodes.size > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -350,7 +346,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
-            {/* STYLES */}
             <style jsx>{`
                 [contenteditable][data-placeholder]:empty:before {
                     content: attr(data-placeholder);
@@ -401,7 +396,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     text-decoration: underline;
                 }
 
-                /* Evidence code in editor (pending wrap on save) */
                 span.evidence-code {
                     display: inline-flex;
                     align-items: center;
@@ -420,7 +414,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     background-color: #fde047;
                 }
 
-                /* Evidence link (after saved) */
                 a.evidence-link {
                     display: inline-flex;
                     align-items: center;

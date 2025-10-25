@@ -1,3 +1,4 @@
+// frontend/components/reports/SelfEvaluationModal.js
 import { useState } from 'react'
 import { X, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -15,18 +16,21 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
             return
         }
 
-        if (score < 1 || score > 7) {
+        if (!score || score < 1 || score > 7) {
             toast.error('Vui lòng chọn điểm từ 1 đến 7')
             return
         }
 
         try {
             setSubmitting(true)
-            await onSubmit({ content: content.trim(), score: parseInt(score) })
-            toast.success('Lưu tự đánh giá thành công')
-            onClose()
+            const evalData = {
+                content: content.trim(),
+                score: parseInt(score)
+            }
+            console.log('Submitting evaluation:', evalData)
+            await onSubmit(evalData)
         } catch (error) {
-            console.error('Submit error:', error)
+            console.error('Submit evaluation error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi lưu tự đánh giá')
         } finally {
             setSubmitting(false)
@@ -54,6 +58,7 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                     <button
                         onClick={onClose}
                         className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
+                        disabled={submitting}
                     >
                         <X className="h-6 w-6" />
                     </button>
@@ -70,10 +75,12 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                             rows={8}
                             placeholder="Nhập nội dung tự đánh giá về báo cáo của bạn..."
                             className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            maxLength={5000}
                             required
+                            disabled={submitting}
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                            Tối đa 5000 ký tự
+                            {content.length}/5000 ký tự
                         </p>
                     </div>
 
@@ -87,11 +94,12 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                                     key={s}
                                     type="button"
                                     onClick={() => setScore(s)}
+                                    disabled={submitting}
                                     className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
                                         score === s
                                             ? 'border-blue-500 bg-blue-50 shadow-md transform scale-105'
                                             : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
-                                    }`}
+                                    } ${submitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <span className={`text-2xl font-bold ${score === s ? 'text-blue-600' : 'text-gray-600'}`}>
                                         {s}
@@ -118,7 +126,8 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-all"
+                            disabled={submitting}
+                            className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-all disabled:opacity-50"
                         >
                             Hủy
                         </button>
@@ -135,7 +144,7 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                             ) : (
                                 <>
                                     <Star className="h-4 w-4" />
-                                    Lưu tự đánh giá
+                                    Lưu & Nộp báo cáo
                                 </>
                             )}
                         </button>

@@ -106,14 +106,17 @@ const reportService = {
 
     submit: async (id) => {
         try {
-            const response = await apiMethods.reports.submit(id)
+            console.log('Submitting report:', id);
+            const response = await apiMethods.reports.submit(id);
             return {
                 success: true,
                 data: response.data.data,
                 message: response.data.message
             }
         } catch (error) {
-            console.error('Submit report error:', error)
+            console.error('Submit report error:', error);
+            // THÊM: Log chi tiết hơn để debug lỗi 500
+            console.error('Error details:', error.response?.data || error);
             throw error
         }
     },
