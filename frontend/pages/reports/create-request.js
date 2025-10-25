@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import toast from 'react-hot-toast'
 import {
-    FileText, Save, ArrowLeft, Plus, AlertCircle, RefreshCw, X, Check
+    FileText, Save, ArrowLeft, Plus, AlertCircle, RefreshCw, X, Check, BookOpen, Building2, Calendar, Loader2, Info // <-- Đã thêm Info
 } from 'lucide-react'
 import { apiMethods } from '../../services/api'
 
@@ -59,9 +59,9 @@ export default function CreateRequestPage() {
         try {
             setLoading(true)
             const [programsRes, orgsRes, usersRes] = await Promise.all([
-                apiMethods.programs.getAll(),
-                apiMethods.organizations.getAll(),
-                apiMethods.users.getAll({ role: 'tdg' })
+                apiMethods.programs.getAll({ status: 'active' }),
+                apiMethods.organizations.getAll({ status: 'active' }),
+                apiMethods.users.getAll({ role: 'tdg', limit: 100 })
             ])
             setPrograms(programsRes.data.data.programs || [])
             setOrganizations(orgsRes.data.data.organizations || [])
@@ -164,7 +164,7 @@ export default function CreateRequestPage() {
             <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
-                        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
@@ -176,7 +176,8 @@ export default function CreateRequestPage() {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="text-center py-12">
-                    <p className="text-red-600">Chỉ Manager mới có quyền tạo yêu cầu</p>
+                    <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                    <p className="text-xl font-semibold text-red-600">Chỉ Manager mới có quyền tạo yêu cầu</p>
                 </div>
             </Layout>
         )
@@ -202,7 +203,8 @@ export default function CreateRequestPage() {
                     </div>
                 )}
 
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-xl p-8 text-white">
+                {/* Header - Màu xanh lam đồng bộ */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-white bg-opacity-20 rounded-xl">
@@ -214,8 +216,8 @@ export default function CreateRequestPage() {
                             </div>
                         </div>
                         <button
-                            onClick={() => router.push('/reports/requests')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl font-medium"
+                            onClick={() => router.back()}
+                            className="flex items-center space-x-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
                         >
                             <ArrowLeft className="w-5 h-5" />
                             <span>Quay lại</span>
@@ -224,8 +226,11 @@ export default function CreateRequestPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Thông tin yêu cầu</h2>
+                    <div className="bg-white rounded-2xl shadow-lg border border-blue-200 p-8">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                            <Info className="w-5 h-5 mr-2 text-blue-600" />
+                            Thông tin yêu cầu
+                        </h2>
 
                         <div className="space-y-6">
                             {/* Tiêu đề */}
@@ -237,13 +242,13 @@ export default function CreateRequestPage() {
                                     type="text"
                                     value={formData.title}
                                     onChange={(e) => handleChange('title', e.target.value)}
-                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        formErrors.title ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                        formErrors.title ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                     }`}
                                     placeholder="Nhập tiêu đề yêu cầu"
                                     maxLength={500}
                                 />
-                                {formErrors.title && <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>}
+                                {formErrors.title && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.title}</p>}
                             </div>
 
                             {/* Mô tả */}
@@ -255,26 +260,27 @@ export default function CreateRequestPage() {
                                     value={formData.description}
                                     onChange={(e) => handleChange('description', e.target.value)}
                                     rows={4}
-                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-                                        formErrors.description ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all ${
+                                        formErrors.description ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                     }`}
                                     placeholder="Nhập mô tả chi tiết về yêu cầu"
                                     maxLength={2000}
                                 />
-                                {formErrors.description && <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>}
+                                {formErrors.description && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.description}</p>}
                             </div>
 
                             {/* Hàng 1: Chương trình, Tổ chức */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        <BookOpen className="w-4 h-4 inline mr-1 text-blue-600" />
                                         Chương trình <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={formData.programId}
                                         onChange={(e) => handleChange('programId', e.target.value)}
-                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                            formErrors.programId ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                         }`}
                                     >
                                         <option value="">Chọn chương trình</option>
@@ -282,18 +288,19 @@ export default function CreateRequestPage() {
                                             <option key={p._id} value={p._id}>{p.name}</option>
                                         ))}
                                     </select>
-                                    {formErrors.programId && <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>}
+                                    {formErrors.programId && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.programId}</p>}
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        <Building2 className="w-4 h-4 inline mr-1 text-blue-600" />
                                         Tổ chức <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={formData.organizationId}
                                         onChange={(e) => handleChange('organizationId', e.target.value)}
-                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                            formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                         }`}
                                     >
                                         <option value="">Chọn tổ chức</option>
@@ -301,7 +308,7 @@ export default function CreateRequestPage() {
                                             <option key={o._id} value={o._id}>{o.name}</option>
                                         ))}
                                     </select>
-                                    {formErrors.organizationId && <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>}
+                                    {formErrors.organizationId && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.organizationId}</p>}
                                 </div>
                             </div>
 
@@ -309,17 +316,18 @@ export default function CreateRequestPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        <Calendar className="w-4 h-4 inline mr-1 text-blue-600" />
                                         Hạn chót <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="datetime-local"
                                         value={formData.deadline}
                                         onChange={(e) => handleChange('deadline', e.target.value)}
-                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            formErrors.deadline ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                            formErrors.deadline ? 'border-red-300 bg-red-50' : 'border-blue-200'
                                         }`}
                                     />
-                                    {formErrors.deadline && <p className="mt-1 text-sm text-red-600">{formErrors.deadline}</p>}
+                                    {formErrors.deadline && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.deadline}</p>}
                                 </div>
 
                                 <div>
@@ -329,7 +337,7 @@ export default function CreateRequestPage() {
                                     <select
                                         value={formData.priority}
                                         onChange={(e) => handleChange('priority', e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
                                         <option value="low">Thấp</option>
                                         <option value="normal">Bình thường</option>
@@ -352,7 +360,7 @@ export default function CreateRequestPage() {
                                     <span>
                                         {formData.types.length === 0
                                             ? 'Chọn loại báo cáo'
-                                            : `Đã chọn ${formData.types.length} loại`
+                                            : `Đã chọn ${formData.types.length} loại: ${getSelectedTypeLabels()}`
                                         }
                                     </span>
                                     <Plus className="w-5 h-5" />
@@ -368,7 +376,7 @@ export default function CreateRequestPage() {
                                                 return (
                                                     <span
                                                         key={type}
-                                                        className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-medium"
+                                                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-medium"
                                                     >
                                                         {typeInfo?.label}
                                                         <button
@@ -419,7 +427,7 @@ export default function CreateRequestPage() {
                                                 .map(user => (
                                                     <span
                                                         key={user._id}
-                                                        className="inline-flex items-center px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-medium"
+                                                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-medium"
                                                     >
                                                         {user.fullName}
                                                         <button
@@ -435,7 +443,7 @@ export default function CreateRequestPage() {
                                     </div>
                                 )}
 
-                                {formErrors.assignedTo && <p className="mt-1 text-sm text-red-600">{formErrors.assignedTo}</p>}
+                                {formErrors.assignedTo && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.assignedTo}</p>}
                             </div>
                         </div>
                     </div>
@@ -444,19 +452,20 @@ export default function CreateRequestPage() {
                     <div className="flex items-center justify-end gap-4">
                         <button
                             type="button"
-                            onClick={() => router.push('/reports/requests')}
-                            className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium"
+                            onClick={() => router.back()}
+                            className="px-8 py-3 text-gray-700 bg-white border-2 border-gray-300 rounded-xl hover:bg-gray-100 font-semibold disabled:opacity-50"
+                            disabled={submitting}
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:shadow-xl disabled:opacity-50 font-medium"
+                            className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-xl font-semibold disabled:opacity-50"
                         >
                             {submitting ? (
                                 <>
-                                    <RefreshCw className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-5 h-5 animate-spin" />
                                     <span>Đang tạo...</span>
                                 </>
                             ) : (
@@ -475,7 +484,7 @@ export default function CreateRequestPage() {
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex items-center justify-between">
                             <h3 className="text-xl font-bold">Chọn loại báo cáo được phép</h3>
                             <button
                                 onClick={() => setShowTypesModal(false)}
@@ -492,7 +501,7 @@ export default function CreateRequestPage() {
                             {REPORT_TYPES.map(type => (
                                 <label
                                     key={type.value}
-                                    className="flex items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
+                                    className="flex items-center p-4 border-2 border-blue-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
                                 >
                                     <input
                                         type="checkbox"
@@ -517,7 +526,7 @@ export default function CreateRequestPage() {
                             </p>
                             <button
                                 onClick={() => setShowTypesModal(false)}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold"
                             >
                                 Xong
                             </button>
@@ -529,9 +538,9 @@ export default function CreateRequestPage() {
             {/* Modal chọn TDG */}
             {showUserModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
                         {/* Header */}
-                        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
+                        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex items-center justify-between flex-shrink-0">
                             <h3 className="text-xl font-bold">Chọn TDG để giao nhiệm vụ</h3>
                             <button
                                 onClick={() => setShowUserModal(false)}
@@ -542,7 +551,7 @@ export default function CreateRequestPage() {
                         </div>
 
                         {/* Content */}
-                        <div className="p-6 space-y-3">
+                        <div className="p-6 space-y-3 overflow-y-auto flex-1">
                             {tdgUsers.map(user => (
                                 <label
                                     key={user._id}
@@ -566,13 +575,13 @@ export default function CreateRequestPage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200 p-6 flex items-center justify-between">
+                        <div className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200 p-6 flex items-center justify-between flex-shrink-0">
                             <p className="text-sm font-semibold text-gray-700">
                                 Đã chọn: <span className="text-blue-600">{formData.assignedTo.length}</span> người
                             </p>
                             <button
                                 onClick={() => setShowUserModal(false)}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold"
                             >
                                 Xong
                             </button>

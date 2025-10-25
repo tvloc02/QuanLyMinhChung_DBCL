@@ -576,13 +576,6 @@ export default function ReportsManagement() {
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => router.push('/reports/evaluations')}
-                                className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
-                            >
-                                <BarChart3 className="h-5 w-5 mr-2" />
-                                Đánh giá
-                            </button>
                             {canCreateReport && (
                                 <button
                                     onClick={() => router.push('/reports/create')}
