@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const Report = require('../../models/report/Report');
 
+// Hàm chuẩn hóa ID
+const normalizeId = (id) => (id && id.toString().trim() !== '') ? id : null;
+
 const getReports = async (req, res) => {
     try {
         const {
@@ -178,11 +181,17 @@ const createReport = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+        let finalProgramId = programId;
+        let finalOrganizationId = organizationId;
+        let standardId = req.body.standardId;
+        let criteriaId = req.body.criteriaId;
+
+        const normalizeId = (id) => (id && id.toString().trim() !== '') ? id : null;
 
         let reportRequest = null;
         if (requestId) {
-            const ReportRequest = mongoose.model('ReportRequest');
-            reportRequest = await ReportRequest.findById(requestId);
+            const ReportRequestModel = mongoose.model('ReportRequest');
+            reportRequest = await ReportRequestModel.findById(requestId);
 
             if (!reportRequest || reportRequest.academicYearId.toString() !== academicYearId.toString()) {
                 return res.status(400).json({
@@ -205,7 +214,6 @@ const createReport = async (req, res) => {
                 });
             }
 
-            // ← THÊM: Kiểm tra loại báo cáo được phép
             if (reportRequest.types && reportRequest.types.length > 0) {
                 if (!reportRequest.types.includes(type)) {
                     return res.status(400).json({
@@ -214,7 +222,31 @@ const createReport = async (req, res) => {
                     });
                 }
             }
+
+            if (reportRequest.programId) finalProgramId = normalizeId(reportRequest.programId);
+            if (reportRequest.organizationId) finalOrganizationId = normalizeId(reportRequest.organizationId);
+            if (reportRequest.standardId) standardId = normalizeId(reportRequest.standardId);
+            if (reportRequest.criteriaId) criteriaId = normalizeId(reportRequest.criteriaId);
+        } else {
+            finalProgramId = normalizeId(programId);
+            finalOrganizationId = normalizeId(organizationId);
+            standardId = normalizeId(standardId);
+            criteriaId = normalizeId(criteriaId);
         }
+
+        if (!academicYearId) {
+            return res.status(400).json({ success: false, message: 'Academic Year ID là bắt buộc' });
+        }
+        if (!finalProgramId) {
+            return res.status(400).json({ success: false, message: 'Chương trình (programId) là bắt buộc' });
+        }
+        if (!finalOrganizationId) {
+            return res.status(400).json({ success: false, message: 'Tổ chức (organizationId) là bắt buộc' });
+        }
+        if (!req.user.id) {
+            return res.status(400).json({ success: false, message: 'Người tạo (createdBy) là bắt buộc' });
+        }
+
 
         const code = await Report.generateCode(type, academicYearId, '', '');
 
@@ -223,13 +255,15 @@ const createReport = async (req, res) => {
             title: title.trim(),
             code,
             type,
-            programId,
-            organizationId,
+            programId: finalProgramId,
+            organizationId: finalOrganizationId,
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim() || '',
             keywords: keywords || [],
             createdBy: req.user.id,
-            updatedBy: req.user.id
+            updatedBy: req.user.id,
+            standardId: standardId,
+            criteriaId: criteriaId
         };
 
         if (requestId) {
@@ -438,6 +472,15 @@ const submitReport = async (req, res) => {
             });
         }
 
+        // KIỂM TRA ĐỘ BỀN VỮNG CỦA ID TRƯỚC KHI CẬP NHẬT
+        if (!report.academicYearId || !report.programId || !report.organizationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lỗi xác thực: Báo cáo bị thiếu AcademicYearId, ProgramId, hoặc OrganizationId.'
+            });
+        }
+        // KẾT THÚC KIỂM TRA ĐỘ BỀN VỮNG
+
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -452,10 +495,38 @@ const submitReport = async (req, res) => {
             });
         }
 
-        if (!report.selfEvaluation?.content || !report.selfEvaluation?.score) {
+        if (report.requestId) {
+            const ReportRequestModel = require('../../models/report/ReportRequest');
+            const reportRequest = await ReportRequestModel.findById(report.requestId);
+
+            if (!reportRequest) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Yêu cầu không hợp lệ hoặc đã bị xóa'
+                });
+            }
+
+            if (reportRequest.types && reportRequest.types.length > 0) {
+                if (!reportRequest.types.includes(report.type)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
+                    });
+                }
+            }
+        }
+
+        if (!report.selfEvaluation || !report.selfEvaluation.content || !report.selfEvaluation.score) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo'
+            });
+        }
+
+        if (report.selfEvaluation.score < 1 || report.selfEvaluation.score > 7) {
+            return res.status(400).json({
+                success: false,
+                message: 'Điểm tự đánh giá phải từ 1 đến 7'
             });
         }
 
@@ -478,7 +549,42 @@ const submitReport = async (req, res) => {
         report.submittedAt = new Date();
         report.updatedBy = req.user.id;
 
-        await report.save();
+        try {
+            const updatedReport = await Report.findByIdAndUpdate(id, {
+                $set: {
+                    status: 'submitted',
+                    submittedAt: new Date(),
+                    updatedBy: req.user.id,
+                    updatedAt: Date.now()
+                }
+            }, { new: true, runValidators: true });
+
+            if (!updatedReport) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy báo cáo để cập nhật'
+                });
+            }
+
+            Object.assign(report, updatedReport.toObject());
+
+        } catch (error) {
+            console.error('Submit report validation error:', error);
+            if (error.name === 'ValidationError') {
+                const messages = Object.values(error.errors).map(e => e.message);
+                return res.status(400).json({
+                    success: false,
+                    message: `Lỗi xác thực dữ liệu: ${messages.join(', ')}`
+                });
+            }
+            if (error.name === 'MongoServerError' && error.message.includes('validation')) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Lỗi xác thực Schema MongoDB. Vui lòng kiểm tra các trường bắt buộc đã được gán (academicYearId, programId, organizationId).`
+                });
+            }
+            throw error;
+        }
 
         try {
             await report.addActivityLog('report_submit', req.user.id, `Nộp báo cáo: ${report.title}`, {
@@ -488,18 +594,18 @@ const submitReport = async (req, res) => {
                 isAuditRequired: true
             });
         } catch (logError) {
-            console.error('Activity log error:', logError);
+            console.error('Activity log error (not critical):', logError.message);
         }
 
         if (report.requestId) {
             try {
-                const ReportRequest = require('../report/ReportRequest');
-                const request = await ReportRequest.findById(report.requestId);
+                const ReportRequestModel = require('../../models/report/ReportRequest');
+                const request = await ReportRequestModel.findById(report.requestId);
                 if (request && request.complete && typeof request.complete === 'function') {
                     await request.complete(report._id);
                 }
             } catch (reqError) {
-                console.error('Report request update error:', reqError);
+                console.error('ReportRequest update error (not critical):', reqError.message);
             }
         }
 
@@ -518,10 +624,21 @@ const submitReport = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Submit report error:', error);
+        console.error('='.repeat(80));
+        console.error('[ERROR] SUBMIT REPORT FAILED');
+        console.error('='.repeat(80));
+        console.error('[ERROR] Error message:', error.message);
+        console.error('[ERROR] Error stack:', error.stack);
+        console.error('='.repeat(80));
+
         return res.status(500).json({
             success: false,
-            message: error.message || 'Lỗi hệ thống khi nộp báo cáo'
+            message: error.message || 'Lỗi hệ thống khi nộp báo cáo',
+            debug: process.env.NODE_ENV === 'development' ? {
+                errorMessage: error.message,
+                errorName: error.name,
+                errorStack: error.stack
+            } : undefined
         });
     }
 };

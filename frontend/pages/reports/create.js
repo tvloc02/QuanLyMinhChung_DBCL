@@ -1,4 +1,3 @@
-// frontend/pages/reports/create.js
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -19,7 +18,7 @@ const REPORT_TYPES = [
 
 const cleanData = (data) => {
     return Object.keys(data).reduce((acc, key) => {
-        if (data[key] !== undefined && data[key] !== null) {
+        if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
             acc[key] = data[key];
         }
         return acc;
@@ -44,10 +43,19 @@ export default function CreateReport() {
         type: '',
         programId: '',
         organizationId: '',
+        standardId: '',
+        criteriaId: '',
         summary: '',
         keywords: [],
         requestId: requestId || '',
         contentMethod: 'online_editor'
+    })
+
+    const [displayInfo, setDisplayInfo] = useState({
+        standardText: '',
+        criteriaText: '',
+        standardId: '',
+        criteriaId: '',
     })
 
     const [programs, setPrograms] = useState([])
@@ -104,24 +112,52 @@ export default function CreateReport() {
             const reqTypes = req.types && Array.isArray(req.types) ? req.types : []
             setAllowedTypes(reqTypes)
 
+            const programId = req.programId?._id || req.programId || ''
+            const organizationId = req.organizationId?._id || req.organizationId || ''
+            const standardId = req.standardId?._id || req.standardId || ''
+            const criteriaId = req.criteriaId?._id || req.criteriaId || ''
+
+            const standardText = req.standardId ? `${req.standardId.code} - ${req.standardId.name}` : standardId;
+            const criteriaText = req.criteriaId ? `${req.criteriaId.code} - ${req.criteriaId.name}` : criteriaId;
+
+
+            const baseFormData = {
+                title: req.title || '',
+                programId: programId,
+                organizationId: organizationId,
+                standardId: standardId,
+                criteriaId: criteriaId,
+                requestId: req._id,
+                contentMethod: 'online_editor'
+            }
+
+            setDisplayInfo({
+                standardText: standardText,
+                criteriaText: criteriaText,
+                standardId: standardId,
+                criteriaId: criteriaId
+            })
+
+
             if (reqTypes.length === 1) {
                 setFormData(prev => ({
                     ...prev,
-                    title: req.title || '',
+                    ...baseFormData,
                     type: reqTypes[0],
-                    programId: req.programId?._id || req.programId || '',
-                    organizationId: req.organizationId?._id || req.organizationId || '',
-                    requestId: req._id,
-                    contentMethod: 'online_editor'
                 }))
+                toast.success(`Loại báo cáo tự động chọn: ${REPORT_TYPES.find(t => t.value === reqTypes[0])?.label}`)
+            } else if (reqTypes.length > 1) {
+                setFormData(prev => ({
+                    ...prev,
+                    ...baseFormData,
+                    type: ''
+                }))
+                toast.success(`Vui lòng chọn 1 trong ${reqTypes.length} loại báo cáo được phép`)
             } else {
                 setFormData(prev => ({
                     ...prev,
-                    title: req.title || '',
-                    programId: req.programId?._id || req.programId || '',
-                    organizationId: req.organizationId?._id || req.organizationId || '',
-                    requestId: req._id,
-                    contentMethod: 'online_editor'
+                    ...baseFormData,
+                    type: ''
                 }))
             }
         } catch (error) {
@@ -165,6 +201,25 @@ export default function CreateReport() {
         return editorRef.current?.getContent() || ''
     }
 
+    const getReportDataToSend = (data) => {
+        const rawData = {
+            title: data.title.trim(),
+            type: data.type,
+            programId: data.programId,
+            organizationId: data.organizationId,
+            standardId: data.standardId,
+            criteriaId: data.criteriaId,
+            summary: data.summary.trim(),
+            keywords: data.keywords,
+            content: getContentFromEditor(),
+            contentMethod: data.contentMethod,
+            linkedEvidences: selectedEvidences,
+            requestId: data.requestId
+        };
+
+        return cleanData(rawData);
+    }
+
     const handleSave = async () => {
         if (!formData.title.trim()) {
             toast.error('Vui lòng nhập tiêu đề báo cáo')
@@ -177,7 +232,11 @@ export default function CreateReport() {
         }
 
         if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
-            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
+            const allowedTypeLabels = allowedTypes
+                .map(t => REPORT_TYPES.find(rt => rt.value === t)?.label)
+                .filter(Boolean)
+                .join(', ')
+            toast.error(`Loại báo cáo này không được cho phép. Các loại được phép: ${allowedTypeLabels}`)
             return
         }
 
@@ -195,21 +254,8 @@ export default function CreateReport() {
         try {
             setLoading(true)
 
-            const dataToSend = {
-                title: formData.title.trim(),
-                type: formData.type,
-                programId: formData.programId,
-                organizationId: formData.organizationId,
-                summary: formData.summary.trim(),
-                keywords: formData.keywords,
-                content: content,
-                contentMethod: formData.contentMethod,
-                linkedEvidences: selectedEvidences,
-                requestId: formData.requestId || undefined
-            }
-
-            const cleanedData = cleanData(dataToSend)
-            const response = await reportService.create(cleanedData)
+            const dataToSend = getReportDataToSend(formData);
+            const response = await reportService.create(dataToSend)
             toast.success('Lưu báo cáo thành công')
             router.push(`/reports/${response.data?.data?._id || response.data?._id}`)
         } catch (error) {
@@ -226,50 +272,26 @@ export default function CreateReport() {
             return
         }
 
-        if (!formData.title.trim()) {
-            toast.error('Vui lòng nhập tiêu đề báo cáo')
-            return
-        }
-
-        if (!formData.type) {
-            toast.error('Vui lòng chọn loại báo cáo')
+        if (!formData.title.trim() || !formData.type || !formData.programId || !formData.organizationId || !getContentFromEditor().trim()) {
+            toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc trước khi nộp.')
             return
         }
 
         if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
-            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
-            return
-        }
-
-        if (!formData.programId || !formData.organizationId) {
-            toast.error('Vui lòng chọn chương trình và tổ chức')
-            return
-        }
-
-        const content = getContentFromEditor()
-        if (!content.trim()) {
-            toast.error('Vui lòng nhập nội dung báo cáo')
+            const allowedTypeLabels = allowedTypes
+                .map(t => REPORT_TYPES.find(rt => rt.value === t)?.label)
+                .filter(Boolean)
+                .join(', ')
+            toast.error(`Loại báo cáo này không được cho phép. Các loại được phép: ${allowedTypeLabels}`)
             return
         }
 
         try {
             setSubmitting(true)
 
-            const dataToSend = {
-                title: formData.title.trim(),
-                type: formData.type,
-                programId: formData.programId,
-                organizationId: formData.organizationId,
-                summary: formData.summary.trim(),
-                keywords: formData.keywords,
-                content: content,
-                contentMethod: formData.contentMethod,
-                linkedEvidences: selectedEvidences,
-                requestId: formData.requestId || undefined
-            }
+            const dataToSend = getReportDataToSend(formData);
 
-            const cleanedData = cleanData(dataToSend)
-            const createResponse = await reportService.create(cleanedData)
+            const createResponse = await reportService.create(dataToSend)
             const reportId = createResponse.data?.data?._id || createResponse.data?._id
 
             await reportService.addSelfEvaluation(reportId, selfEvaluation)
@@ -279,7 +301,8 @@ export default function CreateReport() {
             router.push(`/reports/${reportId}`)
         } catch (error) {
             console.error('Submit error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo')
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi nộp báo cáo'
+            toast.error(errorMessage)
         } finally {
             setSubmitting(false)
         }
@@ -289,69 +312,7 @@ export default function CreateReport() {
         setSelfEvaluation(evalData)
         setShowSelfEvalModal(false)
 
-        if (!formData.title.trim()) {
-            toast.error('Vui lòng nhập tiêu đề báo cáo')
-            return
-        }
-
-        if (!formData.type) {
-            toast.error('Vui lòng chọn loại báo cáo')
-            return
-        }
-
-        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
-            toast.error('Loại báo cáo này không được cho phép cho yêu cầu này')
-            return
-        }
-
-        if (!formData.programId || !formData.organizationId) {
-            toast.error('Vui lòng chọn chương trình và tổ chức')
-            return
-        }
-
-        const content = getContentFromEditor()
-        if (!content.trim()) {
-            toast.error('Vui lòng nhập nội dung báo cáo')
-            return
-        }
-
-        try {
-            setSubmitting(true)
-
-            const dataToSend = {
-                title: formData.title.trim(),
-                type: formData.type,
-                programId: formData.programId,
-                organizationId: formData.organizationId,
-                summary: formData.summary.trim(),
-                keywords: formData.keywords,
-                content: content,
-                contentMethod: formData.contentMethod,
-                linkedEvidences: selectedEvidences,
-                requestId: formData.requestId || undefined
-            }
-
-            const cleanedData = cleanData(dataToSend)
-            console.log('Creating report with:', cleanedData)
-            const createResponse = await reportService.create(cleanedData)
-            const reportId = createResponse.data?.data?._id || createResponse.data?._id
-
-            console.log('Report created:', reportId)
-            console.log('Adding self evaluation:', evalData)
-            await reportService.addSelfEvaluation(reportId, evalData)
-
-            console.log('Submitting report...')
-            await reportService.submit(reportId)
-
-            toast.success('Nộp báo cáo thành công')
-            router.push(`/reports/${reportId}`)
-        } catch (error) {
-            console.error('Submit error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo')
-            setShowSelfEvalModal(true)
-        } finally {
-            setSubmitting(false)
-        }
+        await handleSubmit()
     }
 
     const availableTypes = allowedTypes.length > 0
@@ -388,7 +349,13 @@ export default function CreateReport() {
                                 </p>
                                 {request && allowedTypes.length > 0 && (
                                     <p className="text-blue-100 text-sm mt-1">
-                                        Loại báo cáo cho phép: {allowedTypes.length === 1 ? availableTypes.map(t => t.label).join(', ') : `${allowedTypes.length} loại`}
+                                        Loại báo cáo cho phép:
+                                        <span className="font-bold ml-1">
+                                            {allowedTypes.length === 1
+                                                ? availableTypes[0]?.label
+                                                : `${allowedTypes.length} loại`
+                                            }
+                                        </span>
                                     </p>
                                 )}
                             </div>
@@ -430,16 +397,26 @@ export default function CreateReport() {
                                             className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                             required
                                         >
-                                            <option value="">Chọn loại báo cáo</option>
+                                            <option value="">
+                                                {allowedTypes.length > 0 ? 'Chọn loại báo cáo (được phép)' : 'Chọn loại báo cáo'}
+                                            </option>
                                             {availableTypes.map(type => (
-                                                <option key={type.value} value={type.value}>
+                                                <option
+                                                    key={type.value}
+                                                    value={type.value}
+                                                >
                                                     {type.label}
+                                                    {allowedTypes.includes(type.value) ? ' ✓' : ''}
                                                 </option>
                                             ))}
                                         </select>
-                                        {request && allowedTypes.length === 1 && (
-                                            <p className="text-xs text-blue-600 mt-1">
-                                                ✓ Tự động chọn loại duy nhất cho phép
+
+                                        {request && allowedTypes.length > 0 && (
+                                            <p className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded border border-blue-200 font-semibold">
+                                                {allowedTypes.length === 1
+                                                    ? `✓ Loại duy nhất cho phép: ${availableTypes[0]?.label}`
+                                                    : `✓ ${allowedTypes.length} loại báo cáo được phép`
+                                                }
                                             </p>
                                         )}
                                     </div>
@@ -482,6 +459,36 @@ export default function CreateReport() {
                                         ))}
                                     </select>
                                 </div>
+
+                                {/* SỬ DỤNG displayInfo.standardText VÀ displayInfo.criteriaText ĐỂ HIỂN THỊ */}
+                                {(displayInfo.standardId || displayInfo.criteriaId) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Tiêu chuẩn
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="standardId"
+                                                value={displayInfo.standardText}
+                                                disabled
+                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 disabled:opacity-100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Tiêu chí
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="criteriaId"
+                                                value={displayInfo.criteriaText}
+                                                disabled
+                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 disabled:opacity-100"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

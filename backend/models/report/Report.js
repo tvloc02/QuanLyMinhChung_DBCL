@@ -214,9 +214,9 @@ reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
 
 reportSchema.pre('save', function(next) {
-    if (this.isModified() && !this.isNew) {
+    if (this.isModified() && !this.isNew) { // <--- True vì status, submittedAt, updatedBy bị thay đổi
         this.updatedAt = Date.now();
-        if (this.isModified('content')) {
+        if (this.isModified('content')) { // <--- Rất có thể là False
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
             if (!this.versions) {
                 this.versions = [];
@@ -224,7 +224,7 @@ reportSchema.pre('save', function(next) {
             this.versions.push({
                 content: this.content,
                 changeNote: 'Cập nhật nội dung tự động',
-                changedBy: this.updatedBy
+                changedBy: this.updatedBy // <--- updatedBy bị thay đổi trong submitReport
             });
         }
     } else if (this.isNew && this.content) {

@@ -12,7 +12,6 @@ const {
     rejectRequest
 } = require('../../controllers/report/reportRequestController');
 
-// ← THÊM MIDDLEWARE NÀY VÀO TẤT CẢ ROUTES
 router.get('/', auth, setAcademicYearContext, [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
@@ -27,12 +26,12 @@ router.get('/:id', auth, setAcademicYearContext, [
 router.post('/', auth, requireManager, setAcademicYearContext, [
     body('title').notEmpty().isLength({ max: 500 }),
     body('description').notEmpty().isLength({ max: 2000 }),
-    body('types').optional().isArray(),  // ← Thay đổi: types là optional array
-    body('types.*').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
+    body('types').isArray().notEmpty().withMessage('Loại báo cáo là bắt buộc'),
+    body('types.*').isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
     body('programId').isMongoId(),
     body('organizationId').isMongoId(),
-    body('standardId').optional().isMongoId(),
-    body('criteriaId').optional().isMongoId(),
+    body('standardId').optional({ nullable: true, checkFalsy: true }).isMongoId(),
+    body('criteriaId').optional({ nullable: true, checkFalsy: true }).isMongoId(),
     body('deadline').isISO8601(),
     body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
     body('assignedTo').isMongoId().withMessage('Người nhận là bắt buộc')

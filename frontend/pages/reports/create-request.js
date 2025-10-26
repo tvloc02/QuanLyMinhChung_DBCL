@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import toast from 'react-hot-toast'
 import {
-    FileText, Save, ArrowLeft, Plus, AlertCircle, RefreshCw, X, Check, BookOpen, Building2, Calendar, Loader2, Info // <-- Đã thêm Info
+    FileText, Save, ArrowLeft, Plus, AlertCircle, RefreshCw, X, Check, BookOpen, Building2, Calendar, Loader2, Info, List, Zap
 } from 'lucide-react'
 import { apiMethods } from '../../services/api'
 
@@ -24,6 +24,8 @@ export default function CreateRequestPage() {
 
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
+    const [standards, setStandards] = useState([]) // <-- Thêm Standards
+    const [criteria, setCriteria] = useState([])   // <-- Thêm Criteria
     const [tdgUsers, setTdgUsers] = useState([])
 
     const [showUserModal, setShowUserModal] = useState(false)
@@ -34,9 +36,11 @@ export default function CreateRequestPage() {
         description: '',
         programId: '',
         organizationId: '',
+        standardId: '', // <-- Thêm standardId
+        criteriaId: '', // <-- Thêm criteriaId
         deadline: '',
         priority: 'normal',
-        types: [],  // ← Array chứa các loại báo cáo được phép
+        types: [],
         assignedTo: []
     })
 
@@ -54,6 +58,25 @@ export default function CreateRequestPage() {
             fetchInitialData()
         }
     }, [user, isLoading, router])
+
+    useEffect(() => {
+        if (formData.programId && formData.organizationId) {
+            fetchStandards()
+        } else {
+            setStandards([])
+            setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
+        }
+    }, [formData.programId, formData.organizationId])
+
+    useEffect(() => {
+        if (formData.standardId) {
+            fetchCriteria()
+        } else {
+            setCriteria([])
+            setFormData(prev => ({ ...prev, criteriaId: '' }))
+        }
+    }, [formData.standardId])
+
 
     const fetchInitialData = async () => {
         try {
@@ -74,14 +97,60 @@ export default function CreateRequestPage() {
         }
     }
 
+    const fetchStandards = async () => {
+        try {
+            const response = await apiMethods.standards.getAll({
+                programId: formData.programId,
+                organizationId: formData.organizationId
+            })
+            setStandards(response.data?.data?.standards || response.data?.data || [])
+        } catch (error) {
+            console.error('Fetch standards error:', error)
+            setStandards([])
+        }
+    }
+
+    const fetchCriteria = async () => {
+        try {
+            const response = await apiMethods.criteria.getAll({
+                standardId: formData.standardId
+            })
+            const criteriaData = response.data?.data?.criterias ||
+                response.data?.data?.criteria ||
+                response.data?.data || []
+            setCriteria(criteriaData)
+        } catch (error) {
+            console.error('Fetch criteria error:', error)
+            setCriteria([])
+        }
+    }
+
     const validateForm = () => {
         const errors = {}
+        const types = formData.types
+        const isComprehensive = types.length === 1 && types.includes('comprehensive_report')
+        const requiresStandard = types.includes('standard_analysis')
+        const requiresCriteria = types.includes('criteria_analysis')
+
         if (!formData.title.trim()) errors.title = 'Tiêu đề là bắt buộc'
         if (!formData.description.trim()) errors.description = 'Mô tả là bắt buộc'
         if (!formData.programId) errors.programId = 'Chương trình là bắt buộc'
         if (!formData.organizationId) errors.organizationId = 'Tổ chức là bắt buộc'
         if (!formData.deadline) errors.deadline = 'Hạn chót là bắt buộc'
         if (formData.assignedTo.length === 0) errors.assignedTo = 'Chọn ít nhất 1 người'
+        if (formData.types.length === 0) errors.types = 'Chọn loại báo cáo là bắt buộc'
+
+        if (!isComprehensive) {
+            if (requiresCriteria && !formData.criteriaId) {
+                errors.criteriaId = 'Phân tích tiêu chí bắt buộc chọn Tiêu chí'
+                errors.standardId = 'Tiêu chí cần Tiêu chuẩn cha'
+            } else if (requiresStandard && !formData.standardId) {
+                errors.standardId = 'Phân tích tiêu chuẩn/tiêu chí bắt buộc chọn Tiêu chuẩn'
+            }
+            if (formData.criteriaId && !formData.standardId) {
+                errors.standardId = 'Không thể chọn Tiêu chí mà không chọn Tiêu chuẩn'
+            }
+        }
 
         setFormErrors(errors)
         return Object.keys(errors).length === 0
@@ -91,21 +160,36 @@ export default function CreateRequestPage() {
         e.preventDefault()
 
         if (!validateForm()) {
-            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' })
+            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ và chính xác thông tin bắt buộc' })
             return
         }
 
         try {
             setSubmitting(true)
 
+            // Lấy standardId và criteriaId dựa trên loại báo cáo
+            let standardIdToSend = formData.standardId || null
+            let criteriaIdToSend = formData.criteriaId || null
+
+            const types = formData.types
+            const isComprehensive = types.length === 1 && types.includes('comprehensive_report')
+
+            // Nếu chỉ là báo cáo tổng hợp, không gửi standardId/criteriaId để tránh lỗi
+            if (isComprehensive) {
+                standardIdToSend = null
+                criteriaIdToSend = null
+            }
+
             // Tạo yêu cầu cho từng người được giao
             const promises = formData.assignedTo.map(userId => {
                 return apiMethods.reportRequests.create({
                     title: formData.title,
                     description: formData.description,
-                    types: formData.types,  // ← Gửi array types
+                    types: formData.types,
                     programId: formData.programId,
                     organizationId: formData.organizationId,
+                    standardId: standardIdToSend, // Gửi null nếu là tổng hợp hoặc không chọn
+                    criteriaId: criteriaIdToSend, // Gửi null nếu là tổng hợp hoặc không chọn
                     deadline: formData.deadline,
                     priority: formData.priority,
                     assignedTo: userId
@@ -144,12 +228,27 @@ export default function CreateRequestPage() {
     }
 
     const toggleTypeSelection = (type) => {
-        setFormData(prev => ({
-            ...prev,
-            types: prev.types.includes(type)
+        setFormData(prev => {
+            const newTypes = prev.types.includes(type)
                 ? prev.types.filter(t => t !== type)
                 : [...prev.types, type]
-        }))
+
+            let updatedTypes = newTypes
+
+            // Logic: Nếu chọn Tổng hợp (comprehensive_report), bỏ chọn các loại khác
+            if (type === 'comprehensive_report' && !prev.types.includes(type)) {
+                updatedTypes = ['comprehensive_report']
+            }
+            // Logic: Nếu bỏ chọn Tổng hợp, và danh sách rỗng, không làm gì.
+            else if (prev.types.includes('comprehensive_report') && type !== 'comprehensive_report') {
+                updatedTypes = newTypes.filter(t => t !== 'comprehensive_report')
+            }
+
+            return {
+                ...prev,
+                types: updatedTypes
+            }
+        })
     }
 
     const getSelectedTypeLabels = () => {
@@ -183,6 +282,10 @@ export default function CreateRequestPage() {
         )
     }
 
+    const isComprehensiveOnly = formData.types.length === 1 && formData.types.includes('comprehensive_report')
+    const hasStandardOrCriteriaType = formData.types.includes('standard_analysis') || formData.types.includes('criteria_analysis')
+    const showStandardCriteriaSelect = hasStandardOrCriteriaType && !isComprehensiveOnly
+
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
@@ -203,7 +306,6 @@ export default function CreateRequestPage() {
                     </div>
                 )}
 
-                {/* Header - Màu xanh lam đồng bộ */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -269,6 +371,31 @@ export default function CreateRequestPage() {
                                 {formErrors.description && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.description}</p>}
                             </div>
 
+                            {/* Chọn loại báo cáo */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Loại báo cáo được phép <span className="text-red-500">*</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTypesModal(true)}
+                                    className={`w-full px-4 py-3 border-2 rounded-xl text-left flex items-center justify-between font-medium transition-all ${
+                                        formErrors.types
+                                            ? 'border-red-300 bg-red-50 text-red-700'
+                                            : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                    }`}
+                                >
+                                    <span>
+                                        {formData.types.length === 0
+                                            ? 'Chọn loại báo cáo'
+                                            : `Đã chọn ${formData.types.length} loại: ${getSelectedTypeLabels()}`
+                                        }
+                                    </span>
+                                    <Plus className="w-5 h-5" />
+                                </button>
+                                {formErrors.types && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.types}</p>}
+                            </div>
+
                             {/* Hàng 1: Chương trình, Tổ chức */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
@@ -312,6 +439,53 @@ export default function CreateRequestPage() {
                                 </div>
                             </div>
 
+                            {/* Hàng Tiêu chuẩn/Tiêu chí (Chỉ hiện khi không phải Báo cáo Tổng hợp) */}
+                            {showStandardCriteriaSelect && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <List className="w-4 h-4 inline mr-1 text-blue-600" />
+                                            Tiêu chuẩn {formData.types.includes('standard_analysis') && <span className="text-red-500">*</span>}
+                                        </label>
+                                        <select
+                                            value={formData.standardId}
+                                            onChange={(e) => handleChange('standardId', e.target.value)}
+                                            disabled={!formData.programId || !formData.organizationId}
+                                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:bg-gray-100 ${
+                                                formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-blue-200'
+                                            }`}
+                                        >
+                                            <option value="">Chọn Tiêu chuẩn</option>
+                                            {standards.map(s => (
+                                                <option key={s._id} value={s._id}>{s.code} - {s.name}</option>
+                                            ))}
+                                        </select>
+                                        {formErrors.standardId && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.standardId}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <Zap className="w-4 h-4 inline mr-1 text-blue-600" />
+                                            Tiêu chí {formData.types.includes('criteria_analysis') && <span className="text-red-500">*</span>}
+                                        </label>
+                                        <select
+                                            value={formData.criteriaId}
+                                            onChange={(e) => handleChange('criteriaId', e.target.value)}
+                                            disabled={!formData.standardId || !formData.types.includes('criteria_analysis')}
+                                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:bg-gray-100 ${
+                                                formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-blue-200'
+                                            }`}
+                                        >
+                                            <option value="">Chọn Tiêu chí</option>
+                                            {criteria.map(c => (
+                                                <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
+                                            ))}
+                                        </select>
+                                        {formErrors.criteriaId && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.criteriaId}</p>}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Hàng 2: Hạn chót, Độ ưu tiên */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
@@ -347,53 +521,6 @@ export default function CreateRequestPage() {
                                 </div>
                             </div>
 
-                            {/* Chọn loại báo cáo */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Loại báo cáo được phép
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowTypesModal(true)}
-                                    className="w-full px-4 py-3 border-2 border-blue-300 bg-blue-50 rounded-xl text-left flex items-center justify-between font-medium text-blue-700 hover:bg-blue-100 transition-all"
-                                >
-                                    <span>
-                                        {formData.types.length === 0
-                                            ? 'Chọn loại báo cáo'
-                                            : `Đã chọn ${formData.types.length} loại: ${getSelectedTypeLabels()}`
-                                        }
-                                    </span>
-                                    <Plus className="w-5 h-5" />
-                                </button>
-
-                                {/* Danh sách loại được chọn */}
-                                {formData.types.length > 0 && (
-                                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                        <p className="text-sm font-semibold text-blue-900 mb-2">Các loại báo cáo được phép:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {formData.types.map(type => {
-                                                const typeInfo = REPORT_TYPES.find(t => t.value === type);
-                                                return (
-                                                    <span
-                                                        key={type}
-                                                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-medium"
-                                                    >
-                                                        {typeInfo?.label}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleTypeSelection(type)}
-                                                            className="ml-2 text-blue-200 hover:text-white"
-                                                        >
-                                                            <X className="w-4 h-4" />
-                                                        </button>
-                                                    </span>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
                             {/* Giao cho TDG */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -416,33 +543,6 @@ export default function CreateRequestPage() {
                                     </span>
                                     <Plus className="w-5 h-5" />
                                 </button>
-
-                                {/* Danh sách người được chọn */}
-                                {formData.assignedTo.length > 0 && (
-                                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                        <p className="text-sm font-semibold text-blue-900 mb-2">Người được giao:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {tdgUsers
-                                                .filter(u => formData.assignedTo.includes(u._id))
-                                                .map(user => (
-                                                    <span
-                                                        key={user._id}
-                                                        className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-medium"
-                                                    >
-                                                        {user.fullName}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleUserSelection(user._id)}
-                                                            className="ml-2 text-blue-200 hover:text-white"
-                                                        >
-                                                            <X className="w-4 h-4" />
-                                                        </button>
-                                                    </span>
-                                                ))}
-                                        </div>
-                                    </div>
-                                )}
-
                                 {formErrors.assignedTo && <p className="mt-1 text-sm text-red-600"><AlertCircle className="w-4 h-4 inline mr-1" />{formErrors.assignedTo}</p>}
                             </div>
                         </div>
@@ -497,6 +597,7 @@ export default function CreateRequestPage() {
                         {/* Content */}
                         <div className="p-6 space-y-3">
                             <p className="text-sm text-gray-600 mb-4">
+                                Lưu ý: Chỉ chọn **Báo cáo tổng hợp** nếu bạn muốn báo cáo độc lập mà không liên quan đến Tiêu chuẩn/Tiêu chí cụ thể.
                             </p>
                             {REPORT_TYPES.map(type => (
                                 <label

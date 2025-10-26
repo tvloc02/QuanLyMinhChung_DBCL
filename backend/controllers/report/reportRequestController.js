@@ -24,14 +24,12 @@ const getReportRequests = async (req, res) => {
 
         let query = { academicYearId };
 
-        // Manager xem yêu cầu mà họ tạo hoặc được phân công
         if (req.user.role === 'manager' && !createdBy && !assignedTo) {
             query.$or = [
                 { createdBy: req.user.id },
                 { assignedTo: req.user.id }
             ];
         }
-        // TDG xem yêu cầu được phân công cho họ
         else if (req.user.role === 'tdg' && !assignedTo) {
             query.assignedTo = req.user.id;
         }
@@ -109,7 +107,6 @@ const getRequestById = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền
         if (req.user.role !== 'admin' &&
             request.createdBy._id.toString() !== req.user.id.toString() &&
             request.assignedTo._id.toString() !== req.user.id.toString()) {
@@ -137,7 +134,7 @@ const createReportRequest = async (req, res) => {
         const {
             title,
             description,
-            types,  // ← Thay đổi từ type thành types (array)
+            types,
             programId,
             organizationId,
             standardId,
@@ -148,8 +145,10 @@ const createReportRequest = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+        const reportTypes = Array.isArray(types) ? types.filter(t => t) : [];
+        const isComprehensive = reportTypes.length === 1 && reportTypes.includes('comprehensive_report');
+        const requiresStandardOrCriteria = reportTypes.includes('standard_analysis') || reportTypes.includes('criteria_analysis');
 
-        // Chỉ manager tạo request
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
@@ -164,7 +163,33 @@ const createReportRequest = async (req, res) => {
             });
         }
 
-        // Kiểm tra người nhận có role tdg không
+        // --- Bổ sung Logic Validation mới ---
+        if (requiresStandardOrCriteria && !isComprehensive) {
+            if (reportTypes.includes('criteria_analysis') && !criteriaId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Yêu cầu phân tích tiêu chí phải chọn Tiêu chí'
+                });
+            }
+            if (reportTypes.includes('standard_analysis') && !standardId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Yêu cầu phân tích tiêu chuẩn phải chọn Tiêu chuẩn'
+                });
+            }
+        }
+
+        // Cho phép tạo yêu cầu tổng hợp mà không cần Tiêu chuẩn/Tiêu chí
+        if (isComprehensive && !requiresStandardOrCriteria) {
+            // Không làm gì, cho phép standardId và criteriaId là null
+        } else if (!standardId && criteriaId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể chọn Tiêu chí mà không chọn Tiêu chuẩn'
+            });
+        }
+        // --- Kết thúc Logic Validation mới ---
+
         const assignedUser = await User.findById(assignedTo);
         if (!assignedUser || assignedUser.role !== 'tdg') {
             return res.status(400).json({
@@ -177,22 +202,16 @@ const createReportRequest = async (req, res) => {
             academicYearId,
             title: title.trim(),
             description: description.trim(),
-            types: Array.isArray(types) ? types.filter(t => t) : [],  // ← Xử lý array types
+            types: reportTypes,
             programId,
             organizationId,
             deadline: new Date(deadline),
             priority: priority || 'normal',
             createdBy: req.user.id,
-            assignedTo
+            assignedTo,
+            standardId: standardId || null,
+            criteriaId: criteriaId || null
         });
-
-        if (standardId) {
-            requestData.standardId = standardId;
-        }
-
-        if (criteriaId) {
-            requestData.criteriaId = criteriaId;
-        }
 
         await requestData.save();
 
@@ -205,7 +224,6 @@ const createReportRequest = async (req, res) => {
             { path: 'assignedTo', select: 'fullName email' }
         ]);
 
-        // Gửi notification
         const Notification = mongoose.model('Notification');
         await Notification.create({
             recipientId: assignedTo,
