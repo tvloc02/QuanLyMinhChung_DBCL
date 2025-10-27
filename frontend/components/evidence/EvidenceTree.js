@@ -4,6 +4,8 @@ import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import FileManagement from '../file/FileManagement'
+import UploadEvidenceFile from '../file/UploadEvidenceFile'
+import ApproveFilesModal from './ApproveFilesModal'
 import {
     ChevronDown,
     ChevronRight,
@@ -28,7 +30,8 @@ import {
     GripVertical,
     Send,
     Users,
-    FileCheck
+    FileCheck,
+    Eye
 } from 'lucide-react'
 
 export default function EvidenceTree() {
@@ -60,6 +63,12 @@ export default function EvidenceTree() {
     const [availableUsers, setAvailableUsers] = useState([])
     const [loadingUsers, setLoadingUsers] = useState(false)
     const [reportMessage, setReportMessage] = useState('')
+
+    // ===== NEW STATES FOR UPLOAD & APPROVE =====
+    const [showUploadModal, setShowUploadModal] = useState(false)
+    const [showApproveModal, setShowApproveModal] = useState(false)
+    const [selectedEvidenceForUpload, setSelectedEvidenceForUpload] = useState(null)
+    const [selectedEvidenceIdsForApprove, setSelectedEvidenceIdsForApprove] = useState([])
 
     useEffect(() => {
         fetchPrograms()
@@ -117,7 +126,6 @@ export default function EvidenceTree() {
         }
     }
 
-    // ===== FETCH TDG - USERS CỦA PHÒNG BAN =====
     const fetchAvailableUsers = async (deptId) => {
         try {
             setLoadingUsers(true)
@@ -234,14 +242,12 @@ export default function EvidenceTree() {
             return
         }
 
-        // ✅ KIỂM TRA QUYỀN: Chỉ manager của CHÍNH phòng ban đó mới được di chuyển
         if (userRole !== 'admin' && userRole !== 'manager') {
             toast.error('Chỉ Manager mới có quyền di chuyển minh chứng')
             setDraggedEvidence(null)
             return
         }
 
-        // ✅ KIỂM TRA: Manager chỉ được di chuyển minh chứng của phòng ban mình
         if (userRole === 'manager') {
             const deptIdToCompare = draggedEvidence.evidence.departmentId?._id || draggedEvidence.evidence.departmentId
             if (deptIdToCompare.toString() !== userDepartment?.toString()) {
@@ -260,18 +266,13 @@ export default function EvidenceTree() {
             return
         }
 
-        // ✅ TÍNH MÃ MINH CHỨNG MỚI - Tự động tăng số thứ tự
         const currentCode = draggedEvidence.evidence.code
         const currentCodeParts = currentCode.split('.')
-
-        // Giữ nguyên phần đầu: [0] = prefix/box, [1] = std, [2] = criteria, [3] = sequence
         const prefixAndBox = currentCodeParts[0]
 
         const newStandardCode = String(standard.code).padStart(2, '0')
         const newCriteriaCode = String(criteria.code).padStart(2, '0')
 
-        // ✅ TÌM SỐ THỨ TỰ TIẾP THEO trong tiêu chí đích
-        // Lấy tất cả mã của minh chứng trong tiêu chí đích
         const existingEvidences = criteria.evidences || [];
         let maxSequence = 0;
 
@@ -422,8 +423,45 @@ export default function EvidenceTree() {
         }
     }
 
+    // ===== NEW: UPLOAD FILES FOR TDG =====
+    const handleUploadFiles = (evidence) => {
+        setSelectedEvidenceForUpload(evidence)
+        setShowUploadModal(true)
+    }
+
+    const handleUploadSuccess = () => {
+        setShowUploadModal(false)
+        setSelectedEvidenceForUpload(null)
+        fetchTreeData()
+    }
+
+    // ===== NEW: APPROVE FILES FOR MANAGER =====
+    const handleApproveFiles = (evidence) => {
+        setSelectedEvidenceIdsForApprove([evidence.id])
+        setShowApproveModal(true)
+    }
+
+    const handleApproveSuccess = () => {
+        setShowApproveModal(false)
+        setSelectedEvidenceIdsForApprove([])
+        fetchTreeData()
+    }
+
+    // ===== NEW: CHECK PERMISSIONS =====
+    const canUserUploadToEvidence = (evidence) => {
+        if (userRole === 'tdg') {
+            return evidence.departmentId?._id?.toString() === userDepartment?.toString() ||
+                evidence.departmentId?.toString() === userDepartment?.toString()
+        }
+        if (userRole === 'manager') {
+            return evidence.departmentId?._id?.toString() === userDepartment?.toString() ||
+                evidence.departmentId?.toString() === userDepartment?.toString()
+        }
+        return false
+    }
+
     const handleOpenAssignModal = (evidence) => {
-        if (userRole !== 'manager' || userDepartment !== evidence.departmentId._id.toString() && userDepartment !== evidence.departmentId) {
+        if (userRole !== 'manager' || (userDepartment !== evidence.departmentId._id.toString() && userDepartment !== evidence.departmentId)) {
             toast.error('Chỉ Manager của phòng ban mới có quyền phân quyền')
             return
         }
@@ -434,7 +472,6 @@ export default function EvidenceTree() {
         setShowAssignModal(true)
     }
 
-    // ===== ASSIGN USERS TO EVIDENCE =====
     const handleAssignUsers = async () => {
         if (!selectedEvidenceForAssign || selectedUsers.length === 0) {
             toast.error('Vui lòng chọn ít nhất một thành viên')
@@ -442,7 +479,6 @@ export default function EvidenceTree() {
         }
 
         try {
-            // API cần được thêm vào backend
             const response = await apiMethods.evidences.assignUsers(selectedEvidenceForAssign.id, {
                 userIds: selectedUsers
             })
@@ -460,9 +496,7 @@ export default function EvidenceTree() {
         }
     }
 
-    // ===== OPEN REPORT MODAL =====
     const handleOpenReportModal = () => {
-        // Chỉ Manager được nộp báo cáo
         if (userRole !== 'manager') {
             toast.error('Chỉ Manager mới có quyền nộp báo cáo')
             return
@@ -476,7 +510,6 @@ export default function EvidenceTree() {
         setShowReportModal(true)
     }
 
-    // ===== SUBMIT REPORT =====
     const handleSubmitReport = async () => {
         if (!reportMessage.trim()) {
             toast.error('Vui lòng nhập nội dung báo cáo')
@@ -913,32 +946,59 @@ export default function EvidenceTree() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
-                                                                            {userRole === 'manager' &&
-                                                                                userDepartment === (evidence.departmentId?._id || evidence.departmentId) &&
-                                                                                (
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation()
-                                                                                            handleOpenAssignModal(evidence)
-                                                                                        }}
-                                                                                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                                                                                        title="Phân quyền cho thành viên"
-                                                                                    >
-                                                                                        <Users className="h-4 w-4" />
-                                                                                    </button>
-                                                                                )}
+                                                                            {/* TDG UPLOAD */}
+                                                                            {userRole === 'tdg' && canUserUploadToEvidence(evidence) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation()
+                                                                                        handleUploadFiles(evidence)
+                                                                                    }}
+                                                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                                    title="Upload file"
+                                                                                >
+                                                                                    <Upload className="h-4 w-4" />
+                                                                                </button>
+                                                                            )}
 
-                                                                            {(userRole === 'admin' ||
-                                                                                (userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId))) && (
+                                                                            {/* MANAGER ASSIGN */}
+                                                                            {userRole === 'manager' && canUserUploadToEvidence(evidence) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation()
+                                                                                        handleOpenAssignModal(evidence)
+                                                                                    }}
+                                                                                    className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                                                                                    title="Phân quyền cho thành viên"
+                                                                                >
+                                                                                    <Users className="h-4 w-4" />
+                                                                                </button>
+                                                                            )}
+
+                                                                            {/* MANAGER APPROVE */}
+                                                                            {userRole === 'manager' && canUserUploadToEvidence(evidence) && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation()
+                                                                                        handleApproveFiles(evidence)
+                                                                                    }}
+                                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                                                                                    title="Duyệt file"
+                                                                                >
+                                                                                    <CheckCircle2 className="h-4 w-4" />
+                                                                                </button>
+                                                                            )}
+
+                                                                            {/* ADMIN & MANAGER VIEW FILES */}
+                                                                            {(userRole === 'admin' || userRole === 'manager') && (
                                                                                 <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation()
                                                                                         setSelectedEvidence(evidence)
                                                                                     }}
                                                                                     className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                                    title="Upload file"
+                                                                                    title="Xem files"
                                                                                 >
-                                                                                    <Upload className="h-4 w-4" />
+                                                                                    <Eye className="h-4 w-4" />
                                                                                 </button>
                                                                             )}
                                                                         </div>
@@ -1181,6 +1241,30 @@ export default function EvidenceTree() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ===== UPLOAD MODAL FOR TDG ===== */}
+            {showUploadModal && selectedEvidenceForUpload && (
+                <UploadEvidenceFile
+                    evidence={selectedEvidenceForUpload}
+                    onClose={() => {
+                        setShowUploadModal(false)
+                        setSelectedEvidenceForUpload(null)
+                    }}
+                    onSuccess={handleUploadSuccess}
+                />
+            )}
+
+            {/* ===== APPROVE MODAL FOR MANAGER ===== */}
+            {showApproveModal && selectedEvidenceIdsForApprove.length > 0 && (
+                <ApproveFilesModal
+                    evidenceIds={selectedEvidenceIdsForApprove}
+                    onClose={() => {
+                        setShowApproveModal(false)
+                        setSelectedEvidenceIdsForApprove([])
+                    }}
+                    onSuccess={handleApproveSuccess}
+                />
             )}
         </div>
     )

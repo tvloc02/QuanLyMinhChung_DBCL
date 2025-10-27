@@ -209,11 +209,11 @@ const FolderContentSelector = ({ evidenceId, selectedFolderId, onSelectFolder, o
 
             if (folderId === 'root') {
                 response = await apiMethods.files.getByEvidence(evidenceId, {
-                    parentFolder: 'root',
+                    parentFolderId: null,
                     page: 1,
                     limit: 1000
                 });
-                items = response.data?.data?.items || [];
+                items = response.data?.data?.items || response.data?.data || [];
             } else {
                 response = await apiMethods.files.getFolderContents({
                     folderId: folderId,

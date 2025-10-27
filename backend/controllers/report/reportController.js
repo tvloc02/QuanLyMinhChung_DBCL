@@ -632,10 +632,15 @@ const publishReport = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        // Only report author can publish
+        const createdById = report.createdBy ? report.createdBy.toString() : null;
+        const userId = req.user.id ? req.user.id.toString() : null;
+        const isReportAuthor = createdById === userId;
+
+        if (!isReportAuthor) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xuất bản báo cáo'
+                message: 'Chỉ tác giả báo cáo mới có quyền xuất bản'
             });
         }
 
@@ -677,10 +682,15 @@ const unpublishReport = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        // Only report author can unpublish
+        const createdById = report.createdBy ? report.createdBy.toString() : null;
+        const userId = req.user.id ? req.user.id.toString() : null;
+        const isReportAuthor = createdById === userId;
+
+        if (!isReportAuthor) {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền thu hồi báo cáo'
+                message: 'Chỉ tác giả báo cáo mới có quyền thu hồi'
             });
         }
 

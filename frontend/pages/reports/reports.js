@@ -22,7 +22,9 @@ import {
     Loader2,
     BarChart3,
     Send,
-    RotateCcw
+    RotateCcw,
+    Award,
+    Pencil
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import reportService from '../../services/reportService'
@@ -246,14 +248,10 @@ export default function ReportsManagement() {
         }
     }
 
-    // Hàm thực hiện Submit/Publish sau khi có SelfEvaluation
     const finalizeAction = async (reportId, actionType) => {
         try {
             setSubmitting(true)
-            if (actionType === 'submit') {
-                await reportService.submit(reportId)
-                toast.success('Nộp báo cáo thành công')
-            } else if (actionType === 'publish') {
+            if (actionType === 'publish') {
                 await apiMethods.reports.publish(reportId)
                 toast.success('Xuất bản báo cáo thành công')
             }
@@ -268,11 +266,14 @@ export default function ReportsManagement() {
         }
     }
 
-    // Hàm xử lý việc mở Modal SelfEvaluation và Finalize
     const handleActionSubmitPublishWithSelfEval = async (report) => {
         const isOwner = user?.id === report.createdBy?._id
-        const userRole = user?.role
-        const actionType = (userRole === 'tdg' && isOwner) ? 'submit' : 'publish'
+        const actionType = 'publish'
+
+        if (!isOwner) {
+            toast.error('Bạn không có quyền xuất bản báo cáo này')
+            return
+        }
 
         if (!report.selfEvaluation) {
             setReportToSubmit({ ...report, actionType })
@@ -280,32 +281,27 @@ export default function ReportsManagement() {
             return
         }
 
-        // Nếu đã có SelfEvaluation, thực hiện luôn hành động cuối cùng
-        if (actionType === 'submit') {
-            handleActionSubmitPublish(report)
-        } else if (actionType === 'publish') {
+        if (actionType === 'publish') {
             handleActionSubmitPublish(report)
         }
     }
 
-    // Hàm gọi API thực hiện Submit/Publish (Chỉ nên gọi khi đã có SelfEvaluation)
     const handleActionSubmitPublish = async (report) => {
         const isOwner = user?.id === report.createdBy?._id
-        const userRole = user?.role
         const reportId = report._id
 
         if (report.status !== 'draft') {
-            toast.error('Chỉ có thể nộp hoặc xuất bản báo cáo ở trạng thái nháp')
+            toast.error('Chỉ có thể xuất bản báo cáo ở trạng thái nháp')
             return
         }
 
-        if (userRole === 'tdg' && isOwner) {
-            if (!confirm('Bạn có chắc chắn muốn nộp báo cáo này?')) return
-            await finalizeAction(reportId, 'submit')
-        } else if (userRole === 'manager') {
-            if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
-            await finalizeAction(reportId, 'publish')
+        if (!isOwner) {
+            toast.error('Bạn không có quyền xuất bản báo cáo này')
+            return
         }
+
+        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+        await finalizeAction(reportId, 'publish')
     }
 
     const handleSelfEvaluationSubmit = async (evalData) => {
@@ -313,7 +309,7 @@ export default function ReportsManagement() {
         setShowSelfEvalModal(false)
 
         if (!reportToSubmit || !reportToSubmit.actionType) {
-            toast.error('Lỗi: Không tìm thấy báo cáo để nộp/xuất bản')
+            toast.error('Lỗi: Không tìm thấy báo cáo để xuất bản')
             return
         }
 
@@ -321,7 +317,6 @@ export default function ReportsManagement() {
             setSubmitting(true)
             await reportService.addSelfEvaluation(reportToSubmit._id, evalData)
             toast.success('Tự đánh giá thành công')
-            // Sau khi thêm tự đánh giá, thực hiện hành động cuối cùng
             await finalizeAction(reportToSubmit._id, reportToSubmit.actionType)
         } catch (error) {
             console.error('Self-evaluation submit error:', error)
@@ -419,7 +414,6 @@ export default function ReportsManagement() {
         return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200'
     }
 
-    // Hàm mới: Render các nút thao tác dựa trên Role và Status
     const renderActionButtons = (report) => {
         const isOwner = user?.id === report.createdBy?._id
         const userRole = user?.role
@@ -431,7 +425,6 @@ export default function ReportsManagement() {
 
         const buttons = []
 
-        // 1. Xem chi tiết (Tất cả)
         buttons.push(
             <ActionButton
                 key="view"
@@ -443,12 +436,10 @@ export default function ReportsManagement() {
             />
         )
 
-        // Admin chỉ có quyền xem
-        if (userRole === 'admin' || userRole === 'expert') {
+        if (userRole === 'admin' || userRole === 'supervisor') {
             return <div className="flex items-center justify-center gap-2 flex-wrap">{buttons}</div>
         }
 
-        // 2. Chỉnh sửa (Manager, TDG của báo cáo)
         if (isEditable) {
             buttons.push(
                 <ActionButton
@@ -462,26 +453,11 @@ export default function ReportsManagement() {
             )
         }
 
-        // 3. Nộp/Xuất bản (Submit/Publish)
-        if (isDraft && userRole === 'tdg' && isOwner) {
-            // TDG nộp bản nháp của mình
-            buttons.push(
-                <ActionButton
-                    key="submit"
-                    icon={Send}
-                    variant="success"
-                    size="sm"
-                    disabled={submitting}
-                    onClick={() => handleActionSubmitPublishWithSelfEval(report)}
-                    title="Nộp báo cáo"
-                />
-            )
-        } else if (isDraft && userRole === 'manager') {
-            // Manager xuất bản bản nháp
+        if (isDraft && (userRole === 'tdg' && isOwner || userRole === 'manager')) {
             buttons.push(
                 <ActionButton
                     key="publish"
-                    icon={CheckCircle} // Đã thay đổi icon từ Send sang CheckCircle
+                    icon={CheckCircle}
                     variant="success"
                     size="sm"
                     disabled={submitting}
@@ -491,7 +467,6 @@ export default function ReportsManagement() {
             )
         }
 
-        // 4. Phân quyền đánh giá (Manager)
         if ((isSubmitted || isPublished) && userRole === 'manager') {
             buttons.push(
                 <ActionButton
@@ -505,7 +480,19 @@ export default function ReportsManagement() {
             )
         }
 
-        // 5. Thu hồi xuất bản (Unpublish)
+        if ((isSubmitted || isPublished) && userRole === 'expert') {
+            buttons.push(
+                <ActionButton
+                    key="evaluate"
+                    icon={Award}
+                    variant="primary"
+                    size="sm"
+                    onClick={() => router.push(`/evaluations/create?reportId=${report._id}`)}
+                    title="Thêm đánh giá"
+                />
+            )
+        }
+
         if ((isSubmitted || isPublished) && (userRole === 'manager' || (userRole === 'tdg' && isOwner))) {
             buttons.push(
                 <ActionButton
@@ -519,7 +506,6 @@ export default function ReportsManagement() {
             )
         }
 
-        // 6. Xóa (Manager, TDG của báo cáo, chỉ bản nháp)
         if (isDeletable) {
             buttons.push(
                 <ActionButton
@@ -561,7 +547,6 @@ export default function ReportsManagement() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center space-x-4">
@@ -589,7 +574,6 @@ export default function ReportsManagement() {
                     </div>
                 </div>
 
-                {/* Search & Filters */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
@@ -750,7 +734,6 @@ export default function ReportsManagement() {
                     )}
                 </div>
 
-                {/* Bulk Actions */}
                 {selectedItems.length > 0 && (user.role === 'manager' || user.role === 'admin') && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                         <div className="flex items-center justify-between">
@@ -786,7 +769,6 @@ export default function ReportsManagement() {
                     </div>
                 )}
 
-                {/* Table */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                         <div className="flex items-center justify-between">
