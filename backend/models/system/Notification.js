@@ -36,9 +36,8 @@ const notificationSchema = new mongoose.Schema({
             'evidence_request',
             'evidence_request_completed',
             // BỔ SUNG
-            'completion_request',
-            'completion_notification',
-            'report_request_new',
+            'completion_request',       // Admin -> Manager: Yêu cầu hoàn thiện cây minh chứng
+            'completion_notification'   // Manager -> Admin: Xác nhận hoàn thiện cây minh chứng
         ],
         required: [true, 'Loại thông báo là bắt buộc']
     },
@@ -203,7 +202,6 @@ notificationSchema.virtual('typeText').get(function() {
         'assignment_overdue': 'Phân công quá hạn',
         'assignment_cancelled': 'Hủy phân công',
         'evaluation_submitted': 'Đánh giá đã nộp',
-        'report_request_new': 'Yêu cầu viết báo cáo',
         'evaluation_supervised': 'Đánh giá được chấp thuận',
         'evaluation_reevaluated': 'Yêu cầu đánh giá lại',
         'evaluation_finalized': 'Đánh giá đã Hoàn tất',
@@ -313,7 +311,6 @@ notificationSchema.methods.getActionUrl = function() {
         case 'report_access_granted':
         case 'report_comment_added':
         case 'report_review_requested':
-        case 'report_request_new':
             return this.data?.reportId ? `/reports/${this.data.reportId}` : null;
 
         case 'evidence_request':
@@ -384,9 +381,9 @@ notificationSchema.statics.createEvaluationNotification = async function(evaluat
     const titleMap = {
         'evaluation_submitted': `Đánh giá đã nộp: ${evaluation.reportId.title}`,
         'evaluation_reviewed': `Đánh giá đã xem xét: ${evaluation.reportId.title}`,
-        'evaluation_supervised': `Đánh giá được chấp thuận: ${evaluation.reportId.title}`,
-        'evaluation_reevaluated': `Yêu cầu đánh giá lại: ${evaluation.reportId.title}`,
-        'evaluation_finalized': `Đánh giá đã Hoàn tất: ${evaluation.reportId.title}`
+        'evaluation_supervised': `✅ Đánh giá được chấp thuận: ${evaluation.reportId.title}`,
+        'evaluation_reevaluated': `⚠️ Yêu cầu đánh giá lại: ${evaluation.reportId.title}`,
+        'evaluation_finalized': `⭐ Đánh giá đã Hoàn tất: ${evaluation.reportId.title}`
     };
 
     const messageMap = {

@@ -1,40 +1,43 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../../contexts/AuthContext'
 import Layout from '../../../components/common/Layout'
 import { apiMethods } from '../../../services/api'
-import RichTextEditor from '../../../components/reports/RichTextEditor' // <-- ĐÃ THAY ĐỔI
-import EvidencePicker from '../../../components/reports/EvidencePicker'
 import toast from 'react-hot-toast'
-import { FileText, Save, Loader2, Edit, X, Link as LinkIcon } from 'lucide-react'
+import {
+    ArrowLeft,
+    Edit,
+    Download,
+    CheckCircle,
+    Eye,
+    FileText,
+    Calendar,
+    User,
+    MessageSquare,
+    Loader2,
+    Link as LinkIcon,
+    Clock
+} from 'lucide-react'
 import { formatDate } from '../../../utils/helpers'
 
-const isMongoId = (id) => typeof id === 'string' && id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
-
-export default function EditReportPage() {
+export default function ReportDetail() {
     const router = useRouter()
     const { id } = router.query
     const { user, isLoading } = useAuth()
-    const editorRef = useRef(null)
 
-    const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
     const [report, setReport] = useState(null)
-    const [formData, setFormData] = useState({
-        title: '',
-        summary: '',
-        keywords: [],
-        programId: '',
-        organizationId: '',
-        type: ''
-    })
-    const [content, setContent] = useState('')
-    const [selectedEvidences, setSelectedEvidences] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [activeTab, setActiveTab] = useState('content')
+    const [evidences, setEvidences] = useState([])
+    const [versions, setVersions] = useState([])
+    const [comments, setComments] = useState([])
+    const [newComment, setNewComment] = useState('')
+    const [addingComment, setAddingComment] = useState(false)
 
     const breadcrumbItems = [
-        { name: 'Báo cáo', path: '/reports' },
-        { name: 'Chi tiết', path: id ? `/reports/${id}` : '#' },
-        { name: 'Chỉnh sửa' }
+        { name: 'Trang chủ', href: '/' },
+        { name: 'Quản lý báo cáo', href: '/reports', icon: FileText },
+        { name: report?.title || 'Chi tiết báo cáo' }
     ]
 
     useEffect(() => {
@@ -44,306 +47,266 @@ export default function EditReportPage() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user && router.isReady && isMongoId(id)) {
-            fetchReport(id)
-        } else if (!isMongoId(id) && !isLoading) {
-            setLoading(false)
+        if (id && user) {
+            fetchReportDetail()
+            fetchEvidences()
+            fetchVersions()
         }
-    }, [user, id, router.isReady])
+    }, [id, user])
 
-    const fetchReport = async (reportId) => {
+    const fetchReportDetail = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.reports.getById(reportId)
-            const reportData = response.data?.data || response.data
-
-            if (!reportData || reportData.status !== 'draft') {
-                toast.error('Chỉ có thể chỉnh sửa báo cáo ở trạng thái nháp')
-                router.replace(`/reports/${reportId}`)
-                return
-            }
-
-            setReport(reportData)
-            setFormData({
-                title: reportData.title || '',
-                summary: reportData.summary || '',
-                keywords: reportData.keywords || [],
-                programId: reportData.programId?._id || reportData.programId || '',
-                organizationId: reportData.organizationId?._id || reportData.organizationId || '',
-                type: reportData.type || ''
-            })
-            setContent(reportData.content || '')
-
-            const initialEvidences = reportData.linkedEvidences?.map(item => ({
-                evidenceId: item.evidenceId?._id || item.evidenceId,
-                code: item.evidenceId?.code,
-                name: item.evidenceId?.name,
-                contextText: item.contextText || '',
-                selectedFileIds: item.selectedFileIds?.map(file => file._id) || []
-            })) || []
-            setSelectedEvidences(initialEvidences)
-
+            const response = await apiMethods.reports.getById(id)
+            setReport(response.data?.data || response.data)
+            setComments(response.data?.data?.reviewerComments || [])
         } catch (error) {
             console.error('Fetch report error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tải báo cáo')
-            router.replace('/reports')
+            toast.error('Không thể tải thông tin báo cáo')
+            router.push('/reports')
         } finally {
             setLoading(false)
         }
     }
 
-    const handleChange = (e) => {
-        const { name, value } = e.target
-        setFormData(prev => ({ ...prev, [name]: value }))
-    }
-
-    const handleKeywordsChange = (e) => {
-        const value = e.target.value
-        const keywords = value.split(',').map(k => k.trim()).filter(k => k)
-        setFormData(prev => ({ ...prev, keywords }))
-    }
-
-    const handleSelectEvidence = (evidence) => {
-        const exists = selectedEvidences.find(e => e.evidenceId === evidence.evidenceId)
-        if (!exists) {
-            setSelectedEvidences(prev => [...prev, evidence])
-            if (editorRef.current) {
-                // Sử dụng RichTextEditor tùy chỉnh của bạn
-                editorRef.current.insertEvidenceCode(evidence.code)
-            }
+    const fetchEvidences = async () => {
+        try {
+            const response = await apiMethods.reports.getEvidences(id)
+            setEvidences(response.data?.data || [])
+        } catch (error) {
+            console.error('Fetch evidences error:', error)
         }
     }
 
-    const handleRemoveEvidence = (evidenceId) => {
-        setSelectedEvidences(prev => prev.filter(e => e.evidenceId !== evidenceId))
-    }
-
-    const handleUpdateEvidence = (evidenceId, updates) => {
-        setSelectedEvidences(prev => prev.map(e =>
-            e.evidenceId === evidenceId ? { ...e, ...updates } : e
-        ))
-    }
-
-    const handleSave = async () => {
-        if (!formData.title.trim()) {
-            toast.error('Tiêu đề báo cáo là bắt buộc')
-            return
+    const fetchVersions = async () => {
+        try {
+            const response = await apiMethods.reports.getVersions(id)
+            setVersions(response.data?.data || [])
+        } catch (error) {
+            console.error('Fetch versions error:', error)
         }
+    }
 
-        const contentToSave = editorRef.current?.getContent() || content
+    const handleDownload = async (format = 'html') => {
+        try {
+            const response = await apiMethods.reports.download(id, format)
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `${report.code}.${format}`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            toast.success('Tải xuống thành công')
+        } catch (error) {
+            console.error('Download error:', error)
+            toast.error('Lỗi khi tải xuống')
+        }
+    }
 
-        if (!contentToSave.trim() && report.contentMethod !== 'file_upload') {
-            toast.error('Nội dung báo cáo không được để trống')
+    const handlePublish = async () => {
+        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+
+        try {
+            await apiMethods.reports.publish(id)
+            toast.success('Xuất bản báo cáo thành công')
+            fetchReportDetail()
+        } catch (error) {
+            console.error('Publish error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản')
+        }
+    }
+
+    const handleAddComment = async () => {
+        if (!newComment.trim()) {
+            toast.error('Vui lòng nhập nội dung nhận xét')
             return
         }
 
         try {
-            setSaving(true)
-
-            const linkedEvidencesToSend = selectedEvidences.map(item => ({
-                evidenceId: item.evidenceId,
-                contextText: item.contextText,
-                selectedFileIds: item.selectedFileIds
-            }))
-
-            const dataToUpdate = {
-                title: formData.title.trim(),
-                summary: formData.summary.trim(),
-                keywords: formData.keywords,
-                content: contentToSave,
-                linkedEvidences: linkedEvidencesToSend
-            }
-
-            const response = await apiMethods.reports.update(id, dataToUpdate)
-            toast.success('Lưu báo cáo thành công')
-
-            const updatedReportData = response.data.data
-            setReport(updatedReportData)
-
-            const reloadedEvidences = updatedReportData.linkedEvidences?.map(item => ({
-                evidenceId: item.evidenceId?._id || item.evidenceId,
-                code: item.evidenceId?.code,
-                name: item.evidenceId?.name,
-                contextText: item.contextText || '',
-                selectedFileIds: item.selectedFileIds?.map(file => file._id) || []
-            })) || []
-            setSelectedEvidences(reloadedEvidences)
-
+            setAddingComment(true)
+            await apiMethods.reports.addComment(id, newComment.trim())
+            toast.success('Thêm nhận xét thành công')
+            setNewComment('')
+            fetchReportDetail()
         } catch (error) {
-            console.error('Save error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi lưu báo cáo')
+            console.error('Add comment error:', error)
+            toast.error('Lỗi khi thêm nhận xét')
         } finally {
-            setSaving(false)
+            setAddingComment(false)
         }
+    }
+
+    const getStatusColor = (status) => {
+        const colors = {
+            draft: 'bg-gray-100 text-gray-800 border-gray-200',
+            under_review: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            published: 'bg-green-100 text-green-800 border-green-200',
+            archived: 'bg-blue-100 text-blue-800 border-blue-200'
+        }
+        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+
+    const getStatusLabel = (status) => {
+        const labels = {
+            draft: 'Bản nháp',
+            under_review: 'Đang xem xét',
+            published: 'Đã xuất bản',
+            archived: 'Lưu trữ'
+        }
+        return labels[status] || status
+    }
+
+    const getTypeLabel = (type) => {
+        const labels = {
+            criteria_analysis: 'Phân tích tiêu chí',
+            standard_analysis: 'Phân tích tiêu chuẩn',
+            comprehensive_report: 'Báo cáo tổng hợp'
+        }
+        return labels[type] || type
     }
 
     if (isLoading || loading) {
         return (
-            <Layout breadcrumbItems={breadcrumbItems}>
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
+                <div className="flex flex-col justify-center items-center py-20">
+                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                    <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
                 </div>
             </Layout>
         )
     }
 
-    if (!report) {
-        return (
-            <Layout breadcrumbItems={breadcrumbItems}>
-                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
-                    <div className="flex items-center gap-3">
-                        <X className="h-6 w-6 text-red-600 flex-shrink-0" />
-                        <h3 className="text-lg font-bold text-red-800">Không tìm thấy báo cáo</h3>
-                    </div>
-                </div>
-            </Layout>
-        )
+    if (!user || !report) {
+        return null
     }
-
-    const isTitleDisabled = !!report?.requestId;
 
     return (
-        <Layout title={`Chỉnh sửa: ${report.code}`} breadcrumbItems={breadcrumbItems}>
+        <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl shadow-xl p-8 text-white">
-                    <h1 className="text-3xl font-bold mb-1 flex items-center gap-3">
-                        <Edit className="h-7 w-7"/>
-                        Chỉnh sửa Báo cáo: {report.code}
-                    </h1>
-                    <p className="text-orange-100">Cập nhật nội dung và thông tin bổ sung cho bản nháp này.</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Thông tin cơ bản */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Thông tin cơ bản</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tiêu đề báo cáo {isTitleDisabled && <span className="text-sm text-gray-500">(Khóa - theo Yêu cầu)</span>}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="title"
-                                        value={formData.title}
-                                        onChange={handleChange}
-                                        disabled={isTitleDisabled}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                        placeholder="Nhập tiêu đề báo cáo"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Nội dung báo cáo */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Nội dung báo cáo</h2>
-                            <RichTextEditor // <-- SỬ DỤNG RichTextEditor
-                                ref={editorRef}
-                                value={content}
-                                onChange={setContent}
-                                placeholder="Nhập nội dung báo cáo..."
-                            />
-                        </div>
-
-                        {/* Thông tin bổ sung */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Thông tin bổ sung</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tóm tắt
-                                    </label>
-                                    <textarea
-                                        name="summary"
-                                        value={formData.summary}
-                                        onChange={handleChange}
-                                        rows={3}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Nhập tóm tắt ngắn gọn về báo cáo"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Từ khóa
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.keywords.join(', ')}
-                                        onChange={handleKeywordsChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Nhập từ khóa, phân cách bằng dấu phẩy"
-                                    />
-                                </div>
-                            </div>
+                {/* Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div className="flex items-start justify-between mb-4">
+                        <button
+                            onClick={() => router.push('/reports')}
+                            className="inline-flex items-center text-gray-600 hover:text-gray-900 font-medium"
+                        >
+                            <ArrowLeft className="h-5 w-5 mr-2" />
+                            Quay lại
+                        </button>
+                        <div className="flex gap-2">
+                            {report.status === 'draft' && (
+                                <button
+                                    onClick={handlePublish}
+                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Xuất bản
+                                </button>
+                            )}
+                            <button
+                                onClick={() => router.push(`/reports/${id}/edit`)}
+                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
+                            >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Chỉnh sửa
+                            </button>
+                            <button
+                                onClick={() => handleDownload('html')}
+                                className="inline-flex items-center px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                Tải xuống
+                            </button>
                         </div>
                     </div>
 
-                    {/* Cột bên phải: Minh chứng */}
-                    <div className="lg:col-span-1 space-y-6">
-                        {formData.type && formData.programId && formData.organizationId && (
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                                <EvidencePicker
-                                    reportType={formData.type}
-                                    programId={formData.programId}
-                                    organizationId={formData.organizationId}
-                                    onSelectEvidence={handleSelectEvidence}
-                                    selectedEvidences={selectedEvidences}
-                                />
+                    <div className="space-y-4">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
+                                        {report.code}
+                                    </span>
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(report.status)}`}>
+                                        {getStatusLabel(report.status)}
+                                    </span>
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                        {getTypeLabel(report.type)}
+                                    </span>
+                                </div>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                                    {report.title}
+                                </h1>
+                                {report.summary && (
+                                    <p className="text-gray-600 text-lg">
+                                        {report.summary}
+                                    </p>
+                                )}
                             </div>
-                        )}
+                        </div>
 
-                        {selectedEvidences.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <LinkIcon className='h-5 w-5 text-blue-600'/>
-                                    Minh chứng đã chọn ({selectedEvidences.length})
-                                </h3>
-                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                                    {selectedEvidences.map((evidence) => (
-                                        <div
-                                            key={evidence.evidenceId}
-                                            className="p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-blue-50 rounded-lg">
+                                    <User className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Người tạo</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {report.createdBy?.fullName || 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-green-50 rounded-lg">
+                                    <Calendar className="h-5 w-5 text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Ngày tạo</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {formatDate(report.createdAt)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-purple-50 rounded-lg">
+                                    <Eye className="h-5 w-5 text-purple-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Lượt xem</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {report.metadata?.viewCount || 0}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-orange-50 rounded-lg">
+                                    <Download className="h-5 w-5 text-orange-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500">Lượt tải</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {report.metadata?.downloadCount || 0}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {report.keywords && report.keywords.length > 0 && (
+                            <div className="pt-4 border-t border-gray-200">
+                                <p className="text-sm font-medium text-gray-700 mb-2">Từ khóa:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {report.keywords.map((keyword, index) => (
+                                        <span
+                                            key={index}
+                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
                                         >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-mono text-sm font-semibold text-blue-700">
-                                                        {evidence.code}
-                                                    </p>
-                                                    <p className="text-xs text-gray-600 truncate">
-                                                        {evidence.name}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleRemoveEvidence(evidence.evidenceId)}
-                                                    className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded transition-colors flex-shrink-0"
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </button>
-                                            </div>
-
-                                            {/* Form cập nhật ngữ cảnh */}
-                                            <label className="block text-xs font-semibold text-gray-600 mt-2 mb-1">
-                                                Ngữ cảnh liên kết
-                                            </label>
-                                            <textarea
-                                                value={evidence.contextText || ''}
-                                                onChange={(e) => handleUpdateEvidence(evidence.evidenceId, { contextText: e.target.value })}
-                                                rows={2}
-                                                maxLength={500}
-                                                className="w-full px-2 py-1 border border-gray-300 rounded-lg text-xs resize-none focus:ring-blue-500 focus:border-blue-500"
-                                                placeholder="Ngữ cảnh sử dụng minh chứng (tối đa 500 ký tự)"
-                                            />
-                                            {/* Lưu ý: Không hỗ trợ chọn file con trong scope này, chỉ hiển thị số lượng file nếu có */}
-                                            {evidence.selectedFileIds && evidence.selectedFileIds.length > 0 && (
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    Đang chọn: {evidence.selectedFileIds.length} file đính kèm
-                                                </p>
-                                            )}
-                                        </div>
+                                            {keyword}
+                                        </span>
                                     ))}
                                 </div>
                             </div>
@@ -351,31 +314,216 @@ export default function EditReportPage() {
                     </div>
                 </div>
 
-                {/* Footer buttons */}
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={() => router.push(`/reports/${id}`)}
-                        className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-all"
-                    >
-                        Hủy và Quay lại
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                Đang lưu...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="h-5 w-5" />
-                                Lưu Cập nhật
-                            </>
+                {/* Tabs */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <div className="border-b border-gray-200">
+                        <div className="flex space-x-1 p-2">
+                            <button
+                                onClick={() => setActiveTab('content')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                                    activeTab === 'content'
+                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <FileText className="h-4 w-4 inline mr-2" />
+                                Nội dung
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('evidences')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                                    activeTab === 'evidences'
+                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <LinkIcon className="h-4 w-4 inline mr-2" />
+                                Minh chứng ({evidences.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('versions')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                                    activeTab === 'versions'
+                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <Clock className="h-4 w-4 inline mr-2" />
+                                Phiên bản ({versions.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('comments')}
+                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                                    activeTab === 'comments'
+                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <MessageSquare className="h-4 w-4 inline mr-2" />
+                                Nhận xét ({comments.length})
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        {activeTab === 'content' && (
+                            <div className="prose max-w-none">
+                                <div dangerouslySetInnerHTML={{ __html: report.content }} />
+                            </div>
                         )}
-                    </button>
+
+                        {activeTab === 'evidences' && (
+                            <div className="space-y-4">
+                                {evidences.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <LinkIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                        <p className="text-gray-500">Chưa có minh chứng nào được liên kết</p>
+                                    </div>
+                                ) : (
+                                    evidences.map((evidence, index) => (
+                                        <div
+                                            key={index}
+                                            className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                                            {evidence.evidenceId?.code}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm font-medium text-gray-900 mb-1">
+                                                        {evidence.evidenceId?.name}
+                                                    </p>
+                                                    {evidence.contextText && (
+                                                        <p className="text-xs text-gray-500 italic">
+                                                            Ngữ cảnh: {evidence.contextText}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => router.push(`/evidence/files?evidenceId=${evidence.evidenceId?._id}`)}
+                                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                                >
+                                                    Xem chi tiết →
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'versions' && (
+                            <div className="space-y-4">
+                                {versions.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                        <p className="text-gray-500">Chưa có phiên bản nào</p>
+                                    </div>
+                                ) : (
+                                    versions.map((version, index) => (
+                                        <div
+                                            key={index}
+                                            className="p-4 border border-gray-200 rounded-xl"
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-semibold text-gray-900">
+                                                        Phiên bản {version.version}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">
+                                                        {formatDate(version.changedAt)}
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs text-gray-600">
+                                                    {version.changedBy?.fullName}
+                                                </span>
+                                            </div>
+                                            {version.changeNote && (
+                                                <p className="text-sm text-gray-600">
+                                                    {version.changeNote}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'comments' && (
+                            <div className="space-y-6">
+                                <div className="bg-gray-50 rounded-xl p-4">
+                                    <textarea
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        placeholder="Nhập nhận xét của bạn..."
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                        rows="4"
+                                    />
+                                    <div className="flex justify-end mt-3">
+                                        <button
+                                            onClick={handleAddComment}
+                                            disabled={addingComment || !newComment.trim()}
+                                            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50"
+                                        >
+                                            {addingComment ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Đang thêm...
+                                                </>
+                                            ) : (
+                                                'Thêm nhận xét'
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {comments.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                            <p className="text-gray-500">Chưa có nhận xét nào</p>
+                                        </div>
+                                    ) : (
+                                        comments.map((comment, index) => (
+                                            <div
+                                                key={index}
+                                                className="p-4 border border-gray-200 rounded-xl"
+                                            >
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
+                                                            {comment.reviewerId?.fullName?.charAt(0) || 'U'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-gray-900">
+                                                                {comment.reviewerId?.fullName || 'Unknown'}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {formatDate(comment.commentedAt)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                                                        {comment.reviewerType}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 ml-13">
+                                                    {comment.comment}
+                                                </p>
+                                                {comment.section && (
+                                                    <p className="text-xs text-gray-500 mt-2 ml-13">
+                                                        Phần: {comment.section}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </Layout>

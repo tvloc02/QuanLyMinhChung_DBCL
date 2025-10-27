@@ -20,20 +20,12 @@ import {
     CheckCheck,
     Clock,
     AlertTriangle,
-    Info,
-    ArrowLeft
-}
-    from 'lucide-react'
-
-
-// Key lưu trữ năm học tùy chọn của người dùng (non-admin)
-const LOCAL_YEAR_KEY = 'selectedAcademicYearId';
+    Info
+} from 'lucide-react'
 
 export default function Header({ onMenuClick, sidebarOpen }) {
     const { user, logout } = useAuth()
     const router = useRouter()
-    const isAdmin = user?.role === 'admin'; // Xác định vai trò Admin
-
     const [userDropdownOpen, setUserDropdownOpen] = useState(false)
     const [academicYearDropdownOpen, setAcademicYearDropdownOpen] = useState(false)
     const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false)
@@ -75,7 +67,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                 setUnreadCount(response.data.data.unreadCount)
             } else {
                 console.warn('API getUnreadCount did not return success=true or lacked expected structure.', response);
-                setUnreadCount(0)
+                setUnreadCount(0);
             }
         } catch (error) {
             console.error('Error fetching unread count (Server 500 likely):', error)
@@ -128,28 +120,10 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             if (response.ok) {
                 const result = await response.json()
                 if (result.success) {
-                    const years = result.data || []
-                    setAcademicYears(years)
-
-                    const systemCurrentYear = years.find(year => year.isCurrent)
-                    let selectedYear = systemCurrentYear
-
-                    // Logic phân quyền: Nếu không phải Admin, ưu tiên năm học đã chọn trong localStorage
-                    if (!isAdmin) {
-                        const localYearId = localStorage.getItem(LOCAL_YEAR_KEY)
-                        if (localYearId) {
-                            const localYear = years.find(year => year._id === localYearId)
-                            if (localYear) {
-                                selectedYear = localYear
-                            } else {
-                                // Nếu ID cũ không tồn tại, xóa khỏi localStorage và dùng năm mặc định
-                                localStorage.removeItem(LOCAL_YEAR_KEY)
-                            }
-                        }
-                    }
-
-                    if (selectedYear) {
-                        setCurrentAcademicYear(selectedYear)
+                    setAcademicYears(result.data || [])
+                    const current = result.data?.find(year => year.isCurrent)
+                    if (current) {
+                        setCurrentAcademicYear(current)
                     }
                 } else {
                     throw new Error(result.message || 'Không thể tải danh sách năm học')
@@ -161,7 +135,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             console.error('Error fetching academic years:', error)
             setError(error.message)
 
-            // Fallback chỉ tải năm hiện tại của hệ thống (phòng trường hợp lỗi API /all)
             try {
                 const currentResponse = await fetch('/api/academic-years/current', {
                     headers: {
@@ -269,8 +242,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             case 'high':
                 return <AlertTriangle className="h-4 w-4 text-orange-500" />
             default:
-                // Tông màu xanh lam cho mức Normal/Low
-                return <Info className="h-4 w-4 text-blue-600" />
+                return <Info className="h-4 w-4" style={{ color: '#6366F1' }} />
         }
     }
 
@@ -297,78 +269,58 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             return
         }
 
-        setChanging(true)
-        setError(null)
+        try {
+            setChanging(true)
+            setError(null)
 
-        let success = false;
-        let errorMessage = 'Lỗi không xác định khi chuyển năm học';
-
-        // 1. Logic cho Admin: Đặt năm học mặc định cho toàn hệ thống
-        if (isAdmin) {
-            try {
-                const response = await fetch(`/api/academic-years/${selectedYear._id}/set-current`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                })
-
-                const result = await response.json()
-                if (response.ok && result.success) {
-                    success = true;
-                } else {
-                    errorMessage = result.message || 'Lỗi khi đặt năm học mặc định';
+            const response = await fetch(`/api/academic-years/${selectedYear._id}/set-current`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            } catch (error) {
-                errorMessage = error.message || 'Lỗi kết nối khi đặt năm học mặc định';
-            }
-        } else {
-            // 2. Logic cho Non-Admin: Chỉ lưu thay đổi cục bộ (Local Session)
-            localStorage.setItem(LOCAL_YEAR_KEY, selectedYear._id);
-            success = true;
-        }
+            })
 
-        if (success) {
-            setCurrentAcademicYear(selectedYear);
+            const result = await response.json()
 
-            // Cập nhật trạng thái isCurrent trong local state (cho mục đích hiển thị)
-            setAcademicYears(years =>
-                years.map(year => ({
-                    ...year,
-                    // Chỉ năm admin đặt mới là isCurrent thật, nhưng ta sẽ tô màu năm user đang chọn
-                    isCurrent: selectedYear._id === year._id
-                }))
-            );
+            if (response.ok && result.success) {
+                setCurrentAcademicYear(selectedYear)
+                setAcademicYears(years =>
+                    years.map(year => ({
+                        ...year,
+                        isCurrent: year._id === selectedYear._id
+                    }))
+                )
 
-            setAcademicYearDropdownOpen(false);
+                setAcademicYearDropdownOpen(false)
 
-            // Hiển thị thông báo thành công và tải lại
-            const successDiv = document.createElement('div');
-            successDiv.innerHTML = `
-                <div class="fixed top-4 right-4 bg-green-50 border border-green-200 rounded-xl p-4 shadow-lg z-50 animate-slide-in-right">
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                        </svg>
-                        <div>
-                            <h3 class="text-green-800 font-semibold">Đã chuyển năm học</h3>
-                            <p class="text-green-700 text-sm">Đang tải lại dữ liệu...</p>
+                const successDiv = document.createElement('div')
+                successDiv.innerHTML = `
+                    <div class="fixed top-4 right-4 bg-green-50 border border-green-200 rounded-xl p-4 shadow-lg z-50 animate-slide-in-right">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>
+                                <h3 class="text-green-800 font-semibold">Đã chuyển năm học</h3>
+                                <p class="text-green-700 text-sm">Đang tải lại dữ liệu...</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            document.body.appendChild(successDiv);
+                `
+                document.body.appendChild(successDiv)
 
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
-        } else {
-            // Xử lý lỗi nếu không thành công (Chỉ xảy ra khi Admin gọi API thất bại)
-            console.error('Error changing academic year:', errorMessage);
-            setError(errorMessage);
+                setTimeout(() => {
+                    window.location.reload()
+                }, 1500)
+            } else {
+                throw new Error(result.message || 'Có lỗi xảy ra khi chuyển năm học')
+            }
+        } catch (error) {
+            console.error('Error changing academic year:', error)
+            setError(error.message)
 
-            const errorDiv = document.createElement('div');
+            const errorDiv = document.createElement('div')
             errorDiv.innerHTML = `
                 <div class="fixed top-4 right-4 bg-red-50 border border-red-200 rounded-xl p-4 shadow-lg z-50 animate-slide-in-right">
                     <div class="flex items-center">
@@ -377,26 +329,24 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         </svg>
                         <div>
                             <h3 class="text-red-800 font-semibold">Lỗi chuyển năm học</h3>
-                            <p class="text-red-700 text-sm">${errorMessage}</p>
+                            <p class="text-red-700 text-sm">${error.message}</p>
                         </div>
                     </div>
                 </div>
-            `;
-            document.body.appendChild(errorDiv);
+            `
+            document.body.appendChild(errorDiv)
 
             setTimeout(() => {
-                document.body.removeChild(errorDiv);
-            }, 5000);
+                document.body.removeChild(errorDiv)
+            }, 5000)
+        } finally {
+            setChanging(false)
         }
-
-        setChanging(false);
     }
 
     const handleLogout = async () => {
-        // Xóa năm học đã chọn cục bộ khi đăng xuất
-        localStorage.removeItem(LOCAL_YEAR_KEY);
-        await logout();
-        setUserDropdownOpen(false);
+        await logout()
+        setUserDropdownOpen(false)
     }
 
     const getStatusConfig = (status) => {
@@ -445,7 +395,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                 <div className="flex items-center space-x-4">
                     <button
                         onClick={onMenuClick}
-                        className="p-2 rounded-xl text-gray-500 hover:bg-blue-50 lg:hidden transition-colors"
+                        className="p-2 rounded-xl text-gray-500 hover:bg-indigo-50 lg:hidden transition-colors"
                     >
                         {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                     </button>
@@ -472,8 +422,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                             className="w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-all text-gray-700 bg-gray-50"
                             style={{ borderColor: '#E5E7EB' }}
                             onFocus={(e) => {
-                                e.target.style.borderColor = '#2563EB'
-                                e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'
+                                e.target.style.borderColor = '#6366F1'
+                                e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)'
                                 e.target.style.background = 'white'
                             }}
                             onBlur={(e) => {
@@ -492,16 +442,16 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         <button
                             onClick={() => !changing && setAcademicYearDropdownOpen(!academicYearDropdownOpen)}
                             disabled={changing}
-                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-blue-50 border-2 transition-all ${
+                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-indigo-50 border-2 transition-all ${
                                 changing ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             style={{ borderColor: '#E5E7EB' }}
                             title="Chọn năm học"
                         >
                             {changing ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                                <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
                             ) : (
-                                <Calendar className="h-5 w-5 text-blue-600" />
+                                <Calendar className="h-5 w-5 text-indigo-600" />
                             )}
 
                             <div className="hidden lg:block text-left min-w-0">
@@ -525,7 +475,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         {academicYearDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border-2 z-50 max-h-96 overflow-hidden"
                                  style={{ borderColor: '#E5E7EB' }}>
-                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-blue-50 to-sky-50"
+                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50"
                                      style={{ borderColor: '#E5E7EB' }}>
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -534,7 +484,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         </div>
                                         <a
                                             href="/academic-years/create"
-                                            className="p-2 rounded-lg hover:bg-white transition-colors text-blue-600"
+                                            className="p-2 rounded-lg hover:bg-white transition-colors text-indigo-600"
                                             title="Tạo năm học mới"
                                         >
                                             <Plus className="h-4 w-4" />
@@ -545,7 +495,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 <div className="max-h-64 overflow-y-auto">
                                     {loading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
                                             <span className="ml-2 text-sm text-gray-600">Đang tải...</span>
                                         </div>
                                     ) : error ? (
@@ -554,7 +504,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <p className="text-sm text-red-600 mb-2">Không thể tải danh sách năm học</p>
                                             <button
                                                 onClick={fetchAcademicYears}
-                                                className="text-xs font-medium text-blue-600"
+                                                className="text-xs font-medium text-indigo-600"
                                             >
                                                 Thử lại
                                             </button>
@@ -565,7 +515,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <p className="text-sm mb-2 text-gray-600">Chưa có năm học nào</p>
                                             <a
                                                 href="/academic-years/create"
-                                                className="text-sm font-medium text-blue-600"
+                                                className="text-sm font-medium text-indigo-600"
                                             >
                                                 Tạo năm học đầu tiên
                                             </a>
@@ -578,11 +528,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                     key={year._id}
                                                     onClick={() => handleAcademicYearChange(year)}
                                                     disabled={changing}
-                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50 transition-colors ${
-                                                        currentAcademicYear?._id === year._id ? 'border-r-4 bg-blue-50' : ''
+                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-indigo-50 transition-colors ${
+                                                        currentAcademicYear?._id === year._id ? 'border-r-4 bg-indigo-50' : ''
                                                     } ${changing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     style={currentAcademicYear?._id === year._id ? {
-                                                        borderRightColor: '#2563EB' // blue-600
+                                                        borderRightColor: '#6366F1'
                                                     } : {}}
                                                 >
                                                     <div className="flex-1 min-w-0">
@@ -590,8 +540,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                             <p className="text-sm font-bold text-gray-900 truncate">
                                                                 {year.name}
                                                             </p>
-                                                            {year.isCurrent && (
-                                                                <Check className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                                                            {currentAcademicYear?._id === year._id && (
+                                                                <Check className="h-4 w-4 flex-shrink-0 text-indigo-600" />
                                                             )}
                                                         </div>
                                                         <div className="flex items-center space-x-2">
@@ -603,11 +553,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                                 {year.code}
                                                             </span>
                                                         </div>
-                                                        {!isAdmin && year.isCurrent && currentAcademicYear?._id !== year._id && (
-                                                            <p className="text-xs text-red-500 mt-1">
-                                                                Năm mặc định hệ thống
-                                                            </p>
-                                                        )}
                                                     </div>
                                                 </button>
                                             )
@@ -619,7 +564,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     <div className="px-4 py-2 border-t-2 bg-gray-50" style={{ borderColor: '#E5E7EB' }}>
                                         <div className="flex items-center justify-between text-xs text-gray-600">
                                             <span className="font-semibold">{academicYears.length} năm học</span>
-                                            <a href="/academic-years" className="font-bold text-blue-600">
+                                            <a href="/academic-years" className="font-bold text-indigo-600">
                                                 Quản lý →
                                             </a>
                                         </div>
@@ -643,7 +588,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         fetchNotifications()
                                     }
                                 }}
-                                className="relative p-4 rounded-xl hover:bg-indigo-50 transition-colors border-2"
+                                className="relative p-3 rounded-xl hover:bg-indigo-50 transition-colors border-2"
                                 style={{ borderColor: unreadCount > 0 ? '#EF4444' : '#E5E7EB' }}
                             >
                                 <Bell className="h-5 w-5 text-gray-600" />
@@ -773,11 +718,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     <div className="relative dropdown-container">
                         <button
                             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-blue-50 transition-colors border-2"
+                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-indigo-50 transition-colors border-2"
                             style={{ borderColor: '#E5E7EB' }}
                         >
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
-                                 style={{ background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)' }}>
+                                 style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
                                 <span className="text-white text-sm font-bold">
                                     {user?.fullName ? user.fullName.charAt(0).toUpperCase() :
                                         user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -800,11 +745,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         {userDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border-2"
                                  style={{ borderColor: '#E5E7EB' }}>
-                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-blue-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
+                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
                                     <User className="h-4 w-4 mr-3 text-gray-600" />
                                     Thông tin tài khoản
                                 </a>
-                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-blue-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
+                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
                                     <Settings className="h-4 w-4 mr-3 text-gray-600" />
                                     Cài đặt
                                 </a>

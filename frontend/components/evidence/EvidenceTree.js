@@ -4,8 +4,6 @@ import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import FileManagement from '../file/FileManagement'
-import UploadEvidenceFile from '../file/UploadEvidenceFile'
-import ApproveFilesModal from './ApproveFilesModal'
 import {
     ChevronDown,
     ChevronRight,
@@ -30,8 +28,7 @@ import {
     GripVertical,
     Send,
     Users,
-    FileCheck,
-    Eye
+    FileCheck
 } from 'lucide-react'
 
 export default function EvidenceTree() {
@@ -63,12 +60,6 @@ export default function EvidenceTree() {
     const [availableUsers, setAvailableUsers] = useState([])
     const [loadingUsers, setLoadingUsers] = useState(false)
     const [reportMessage, setReportMessage] = useState('')
-
-    // ===== NEW STATES FOR UPLOAD & APPROVE =====
-    const [showUploadModal, setShowUploadModal] = useState(false)
-    const [showApproveModal, setShowApproveModal] = useState(false)
-    const [selectedEvidenceForUpload, setSelectedEvidenceForUpload] = useState(null)
-    const [selectedEvidenceIdsForApprove, setSelectedEvidenceIdsForApprove] = useState([])
 
     useEffect(() => {
         fetchPrograms()
@@ -126,6 +117,7 @@ export default function EvidenceTree() {
         }
     }
 
+    // ===== FETCH TDG - USERS CỦA PHÒNG BAN =====
     const fetchAvailableUsers = async (deptId) => {
         try {
             setLoadingUsers(true)
@@ -208,19 +200,6 @@ export default function EvidenceTree() {
     }
 
     const handleDragStart = (e, evidence, standardId, criteriaId) => {
-        if (userRole !== 'admin' && userRole !== 'manager') {
-            e.preventDefault()
-            return
-        }
-
-        if (userRole === 'manager') {
-            const deptIdToCompare = evidence.departmentId?._id || evidence.departmentId
-            if (deptIdToCompare.toString() !== userDepartment?.toString()) {
-                e.preventDefault()
-                return
-            }
-        }
-
         setDraggedEvidence({ evidence, standardId, criteriaId })
         e.dataTransfer.effectAllowed = 'move'
     }
@@ -242,21 +221,6 @@ export default function EvidenceTree() {
             return
         }
 
-        if (userRole !== 'admin' && userRole !== 'manager') {
-            toast.error('Chỉ Manager mới có quyền di chuyển minh chứng')
-            setDraggedEvidence(null)
-            return
-        }
-
-        if (userRole === 'manager') {
-            const deptIdToCompare = draggedEvidence.evidence.departmentId?._id || draggedEvidence.evidence.departmentId
-            if (deptIdToCompare.toString() !== userDepartment?.toString()) {
-                toast.error('Bạn chỉ được di chuyển minh chứng của phòng ban mình')
-                setDraggedEvidence(null)
-                return
-            }
-        }
-
         const standard = treeData.find(s => s.id === targetStandardId)
         const criteria = standard?.criteria.find(c => c.id === targetCriteriaId)
 
@@ -268,28 +232,17 @@ export default function EvidenceTree() {
 
         const currentCode = draggedEvidence.evidence.code
         const currentCodeParts = currentCode.split('.')
+
         const prefixAndBox = currentCodeParts[0]
 
         const newStandardCode = String(standard.code).padStart(2, '0')
         const newCriteriaCode = String(criteria.code).padStart(2, '0')
 
-        const existingEvidences = criteria.evidences || [];
-        let maxSequence = 0;
+        const sequenceNumber = currentCodeParts[3]
 
-        existingEvidences.forEach(ev => {
-            const parts = ev.code.split('.');
-            if (parts.length >= 4) {
-                const sequence = parseInt(parts[3]) || 0;
-                if (sequence > maxSequence) {
-                    maxSequence = sequence;
-                }
-            }
-        });
+        const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${sequenceNumber}`
 
-        const nextSequence = String(maxSequence + 1).padStart(2, '0');
-        const newCode = `${prefixAndBox}.${newStandardCode}.${newCriteriaCode}.${nextSequence}`
-
-        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\n\nMã cũ: ${currentCode}\nMã mới: ${newCode}`)) {
+        if (!confirm(`Di chuyển "${draggedEvidence.evidence.name}" sang Tiêu chí ${criteria.code}?\nMã mới: ${newCode}`)) {
             setDraggedEvidence(null)
             return
         }
@@ -423,45 +376,8 @@ export default function EvidenceTree() {
         }
     }
 
-    // ===== NEW: UPLOAD FILES FOR TDG =====
-    const handleUploadFiles = (evidence) => {
-        setSelectedEvidenceForUpload(evidence)
-        setShowUploadModal(true)
-    }
-
-    const handleUploadSuccess = () => {
-        setShowUploadModal(false)
-        setSelectedEvidenceForUpload(null)
-        fetchTreeData()
-    }
-
-    // ===== NEW: APPROVE FILES FOR MANAGER =====
-    const handleApproveFiles = (evidence) => {
-        setSelectedEvidenceIdsForApprove([evidence.id])
-        setShowApproveModal(true)
-    }
-
-    const handleApproveSuccess = () => {
-        setShowApproveModal(false)
-        setSelectedEvidenceIdsForApprove([])
-        fetchTreeData()
-    }
-
-    // ===== NEW: CHECK PERMISSIONS =====
-    const canUserUploadToEvidence = (evidence) => {
-        if (userRole === 'tdg') {
-            return evidence.departmentId?._id?.toString() === userDepartment?.toString() ||
-                evidence.departmentId?.toString() === userDepartment?.toString()
-        }
-        if (userRole === 'manager') {
-            return evidence.departmentId?._id?.toString() === userDepartment?.toString() ||
-                evidence.departmentId?.toString() === userDepartment?.toString()
-        }
-        return false
-    }
-
     const handleOpenAssignModal = (evidence) => {
-        if (userRole !== 'manager' || (userDepartment !== evidence.departmentId._id.toString() && userDepartment !== evidence.departmentId)) {
+        if (userRole !== 'manager' || userDepartment !== evidence.departmentId._id.toString() && userDepartment !== evidence.departmentId) {
             toast.error('Chỉ Manager của phòng ban mới có quyền phân quyền')
             return
         }
@@ -472,6 +388,7 @@ export default function EvidenceTree() {
         setShowAssignModal(true)
     }
 
+    // ===== ASSIGN USERS TO EVIDENCE =====
     const handleAssignUsers = async () => {
         if (!selectedEvidenceForAssign || selectedUsers.length === 0) {
             toast.error('Vui lòng chọn ít nhất một thành viên')
@@ -479,6 +396,7 @@ export default function EvidenceTree() {
         }
 
         try {
+            // API cần được thêm vào backend
             const response = await apiMethods.evidences.assignUsers(selectedEvidenceForAssign.id, {
                 userIds: selectedUsers
             })
@@ -496,7 +414,9 @@ export default function EvidenceTree() {
         }
     }
 
+    // ===== OPEN REPORT MODAL =====
     const handleOpenReportModal = () => {
+        // Chỉ Manager được nộp báo cáo
         if (userRole !== 'manager') {
             toast.error('Chỉ Manager mới có quyền nộp báo cáo')
             return
@@ -510,6 +430,7 @@ export default function EvidenceTree() {
         setShowReportModal(true)
     }
 
+    // ===== SUBMIT REPORT =====
     const handleSubmitReport = async () => {
         if (!reportMessage.trim()) {
             toast.error('Vui lòng nhập nội dung báo cáo')
@@ -946,22 +867,7 @@ export default function EvidenceTree() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
-                                                                            {/* TDG UPLOAD */}
-                                                                            {userRole === 'tdg' && canUserUploadToEvidence(evidence) && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation()
-                                                                                        handleUploadFiles(evidence)
-                                                                                    }}
-                                                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                                                    title="Upload file"
-                                                                                >
-                                                                                    <Upload className="h-4 w-4" />
-                                                                                </button>
-                                                                            )}
-
-                                                                            {/* MANAGER ASSIGN */}
-                                                                            {userRole === 'manager' && canUserUploadToEvidence(evidence) && (
+                                                                            {userRole === 'manager' && userDepartment === (evidence.departmentId?._id || evidence.departmentId) && (
                                                                                 <button
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation()
@@ -974,33 +880,15 @@ export default function EvidenceTree() {
                                                                                 </button>
                                                                             )}
 
-                                                                            {/* MANAGER APPROVE */}
-                                                                            {userRole === 'manager' && canUserUploadToEvidence(evidence) && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation()
-                                                                                        handleApproveFiles(evidence)
-                                                                                    }}
-                                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                                                                    title="Duyệt file"
-                                                                                >
-                                                                                    <CheckCircle2 className="h-4 w-4" />
-                                                                                </button>
-                                                                            )}
-
-                                                                            {/* ADMIN & MANAGER VIEW FILES */}
-                                                                            {(userRole === 'admin' || userRole === 'manager') && (
-                                                                                <button
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation()
-                                                                                        setSelectedEvidence(evidence)
-                                                                                    }}
-                                                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                                                                    title="Xem files"
-                                                                                >
-                                                                                    <Eye className="h-4 w-4" />
-                                                                                </button>
-                                                                            )}
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    setSelectedEvidence(evidence)
+                                                                                }}
+                                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                            >
+                                                                                <Upload className="h-4 w-4" />
+                                                                            </button>
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -1241,30 +1129,6 @@ export default function EvidenceTree() {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {/* ===== UPLOAD MODAL FOR TDG ===== */}
-            {showUploadModal && selectedEvidenceForUpload && (
-                <UploadEvidenceFile
-                    evidence={selectedEvidenceForUpload}
-                    onClose={() => {
-                        setShowUploadModal(false)
-                        setSelectedEvidenceForUpload(null)
-                    }}
-                    onSuccess={handleUploadSuccess}
-                />
-            )}
-
-            {/* ===== APPROVE MODAL FOR MANAGER ===== */}
-            {showApproveModal && selectedEvidenceIdsForApprove.length > 0 && (
-                <ApproveFilesModal
-                    evidenceIds={selectedEvidenceIdsForApprove}
-                    onClose={() => {
-                        setShowApproveModal(false)
-                        setSelectedEvidenceIdsForApprove([])
-                    }}
-                    onSuccess={handleApproveSuccess}
-                />
             )}
         </div>
     )

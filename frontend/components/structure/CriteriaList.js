@@ -7,19 +7,8 @@ import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import CriteriaModal from './CriteriaModal'
 import { ActionButton } from '../ActionButtons'
-import { useAuth } from '../../contexts/AuthContext'
 
 export default function CriteriaList() {
-    const { user, isLoading: isAuthLoading } = useAuth();
-    const isAdmin = user?.role === 'admin';
-    const isManager = user?.role === 'manager';
-    const isTDG = user?.role === 'tdg';
-    const isExpert = user?.role === 'ex';
-    const userDepartmentId = user?.department;
-    // Sửa logic quyền: Manager cũng có quyền tạo/import/export trong phạm vi quản lý của họ
-    const canCreateOrImport = isAdmin || isManager;
-    const canEditOrDelete = isAdmin || isManager;
-
     const [criteria, setCriteria] = useState([])
     const [standards, setStandards] = useState([])
     const [programs, setPrograms] = useState([])
@@ -31,7 +20,7 @@ export default function CriteriaList() {
     const [standardId, setStandardId] = useState('')
     const [programId, setProgramId] = useState('')
     const [organizationId, setOrganizationId] = useState('')
-    const [departmentId, setDepartmentId] = useState(isAdmin ? '' : userDepartmentId || '')
+    const [departmentId, setDepartmentId] = useState('')
     const [status, setStatus] = useState('')
     const [showImportModal, setShowImportModal] = useState(false)
     const [showCriteriaModal, setShowCriteriaModal] = useState(false)
@@ -40,15 +29,11 @@ export default function CriteriaList() {
     useEffect(() => {
         loadPrograms()
         loadOrganizations()
-        if (isAdmin) {
-            loadDepartments()
-        } else if (userDepartmentId) {
-            setDepartments([{ _id: userDepartmentId, name: user.departmentName }]);
-        }
-    }, [isAdmin, userDepartmentId])
+        loadDepartments()
+    }, [])
 
     useEffect(() => {
-        if (programId && organizationId && departmentId) {
+        if (programId && organizationId) {
             loadStandards()
         } else {
             setStandards([])
@@ -57,10 +42,8 @@ export default function CriteriaList() {
     }, [programId, organizationId, departmentId])
 
     useEffect(() => {
-        if (!isAuthLoading) {
-            loadCriteria()
-        }
-    }, [isAuthLoading, pagination.current, search, standardId, programId, organizationId, departmentId, status])
+        loadCriteria()
+    }, [pagination.current, search, standardId, programId, organizationId, departmentId, status])
 
     const loadPrograms = async () => {
         try {
@@ -96,15 +79,17 @@ export default function CriteriaList() {
     }
 
     const loadStandards = async () => {
-        if (!programId || !organizationId || !departmentId) return
-
         try {
+            if (!programId || !organizationId) return
+
             const params = {
                 programId,
                 organizationId,
-                departmentId,
                 status: 'active',
                 limit: 100
+            }
+            if (departmentId) {
+                params.departmentId = departmentId
             }
 
             const response = await apiMethods.standards.getAll(params)
@@ -117,8 +102,6 @@ export default function CriteriaList() {
     }
 
     const loadCriteria = async () => {
-        if (!isAdmin && !userDepartmentId) return;
-
         try {
             setLoading(true)
             const params = {
@@ -130,14 +113,8 @@ export default function CriteriaList() {
             if (standardId) params.standardId = standardId;
             if (programId) params.programId = programId;
             if (organizationId) params.organizationId = organizationId;
+            if (departmentId) params.departmentId = departmentId;
             if (status) params.status = status;
-
-            // Áp dụng giới hạn phòng ban cho Manager/TDG/Expert
-            if (!isAdmin) {
-                params.departmentId = userDepartmentId;
-            } else if (departmentId) {
-                params.departmentId = departmentId;
-            }
 
             const response = await apiMethods.criteria.getAll(params);
 
@@ -153,11 +130,6 @@ export default function CriteriaList() {
     }
 
     const handleDownloadTemplate = () => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền thực hiện thao tác này.')
-            return;
-        }
-
         try {
             const wb = XLSX.utils.book_new()
 
@@ -203,12 +175,12 @@ export default function CriteriaList() {
             const wsData = XLSX.utils.json_to_sheet(templateData)
 
             wsData['!cols'] = [
-                { wch: 12 },
-                { wch: 55 },
-                { wch: 60 },
-                { wch: 15 },
-                { wch: 50 },
-                { wch: 50 }
+                { wch: 12 },  // Mã
+                { wch: 55 },  // Tên
+                { wch: 60 },  // Mô tả
+                { wch: 15 },  // Mã tiêu chuẩn
+                { wch: 50 },  // Yêu cầu
+                { wch: 50 }   // Hướng dẫn
             ]
 
             const headerStyle = {
@@ -389,11 +361,6 @@ export default function CriteriaList() {
     }
 
     const handleExportExcel = () => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền Export dữ liệu.')
-            return;
-        }
-
         try {
             const exportData = criteria.map((c, index) => ({
                 'STT': index + 1,
@@ -444,12 +411,6 @@ export default function CriteriaList() {
     }
 
     const handleImport = async (file) => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền Import dữ liệu.')
-            setShowImportModal(false)
-            return;
-        }
-
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -481,23 +442,9 @@ export default function CriteriaList() {
     }
 
     const handleDelete = async (id) => {
-        if (!canEditOrDelete) {
-            toast.error('Bạn không có quyền xóa tiêu chí.')
-            return;
-        }
+        if (!confirm('Bạn có chắc muốn xóa tiêu chí này?')) return
 
         try {
-            const criteriaToDelete = criteria.find(c => c._id === id);
-            // Kiểm tra quyền của Manager/Admin
-            const hasPermission = isAdmin || (isManager && criteriaToDelete.departmentId._id === userDepartmentId);
-
-            if (!hasPermission) {
-                toast.error('Bạn chỉ có thể xóa tiêu chí thuộc phòng ban của mình.')
-                return;
-            }
-
-            if (!confirm('Bạn có chắc muốn xóa tiêu chí này?')) return
-
             await apiMethods.criteria.delete(id)
             toast.success('Xóa thành công')
             loadCriteria()
@@ -512,18 +459,6 @@ export default function CriteriaList() {
     }
 
     const handleEdit = (item) => {
-        if (!canEditOrDelete) {
-            toast.error('Bạn không có quyền chỉnh sửa tiêu chí.')
-            return;
-        }
-
-        const hasPermission = isAdmin || (isManager && item.departmentId._id === userDepartmentId);
-
-        if (!hasPermission) {
-            toast.error('Bạn chỉ có thể chỉnh sửa tiêu chí thuộc phòng ban của mình.')
-            return;
-        }
-
         setSelectedCriteria(item)
         setShowCriteriaModal(true)
     }
@@ -548,14 +483,6 @@ export default function CriteriaList() {
         return colors[status] || 'bg-gray-100 text-gray-700'
     }
 
-    if (isAuthLoading) {
-        return (
-            <div className="flex justify-center items-center h-48">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-6">
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
@@ -569,45 +496,43 @@ export default function CriteriaList() {
                             <p className="text-blue-100">Quản lý các tiêu chí đánh giá chất lượng</p>
                         </div>
                     </div>
-                    {canCreateOrImport && (
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleDownloadTemplate}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Tải mẫu
-                            </button>
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Upload size={18} />
-                                Import
-                            </button>
-                            <button
-                                onClick={handleExportExcel}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Export
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setSelectedCriteria(null)
-                                    setShowCriteriaModal(true)
-                                }}
-                                className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
-                            >
-                                <Plus size={20} />
-                                Thêm tiêu chí
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Tải mẫu
+                        </button>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Upload size={18} />
+                            Import
+                        </button>
+                        <button
+                            onClick={handleExportExcel}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Export
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSelectedCriteria(null)
+                                setShowCriteriaModal(true)
+                            }}
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                        >
+                            <Plus size={20} />
+                            Thêm tiêu chí
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg border border-blue-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
@@ -620,7 +545,7 @@ export default function CriteriaList() {
                             placeholder="Tìm kiếm tiêu chí..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
@@ -630,7 +555,7 @@ export default function CriteriaList() {
                             setProgramId(e.target.value)
                             setStandardId('')
                         }}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả chương trình</option>
                         {programs.map(p => (
@@ -644,7 +569,7 @@ export default function CriteriaList() {
                             setOrganizationId(e.target.value)
                             setStandardId('')
                         }}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả tổ chức</option>
                         {organizations.map(o => (
@@ -653,12 +578,14 @@ export default function CriteriaList() {
                     </select>
 
                     <select
-                        value={isAdmin ? departmentId : userDepartmentId}
-                        onChange={(e) => isAdmin && setDepartmentId(e.target.value)}
-                        className={`px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${!isAdmin ? 'bg-blue-50 cursor-not-allowed' : ''}`}
-                        disabled={!isAdmin && userDepartmentId}
+                        value={departmentId}
+                        onChange={(e) => {
+                            setDepartmentId(e.target.value)
+                            setStandardId('')
+                        }}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
-                        {isAdmin ? <option value="">Tất cả phòng ban</option> : null}
+                        <option value="">Tất cả phòng ban</option>
                         {departments.map(d => (
                             <option key={d._id} value={d._id}>{d.name}</option>
                         ))}
@@ -667,7 +594,7 @@ export default function CriteriaList() {
                     <select
                         value={standardId}
                         onChange={(e) => setStandardId(e.target.value)}
-                        className={`px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${!programId || !organizationId || !departmentId ? 'bg-blue-50 cursor-not-allowed' : ''}`}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         disabled={!programId || !organizationId || !departmentId}
                     >
                         <option value="">Tất cả tiêu chuẩn</option>
@@ -681,7 +608,7 @@ export default function CriteriaList() {
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
@@ -693,7 +620,7 @@ export default function CriteriaList() {
                     <div className='md:col-span-1'>
                         <button
                             onClick={loadCriteria}
-                            className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
+                            className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                         >
                             <RefreshCw size={18} />
                             Làm mới
@@ -702,21 +629,21 @@ export default function CriteriaList() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-blue-100">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chí</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Tiêu chuẩn</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Phòng ban</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-32">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chí</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Tiêu chuẩn</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Phòng ban</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-blue-200">
+                        <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
                                 <td colSpan="7" className="px-6 py-16 text-center">
@@ -730,7 +657,7 @@ export default function CriteriaList() {
                             <tr>
                                 <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <CheckSquare className="w-16 h-16 text-blue-300 mb-4" />
+                                        <CheckSquare className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
                                         <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc thêm tiêu chí mới</p>
                                     </div>
@@ -738,42 +665,42 @@ export default function CriteriaList() {
                             </tr>
                         ) : (
                             criteria.map((item, index) => (
-                                <tr key={item._id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors border-b border-blue-200`}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600 border-r border-blue-200">
+                                <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {item.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{item.name}</div>
                                         {item.description && (
-                                            <div className="text-xs text-gray-500 truncate max-w-md mt-1" title={item.description}>
-                                                Mô tả: {item.description}
+                                            <div className="text-sm text-gray-500 truncate max-w-md mt-1">
+                                                {item.description}
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm text-gray-900">
                                             <span className="font-bold text-indigo-600">{item.standardId?.code}</span>
                                             {' - '}
                                             <span className="text-gray-700">{item.standardId?.name || '-'}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm text-gray-900">
                                             {item.departmentId?.name || '-'}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(item.status)}`}>
                                             {getStatusLabel(item.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <div className="flex items-center justify-center gap-2">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex items-center justify-end gap-2">
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -781,24 +708,20 @@ export default function CriteriaList() {
                                                 onClick={() => handleViewDetail(item)}
                                                 title="Xem chi tiết tiêu chí"
                                             />
-                                            {(isAdmin || (isManager && item.departmentId?._id === userDepartmentId)) && (
-                                                <>
-                                                    <ActionButton
-                                                        icon={Edit2}
-                                                        variant="edit"
-                                                        size="sm"
-                                                        onClick={() => handleEdit(item)}
-                                                        title="Chỉnh sửa tiêu chí"
-                                                    />
-                                                    <ActionButton
-                                                        icon={Trash2}
-                                                        variant="delete"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(item._id)}
-                                                        title="Xóa tiêu chí"
-                                                    />
-                                                </>
-                                            )}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
+                                                onClick={() => handleEdit(item)}
+                                                title="Chỉnh sửa tiêu chí"
+                                            />
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
+                                                onClick={() => handleDelete(item._id)}
+                                                title="Xóa tiêu chí"
+                                            />
                                         </div>
                                     </td>
                                 </tr>

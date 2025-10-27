@@ -24,16 +24,12 @@ import {
     Clock,
     AlertCircle,
     Square,
-    CheckSquare,
-    UserPlus
+    CheckSquare
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 import MoveEvidenceModal from './MoveEvidenceModal.js'
 import ApproveFilesModal from './ApproveFilesModal.js'
-import AssignUsersModal from './AssignUsersModal.js'
 import { useAuth } from '../../contexts/AuthContext'
-import AssignUsersSingleModal from "./AssignUsersSingleModal";
-import UploadEvidenceFile from '../file/UploadEvidenceFile';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -41,8 +37,7 @@ export default function EvidenceManagement() {
     const router = useRouter()
     const { user, isLoading: isAuthLoading } = useAuth()
     const isAdmin = user?.role === 'admin'
-    const isManager = user?.role === 'manager'
-    const isTDG = user?.role === 'tdg'
+    // Lấy ID phòng ban của người dùng (có thể là undefined nếu user không có phòng ban)
     const userDepartmentId = user?.department;
 
     const [evidences, setEvidences] = useState([])
@@ -66,6 +61,7 @@ export default function EvidenceManagement() {
         limit: ITEMS_PER_PAGE,
         sortBy: 'createdAt',
         sortOrder: 'desc'
+        // Không cần state userDepartmentId trong filters vì nó được quản lý bởi API backend
     })
 
     const [programs, setPrograms] = useState([])
@@ -76,10 +72,7 @@ export default function EvidenceManagement() {
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [showMoveModal, setShowMoveModal] = useState(false)
     const [showApproveModal, setShowApproveModal] = useState(false)
-    const [showAssignModal, setShowAssignModal] = useState(false)
     const [selectedItems, setSelectedItems] = useState([])
-    const [showAssignSingleModal, setShowAssignSingleModal] = useState(false)
-    const [showUploadModal, setShowUploadModal] = useState(false)
     const [showFilters, setShowFilters] = useState(false)
     const [expandedRows, setExpandedRows] = useState({})
 
@@ -89,10 +82,15 @@ export default function EvidenceManagement() {
     }, [])
 
     useEffect(() => {
+        // Chỉ fetch evidences nếu người dùng đã tải xong (không còn loading auth)
+        // và nếu không phải admin, đảm bảo userDepartmentId đã load (dù là null/undefined)
         if (!isAuthLoading) {
+            // Đối với non-admin, nếu userDepartmentId là null/undefined, API sẽ tự trả về 0 kết quả
+            // (vì backend filter theo query.departmentId = null/undefined)
             fetchEvidences()
         }
     }, [isAuthLoading, filters.page, filters.status, filters.programId, filters.organizationId, filters.standardId, filters.criteriaId])
+
 
     useEffect(() => {
         if (filters.programId && filters.organizationId) {
@@ -129,6 +127,7 @@ export default function EvidenceManagement() {
             if (filters.organizationId) params.organizationId = filters.organizationId
             if (filters.standardId) params.standardId = filters.standardId
             if (filters.criteriaId) params.criteriaId = filters.criteriaId
+            // KHÔNG CẦN truyền departmentId cho non-admin vì backend đã tự động thêm req.user.department
 
             const response = await apiMethods.evidences.getAll(params)
             const data = response.data?.data || response.data
@@ -213,6 +212,7 @@ export default function EvidenceManagement() {
     }
 
     const handleEdit = (evidence) => {
+        // Thực hiện điều hướng đến trang chỉnh sửa thực tế
         router.push(`/evidence/edit/${evidence._id}`)
     }
 
@@ -239,6 +239,7 @@ export default function EvidenceManagement() {
 
         try {
             for (const id of selectedItems) {
+                // Backend sẽ kiểm tra quyền từng lần xóa
                 await apiMethods.evidences.delete(id)
             }
             toast.success(`Đã xóa ${selectedItems.length} minh chứng`)
@@ -272,42 +273,6 @@ export default function EvidenceManagement() {
     const handleApproveSuccess = () => {
         setShowApproveModal(false)
         setSelectedItems([])
-        fetchEvidences()
-    }
-
-    const handleBulkAssign = () => {
-        if (selectedItems.length === 0) {
-            toast.error('Vui lòng chọn minh chứng để phân quyền')
-            return
-        }
-        setShowAssignModal(true)
-    }
-
-    const handleAssignSuccess = () => {
-        setShowAssignModal(false)
-        setSelectedItems([])
-        fetchEvidences()
-    }
-
-    const handleSingleAssign = (evidence) => {
-        setSelectedEvidence(evidence)
-        setShowAssignSingleModal(true)
-    }
-
-    const handleSingleAssignSuccess = () => {
-        setShowAssignSingleModal(false)
-        setSelectedEvidence(null)
-        fetchEvidences()
-    }
-
-    const handleUploadFiles = (evidence) => {
-        setSelectedEvidence(evidence)
-        setShowUploadModal(true)
-    }
-
-    const handleUploadSuccess = () => {
-        setShowUploadModal(false)
-        setSelectedEvidence(null)
         fetchEvidences()
     }
 
@@ -350,6 +315,7 @@ export default function EvidenceManagement() {
     const hasActiveFilters = filters.search || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
 
+    // *** LOGIC TRẠNG THÁI ĐÃ SỬA DỰA TRÊN evidence.status ***
     const getEvidenceStatusDisplay = (status, files) => {
         const fileCount = files?.length || 0;
         const approvedCount = files?.filter(f => f.approvalStatus === 'approved').length || 0;
@@ -358,20 +324,20 @@ export default function EvidenceManagement() {
 
         switch (status) {
             case 'new':
-                return { status: 'new', text: 'Mới', color: 'gray', icon: FileText };
+                return { status: 'new', text: 'Mới tạo', color: 'gray', icon: FileText };
             case 'assigned':
-                return { status: 'assigned', text: 'ĐãPQ', color: 'yellow', icon: AlertCircle };
+                return { status: 'assigned', text: 'Đã phân quyền', color: 'yellow', icon: AlertCircle };
             case 'in_progress':
                 if (fileCount > 0 && pendingCount > 0) {
-                    return { status: 'pending_approval', text: 'ChờD', color: 'purple', icon: Clock };
+                    return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
                 }
-                return { status: 'in_progress', text: 'ĐangTH', color: 'blue', icon: Clock };
+                return { status: 'in_progress', text: 'Đang thực hiện', color: 'blue', icon: Clock };
             case 'pending_approval':
-                return { status: 'pending_approval', text: 'ChờD', color: 'purple', icon: Clock };
+                return { status: 'pending_approval', text: 'Đang chờ duyệt', color: 'purple', icon: Clock };
             case 'approved':
-                return { status: 'approved', text: 'ĐãD', color: 'green', icon: CheckCircle };
+                return { status: 'approved', text: 'Đã duyệt', color: 'green', icon: CheckCircle };
             case 'rejected':
-                return { status: 'rejected', text: 'ĐãTC', color: 'red', icon: XCircle };
+                return { status: 'rejected', text: 'Đã từ chối', color: 'red', icon: XCircle };
             default:
                 if (fileCount === 0) {
                     return { status: 'no_files', text: 'Chưa có file', color: 'gray', icon: FileText };
@@ -395,8 +361,6 @@ export default function EvidenceManagement() {
             assigned: 'bg-yellow-100 text-yellow-700 border-yellow-200',
             in_progress: 'bg-blue-100 text-blue-700 border-blue-200',
             pending_approval: 'bg-purple-100 text-purple-700 border-purple-200',
-            approved: 'bg-green-100 text-green-700 border-green-200',
-            rejected: 'bg-red-100 text-red-700 border-red-200',
             unknown: 'bg-red-100 text-red-700 border-red-200'
         }
 
@@ -407,137 +371,19 @@ export default function EvidenceManagement() {
             </span>
         )
     }
+    // *** KẾT THÚC LOGIC TRẠNG THÁI ***
 
+    // Logic kiểm tra quyền chỉnh sửa cho non-admin
     const canEditEvidence = (evidence) => {
+        // Admin luôn có quyền
         if (isAdmin) return true;
-        return !!((isManager || isTDG) && userDepartmentId && evidence.departmentId?._id?.toString() === userDepartmentId);
-
-    }
-
-    const getActionButtons = (evidence) => {
-        const buttons = [];
-
-        buttons.push({
-            icon: Eye,
-            title: 'Xem minh chứng',
-            onClick: () => handleViewDetail(evidence._id),
-            variant: 'view',
-            show: true
-        });
-
-        if (isAdmin) {
-            buttons.push({
-                icon: Edit,
-                title: 'Chỉnh sửa minh chứng',
-                onClick: () => handleEdit(evidence),
-                variant: 'edit',
-                show: true
-            });
-
-            buttons.push({
-                icon: ArrowRightLeft,
-                title: 'Di chuyển minh chứng',
-                onClick: () => handleMove(evidence),
-                variant: 'primary',
-                show: true
-            });
-
-            buttons.push({
-                icon: Trash2,
-                title: 'Xóa minh chứng',
-                onClick: () => handleDelete(evidence._id),
-                variant: 'delete',
-                show: true
-            });
-        } else if (isManager && canEditEvidence(evidence)) {
-            buttons.push({
-                icon: Edit,
-                title: 'Chỉnh sửa minh chứng',
-                onClick: () => handleEdit(evidence),
-                variant: 'edit',
-                show: true
-            });
-
-            buttons.push({
-                icon: UserPlus,
-                title: 'Phân quyền nộp file',
-                onClick: () => handleSingleAssign(evidence),
-                variant: 'purple',
-                show: true
-            });
-
-            buttons.push({
-                icon: ArrowRightLeft,
-                title: 'Di chuyển minh chứng',
-                onClick: () => handleMove(evidence),
-                variant: 'primary',
-                show: true
-            });
-
-            buttons.push({
-                icon: Trash2,
-                title: 'Xóa minh chứng',
-                onClick: () => handleDelete(evidence._id),
-                variant: 'delete',
-                show: true
-            });
-        } else if (isTDG) {
-            const isAssignedToThisUser = evidence.assignedTo?.some(user => user._id?.toString() === user?.id);
-
-            buttons.push({
-                icon: Upload,
-                title: isAssignedToThisUser
-                    ? 'Thêm file minh chứng'
-                    : 'Bạn chưa được phân quyền upload file',
-                onClick: isAssignedToThisUser ? () => handleUploadFiles(evidence) : undefined,
-                variant: isAssignedToThisUser ? 'success' : 'disabled',
-                show: true,
-                disabled: !isAssignedToThisUser
-            });
-        } else if (user?.role === 'ex' || user?.role === 'viewer') {
+        // Manager/TGD chỉ có quyền nếu minh chứng thuộc phòng ban của mình
+        if ((user?.role === 'manager' || user?.role === 'tdg') && userDepartmentId && evidence.departmentId?._id?.toString() === userDepartmentId) {
+            return true;
         }
-
-        return buttons.filter(b => b.show);
+        return false;
     }
 
-    const ActionMenu = ({ evidence }) => {
-        const buttons = getActionButtons(evidence);
-
-        return (
-            <div className="flex items-center justify-center gap-1 flex-nowrap">
-                {buttons.map((btn, idx) => (
-                    <ActionButton
-                        key={idx}
-                        icon={btn.icon}
-                        title={btn.title}
-                        onClick={btn.onClick}
-                        variant={btn.variant}
-                        size="sm"
-                        disabled={btn.disabled}
-                    />
-                ))}
-            </div>
-        );
-    }
-
-    const getColumnWidths = () => {
-        let actionWidthClass = 'w-60';
-
-        if (isTDG) {
-            actionWidthClass = 'w-28';
-        } else if (user?.role === 'ex' || user?.role === 'viewer') {
-            actionWidthClass = 'w-16';
-        }
-
-        return {
-            standard: 'w-28',
-            criteria: 'w-28',
-            status: 'w-24',
-            action: actionWidthClass
-        };
-    };
-
-    const columnWidths = getColumnWidths();
 
     if (isAuthLoading) {
         return (
@@ -548,6 +394,7 @@ export default function EvidenceManagement() {
         )
     }
 
+    // Nếu user không phải admin và không có departmentId (không có phòng ban), chặn không cho xem
     if (!isAdmin && !userDepartmentId) {
         return (
             <div className="p-16 text-center bg-white rounded-2xl shadow-lg">
@@ -577,7 +424,8 @@ export default function EvidenceManagement() {
                             </p>
                         </div>
                     </div>
-                    {(isAdmin || isManager) && (
+                    {/* Chỉ cho phép Manager/TGD tạo minh chứng */}
+                    {(isAdmin || user?.role === 'manager' || user?.role === 'tdg') && (
                         <button
                             onClick={() => router.push('/evidence/create')}
                             className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
@@ -590,7 +438,7 @@ export default function EvidenceManagement() {
             </div>
 
             {/* Search & Filters */}
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex flex-col lg:flex-row gap-4">
                     <div className="flex-1">
                         <form onSubmit={handleSearch} className="relative">
@@ -600,7 +448,7 @@ export default function EvidenceManagement() {
                                 placeholder="Tìm kiếm theo tên, mã, số hiệu văn bản..."
                                 value={filters.search}
                                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                className="w-full pl-12 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                             />
                         </form>
                     </div>
@@ -610,7 +458,7 @@ export default function EvidenceManagement() {
                             className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
                                 showFilters || hasActiveFilters
                                     ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                                    : 'bg-white border-2 border-blue-200 text-gray-700 hover:bg-blue-50'
+                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
                             }`}
                         >
                             <Filter className="h-5 w-5 mr-2" />
@@ -625,7 +473,7 @@ export default function EvidenceManagement() {
                         <button
                             onClick={fetchEvidences}
                             disabled={loading}
-                            className="inline-flex items-center px-4 py-3 border-2 border-blue-200 rounded-xl hover:bg-blue-50 disabled:opacity-50 transition-all font-semibold text-gray-700"
+                            className="inline-flex items-center px-4 py-3 border-2 border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all font-semibold"
                         >
                             <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Làm mới
@@ -634,7 +482,7 @@ export default function EvidenceManagement() {
                 </div>
 
                 {showFilters && (
-                    <div className="mt-6 pt-6 border-t border-blue-200">
+                    <div className="mt-6 pt-6 border-t border-gray-200">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-sm font-bold text-gray-900">Lọc nâng cao</h3>
                             {hasActiveFilters && (
@@ -654,7 +502,7 @@ export default function EvidenceManagement() {
                                 <select
                                     value={filters.programId}
                                     onChange={(e) => handleFilterChange('programId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả chương trình</option>
                                     {programs.map(p => (
@@ -670,7 +518,7 @@ export default function EvidenceManagement() {
                                 <select
                                     value={filters.organizationId}
                                     onChange={(e) => handleFilterChange('organizationId', e.target.value)}
-                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                     <option value="">Tất cả tổ chức</option>
                                     {organizations.map(o => (
@@ -687,7 +535,7 @@ export default function EvidenceManagement() {
                                     value={filters.standardId}
                                     onChange={(e) => handleFilterChange('standardId', e.target.value)}
                                     disabled={!filters.programId || !filters.organizationId}
-                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-blue-50"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                 >
                                     <option value="">Tất cả tiêu chuẩn</option>
                                     {standards.map(s => (
@@ -704,7 +552,7 @@ export default function EvidenceManagement() {
                                     value={filters.criteriaId}
                                     onChange={(e) => handleFilterChange('criteriaId', e.target.value)}
                                     disabled={!filters.standardId}
-                                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-blue-50"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                 >
                                     <option value="">Tất cả tiêu chí</option>
                                     {criteria.map(c => (
@@ -724,52 +572,38 @@ export default function EvidenceManagement() {
                         <span className="text-sm text-blue-900 font-semibold">
                             Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> minh chứng
                         </span>
-                        {/* Đã xóa flex-wrap và thêm flex-nowrap để ngăn xuống dòng */}
-                        <div className="flex space-x-3 flex-nowrap overflow-x-auto pb-1">
+                        <div className="flex space-x-3">
                             <button
                                 onClick={() => setSelectedItems([])}
-                                className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-blue-50 border-2 border-blue-300 font-semibold transition-all shadow-md flex-shrink-0"
+                                className="inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm rounded-xl hover:bg-gray-50 border-2 border-gray-300 font-semibold transition-all shadow-md"
                             >
                                 <X className="h-4 w-4 mr-2" />
                                 Hủy chọn
                             </button>
-
-                            {isManager && (
-                                <button
-                                    onClick={handleBulkAssign}
-                                    className="inline-flex items-center px-5 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
-                                >
-                                    <UserPlus className="h-4 w-4 mr-2" />
-                                    Phân Quyền Nộp File
-                                </button>
-                            )}
-
+                            {/* Chỉ cho Admin duyệt hàng loạt */}
                             {isAdmin && (
                                 <button
                                     onClick={handleBulkApprove}
-                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
+                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md hover:shadow-lg"
                                 >
                                     <CheckCircle className="h-4 w-4 mr-2" />
                                     Duyệt File Hàng Loạt
                                 </button>
                             )}
-
-                            {(isAdmin || isManager) && (
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg flex-shrink-0"
-                                >
-                                    <Trash className="h-4 w-4 mr-2" />
-                                    Xóa tất cả
-                                </button>
-                            )}
+                            <button
+                                onClick={handleBulkDelete}
+                                className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
+                            >
+                                <Trash className="h-4 w-4 mr-2" />
+                                Xóa tất cả
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-bold text-gray-900">
@@ -807,7 +641,7 @@ export default function EvidenceManagement() {
                             >
                                 Xóa bộ lọc
                             </button>
-                        ) : (isAdmin || isManager) && (
+                        ) : (
                             <button
                                 onClick={() => router.push('/evidence/create')}
                                 className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
@@ -821,14 +655,14 @@ export default function EvidenceManagement() {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
-                                <thead className="bg-blue-100">
+                                <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                 <tr>
                                     <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
                                         <input
                                             type="checkbox"
                                             checked={selectedItems.length === evidences.length}
                                             onChange={toggleSelectAll}
-                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                         />
                                     </th>
                                     <th className="px-2 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
@@ -840,50 +674,50 @@ export default function EvidenceManagement() {
                                     <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
                                         Tên minh chứng
                                     </th>
-                                    <th className={`px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 ${columnWidths.standard}`}>
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Tiêu chuẩn
                                     </th>
-                                    <th className={`px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 ${columnWidths.criteria}`}>
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">
                                         Tiêu chí
                                     </th>
                                     <th className="px-2 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                         Files
                                     </th>
-                                    <th className={`px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 ${columnWidths.status}`}>
+                                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-28">
                                         Trạng thái
                                     </th>
                                     <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">
                                         Ngày tạo
                                     </th>
-                                    <th className={`px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 ${columnWidths.action}`}>
+                                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-56">
                                         Thao tác
                                     </th>
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => {
+                                    const isEditable = canEditEvidence(evidence); // Kiểm tra quyền chỉnh sửa
                                     return (
-                                        <tr key={evidence._id}
-                                            className={`border-b border-blue-200 ${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors`}>
-                                            <td className="px-3 py-3 text-center border-r border-blue-200">
+                                        <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedItems.includes(evidence._id)}
                                                     onChange={() => toggleSelectItem(evidence._id)}
-                                                    className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                                 />
                                             </td>
-                                            <td className="px-2 py-3 text-center border-r border-blue-200">
+                                            <td className="px-2 py-3 text-center border-r border-gray-200">
                                             <span className="text-sm font-semibold text-gray-700">
                                                 {((pagination.current - 1) * filters.limit) + index + 1}
                                             </span>
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-blue-200">
-                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded-lg border border-blue-200">
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
+                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
                                                 {evidence.code}
                                             </span>
                                             </td>
-                                            <td className="px-4 py-3 border-r border-blue-200">
+                                            <td className="px-4 py-3 border-r border-gray-200">
                                                 <div className="max-w-md">
                                                     <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={evidence.name}>
                                                         {evidence.name}
@@ -895,7 +729,7 @@ export default function EvidenceManagement() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 border-r border-blue-200">
+                                            <td className="px-3 py-3 border-r border-gray-200">
                                                 {evidence.standardId && (
                                                     <div>
                                                         <button
@@ -919,7 +753,7 @@ export default function EvidenceManagement() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3 border-r border-blue-200">
+                                            <td className="px-3 py-3 border-r border-gray-200">
                                                 {evidence.criteriaId && (
                                                     <div>
                                                         <button
@@ -943,19 +777,52 @@ export default function EvidenceManagement() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-center border-r border-blue-200">
+                                            <td className="px-2 py-3 text-center border-r border-gray-200">
                                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                                 {evidence.files?.length || 0}
                                             </span>
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-blue-200">
+                                            <td className="px-3 py-3 text-center border-r border-gray-200">
                                                 <ApprovalStatusBadge evidence={evidence} />
                                             </td>
-                                            <td className="px-3 py-3 text-center border-r border-blue-200 text-xs font-medium text-gray-600">
+                                            <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-600">
                                                 {formatDate(evidence.createdAt)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <ActionMenu evidence={evidence} />
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        variant="view"
+                                                        size="sm"
+                                                        onClick={() => handleViewDetail(evidence._id)}
+                                                    />
+
+                                                    {/* CHỈNH SỬA: Cho phép Admin HOẶC Manager/TGD của phòng ban edit/move/delete */}
+                                                    {isEditable && (
+                                                        <>
+                                                            <ActionButton
+                                                                icon={Edit}
+                                                                variant="edit"
+                                                                size="sm"
+                                                                onClick={() => handleEdit(evidence)}
+                                                            />
+
+                                                            <ActionButton
+                                                                icon={ArrowRightLeft}
+                                                                variant="primary"
+                                                                size="sm"
+                                                                onClick={() => handleMove(evidence)}
+                                                            />
+
+                                                            <ActionButton
+                                                                icon={Trash2}
+                                                                variant="delete"
+                                                                size="sm"
+                                                                onClick={() => handleDelete(evidence._id)}
+                                                            />
+                                                        </>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     )})}
@@ -965,13 +832,13 @@ export default function EvidenceManagement() {
 
                         {pagination.pages > 1 && (
                             <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
-                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div className="flex items-center justify-between">
                                     <p className="text-sm text-gray-700">
                                         Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
                                         <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
                                         <strong className="text-blue-600">{pagination.total}</strong> kết quả
                                     </p>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => handlePageChange(pagination.current - 1)}
                                             disabled={!pagination.hasPrev}
@@ -981,6 +848,7 @@ export default function EvidenceManagement() {
                                         </button>
                                         {[...Array(pagination.pages)].map((_, i) => {
                                             const pageNum = i + 1;
+                                            // Logic hiển thị trang đơn giản hơn, có thể tối ưu thêm cho UX
                                             if (
                                                 pagination.pages <= 7 ||
                                                 pageNum === 1 || pageNum === pagination.pages ||
@@ -1037,37 +905,6 @@ export default function EvidenceManagement() {
                     onSuccess={handleApproveSuccess}
                 />
             )}
-
-            {showAssignModal && (
-                <AssignUsersModal
-                    evidenceIds={selectedItems}
-                    onClose={() => setShowAssignModal(false)}
-                    onSuccess={handleAssignSuccess}
-                />
-            )}
-
-            {showAssignSingleModal && selectedEvidence && (
-                <AssignUsersSingleModal
-                    evidence={selectedEvidence}
-                    onClose={() => {
-                        setShowAssignSingleModal(false)
-                        setSelectedEvidence(null)
-                    }}
-                    onSuccess={handleSingleAssignSuccess}
-                />
-            )}
-
-            {showUploadModal && selectedEvidence && (
-                <UploadEvidenceFile
-                    evidence={selectedEvidence}
-                    onClose={() => {
-                        setShowUploadModal(false)
-                        setSelectedEvidence(null)
-                    }}
-                    onSuccess={handleUploadSuccess}
-                />
-            )}
-
         </div>
     )
 }

@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 const Report = require('../../models/report/Report');
 
-// Hàm chuẩn hóa ID
-const normalizeId = (id) => (id && id.toString().trim() !== '') ? id : null;
-
 const getReports = async (req, res) => {
     try {
         const {
@@ -32,15 +29,17 @@ const getReports = async (req, res) => {
             const userAccessQuery = {
                 $or: [
                     { createdBy: req.user.id },
-                    { status: { $in: ['published', 'submitted'] } }
+                    { status: 'published' }
                 ]
             };
+
             if (req.user.standardAccess && req.user.standardAccess.length > 0) {
                 userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
             }
             if (req.user.criteriaAccess && req.user.criteriaAccess.length > 0) {
                 userAccessQuery.$or.push({ criteriaId: { $in: req.user.criteriaAccess } });
             }
+
             query = { ...query, ...userAccessQuery };
         }
 
@@ -75,7 +74,6 @@ const getReports = async (req, res) => {
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .populate('attachedFile', 'originalName size')
-                .populate('requestId', 'title status')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -120,15 +118,6 @@ const getReportById = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
             .populate('attachedFile')
-            .populate('requestId')
-            .populate({
-                path: 'linkedEvidences.evidenceId',
-                select: 'code name files'
-            })
-            .populate({
-                path: 'linkedEvidences.selectedFileIds',
-                select: 'originalName size mimetype'
-            })
             .populate({
                 path: 'evaluations',
                 select: 'averageScore rating status evaluatorId',
@@ -136,10 +125,6 @@ const getReportById = async (req, res) => {
                     path: 'evaluatorId',
                     select: 'fullName email'
                 }
-            })
-            .populate({
-                path: 'selfEvaluation.evaluatedBy',
-                select: 'fullName email'
             });
 
         if (!report) {
@@ -172,102 +157,66 @@ const createReport = async (req, res) => {
             type,
             programId,
             organizationId,
+            standardId,
+            criteriaId,
             content,
             contentMethod,
             summary,
-            keywords,
-            requestId,
-            linkedEvidences
+            keywords
         } = req.body;
 
         const academicYearId = req.academicYearId;
-        let finalProgramId = programId;
-        let finalOrganizationId = organizationId;
-        let standardId = req.body.standardId;
-        let criteriaId = req.body.criteriaId;
 
-        const normalizeId = (id) => (id && id.toString().trim() !== '') ? id : null;
+        let standardCode = '';
+        let criteriaCode = '';
 
-        let reportRequest = null;
-        if (requestId) {
-            const ReportRequestModel = mongoose.model('ReportRequest');
-            reportRequest = await ReportRequestModel.findById(requestId);
-
-            if (!reportRequest || reportRequest.academicYearId.toString() !== academicYearId.toString()) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Yêu cầu không hợp lệ'
-                });
+        if (standardId) {
+            try {
+                const StandardModel = mongoose.model('Standard');
+                const standard = await StandardModel.findById(standardId).select('code');
+                standardCode = standard?.code || '';
+            } catch (error) {
+                console.error('Error fetching standard code:', error);
             }
+        }
 
-            if (reportRequest.assignedTo.toString() !== req.user.id.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền viết báo cáo cho yêu cầu này'
-                });
+        if (criteriaId) {
+            try {
+                const CriteriaModel = mongoose.model('Criteria');
+                const criteria = await CriteriaModel.findById(criteriaId).select('code');
+                criteriaCode = criteria?.code || '';
+            } catch (error) {
+                console.error('Error fetching criteria code:', error);
             }
-
-            if (reportRequest.status === 'rejected' || reportRequest.status === 'completed') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Yêu cầu này không thể viết báo cáo'
-                });
-            }
-
-            if (reportRequest.types && reportRequest.types.length > 0) {
-                if (!reportRequest.types.includes(type)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
-                    });
-                }
-            }
-
-            if (reportRequest.programId) finalProgramId = normalizeId(reportRequest.programId);
-            if (reportRequest.organizationId) finalOrganizationId = normalizeId(reportRequest.organizationId);
-            if (reportRequest.standardId) standardId = normalizeId(reportRequest.standardId);
-            if (reportRequest.criteriaId) criteriaId = normalizeId(reportRequest.criteriaId);
-        } else {
-            finalProgramId = normalizeId(programId);
-            finalOrganizationId = normalizeId(organizationId);
-            standardId = normalizeId(standardId);
-            criteriaId = normalizeId(criteriaId);
         }
 
-        if (!academicYearId) {
-            return res.status(400).json({ success: false, message: 'Academic Year ID là bắt buộc' });
-        }
-        if (!finalProgramId) {
-            return res.status(400).json({ success: false, message: 'Chương trình (programId) là bắt buộc' });
-        }
-        if (!finalOrganizationId) {
-            return res.status(400).json({ success: false, message: 'Tổ chức (organizationId) là bắt buộc' });
-        }
-        if (!req.user.id) {
-            return res.status(400).json({ success: false, message: 'Người tạo (createdBy) là bắt buộc' });
-        }
-
-
-        const code = await Report.generateCode(type, academicYearId, '', '');
+        const code = await Report.generateCode(
+            type,
+            academicYearId,
+            standardCode,
+            criteriaCode
+        );
 
         const reportData = {
             academicYearId,
             title: title.trim(),
             code,
             type,
-            programId: finalProgramId,
-            organizationId: finalOrganizationId,
+            programId,
+            organizationId,
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim() || '',
             keywords: keywords || [],
             createdBy: req.user.id,
-            updatedBy: req.user.id,
-            standardId: standardId,
-            criteriaId: criteriaId
+            updatedBy: req.user.id
         };
 
-        if (requestId) {
-            reportData.requestId = requestId;
+        if (standardId) {
+            reportData.standardId = standardId;
+        }
+
+        if (criteriaId) {
+            reportData.criteriaId = criteriaId;
         }
 
         if (contentMethod === 'online_editor') {
@@ -282,33 +231,16 @@ const createReport = async (req, res) => {
             reportData.content = '';
         }
 
-        if (linkedEvidences && Array.isArray(linkedEvidences)) {
-            reportData.linkedEvidences = linkedEvidences.map(item => {
-                const evidence = {
-                    evidenceId: item.evidenceId,
-                    contextText: item.contextText || ''
-                };
-                if (item.selectedFileIds && item.selectedFileIds.length > 0) {
-                    evidence.selectedFileIds = item.selectedFileIds;
-                }
-                return evidence;
-            });
-        }
-
         const report = new Report(reportData);
         await report.save();
-
-        if (reportRequest) {
-            await reportRequest.markInProgress();
-        }
 
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' },
-            { path: 'linkedEvidences.evidenceId', select: 'code name' },
-            { path: 'linkedEvidences.selectedFileIds', select: 'originalName size' }
+            { path: 'standardId', select: 'name code' },
+            { path: 'criteriaId', select: 'name code' },
+            { path: 'createdBy', select: 'fullName email' }
         ]);
 
         res.status(201).json({
@@ -319,12 +251,14 @@ const createReport = async (req, res) => {
 
     } catch (error) {
         console.error('Create report error:', error);
+
         if (error.code === 11000) {
             return res.status(400).json({
                 success: false,
                 message: 'Mã báo cáo đã tồn tại'
             });
         }
+
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -332,6 +266,7 @@ const createReport = async (req, res) => {
                 message: messages.join(', ')
             });
         }
+
         res.status(500).json({
             success: false,
             message: error.message || 'Lỗi hệ thống khi tạo báo cáo'
@@ -342,7 +277,7 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, linkedEvidences, ...updateData } = req.body;
+        const { content, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
 
         const report = await Report.findOne({ _id: id, academicYearId });
@@ -372,19 +307,6 @@ const updateReport = async (req, res) => {
             report.content = processEvidenceLinksInContent(content);
         }
 
-        if (linkedEvidences && Array.isArray(linkedEvidences)) {
-            report.linkedEvidences = linkedEvidences.map(item => {
-                const evidence = {
-                    evidenceId: item.evidenceId,
-                    contextText: item.contextText || ''
-                };
-                if (item.selectedFileIds && item.selectedFileIds.length > 0) {
-                    evidence.selectedFileIds = item.selectedFileIds;
-                }
-                return evidence;
-            });
-        }
-
         report.updatedBy = req.user.id;
         await report.save();
 
@@ -394,9 +316,7 @@ const updateReport = async (req, res) => {
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' },
-            { path: 'linkedEvidences.evidenceId', select: 'code name' },
-            { path: 'linkedEvidences.selectedFileIds', select: 'originalName size' }
+            { path: 'updatedBy', select: 'fullName email' }
         ]);
 
         res.json({
@@ -434,10 +354,10 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        if (report.status === 'published' || report.status === 'submitted') {
+        if (report.status === 'published') {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa báo cáo đã nộp hoặc đã xuất bản'
+                message: 'Không thể xóa báo cáo đã xuất bản'
             });
         }
 
@@ -458,165 +378,6 @@ const deleteReport = async (req, res) => {
     }
 };
 
-
-// ============================================
-// FIX: submitReport - Loại bỏ lỗi xác thực MongoDB
-// ============================================
-
-const submitReport = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-
-        if (!report) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy báo cáo'
-            });
-        }
-
-        if (!report.canEdit(req.user.id, req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền nộp báo cáo này'
-            });
-        }
-
-        if (report.status !== 'draft') {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ có thể nộp báo cáo ở trạng thái bản nháp'
-            });
-        }
-
-        // Kiểm tra tự đánh giá
-        if (!report.selfEvaluation || !report.selfEvaluation.content || !report.selfEvaluation.score) {
-            return res.status(400).json({
-                success: false,
-                message: 'Vui lòng hoàn thành phần tự đánh giá trước khi nộp báo cáo'
-            });
-        }
-
-        if (report.selfEvaluation.score < 1 || report.selfEvaluation.score > 7) {
-            return res.status(400).json({
-                success: false,
-                message: 'Điểm tự đánh giá phải từ 1 đến 7'
-            });
-        }
-
-        // Kiểm tra nội dung
-        if (report.contentMethod === 'online_editor' && (!report.content || report.content.trim().length === 0)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Báo cáo phải có nội dung trước khi nộp'
-            });
-        }
-
-        if (report.contentMethod === 'file_upload' && !report.attachedFile) {
-            return res.status(400).json({
-                success: false,
-                message: 'Báo cáo phải có file đính kèm trước khi nộp'
-            });
-        }
-
-        // Kiểm tra request nếu có
-        if (report.requestId) {
-            const ReportRequestModel = require('../../models/report/ReportRequest');
-            const reportRequest = await ReportRequestModel.findById(report.requestId);
-
-            if (reportRequest && reportRequest.types && reportRequest.types.length > 0) {
-                if (!reportRequest.types.includes(report.type)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
-                    });
-                }
-            }
-        }
-
-        const oldStatus = report.status;
-
-        // **FIX: Sử dụng save() thay vì findByIdAndUpdate() để giữ lại tất cả trường bắt buộc**
-        report.status = 'submitted';
-        report.submittedAt = new Date();
-        report.updatedBy = req.user.id;
-        report.updatedAt = new Date();
-
-        try {
-            await report.save();
-        } catch (error) {
-            console.error('Submit report save error:', error);
-            if (error.name === 'ValidationError') {
-                const messages = Object.values(error.errors).map(e => e.message);
-                return res.status(400).json({
-                    success: false,
-                    message: `Lỗi xác thực dữ liệu: ${messages.join(', ')}`
-                });
-            }
-            throw error;
-        }
-
-        // Log activity
-        try {
-            await report.addActivityLog('report_submit', req.user.id, `Nộp báo cáo: ${report.title}`, {
-                severity: 'high',
-                oldData: { status: oldStatus },
-                newData: { status: 'submitted' },
-                isAuditRequired: true
-            });
-        } catch (logError) {
-            console.error('Activity log error (not critical):', logError.message);
-        }
-
-        // Cập nhật request nếu có
-        if (report.requestId) {
-            try {
-                const ReportRequestModel = require('../../models/report/ReportRequest');
-                const request = await ReportRequestModel.findById(report.requestId);
-                if (request && request.complete && typeof request.complete === 'function') {
-                    await request.complete(report._id);
-                }
-            } catch (reqError) {
-                console.error('ReportRequest update error (not critical):', reqError.message);
-            }
-        }
-
-        await report.populate([
-            { path: 'academicYearId', select: 'name code' },
-            { path: 'programId', select: 'name code' },
-            { path: 'organizationId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' },
-            { path: 'selfEvaluation.evaluatedBy', select: 'fullName email' }
-        ]);
-
-        res.json({
-            success: true,
-            message: 'Nộp báo cáo thành công. Manager sẽ phân quyền đánh giá.',
-            data: report
-        });
-
-    } catch (error) {
-        console.error('='.repeat(80));
-        console.error('[ERROR] SUBMIT REPORT FAILED');
-        console.error('='.repeat(80));
-        console.error('[ERROR] Error message:', error.message);
-        console.error('[ERROR] Error stack:', error.stack);
-        console.error('='.repeat(80));
-
-        return res.status(500).json({
-            success: false,
-            message: error.message || 'Lỗi hệ thống khi nộp báo cáo',
-            debug: process.env.NODE_ENV === 'development' ? {
-                errorMessage: error.message,
-                errorName: error.name,
-                errorStack: error.stack
-            } : undefined
-        });
-    }
-};
-
 const publishReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -632,15 +393,10 @@ const publishReport = async (req, res) => {
             });
         }
 
-        // Only report author can publish
-        const createdById = report.createdBy ? report.createdBy.toString() : null;
-        const userId = req.user.id ? req.user.id.toString() : null;
-        const isReportAuthor = createdById === userId;
-
-        if (!isReportAuthor) {
+        if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ tác giả báo cáo mới có quyền xuất bản'
+                message: 'Không có quyền xuất bản báo cáo này'
             });
         }
 
@@ -649,6 +405,22 @@ const publishReport = async (req, res) => {
                 success: false,
                 message: 'Báo cáo đã được xuất bản'
             });
+        }
+
+        if (report.contentMethod === 'online_editor') {
+            if (!report.content || report.content.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có nội dung trước khi xuất bản'
+                });
+            }
+        } else if (report.contentMethod === 'file_upload') {
+            if (!report.attachedFile) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Báo cáo phải có file đính kèm trước khi xuất bản'
+                });
+            }
         }
 
         await report.publish(req.user.id);
@@ -682,15 +454,10 @@ const unpublishReport = async (req, res) => {
             });
         }
 
-        // Only report author can unpublish
-        const createdById = report.createdBy ? report.createdBy.toString() : null;
-        const userId = req.user.id ? req.user.id.toString() : null;
-        const isReportAuthor = createdById === userId;
-
-        if (!isReportAuthor) {
+        if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ tác giả báo cáo mới có quyền thu hồi'
+                message: 'Không có quyền thu hồi báo cáo này'
             });
         }
 
@@ -718,63 +485,6 @@ const unpublishReport = async (req, res) => {
     }
 };
 
-const addSelfEvaluation = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { content, score } = req.body;
-        const academicYearId = req.academicYearId;
-
-        if (!content || content.trim().length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Nội dung đánh giá là bắt buộc'
-            });
-        }
-
-        if (!score || score < 1 || score > 7) {
-            return res.status(400).json({
-                success: false,
-                message: 'Điểm đánh giá phải từ 1 đến 7'
-            });
-        }
-
-        const report = await Report.findOne({ _id: id, academicYearId });
-        if (!report) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy báo cáo'
-            });
-        }
-
-        if (!report.canEdit(req.user.id, req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tự đánh giá báo cáo này'
-            });
-        }
-
-        await report.addSelfEvaluation({ content: content.trim(), score: parseInt(score) }, req.user.id);
-
-        await report.populate({
-            path: 'selfEvaluation.evaluatedBy',
-            select: 'fullName email'
-        });
-
-        res.json({
-            success: true,
-            message: 'Thêm tự đánh giá thành công',
-            data: report.selfEvaluation
-        });
-
-    } catch (error) {
-        console.error('Add self evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi thêm tự đánh giá'
-        });
-    }
-};
-
 const downloadReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -798,18 +508,23 @@ const downloadReport = async (req, res) => {
         let linkedEvidencesHtml = '';
         if (report.linkedEvidences && report.linkedEvidences.length > 0) {
             linkedEvidencesHtml = '<h2 style="margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px;">Minh chứng liên quan</h2><ul>';
+
             const baseUrl = process.env.CLIENT_URL;
+
             report.linkedEvidences.forEach(linkItem => {
                 if (linkItem.evidenceId) {
                     const evidence = linkItem.evidenceId;
                     const evidenceUrl = `${baseUrl}/public/evidences/${evidence.code}`;
                     linkedEvidencesHtml += `<li><strong>${evidence.code}</strong>: <a href="${evidenceUrl}" target="_blank">${evidence.name}</a>`;
+
                     if (linkItem.contextText) {
                         linkedEvidencesHtml += ` (Ngữ cảnh: ${linkItem.contextText})`;
                     }
+
                     linkedEvidencesHtml += '</li>';
                 }
             });
+
             linkedEvidencesHtml += '</ul>';
         }
 
@@ -958,7 +673,6 @@ const getReportStats = async (req, res) => {
                     _id: null,
                     totalReports: { $sum: 1 },
                     draftReports: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } },
-                    submittedReports: { $sum: { $cond: [{ $eq: ['$status', 'submitted'] }, 1, 0] } },
                     publishedReports: { $sum: { $cond: [{ $eq: ['$status', 'published'] }, 1, 0] } },
                     totalViews: { $sum: '$metadata.viewCount' },
                     totalDownloads: { $sum: '$metadata.downloadCount' },
@@ -980,7 +694,6 @@ const getReportStats = async (req, res) => {
         const result = stats[0] || {
             totalReports: 0,
             draftReports: 0,
-            submittedReports: 0,
             publishedReports: 0,
             totalViews: 0,
             totalDownloads: 0,
@@ -1222,11 +935,7 @@ const getReportEvidences = async (req, res) => {
             .select('linkedEvidences')
             .populate({
                 path: 'linkedEvidences.evidenceId',
-                select: 'code name files'
-            })
-            .populate({
-                path: 'linkedEvidences.selectedFileIds',
-                select: 'originalName size mimetype'
+                select: 'code name'
             });
 
         if (!report) {
@@ -1477,18 +1186,137 @@ const resolveReportComment = async (req, res) => {
 
 function processEvidenceLinksInContent(content) {
     if (!content) return ''
+
     const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000'
+
     content = normalizeExistingLinks(content, baseUrl)
+
     return content
 }
 
 function normalizeExistingLinks(content, baseUrl) {
     const pattern = /<a[^>]*class="evidence-link"[^>]*data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*>.*?<\/a>/gi
+
     content = content.replace(pattern, (match, code) => {
         const url = `${baseUrl}/public/evidences/${code}`
         return `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`
     })
+
     return content
+}
+
+function cleanDuplicateLinks(content) {
+    content = content.replace(
+        />"[^<]*"?\s*class="evidence-link"\s+data-code="/g,
+        '>data-code="'
+    );
+
+    content = content.replace(
+        /class="evidence-link"[^>]*class="evidence-link"/g,
+        'class="evidence-link"'
+    );
+
+    content = content.replace(
+        /data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*data-code="[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}"/g,
+        'data-code="$1"'
+    );
+
+    content = content.replace(
+        /target="_blank"[^>]*target="_blank"/g,
+        'target="_blank"'
+    );
+
+    content = content.replace(
+        /([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})>"[^<]*">(?=.*rel="noopener")/g,
+        '$1">'
+    );
+
+    content = content.replace(
+        /(<a[^>]*>)([^<]*?)(?:"[^<]*class="evidence-link"[^<]*)*([^<]*?)<\/a>/g,
+        (match, openTag, textBefore, textAfter) => {
+            const fullText = textBefore + textAfter;
+            const codeMatch = fullText.match(/([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})/);
+            if (codeMatch) {
+                return `${openTag}${codeMatch[1]}</a>`;
+            }
+            return match;
+        }
+    );
+
+    return content;
+}
+
+
+function wrapPlainCodes(content, baseUrl) {
+    const evidenceRegex = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
+
+    let processedContent = '';
+    let lastIndex = 0;
+    let match;
+
+    while ((match = evidenceRegex.exec(content)) !== null) {
+        const code = match[1];
+        const startIndex = match.index;
+        const endIndex = startIndex + code.length;
+
+        const lookbackLength = 200;
+        const lookaheadLength = 200;
+
+        const beforeText = content.substring(
+            Math.max(0, startIndex - lookbackLength),
+            startIndex
+        );
+        const afterText = content.substring(
+            endIndex,
+            Math.min(content.length, endIndex + lookaheadLength)
+        );
+
+        const isWrapped =
+            beforeText.includes('<a') &&
+            beforeText.includes('class="evidence-link"') &&
+            beforeText.includes(`data-code="${code}"`) &&
+            afterText.includes('</a>');
+
+        if (isWrapped) {
+            processedContent += content.substring(lastIndex, endIndex);
+            lastIndex = endIndex;
+            continue;
+        }
+
+        processedContent += content.substring(lastIndex, startIndex);
+        const url = `${baseUrl}/public/evidences/${code}`;
+        processedContent += `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`;
+
+        lastIndex = endIndex;
+    }
+
+    processedContent += content.substring(lastIndex);
+    return processedContent;
+}
+
+function validateHTML(html) {
+    const errors = [];
+
+    const openCount = (html.match(/<a/g) || []).length;
+    const closeCount = (html.match(/<\/a>/g) || []).length;
+    if (openCount !== closeCount) {
+        errors.push(`Unclosed <a> tags: ${openCount} open, ${closeCount} closed`);
+    }
+
+    const duplicatePattern = /class="evidence-link"[^>]*class="evidence-link"/g;
+    if (duplicatePattern.test(html)) {
+        errors.push('Found duplicate class="evidence-link" in same tag');
+    }
+
+    const corruptedPattern = /evidence-link"[^>]*"[^>]*class="evidence-link"/g;
+    if (corruptedPattern.test(html)) {
+        errors.push('Found corrupted link structure with mixed attributes');
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors: errors
+    };
 }
 
 function escapeHtml(text) {
@@ -1509,10 +1337,8 @@ module.exports = {
     createReport,
     updateReport,
     deleteReport,
-    submitReport,
     publishReport,
     unpublishReport,
-    addSelfEvaluation,
     downloadReport,
     getReportStats,
     uploadReportFile,
@@ -1523,5 +1349,10 @@ module.exports = {
     addReportVersion,
     getReportComments,
     addReportComment,
-    resolveReportComment
+    resolveReportComment,
+    processEvidenceLinksInContent,
+    cleanDuplicateLinks,
+    normalizeExistingLinks,
+    wrapPlainCodes,
+    validateHTML
 };

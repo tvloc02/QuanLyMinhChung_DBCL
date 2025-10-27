@@ -161,10 +161,9 @@ const getEvidenceById = async (req, res) => {
             .populate('criteriaId', 'name code')
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
-            .populate('assignedTo', 'fullName email')
             .populate({
                 path: 'files',
-                select: 'originalName storedName size mimeType uploadedAt downloadCount approvalStatus rejectionReason uploadedBy type parentFolder folderMetadata',
+                select: 'originalName storedName size mimeType uploadedAt downloadCount approvalStatus rejectionReason uploadedBy',
                 populate: {
                     path: 'uploadedBy',
                     select: 'fullName email'
@@ -179,11 +178,7 @@ const getEvidenceById = async (req, res) => {
         }
 
         if (req.user.role !== 'admin') {
-            const userDeptId = req.user.department?.toString();
-            const evidenceDeptId = evidence.departmentId?._id?.toString();
-            const isAssigned = evidence.assignedTo?.some(user => user._id?.toString() === req.user.id);
-
-            if (userDeptId !== evidenceDeptId && !isAssigned) {
+            if (evidence.departmentId._id.toString() !== req.user.department) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn không có quyền xem minh chứng của phòng ban khác'
@@ -986,10 +981,14 @@ const getFullEvidenceTree = async (req, res) => {
             organizationId
         };
 
+        // LOGIC MỚI: Lọc Tiêu chuẩn/Tiêu chí/Minh chứng theo departmentId nếu có chọn filter
         if (departmentId) {
             standardCriteriaQuery.departmentId = departmentId;
             evidenceQuery.departmentId = departmentId;
         } else if (req.user.role !== 'admin') {
+            // Khi Manager không chọn phòng ban, Evidence Query không lọc theo phòng ban
+            // -> Trả về tất cả Evidences (cho phép Manager thấy tất cả các phòng ban)
+            // standardCriteriaQuery cũng không lọc theo departmentId -> Trả về tất cả S/C
         }
 
 
@@ -1179,6 +1178,7 @@ const approveFile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
         }
 
+        // ===== KIỂM TRA QUYỀN DUYỆT FILE =====
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
@@ -1186,6 +1186,7 @@ const approveFile = async (req, res) => {
             });
         }
 
+        // Manager chỉ được duyệt file của phòng ban mình
         if (req.user.role === 'manager') {
             if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
                 return res.status(403).json({
@@ -1437,6 +1438,7 @@ const assignUsers = async (req, res) => {
             });
         }
 
+        // ===== KIỂM TRA QUYỀN: Chỉ Manager phòng ban được phân quyền =====
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
@@ -1453,11 +1455,13 @@ const assignUsers = async (req, res) => {
             }
         }
 
+        // Update assignedTo - thêm user vào danh sách
         evidence.assignedTo = Array.from(new Set([
             ...evidence.assignedTo.map(id => id.toString()),
             ...userIds
-        ])).map(id => new mongoose.Types.ObjectId(id));
+        ])).map(id => mongoose.Types.ObjectId(id));
 
+        // Cập nhật status thành 'assigned' nếu còn 'new'
         if (evidence.status === 'new') {
             evidence.status = 'assigned';
         }
@@ -1507,5 +1511,5 @@ module.exports = {
     getPublicEvidence,
     sendCompletionRequest,
     submitCompletionNotification,
-    assignUsers
+    assignUsers   
 };

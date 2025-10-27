@@ -30,9 +30,8 @@ const fileSchema = new mongoose.Schema({
 
     extension: {
         type: String,
-        required: false,
-        lowercase: true,
-        default: ''
+        required: [true, 'Phần mở rộng file là bắt buộc'],
+        lowercase: true
     },
 
     type: {
@@ -142,19 +141,6 @@ const fileSchema = new mongoose.Schema({
         trim: true
     },
 
-    isSubmitted: {
-        type: Boolean,
-        default: false
-    },
-
-    submittedAt: {
-        type: Date
-    },
-
-    submittedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }
 });
 
 fileSchema.index({ evidenceId: 1 });
@@ -163,9 +149,6 @@ fileSchema.index({ originalName: 'text', extractedContent: 'text' });
 fileSchema.index({ uploadedAt: -1 });
 fileSchema.index({ status: 1 });
 fileSchema.index({ type: 1 });
-fileSchema.index({ approvalStatus: 1 });
-fileSchema.index({ isSubmitted: 1 });
-fileSchema.index({ evidenceId: 1, uploadedBy: 1 });
 
 fileSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -175,10 +158,6 @@ fileSchema.pre('save', function(next) {
 });
 
 fileSchema.pre('validate', function(next) {
-    if (this.type === 'folder') {
-        this.extension = '';
-    }
-
     const fullPath = `${this.filePath}/${this.storedName}`;
     if (fullPath.length > 255) {
         return next(new Error('Đường dẫn đầy đủ (path + name) không được quá 255 ký tự'));
@@ -201,11 +180,11 @@ fileSchema.virtual('isPdf').get(function() {
 fileSchema.virtual('isOfficeDoc').get(function() {
     const officeMimes = [
         'application/msword',
-        'application/vnd.malformations-office document.multiprocessing.document',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
-        'application/vnd.malformations-office document.spreadsheet.sheet',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-powerpoint',
-        'application/vnd.malformations-office document.presentationml.presentation'
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ];
     return officeMimes.includes(this.mimeType);
 });
@@ -221,6 +200,36 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
         targetName: this.originalName,
         ...additionalData
     });
+};
+
+fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
+    const ext = path.extname(originalName);
+
+    const cleanName = evidenceName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+
+    let fileName = `${evidenceCode}-${cleanName}${ext}`;
+
+    fileName = fileName
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const maxNameLength = 200;
+    if (fileName.length > maxNameLength) {
+        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
+        fileName = truncatedName + ext;
+    }
+
+    return fileName;
+};
+
+fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
+    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
 fileSchema.methods.incrementDownloadCount = async function() {
@@ -249,40 +258,6 @@ fileSchema.methods.getFormattedSize = function() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
-    const ext = path.extname(originalName);
-    const nameWithoutExt = path.basename(originalName, ext);
-
-    let cleanName = nameWithoutExt
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D')
-        .replace(/[^a-zA-Z0-9_\-\s]/g, '_')
-        .replace(/\s+/g, '_')
-        .replace(/_+/g, '_')
-        .substring(0, 150);
-
-    let fileName = `${evidenceCode}_${cleanName}${ext}`;
-
-    const maxNameLength = 200;
-    if (fileName.length > maxNameLength) {
-        const allowedLength = maxNameLength - ext.length - evidenceCode.length - 2;
-        cleanName = cleanName.substring(0, allowedLength);
-        fileName = `${evidenceCode}_${cleanName}${ext}`;
-    }
-
-    return fileName;
-};
-
-fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
-    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
-};
-
-fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
-    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
-};
-
 fileSchema.post('save', async function(doc, next) {
     if (this.isNew && this.uploadedBy) {
         try {
@@ -305,18 +280,11 @@ fileSchema.post('save', async function(doc, next) {
 fileSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.uploadedBy) {
         try {
-            let action = 'file_update';
-            let description = `Cập nhật file: ${result.originalName}`;
-
-            if (result.isSubmitted) {
-                action = 'file_submit';
-                description = `Nộp file: ${result.originalName}`;
-            }
-
-            await result.addActivityLog(action, result.uploadedBy, description, {
-                severity: 'low',
-                result: 'success'
-            });
+            await result.addActivityLog('file_update', result.uploadedBy,
+                `Cập nhật file: ${result.originalName}`, {
+                    severity: 'low',
+                    result: 'success'
+                });
         } catch (error) {
             console.error('Failed to log activity:', error);
         }

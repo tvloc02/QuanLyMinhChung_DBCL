@@ -96,24 +96,24 @@ export const apiMethods = {
     },
 
     users: {
-        getAll: (params) => api.get('/api/users', { params }),
-        getById: (id) => api.get(`/api/users/${id}`),
-        create: (data) => api.post('/api/users', data),
-        update: (id, data) => api.put(`/api/users/${id}`, data),
-        delete: (id) => api.delete(`/api/users/${id}`),
-        changeStatus: (id, status) => api.patch(`/api/users/${id}/status`, { status }),
-        resetPassword: (id) => api.post(`/api/users/${id}/reset-password`),
-        getStats: () => api.get('/api/users/statistics'),
-        lock: (id, reason) => api.post(`/api/users/${id}/lock`, { reason }),
-        unlock: (id) => api.post(`/api/users/${id}/unlock`),
-        getExperts: (params) => api.get('/api/users', { params: { ...params, role: 'expert' } }),
-        getPermissions: (id) => api.get(`/api/users/${id}/permissions`),
-        updatePermissions: (id, permissions) => api.put(`/api/users/${id}/permissions`, permissions),
-        addToGroups: (id, groupIds) => api.post(`/api/users/${id}/groups`, { groupIds }),
-        removeFromGroups: (id, groupIds) => api.delete(`/api/users/${id}/groups`, { data: { groupIds } }),
-        grantPermission: (id, permissionId) => api.post(`/api/users/${id}/permissions/grant`, { permissionId }),
-        denyPermission: (id, permissionId) => api.post(`/api/users/${id}/permissions/deny`, { permissionId }),
-        removePermission: (id, permissionId) => api.delete(`/api/users/${id}/permissions`, { data: { permissionId } })
+        getAll: (params) => api.get('/users', { params }),
+        getById: (id) => api.get(`/users/${id}`),
+        create: (data) => api.post('/users', data),
+        update: (id, data) => api.put(`/users/${id}`, data),
+        delete: (id) => api.delete(`/users/${id}`),
+        changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
+        resetPassword: (id) => api.post(`/users/${id}/reset-password`),
+        getStats: () => api.get('/users/statistics'),
+        lock: (id, reason) => api.post(`/users/${id}/lock`, { reason }),
+        unlock: (id) => api.post(`/users/${id}/unlock`),
+        getExperts: (params) => api.get('/users', { params: { ...params, role: 'expert' } }),
+        getPermissions: (id) => api.get(`/users/${id}/permissions`),
+        updatePermissions: (id, permissions) => api.put(`/users/${id}/permissions`, permissions),
+        addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
+        removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
+        grantPermission: (id, permissionId) => api.post(`/users/${id}/permissions/grant`, { permissionId }),
+        denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
+        removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
     },
 
     departments: {
@@ -240,65 +240,34 @@ export const apiMethods = {
     },
 
     files: {
-        uploadFiles: (evidenceId, data) => {
+        upload: (file, evidenceId, config = {}) => {
             const formData = new FormData()
-
-            if (data.files && Array.isArray(data.files)) {
-                data.files.forEach((file, index) => {
-                    formData.append('files', file, file.name);
-                })
-            }
-
-            if (data.parentFolderId) {
-                formData.append('parentFolderId', data.parentFolderId)
-            }
-
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
+            formData.append('files', file)
+            return api.post('/api/files/upload/${evidenceId}', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
-                timeout: 60000
+                ...config
             })
         },
-        downloadFile: (id) => api.get(`/api/files/download/${id}`, {
+        uploadMultiple: (files, evidenceId, config = {}) => {
+            const formData = new FormData()
+            files.forEach(file => {
+                formData.append('files', file)
+            })
+            return api.post('/api/files/upload/${evidenceId}', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                ...config
+            })
+        },
+        getById: (id) => api.get('/api/files/${id}'),
+
+        download: (id) => api.get('/api/files/download/${id}', {
             responseType: 'blob'
         }),
-        getFileInfo: (id) => api.get(`/api/files/${id}/info`),
-        deleteFile: (id) => api.delete(`/api/files/${id}`),
-        renameFile: (id, data) =>
-            api.post(`/api/files/rename/${id}`, data),
-        getByEvidence: (evidenceId, params = {}) => {
-            const queryParams = { ...params };
-            return api.get(`/api/files/list/${evidenceId}`, { params: queryParams });
-        },
-        createFolder: (evidenceId, data) => {
-            const payload = {
-                folderName: data.folderName || '',
-                parentFolderId: data.parentFolderId || null
-            };
-            return api.post(`/api/files/create-folder/${evidenceId}`, payload);
-        },
-        renameFolder: (folderId, data) =>
-            api.post(`/api/files/rename/${folderId}`, data),
-        getFolderContents: (params) =>
-            api.get(`/api/files/folder/${params.folderId}/contents`, {
-                params: {
-                    evidenceId: params.evidenceId
-                }
-            }),
-        submitFiles: (evidenceId) =>
-            api.post(`/api/files/submit/${evidenceId}`),
-        approveFile: (fileId) =>
-            api.post(`/api/files/approve/${fileId}`),
-        rejectFile: (fileId, data) =>
-            api.post(`/api/files/reject/${fileId}`, data),
-        streamFile: (id) => api.get(`/api/files/stream/${id}`)
-    },
-
-    reportRequests: {
-        getAll: (params) => api.get('/api/report-requests', { params }),
-        getById: (id) => api.get(`/api/report-requests/${id}`),
-        create: (data) => api.post('/api/report-requests', data),
-        accept: (id) => api.post(`/api/report-requests/${id}/accept`),
-        reject: (id, data) => api.post(`/api/report-requests/${id}/reject`, data)
+        delete: (id) => api.delete('/api/files/${id}'),
+        getByEvidence: (evidenceId) => api.get('/api/files/evidence/${evidenceId}'),
+        approve: (fileId, data) => {
+            return api.post('/api/evidences/files/${fileId}/approve', data)
+        }
     },
 
     reports: {
@@ -307,27 +276,38 @@ export const apiMethods = {
         create: (data) => api.post('/api/reports', data),
         update: (id, data) => api.put(`/api/reports/${id}`, data),
         delete: (id) => api.delete(`/api/reports/${id}`),
-        submit: (id) => api.post(`/api/reports/${id}/submit`),
         publish: (id) => api.post(`/api/reports/${id}/publish`),
-        unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
-        addSelfEvaluation: (id, data) => api.post(`/api/reports/${id}/self-evaluation`, data),
-        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format }, responseType: 'blob' }),
-        getStats: (params) => api.get('/api/reports/stats', { params }),
-        uploadFile: (id, file) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            return api.post(`/api/reports/${id}/upload`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-        },
-        downloadFile: (id) => api.get(`/api/reports/${id}/download-file`, { responseType: 'blob' }),
-        convertFile: (id) => api.post(`/api/reports/${id}/convert`),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
+
+        addVersion: (id, content, changeNote) =>
+            api.post(`/api/reports/${id}/versions`, { content, changeNote }),
         getVersions: (id) => api.get(`/api/reports/${id}/versions`),
-        addVersion: (id, data) => api.post(`/api/reports/${id}/versions`, data),
+
+        linkEvidences: (id) => api.post(`/api/reports/${id}/link-evidences`),
+        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
+        validateEvidenceLinks: (id) => api.post(`/api/reports/${id}/validate-evidence-links`),
+
+        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
+            params: { format },
+            responseType: 'blob'
+        }),
+
+        addComment: (id, comment, section) =>
+            api.post(`/api/reports/${id}/comments`, { comment, section }),
         getComments: (id) => api.get(`/api/reports/${id}/comments`),
-        addComment: (id, data) => api.post(`/api/reports/${id}/comments`, data),
-        resolveComment: (id, commentId) => api.put(`/api/reports/${id}/comments/${commentId}/resolve`)
+        resolveComment: (id, commentId) =>
+            api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
+
+        getStats: (params) => api.get('/api/reports/stats', { params }),
+        generateCode: (type, standardCode, criteriaCode) =>
+            api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
+
+        bulkDelete: (reportIds) =>
+            api.post('/api/reports/bulk/delete', { reportIds }),
+        bulkPublish: (reportIds) =>
+            api.post('/api/reports/bulk/publish', { reportIds }),
+        bulkArchive: (reportIds) =>
+            api.post('/api/reports/bulk/archive', { reportIds }),
+        unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
     },
 
     assignments: {

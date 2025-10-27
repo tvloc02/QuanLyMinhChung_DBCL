@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "archiver": "^5.3.2",
-    "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.40.0",
     "compression": "^1.7.4",
@@ -26,9 +25,9 @@
     "mammoth": "^1.11.0",
     "mongoose": "^7.5.0",
     "morgan": "^1.10.0",
-    "multer": "2.0.2",
+    "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.2",
-    "nodemailer": "^7.0.10",
+    "nodemailer": "^6.10.1",
     "pdf-parse": "^1.1.1",
     "winston": "^3.10.0",
     "xlsx": "^0.18.5"

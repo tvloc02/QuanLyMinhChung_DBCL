@@ -8,14 +8,7 @@ const {
     uploadFiles,
     downloadFile,
     deleteFile,
-    getFileInfo,
-    createFolder,
-    renameFile,
-    renameFolder,
-    getFolderContents,
-    submitEvidence,
-    approveFile,
-    rejectFile
+    getFileInfo
 } = require('../../controllers/evidence/fileController');
 
 router.post('/upload/:evidenceId',
@@ -56,41 +49,23 @@ router.delete('/:id',
     deleteFile
 );
 
-router.post('/rename/:id',
+router.get('/evidence/:evidenceId',
     auth,
     [
-        param('id').isMongoId().withMessage('ID file không hợp lệ')
-    ],
-    validation,
-    renameFile
-);
-
-router.post('/create-folder/:evidenceId',
-    auth,
-    [
-        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
-    ],
-    validation,
-    createFolder
-);
-
-router.get('/list/:evidenceId',
-    auth,
-    [
-        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
+        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ'),
+        query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+        query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit phải từ 1-50')
     ],
     validation,
     async (req, res) => {
         try {
             const { evidenceId } = req.params;
-            const page = parseInt(req.query.page || 1);
-            const limit = parseInt(req.query.limit || 20);
-            const { parentFolder } = req.query;
+            const { page = 1, limit = 20 } = req.query;
 
             const File = require('../../models/Evidence/File');
             const Evidence = require('../../models/Evidence/Evidence');
 
-            const evidence = await Evidence.findById(evidenceId).populate('departmentId assignedTo');
+            const evidence = await Evidence.findById(evidenceId);
             if (!evidence) {
                 return res.status(404).json({
                     success: false,
@@ -98,66 +73,32 @@ router.get('/list/:evidenceId',
                 });
             }
 
-            if (req.user.role !== 'admin') {
-                const userDeptId = req.user.department?.toString();
-                const evidenceDeptId = evidence.departmentId?._id?.toString();
-                const isAssigned = evidence.assignedTo?.some(user => user._id.toString() === req.user.id);
-
-                if (req.user.role === 'manager') {
-                    if (userDeptId !== evidenceDeptId) {
-                        return res.status(403).json({
-                            success: false,
-                            message: 'Không có quyền truy cập minh chứng này'
-                        });
-                    }
-                } else if (req.user.role === 'tdg') {
-                    if (!isAssigned && userDeptId !== evidenceDeptId) {
-                        return res.status(403).json({
-                            success: false,
-                            message: 'Không có quyền truy cập minh chứng này'
-                        });
-                    }
-                } else {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Bạn không có quyền truy cập'
-                    });
-                }
+            if (req.user.role !== 'admin' &&
+                !req.user.hasStandardAccess(evidence.standardId) &&
+                !req.user.hasCriteriaAccess(evidence.criteriaId)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không có quyền truy cập minh chứng này'
+                });
             }
 
-            const pageNum = page;
-            const limitNum = limit;
+            const pageNum = parseInt(page);
+            const limitNum = parseInt(limit);
             const skip = (pageNum - 1) * limitNum;
 
-            let query = { evidenceId, status: 'active' };
-
-            if (req.user.role === 'tdg') {
-                query.$or = [
-                    { uploadedBy: req.user.id },
-                    { isSubmitted: true }
-                ];
-            }
-
-            if (parentFolder === 'root' || !parentFolder) {
-                query.parentFolder = null;
-            } else if (parentFolder !== 'all') {
-                query.parentFolder = parentFolder;
-            }
-
-            const [items, total] = await Promise.all([
-                File.find(query)
+            const [files, total] = await Promise.all([
+                File.find({ evidenceId, status: 'active' })
                     .populate('uploadedBy', 'fullName email')
-                    .populate('approvedBy', 'fullName email')
-                    .sort({ type: -1, originalName: 1 })
+                    .sort({ uploadedAt: -1 })
                     .skip(skip)
                     .limit(limitNum),
-                File.countDocuments(query)
+                File.countDocuments({ evidenceId, status: 'active' })
             ]);
 
             res.json({
                 success: true,
                 data: {
-                    items,
+                    files,
                     pagination: {
                         current: pageNum,
                         pages: Math.ceil(total / limitNum),
@@ -176,42 +117,6 @@ router.get('/list/:evidenceId',
             });
         }
     }
-);
-
-router.get('/folder/:folderId/contents',
-    auth,
-    [
-        param('folderId').isMongoId().withMessage('ID folder không hợp lệ')
-    ],
-    validation,
-    getFolderContents
-);
-
-router.post('/submit/:evidenceId',
-    auth,
-    [
-        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
-    ],
-    validation,
-    submitEvidence
-);
-
-router.post('/approve/:fileId',
-    auth,
-    [
-        param('fileId').isMongoId().withMessage('ID file không hợp lệ')
-    ],
-    validation,
-    approveFile
-);
-
-router.post('/reject/:fileId',
-    auth,
-    [
-        param('fileId').isMongoId().withMessage('ID file không hợp lệ')
-    ],
-    validation,
-    rejectFile
 );
 
 router.get('/stream/:id',
@@ -235,31 +140,13 @@ router.get('/stream/:id',
                 });
             }
 
-            const Evidence = require('../../models/Evidence/Evidence');
-            const evidence = await Evidence.findById(file.evidenceId._id).populate('assignedTo');
-
-            if (req.user.role !== 'admin') {
-                const userDeptId = req.user.department?.toString();
-                const evidenceDeptId = evidence.departmentId?.toString();
-                const isAssigned = evidence.assignedTo?.some(id => id.toString() === req.user.id);
-
-                if (req.user.role === 'tdg') {
-                    const isOwnFile = file.uploadedBy.toString() === req.user.id;
-                    const isSubmitted = file.isSubmitted;
-                    if (!isOwnFile && !isSubmitted && !isAssigned && userDeptId !== evidenceDeptId) {
-                        return res.status(403).json({
-                            success: false,
-                            message: 'Không có quyền xem file này'
-                        });
-                    }
-                } else if (req.user.role === 'manager') {
-                    if (userDeptId !== evidenceDeptId) {
-                        return res.status(403).json({
-                            success: false,
-                            message: 'Không có quyền xem file này'
-                        });
-                    }
-                }
+            if (req.user.role !== 'admin' &&
+                !req.user.hasStandardAccess(file.evidenceId.standardId) &&
+                !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Không có quyền truy cập file này'
+                });
             }
 
             if (!fs.existsSync(file.filePath)) {
