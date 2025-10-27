@@ -458,6 +458,11 @@ const deleteReport = async (req, res) => {
     }
 };
 
+
+// ============================================
+// FIX: submitReport - Loại bỏ lỗi xác thực MongoDB
+// ============================================
+
 const submitReport = async (req, res) => {
     try {
         const { id } = req.params;
@@ -471,15 +476,6 @@ const submitReport = async (req, res) => {
                 message: 'Không tìm thấy báo cáo'
             });
         }
-
-        // KIỂM TRA ĐỘ BỀN VỮNG CỦA ID TRƯỚC KHI CẬP NHẬT
-        if (!report.academicYearId || !report.programId || !report.organizationId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Lỗi xác thực: Báo cáo bị thiếu AcademicYearId, ProgramId, hoặc OrganizationId.'
-            });
-        }
-        // KẾT THÚC KIỂM TRA ĐỘ BỀN VỮNG
 
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
@@ -495,27 +491,7 @@ const submitReport = async (req, res) => {
             });
         }
 
-        if (report.requestId) {
-            const ReportRequestModel = require('../../models/report/ReportRequest');
-            const reportRequest = await ReportRequestModel.findById(report.requestId);
-
-            if (!reportRequest) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Yêu cầu không hợp lệ hoặc đã bị xóa'
-                });
-            }
-
-            if (reportRequest.types && reportRequest.types.length > 0) {
-                if (!reportRequest.types.includes(report.type)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
-                    });
-                }
-            }
-        }
-
+        // Kiểm tra tự đánh giá
         if (!report.selfEvaluation || !report.selfEvaluation.content || !report.selfEvaluation.score) {
             return res.status(400).json({
                 success: false,
@@ -530,6 +506,7 @@ const submitReport = async (req, res) => {
             });
         }
 
+        // Kiểm tra nội dung
         if (report.contentMethod === 'online_editor' && (!report.content || report.content.trim().length === 0)) {
             return res.status(400).json({
                 success: false,
@@ -544,32 +521,33 @@ const submitReport = async (req, res) => {
             });
         }
 
+        // Kiểm tra request nếu có
+        if (report.requestId) {
+            const ReportRequestModel = require('../../models/report/ReportRequest');
+            const reportRequest = await ReportRequestModel.findById(report.requestId);
+
+            if (reportRequest && reportRequest.types && reportRequest.types.length > 0) {
+                if (!reportRequest.types.includes(report.type)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Loại báo cáo không được cho phép. Các loại được phép: ${reportRequest.types.join(', ')}`
+                    });
+                }
+            }
+        }
+
         const oldStatus = report.status;
+
+        // **FIX: Sử dụng save() thay vì findByIdAndUpdate() để giữ lại tất cả trường bắt buộc**
         report.status = 'submitted';
         report.submittedAt = new Date();
         report.updatedBy = req.user.id;
+        report.updatedAt = new Date();
 
         try {
-            const updatedReport = await Report.findByIdAndUpdate(id, {
-                $set: {
-                    status: 'submitted',
-                    submittedAt: new Date(),
-                    updatedBy: req.user.id,
-                    updatedAt: Date.now()
-                }
-            }, { new: true, runValidators: true });
-
-            if (!updatedReport) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy báo cáo để cập nhật'
-                });
-            }
-
-            Object.assign(report, updatedReport.toObject());
-
+            await report.save();
         } catch (error) {
-            console.error('Submit report validation error:', error);
+            console.error('Submit report save error:', error);
             if (error.name === 'ValidationError') {
                 const messages = Object.values(error.errors).map(e => e.message);
                 return res.status(400).json({
@@ -577,15 +555,10 @@ const submitReport = async (req, res) => {
                     message: `Lỗi xác thực dữ liệu: ${messages.join(', ')}`
                 });
             }
-            if (error.name === 'MongoServerError' && error.message.includes('validation')) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Lỗi xác thực Schema MongoDB. Vui lòng kiểm tra các trường bắt buộc đã được gán (academicYearId, programId, organizationId).`
-                });
-            }
             throw error;
         }
 
+        // Log activity
         try {
             await report.addActivityLog('report_submit', req.user.id, `Nộp báo cáo: ${report.title}`, {
                 severity: 'high',
@@ -597,6 +570,7 @@ const submitReport = async (req, res) => {
             console.error('Activity log error (not critical):', logError.message);
         }
 
+        // Cập nhật request nếu có
         if (report.requestId) {
             try {
                 const ReportRequestModel = require('../../models/report/ReportRequest');

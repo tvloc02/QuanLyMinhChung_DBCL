@@ -1,4 +1,3 @@
-// frontend/components/reports/SelfEvaluationModal.js
 import { useState } from 'react'
 import { X, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -27,7 +26,7 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                 content: content.trim(),
                 score: parseInt(score)
             }
-            console.log('Submitting evaluation:', evalData)
+            console.log('Publishing report with evaluation:', evalData)
             await onSubmit(evalData)
         } catch (error) {
             console.error('Submit evaluation error:', error)
@@ -50,10 +49,10 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-blue-600 p-6 flex items-center justify-between rounded-t-2xl">
+                <div className="sticky top-0 bg-gradient-to-r from-green-500 to-green-600 p-6 flex items-center justify-between rounded-t-2xl">
                     <h2 className="text-2xl font-bold text-white flex items-center">
                         <Star className="h-6 w-6 mr-2" />
-                        Tự đánh giá báo cáo
+                        Tự đánh giá báo cáo trước khi xuất bản
                     </h2>
                     <button
                         onClick={onClose}
@@ -74,7 +73,7 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                             onChange={(e) => setContent(e.target.value)}
                             rows={8}
                             placeholder="Nhập nội dung tự đánh giá về báo cáo của bạn..."
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                             maxLength={5000}
                             required
                             disabled={submitting}
@@ -97,14 +96,14 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                                     disabled={submitting}
                                     className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
                                         score === s
-                                            ? 'border-blue-500 bg-blue-50 shadow-md transform scale-105'
-                                            : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
+                                            ? 'border-green-500 bg-green-50 shadow-md transform scale-105'
+                                            : 'border-gray-300 hover:border-green-300 hover:bg-gray-50'
                                     } ${submitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    <span className={`text-2xl font-bold ${score === s ? 'text-blue-600' : 'text-gray-600'}`}>
+                                    <span className={`text-2xl font-bold ${score === s ? 'text-green-600' : 'text-gray-600'}`}>
                                         {s}
                                     </span>
-                                    <span className={`text-xs mt-1 text-center ${score === s ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+                                    <span className={`text-xs mt-1 text-center ${score === s ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
                                         {scoreDescriptions[s]}
                                     </span>
                                 </button>
@@ -115,10 +114,10 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                         </p>
                     </div>
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                        <p className="text-sm text-yellow-800">
-                            <strong>Lưu ý:</strong> Phần tự đánh giá là bắt buộc trước khi nộp báo cáo.
-                            Hãy đánh giá một cách khách quan và trung thực về chất lượng báo cáo của bạn.
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                        <p className="text-sm text-green-800">
+                            <strong>⚠️ Lưu ý quan trọng:</strong> Sau khi hoàn thành tự đánh giá, báo cáo của bạn sẽ được <strong>xuất bản công khai</strong> ngay lập tức.
+                            Vui lòng kiểm tra kỹ lưỡng trước khi xuất bản. Hãy đánh giá một cách khách quan và trung thực về chất lượng báo cáo của bạn.
                         </p>
                     </div>
 
@@ -134,17 +133,17 @@ export default function SelfEvaluationModal({ onClose, onSubmit, initialData = n
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             {submitting ? (
                                 <>
                                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    Đang lưu...
+                                    Đang xuất bản...
                                 </>
                             ) : (
                                 <>
                                     <Star className="h-4 w-4" />
-                                    Lưu & Nộp báo cáo
+                                    Lưu & Xuất bản công khai
                                 </>
                             )}
                         </button>

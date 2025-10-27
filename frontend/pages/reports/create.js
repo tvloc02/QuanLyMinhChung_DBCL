@@ -120,7 +120,6 @@ export default function CreateReport() {
             const standardText = req.standardId ? `${req.standardId.code} - ${req.standardId.name}` : standardId;
             const criteriaText = req.criteriaId ? `${req.criteriaId.code} - ${req.criteriaId.name}` : criteriaId;
 
-
             const baseFormData = {
                 title: req.title || '',
                 programId: programId,
@@ -137,7 +136,6 @@ export default function CreateReport() {
                 standardId: standardId,
                 criteriaId: criteriaId
             })
-
 
             if (reqTypes.length === 1) {
                 setFormData(prev => ({
@@ -266,14 +264,10 @@ export default function CreateReport() {
         }
     }
 
-    const handleSubmit = async () => {
-        if (!selfEvaluation) {
-            setShowSelfEvalModal(true)
-            return
-        }
-
+    // ✅ FIX: Hàm mới để xuất bản công khai (thay vì submit)
+    const handlePublish = async () => {
         if (!formData.title.trim() || !formData.type || !formData.programId || !formData.organizationId || !getContentFromEditor().trim()) {
-            toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc trước khi nộp.')
+            toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc trước khi xuất bản.')
             return
         }
 
@@ -291,28 +285,33 @@ export default function CreateReport() {
 
             const dataToSend = getReportDataToSend(formData);
 
+            // 1. Tạo báo cáo
             const createResponse = await reportService.create(dataToSend)
             const reportId = createResponse.data?.data?._id || createResponse.data?._id
 
+            // 2. Thêm tự đánh giá
             await reportService.addSelfEvaluation(reportId, selfEvaluation)
-            await reportService.submit(reportId)
 
-            toast.success('Nộp báo cáo thành công')
+            // 3. ✅ Xuất bản công khai (status = 'published')
+            await reportService.publishReport(reportId)
+
+            toast.success('✅ Báo cáo đã được xuất bản công khai thành công!')
             router.push(`/reports/${reportId}`)
         } catch (error) {
-            console.error('Submit error:', error)
-            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi nộp báo cáo'
+            console.error('Publish error:', error)
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi xuất bản báo cáo'
             toast.error(errorMessage)
         } finally {
             setSubmitting(false)
         }
     }
 
+    // ✅ FIX: Xử lý khi submit tự đánh giá modal
     const handleSelfEvaluationSubmit = async (evalData) => {
         setSelfEvaluation(evalData)
         setShowSelfEvalModal(false)
 
-        await handleSubmit()
+        await handlePublish()
     }
 
     const availableTypes = allowedTypes.length > 0
@@ -460,7 +459,6 @@ export default function CreateReport() {
                                     </select>
                                 </div>
 
-                                {/* SỬ DỤNG displayInfo.standardText VÀ displayInfo.criteriaText ĐỂ HIỂN THỊ */}
                                 {(displayInfo.standardId || displayInfo.criteriaId) && (
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -532,6 +530,7 @@ export default function CreateReport() {
                             </div>
                         </div>
 
+                        {/* ✅ FIX: Cập nhật button text từ "Nộp báo cáo" → "Xuất bản công khai" */}
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => router.back()}
@@ -559,17 +558,17 @@ export default function CreateReport() {
                             <button
                                 onClick={() => setShowSelfEvalModal(true)}
                                 disabled={submitting}
-                                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+                                className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
                             >
                                 {submitting ? (
                                     <>
                                         <Loader2 className="h-5 w-5 animate-spin" />
-                                        Đang nộp...
+                                        Đang xuất bản...
                                     </>
                                 ) : (
                                     <>
                                         <Send className="h-5 w-5" />
-                                        Nộp báo cáo
+                                        Xuất bản công khai
                                     </>
                                 )}
                             </button>
