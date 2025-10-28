@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Standard = require('../../models/Evidence/Standard');
 const Program = require('../../models/Evidence/Program');
 const Organization = require('../../models/Evidence/Organization');
-const Department = require('../../models/User/Department');
 
 const getStandards = async (req, res) => {
     try {
@@ -12,9 +11,8 @@ const getStandards = async (req, res) => {
             search,
             programId,
             organizationId,
-            departmentId,
             status,
-            sortBy = 'code',
+            sortBy = 'order',
             sortOrder = 'asc'
         } = req.query;
 
@@ -35,7 +33,6 @@ const getStandards = async (req, res) => {
 
         if (programId) query.programId = programId;
         if (organizationId) query.organizationId = organizationId;
-        if (departmentId) query.departmentId = departmentId;
         if (status) query.status = status;
 
         const sortOptions = {};
@@ -46,7 +43,6 @@ const getStandards = async (req, res) => {
                 .populate('academicYearId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
-                .populate('departmentId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .sort(sortOptions)
                 .skip(skip)
@@ -80,13 +76,13 @@ const getStandards = async (req, res) => {
 
 const getStandardsByProgramAndOrg = async (req, res) => {
     try {
-        const { programId, organizationId, departmentId } = req.query;
+        const { programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
 
-        if (!programId || !organizationId || !departmentId) {
+        if (!programId || !organizationId) {
             return res.status(400).json({
                 success: false,
-                message: 'Thiếu programId, organizationId hoặc departmentId'
+                message: 'Thiếu programId hoặc organizationId'
             });
         }
 
@@ -94,12 +90,10 @@ const getStandardsByProgramAndOrg = async (req, res) => {
             academicYearId,
             programId,
             organizationId,
-            departmentId,
             status: 'active'
         })
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
-            .populate('departmentId', 'name code')
             .sort({ order: 1, code: 1 });
 
         res.json({
@@ -125,7 +119,6 @@ const getStandardById = async (req, res) => {
             .populate('academicYearId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
-            .populate('departmentId', 'name code')
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email');
 
@@ -157,7 +150,6 @@ const createStandard = async (req, res) => {
             code,
             programId,
             organizationId,
-            departmentId,
             order,
             objectives,
             evaluationCriteria
@@ -165,10 +157,9 @@ const createStandard = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        const [program, organization, department] = await Promise.all([
+        const [program, organization] = await Promise.all([
             Program.findOne({ _id: programId, academicYearId }),
-            Organization.findOne({ _id: organizationId, academicYearId }),
-            Department.findById(departmentId)
+            Organization.findOne({ _id: organizationId, academicYearId })
         ]);
 
         if (!program) {
@@ -185,37 +176,26 @@ const createStandard = async (req, res) => {
             });
         }
 
-        if (!department) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phòng ban không tồn tại'
-            });
-        }
-
-        const standardCode = code.toString().padStart(2, '0');
-
         const existingStandard = await Standard.findOne({
             academicYearId,
             programId,
             organizationId,
-            departmentId,
-            code: standardCode
+            code: code.toString().padStart(2, '0')
         });
 
         if (existingStandard) {
             return res.status(400).json({
                 success: false,
-                message: `Mã tiêu chuẩn ${code} đã tồn tại cho phòng ban này`
+                message: `Mã tiêu chuẩn ${code} đã tồn tại trong chương trình này`
             });
         }
 
         const standard = new Standard({
             academicYearId,
             name: name.trim(),
-            code: standardCode,
+            code: code.toString().padStart(2, '0'),
             programId,
             organizationId,
-            departmentId,
             order: order || 1,
             objectives: objectives?.trim(),
             evaluationCriteria: evaluationCriteria || [],
@@ -229,7 +209,6 @@ const createStandard = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'departmentId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' }
         ]);
 
@@ -262,37 +241,33 @@ const updateStandard = async (req, res) => {
             });
         }
 
-        let newCode = updateData.code ? updateData.code.toString().padStart(2, '0') : standard.code;
-        const newDepartmentId = updateData.departmentId || standard.departmentId;
-
-        if (updateData.code && newCode !== standard.code) {
+        if (updateData.code && updateData.code !== standard.code) {
             const existingStandard = await Standard.findOne({
                 academicYearId,
                 programId: standard.programId,
                 organizationId: standard.organizationId,
-                departmentId: newDepartmentId,
-                code: newCode,
+                code: updateData.code.toString().padStart(2, '0'),
                 _id: { $ne: id }
             });
             if (existingStandard) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã tiêu chuẩn ${updateData.code} đã tồn tại cho phòng ban này`
+                    message: `Mã tiêu chuẩn ${updateData.code} đã tồn tại`
                 });
             }
         }
 
         const isInUse = await standard.isInUse();
-        if (isInUse && (updateData.code || updateData.programId || updateData.organizationId || updateData.departmentId)) {
+        if (isInUse && (updateData.code || updateData.programId || updateData.organizationId)) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể thay đổi mã, chương trình, tổ chức hoặc phòng ban của tiêu chuẩn đang được sử dụng'
+                message: 'Không thể thay đổi mã hoặc chương trình/tổ chức của tiêu chuẩn đang được sử dụng'
             });
         }
 
         const allowedFields = [
             'name', 'order', 'objectives',
-            'evaluationCriteria', 'status'
+             'evaluationCriteria', 'status'
         ];
 
         allowedFields.forEach(field => {
@@ -302,11 +277,7 @@ const updateStandard = async (req, res) => {
         });
 
         if (updateData.code) {
-            standard.code = newCode;
-        }
-
-        if (updateData.departmentId) {
-            standard.departmentId = updateData.departmentId;
+            standard.code = updateData.code.toString().padStart(2, '0');
         }
 
         standard.updatedBy = req.user.id;
@@ -316,7 +287,6 @@ const updateStandard = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'departmentId', select: 'name code' },
             { path: 'updatedBy', select: 'fullName email' }
         ]);
 
@@ -375,16 +345,9 @@ const deleteStandard = async (req, res) => {
 const getStandardStatistics = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
-        const { programId, organizationId, departmentId } = req.query;
-
-        let matchQuery = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
-        if (programId) matchQuery.programId = mongoose.Types.ObjectId(programId);
-        if (organizationId) matchQuery.organizationId = mongoose.Types.ObjectId(organizationId);
-        if (departmentId) matchQuery.departmentId = mongoose.Types.ObjectId(departmentId);
-
 
         const stats = await Standard.aggregate([
-            { $match: matchQuery },
+            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',

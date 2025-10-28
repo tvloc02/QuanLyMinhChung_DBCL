@@ -24,7 +24,6 @@ const publicEvidenceRoutes = require('./routes/public/publicEvidenceRoutes');
 
 const authRoutes = require('./routes/user/auth');
 const usersRoutes = require('./routes/user/users');
-const departmentRoutes = require('./routes/user/departments');
 const academicYearRoutes = require('./routes/system/academicYear');
 const programRoutes = require('./routes/evidence/programs');
 const organizationRoutes = require('./routes/evidence/organizations');
@@ -53,7 +52,6 @@ app.use('/api/system', systemRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 app.use('/api/users', usersRoutes);
-app.use('/api/departments', auth, departmentRoutes);
 app.use('/api/notifications', auth, notificationRoutes);
 
 const academicYearMiddleware = [

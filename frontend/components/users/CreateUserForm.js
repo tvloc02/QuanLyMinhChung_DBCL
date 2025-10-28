@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/router'
 import {
     ArrowLeft, Save, User, Mail, Phone, Briefcase, Building,
@@ -12,7 +12,6 @@ export default function CreateUserForm() {
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
     const [generatedPassword, setGeneratedPassword] = useState('')
-    const [departments, setDepartments] = useState([])
 
     const [formData, setFormData] = useState({
         email: '',
@@ -20,7 +19,12 @@ export default function CreateUserForm() {
         phoneNumber: '',
         roles: ['expert'],
         department: '',
-        position: ''
+        position: '',
+        academicYearAccess: [],
+        programAccess: [],
+        organizationAccess: [],
+        standardAccess: [],
+        criteriaAccess: []
     })
 
     const [errors, setErrors] = useState({})
@@ -30,74 +34,52 @@ export default function CreateUserForm() {
             value: 'admin',
             label: 'Quản trị viên',
             color: 'from-red-500 to-pink-500',
-            description: 'Quản trị hệ thống'
+            description: 'Toàn quyền quản trị hệ thống'
         },
         {
             value: 'manager',
-            label: 'Cán bộ quản lý tự đánh giá',
-            color: 'from-blue-500 to-cyan-500',
-            description: 'Chức vụ cao nhất trong phòng ban'
-        },
-        {
-            value: 'tdg',
-            label: 'Cán bộ TĐG',
-            color: 'from-sky-500 to-blue-500',
-            description: 'Được giao đẩy file minh chứng và báo cáo'
+            label: 'Cán bộ quản lý',
+            color: 'from-blue-500 to-indigo-500',
+            description: 'Quản lý và phê duyệt báo cáo'
         },
         {
             value: 'expert',
-            label: 'Chuyên gia đánh giá',
-            color: 'from-teal-500 to-cyan-500',
+            label: 'Chuyên gia',
+            color: 'from-green-500 to-emerald-500',
             description: 'Thực hiện đánh giá các tiêu chí'
+        },
+        {
+            value: 'advisor',
+            label: 'Tư vấn',
+            color: 'from-purple-500 to-violet-500',
+            description: 'Tư vấn và giám sát quá trình'
         }
     ]
 
-    useEffect(() => {
-        fetchDepartments()
-    }, [])
-
-    const fetchDepartments = async () => {
-        try {
-            const response = await api.get('/api/departments', {
-                params: {
-                    status: 'active',
-                    limit: 100
-                }
-            })
-            if (response.data.success) {
-                setDepartments(response.data.data.departments)
-            }
-        } catch (error) {
-            console.error('Error fetching departments:', error)
-        }
-    }
-
     const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target
+        const { name, value } = e.target
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: value
         }))
+        // Clear error when user types
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
         }
     }
 
-    const handleRoleChange = (roleValue) => {
+    const handleRoleToggle = (roleValue) => {
         setFormData(prev => {
-            const newRoles = prev.roles.includes(roleValue)
-                ? prev.roles.filter(r => r !== roleValue)
-                : [...prev.roles, roleValue]
+            const currentRoles = prev.roles || []
+            const newRoles = currentRoles.includes(roleValue)
+                ? currentRoles.filter(r => r !== roleValue)
+                : [...currentRoles, roleValue]
 
             return {
                 ...prev,
-                roles: newRoles.length > 0 ? newRoles : ['expert'],
-                role: (newRoles.length > 0 ? newRoles : ['expert'])[0]
+                roles: newRoles.length > 0 ? newRoles : ['expert']
             }
         })
-        if (errors.roles) {
-            setErrors(prev => ({ ...prev, roles: '' }))
-        }
     }
 
     const validateForm = () => {
@@ -111,24 +93,35 @@ export default function CreateUserForm() {
             const usernameRegex = /^[a-zA-Z0-9]+$/
 
             if (!fullEmailRegex.test(emailInput) && !usernameRegex.test(emailInput)) {
-                newErrors.email = 'Email không hợp lệ'
+                newErrors.email = 'Email không hợp lệ. Nhập email đầy đủ (user@domain.com) hoặc username (vd: locvt)'
             }
         }
 
+        // Full name validation
         if (!formData.fullName.trim()) {
             newErrors.fullName = 'Họ và tên là bắt buộc'
         } else if (formData.fullName.trim().length < 2) {
             newErrors.fullName = 'Họ và tên phải có ít nhất 2 ký tự'
+        } else if (formData.fullName.trim().length > 100) {
+            newErrors.fullName = 'Họ và tên không được quá 100 ký tự'
         }
 
+        // Phone validation
         if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
             newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)'
         }
 
-        if (!formData.department) {
-            newErrors.department = 'Phòng ban là bắt buộc'
+        // Department validation
+        if (formData.department && formData.department.length > 100) {
+            newErrors.department = 'Phòng ban không được quá 100 ký tự'
         }
 
+        // Position validation
+        if (formData.position && formData.position.length > 100) {
+            newErrors.position = 'Chức vụ không được quá 100 ký tự'
+        }
+
+        // Roles validation
         if (!formData.roles || formData.roles.length === 0) {
             newErrors.roles = 'Phải chọn ít nhất một vai trò'
         }
@@ -153,18 +146,13 @@ export default function CreateUserForm() {
             setLoading(true)
             setMessage({ type: '', text: '' })
 
-            const submitData = {
-                email: formData.email.trim(),
-                fullName: formData.fullName.trim(),
-                phoneNumber: formData.phoneNumber?.trim() || '',
-                roles: formData.roles,
-                role: formData.roles[0] || 'expert',
-                departmentRole: formData.roles[0] === 'expert' ? 'expert' : formData.roles[0],
-                position: formData.position?.trim() || '',
-                department: formData.department
-            }
+            // Log data trước khi gửi để debug
+            console.log('Sending data:', formData)
 
-            const response = await api.post('/api/users', submitData)
+            // Gọi API với đúng endpoint
+            const response = await api.post('/api/users', formData)
+
+            console.log('Response:', response.data)
 
             if (response.data.success) {
                 setGeneratedPassword(response.data.data.defaultPassword)
@@ -173,12 +161,14 @@ export default function CreateUserForm() {
                     text: 'Tạo người dùng thành công!'
                 })
 
+                // Scroll to top to see the password
                 window.scrollTo({ top: 0, behavior: 'smooth' })
             }
         } catch (error) {
             console.error('Create user error:', error)
             console.error('Error response:', error.response?.data)
 
+            // Hiển thị lỗi chi tiết hơn
             const errorMessage = error.response?.data?.message || 'Lỗi khi tạo người dùng'
             const validationErrors = error.response?.data?.errors
 
@@ -187,6 +177,7 @@ export default function CreateUserForm() {
                 text: errorMessage
             })
 
+            // Nếu có validation errors từ backend, hiển thị lên form
             if (validationErrors && Array.isArray(validationErrors)) {
                 const backendErrors = {}
                 validationErrors.forEach(err => {
@@ -214,7 +205,12 @@ export default function CreateUserForm() {
             phoneNumber: '',
             roles: ['expert'],
             department: '',
-            position: ''
+            position: '',
+            academicYearAccess: [],
+            programAccess: [],
+            organizationAccess: [],
+            standardAccess: [],
+            criteriaAccess: []
         })
         setGeneratedPassword('')
         setErrors({})
@@ -224,6 +220,7 @@ export default function CreateUserForm() {
 
     return (
         <div className="space-y-6">
+            {/* Message Alert */}
             {message.text && (
                 <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                     message.type === 'success'
@@ -252,62 +249,67 @@ export default function CreateUserForm() {
                                 {message.text}
                             </p>
 
+                            {/* Show generated password */}
                             {message.type === 'success' && generatedPassword && (
                                 <div className="mt-4 p-4 bg-white border-2 border-green-300 rounded-xl">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Mật khẩu mặc định:</p>
-                                    <div className="flex items-center space-x-2">
-                                        <code className="flex-1 px-3 py-2 bg-green-50 rounded-lg font-mono text-sm font-semibold text-green-900">
-                                            {generatedPassword}
+                                    <p className="text-sm font-semibold text-green-900 mb-2">
+                                        Mật khẩu mặc định:
+                                    </p>
+                                    <div className="flex items-center justify-between bg-green-50 px-4 py-3 rounded-lg">
+                                        <code className="text-lg font-mono font-bold text-green-900">
+                                            {showPassword ? generatedPassword : '••••••••'}
                                         </code>
                                         <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(generatedPassword)
-                                                alert('Đã sao chép!')
-                                            }}
-                                            className="px-3 py-2 text-green-600 hover:bg-green-100 rounded-lg transition-all"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all"
                                         >
                                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                         </button>
                                     </div>
-                                </div>
-                            )}
-
-                            {message.type === 'success' && (
-                                <div className="mt-6 flex items-center space-x-3">
-                                    <button
-                                        type="button"
-                                        onClick={handleCreateAnother}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-all"
-                                    >
-                                        Tạo người dùng khác
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleBackToList}
-                                        className="px-4 py-2 text-sm font-medium text-green-600 border-2 border-green-300 hover:bg-green-50 rounded-lg transition-all"
-                                    >
-                                        Quay lại danh sách
-                                    </button>
+                                    <p className="text-xs text-green-700 mt-2">
+                                        ⚠️ Vui lòng lưu lại mật khẩu này. Người dùng sẽ cần thay đổi mật khẩu khi đăng nhập lần đầu.
+                                    </p>
                                 </div>
                             )}
                         </div>
-                        <button onClick={() => setMessage({ type: '', text: '' })} className="text-gray-400 hover:text-gray-600">
-                            <X className="w-6 h-6" />
+                        <button
+                            onClick={() => setMessage({ type: '', text: '' })}
+                            className="ml-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
+
+                    {/* Action buttons after success */}
+                    {message.type === 'success' && (
+                        <div className="mt-4 flex gap-3 justify-end">
+                            <button
+                                onClick={handleBackToList}
+                                className="px-6 py-2.5 bg-white text-green-700 border-2 border-green-200 rounded-xl hover:bg-green-50 transition-all font-medium"
+                            >
+                                Về danh sách
+                            </button>
+                            <button
+                                onClick={handleCreateAnother}
+                                className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                            >
+                                Tạo người dùng khác
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-start space-x-4">
+                    <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
                             <UserPlus className="w-8 h-8" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Tạo người dùng mới</h1>
-                            <p className="text-blue-100">Thêm người dùng mới vào hệ thống</p>
+                            <p className="text-indigo-100">Thêm người dùng mới vào hệ thống</p>
                         </div>
                     </div>
                     <button
@@ -320,21 +322,24 @@ export default function CreateUserForm() {
                 </div>
             </div>
 
+            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Basic Information */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
                         <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <User className="w-5 h-5 text-blue-600" />
+                            <div className="p-2 bg-indigo-100 rounded-lg">
+                                <User className="w-5 h-5 text-indigo-600" />
                             </div>
                             <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>
                         </div>
                     </div>
 
                     <div className="p-6 space-y-6">
+                        {/* Email */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Mail className="w-4 h-4 text-blue-600" />
+                                <Mail className="w-4 h-4 text-indigo-600" />
                                 <span>Email / Username <span className="text-red-500">*</span></span>
                             </label>
                             <input
@@ -343,7 +348,7 @@ export default function CreateUserForm() {
                                 value={formData.email}
                                 onChange={handleInputChange}
                                 placeholder="nguyenvana hoặc nguyenvana@example.com"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -353,11 +358,14 @@ export default function CreateUserForm() {
                                     {errors.email}
                                 </p>
                             )}
+                            <p className="mt-2 text-xs text-gray-500">
+                            </p>
                         </div>
 
+                        {/* Full Name */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <User className="w-4 h-4 text-blue-600" />
+                                <User className="w-4 h-4 text-indigo-600" />
                                 <span>Họ và tên <span className="text-red-500">*</span></span>
                             </label>
                             <input
@@ -366,7 +374,7 @@ export default function CreateUserForm() {
                                 value={formData.fullName}
                                 onChange={handleInputChange}
                                 placeholder="Nhập họ và tên đầy đủ"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -378,9 +386,10 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
+                        {/* Phone Number */}
                         <div>
                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Phone className="w-4 h-4 text-blue-600" />
+                                <Phone className="w-4 h-4 text-indigo-600" />
                                 <span>Số điện thoại</span>
                             </label>
                             <input
@@ -389,7 +398,7 @@ export default function CreateUserForm() {
                                 value={formData.phoneNumber}
                                 onChange={handleInputChange}
                                 placeholder="0912345678"
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                     errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                 }`}
                             />
@@ -401,62 +410,70 @@ export default function CreateUserForm() {
                             )}
                         </div>
 
-                        <div>
-                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Briefcase className="w-4 h-4 text-blue-600" />
-                                <span>Chức vụ</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="position"
-                                value={formData.position}
-                                onChange={handleInputChange}
-                                placeholder="Nhập chức vụ"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                            />
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Department */}
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Building className="w-4 h-4 text-indigo-600" />
+                                    <span>Phòng ban</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="department"
+                                    value={formData.department}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập tên phòng ban"
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                />
+                                {errors.department && (
+                                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.department}
+                                    </p>
+                                )}
+                            </div>
 
-                        <div>
-                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
-                                <Building className="w-4 h-4 text-blue-600" />
-                                <span>Phòng ban <span className="text-red-500">*</span></span>
-                            </label>
-                            <select
-                                name="department"
-                                value={formData.department}
-                                onChange={handleInputChange}
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                    errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                }`}
-                            >
-                                <option value="">Chọn phòng ban</option>
-                                {departments.map(dept => (
-                                    <option key={dept._id} value={dept._id}>
-                                        {dept.name} ({dept.code})
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.department && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <AlertCircle className="w-4 h-4 mr-1" />
-                                    {errors.department}
-                                </p>
-                            )}
+                            {/* Position */}
+                            <div>
+                                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-2">
+                                    <Briefcase className="w-4 h-4 text-indigo-600" />
+                                    <span>Chức vụ</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="position"
+                                    value={formData.position}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập chức vụ"
+                                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                        errors.position ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                />
+                                {errors.position && (
+                                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {errors.position}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                {/* Roles */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b-2 border-gray-200">
                         <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <Shield className="w-5 h-5 text-blue-600" />
+                            <div className="p-2 bg-purple-100 rounded-lg">
+                                <Shield className="w-5 h-5 text-purple-600" />
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">
                                     Vai trò <span className="text-red-500">*</span>
                                 </h2>
-                                <p className="text-sm text-gray-600">Chọn vai trò hệ thống cho người dùng</p>
+                                <p className="text-sm text-gray-600">Chọn một hoặc nhiều vai trò cho người dùng</p>
                             </div>
                         </div>
                     </div>
@@ -466,29 +483,24 @@ export default function CreateUserForm() {
                             {roleOptions.map((role) => {
                                 const isSelected = formData.roles.includes(role.value)
                                 return (
-                                    <label
+                                    <div
                                         key={role.value}
+                                        onClick={() => handleRoleToggle(role.value)}
                                         className={`relative p-5 border-2 rounded-xl cursor-pointer transition-all ${
                                             isSelected
-                                                ? 'border-blue-500 bg-blue-50 shadow-md'
+                                                ? 'border-indigo-500 bg-indigo-50 shadow-md'
                                                 : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                                         }`}
                                     >
                                         <div className="flex items-start space-x-3">
                                             <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
                                                 isSelected
-                                                    ? 'border-blue-600 bg-blue-600'
+                                                    ? 'border-indigo-600 bg-indigo-600'
                                                     : 'border-gray-300'
                                             }`}>
                                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                                             </div>
                                             <div className="flex-1">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => handleRoleChange(role.value)}
-                                                    className="hidden"
-                                                />
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${role.color} text-white`}>
                                                         {role.label}
@@ -497,7 +509,7 @@ export default function CreateUserForm() {
                                                 <p className="text-sm text-gray-600">{role.description}</p>
                                             </div>
                                         </div>
-                                    </label>
+                                    </div>
                                 )
                             })}
                         </div>
@@ -507,12 +519,10 @@ export default function CreateUserForm() {
                                 {errors.roles}
                             </p>
                         )}
-                        <div className="mt-4 text-sm text-gray-600">
-                            Đã chọn: <span className="font-bold text-blue-600">{formData.roles.length}</span> vai trò
-                        </div>
                     </div>
                 </div>
 
+                {/* Submit Buttons */}
                 <div className="flex items-center justify-end gap-4 pt-4">
                     <button
                         type="button"
@@ -525,7 +535,7 @@ export default function CreateUserForm() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
                     >
                         <Save className="w-5 h-5" />
                         <span>{loading ? 'Đang tạo...' : 'Tạo người dùng'}</span>

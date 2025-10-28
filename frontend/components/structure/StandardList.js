@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react'
-import { Target, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Layers, Eye, Briefcase } from 'lucide-react'
+import { Target, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, Filter, Layers, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import StandardModal from './StandardModal'
-import { ActionButton } from '../ActionButtons'
+import { ActionButton } from '../../components/ActionButtons'
 
 export default function StandardList() {
     const [standards, setStandards] = useState([])
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
-    const [departments, setDepartments] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 })
     const [search, setSearch] = useState('')
     const [programId, setProgramId] = useState('')
     const [organizationId, setOrganizationId] = useState('')
-    const [departmentId, setDepartmentId] = useState('')
     const [status, setStatus] = useState('')
     const [showImportModal, setShowImportModal] = useState(false)
     const [showStandardModal, setShowStandardModal] = useState(false)
@@ -27,12 +25,11 @@ export default function StandardList() {
     useEffect(() => {
         loadPrograms()
         loadOrganizations()
-        loadDepartments()
     }, [])
 
     useEffect(() => {
         loadStandards()
-    }, [pagination.current, search, programId, organizationId, departmentId, status])
+    }, [pagination.current, search, programId, organizationId, status])
 
     const loadPrograms = async () => {
         try {
@@ -56,17 +53,6 @@ export default function StandardList() {
         }
     }
 
-    const loadDepartments = async () => {
-        try {
-            const response = await apiMethods.departments.getAll({ status: 'active', limit: 100 })
-            if (response.data.success) {
-                setDepartments(response.data.data.departments || response.data.data || [])
-            }
-        } catch (error) {
-            console.error('Load departments error:', error)
-        }
-    }
-
     const loadStandards = async () => {
         try {
             setLoading(true)
@@ -78,7 +64,6 @@ export default function StandardList() {
             if (search) params.search = search;
             if (programId) params.programId = programId;
             if (organizationId) params.organizationId = organizationId;
-            if (departmentId) params.departmentId = departmentId;
             if (status) params.status = status;
 
             const response = await apiMethods.standards.getAll(params);
@@ -107,12 +92,12 @@ export default function StandardList() {
                 ['1. Điền thông tin vào sheet "Dữ liệu nhập"'],
                 ['2. Các cột có dấu (*) là BẮT BUỘC'],
                 ['3. Xem sheet "Hướng dẫn chi tiết" để biết thêm thông tin'],
-                ['4. Xem danh sách Chương trình, Tổ chức và Phòng ban ở các sheet tương ứng'],
+                ['4. Xem danh sách Chương trình và Tổ chức ở các sheet tương ứng'],
                 ['5. Sau khi điền xong, lưu file và import vào hệ thống'],
                 [''],
                 ['Lưu ý:'],
                 ['- Mã tiêu chuẩn phải là số từ 1-99 (VD: 1, 01, 12)'],
-                ['- Mã chương trình, Mã tổ chức và Mã phòng ban phải TỒN TẠI trong hệ thống'],
+                ['- Mã chương trình và Mã tổ chức phải TỒN TẠI trong hệ thống'],
                 ['- Không được để trống các trường bắt buộc'],
                 [''],
                 ['Ngày tạo:', new Date().toLocaleDateString('vi-VN')],
@@ -130,9 +115,8 @@ export default function StandardList() {
                 {
                     'Mã tiêu chuẩn (*)': '1',
                     'Tên tiêu chuẩn (*)': 'Mục tiêu chương trình đào tạo',
-                    'Mã chương trình (*)': programs[0]?.code || 'DGCL-DH',
-                    'Mã tổ chức (*)': organizations[0]?.code || 'MOET',
-                    'Mã phòng ban (*)': departments[0]?.code || 'P.KT',
+                    'Mã chương trình (*)': 'DGCL-DH',
+                    'Mã tổ chức (*)': 'MOET',
                     'Mục tiêu': 'Đánh giá tính phù hợp và khả thi của mục tiêu chương trình đào tạo',
                 }
             ]
@@ -142,7 +126,6 @@ export default function StandardList() {
                 { wch: 15 },
                 { wch: 50 },
                 { wch: 18 },
-                { wch: 15 },
                 { wch: 15 },
                 { wch: 45 },
             ]
@@ -175,19 +158,6 @@ export default function StandardList() {
 
             XLSX.utils.book_append_sheet(wb, wsOrgsList, 'DS Tổ chức')
 
-            const deptsData = departments.length > 0 ? departments.map(d => ({
-                'Mã phòng ban': d.code,
-                'Tên phòng ban': d.name
-            })) : [{
-                'Mã phòng ban': 'Không có dữ liệu',
-                'Tên phòng ban': 'Vui lòng tạo phòng ban trước khi import tiêu chuẩn'
-            }]
-
-            const wsDeptsList = XLSX.utils.json_to_sheet(deptsData)
-            wsDeptsList['!cols'] = [{ wch: 20 }, { wch: 60 }]
-
-            XLSX.utils.book_append_sheet(wb, wsDeptsList, 'DS Phòng ban')
-
             XLSX.writeFile(wb, 'Mau_import_tieu_chuan.xlsx')
             toast.success('Đã tải file mẫu thành công')
         } catch (error) {
@@ -204,7 +174,6 @@ export default function StandardList() {
                 'Tên tiêu chuẩn': std.name,
                 'Chương trình': std.programId?.name || '',
                 'Tổ chức': std.organizationId?.name || '',
-                'Phòng ban': std.departmentId?.name || '',
                 'Trạng thái': getStatusLabel(std.status),
                 'Người tạo': std.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(std.createdAt)
@@ -219,13 +188,13 @@ export default function StandardList() {
                 { wch: 50 },
                 { wch: 35 },
                 { wch: 30 },
-                { wch: 20 },
                 { wch: 12 },
                 { wch: 25 },
                 { wch: 12 }
             ]
 
             const range = XLSX.utils.decode_range(ws['!ref'])
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
             const customHeaderStyle = {
                 fill: { fgColor: { rgb: "1F4E78" } },
                 font: { bold: true, color: { rgb: "FFFFFF" } },
@@ -289,11 +258,13 @@ export default function StandardList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết
     const handleViewDetail = (standard) => {
         setSelectedStandard({ ...standard, isViewMode: true })
         setShowStandardModal(true)
     }
 
+    // Hàm mở modal chỉnh sửa
     const handleEdit = (standard) => {
         setSelectedStandard(standard)
         setShowStandardModal(true)
@@ -321,6 +292,7 @@ export default function StandardList() {
 
     return (
         <div className="space-y-6">
+            {/* Header với gradient - Xanh Lam */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -368,6 +340,7 @@ export default function StandardList() {
                 </div>
             </div>
 
+            {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
@@ -408,17 +381,6 @@ export default function StandardList() {
                     </select>
 
                     <select
-                        value={departmentId}
-                        onChange={(e) => setDepartmentId(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        <option value="">Tất cả phòng ban</option>
-                        {departments.map(d => (
-                            <option key={d._id} value={d._id}>{d.name}</option>
-                        ))}
-                    </select>
-
-                    <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
                         className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -440,6 +402,7 @@ export default function StandardList() {
                 </div>
             </div>
 
+            {/* Table */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
@@ -450,7 +413,6 @@ export default function StandardList() {
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chuẩn</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Chương trình</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Tổ chức</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Phòng ban</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
                             <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
@@ -458,7 +420,7 @@ export default function StandardList() {
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="8" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -467,7 +429,7 @@ export default function StandardList() {
                             </tr>
                         ) : standards.length === 0 ? (
                             <tr>
-                                <td colSpan="8" className="px-6 py-16 text-center">
+                                <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <Target className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -504,11 +466,6 @@ export default function StandardList() {
                                             {standard.organizationId?.name || '-'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-gray-200">
-                                        <span className="text-sm text-gray-900">
-                                            {standard.departmentId?.name || '-'}
-                                        </span>
-                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(standard.status)}`}>
                                             {getStatusLabel(standard.status)}
@@ -516,6 +473,7 @@ export default function StandardList() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
+                                            {/* ActionButton cho Xem chi tiết */}
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -523,6 +481,7 @@ export default function StandardList() {
                                                 onClick={() => handleViewDetail(standard)}
                                                 title="Xem chi tiết tiêu chuẩn"
                                             />
+                                            {/* ActionButton cho Chỉnh sửa */}
                                             <ActionButton
                                                 icon={Edit2}
                                                 variant="edit"
@@ -530,6 +489,7 @@ export default function StandardList() {
                                                 onClick={() => handleEdit(standard)}
                                                 title="Chỉnh sửa tiêu chuẩn"
                                             />
+                                            {/* ActionButton cho Xóa */}
                                             <ActionButton
                                                 icon={Trash2}
                                                 variant="delete"
@@ -546,6 +506,7 @@ export default function StandardList() {
                     </table>
                 </div>
 
+                {/* Pagination */}
                 {!loading && standards.length > 0 && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
@@ -585,7 +546,6 @@ export default function StandardList() {
                     standard={selectedStandard}
                     programs={programs}
                     organizations={organizations}
-                    departments={departments}
                     onClose={() => {
                         setShowStandardModal(false)
                         setSelectedStandard(null)

@@ -2,32 +2,30 @@ const XLSX = require('xlsx');
 const Evidence = require('../models/Evidence/Evidence');
 const mongoose = require('mongoose');
 
-const removeLeadingZero = (str) => {
-    return str.replace(/^0+/, '');
-};
-
 const identifyCodeType = (code) => {
     if (!code) return null;
 
-    const trimmedCode = String(code).trim();
+    const trimmedCode = code.trim();
 
-    const evidencePattern = /^([A-Y]\d+)\.(\d{1,2})\.(\d{1,2})\.(\d{2})$/;
+    // SỬA ĐỔI: Regex cho Evidence (Mã minh chứng) để chấp nhận [A-Y] ở vị trí đầu tiên
+    const evidencePattern = /^([A-Y]\d+)\.(\d{2})\.(\d{2})\.(\d{2})$/;
     const evidenceMatch = trimmedCode.match(evidencePattern);
     if (evidenceMatch) {
-        const standardCode = evidenceMatch[2].padStart(2, '0');
-        const criteriaCode = evidenceMatch[3].padStart(2, '0');
-
         return {
             type: 'evidence',
             parsed: {
+                // evidenceMatch[1] là prefix và boxNumber (VD: H1, A5, Y1,...)
                 prefixAndBox: evidenceMatch[1],
-                standardCode: standardCode,
-                criteriaCode: criteriaCode,
+                standardCode: evidenceMatch[2],
+                criteriaCode: evidenceMatch[3],
                 sequenceNumber: evidenceMatch[4]
             },
             original: trimmedCode
         };
     }
+
+    // Phần regex cho Criteria và Standard (không thay đổi) vẫn chỉ là số,
+    // vì chúng thường không có tiền tố chữ cái trong cấu trúc cây tiêu chuẩn/tiêu chí
 
     const criteriaPattern = /^(\d{1,2})\.(\d{1,2})$/;
     const criteriaMatch = trimmedCode.match(criteriaPattern);
@@ -54,7 +52,7 @@ const identifyCodeType = (code) => {
         };
     }
 
-    const standardTextPattern = /Tiêu chuẩn\s+(\d{1,2})/i;
+    const standardTextPattern = /Tiêu chuẩn\s+(\d+)/i;
     const standardTextMatch = trimmedCode.match(standardTextPattern);
     if (standardTextMatch) {
         return {
@@ -66,13 +64,14 @@ const identifyCodeType = (code) => {
         };
     }
 
-    const criteriaTextPattern = /Tiêu chí\s+(\d{1,2})\.(\d{1,2})/i;
+    const criteriaTextPattern = /Tiêu chí\s+(\d+)\.(\d+)/i;
     const criteriaTextMatch = trimmedCode.match(criteriaTextPattern);
     if (criteriaTextMatch) {
         return {
             type: 'criteria',
             parsed: {
                 standardCode: criteriaTextMatch[1].padStart(2, '0'),
+                // SỬA LỖI: criteriaTextPattern là regex, không phải array. Phải dùng criteriaTextMatch[2]
                 criteriaCode: criteriaTextMatch[2].padStart(2, '0')
             },
             original: trimmedCode
@@ -82,10 +81,11 @@ const identifyCodeType = (code) => {
     return null;
 };
 
-const importEvidencesFromExcel = async (filePath, academicYearId, programId, organizationId, departmentId, userId, mode = 'create') => {
+const importEvidencesFromExcel = async (filePath, academicYearId, programId, organizationId, userId, mode = 'create') => {
     try {
         console.log('Reading Excel file:', filePath);
 
+        // Đọc file Excel
         const workbook = XLSX.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -102,8 +102,9 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             throw new Error('File không có dữ liệu');
         }
 
-        if (!academicYearId || !programId || !organizationId || !departmentId || !userId) {
-            throw new Error('Thiếu các tham số bắt buộc (academicYearId, programId, organizationId, departmentId, userId).');
+        // Kiểm tra tham số bắt buộc
+        if (!academicYearId || !programId || !organizationId || !userId) {
+            throw new Error('Thiếu các tham số bắt buộc (academicYearId, programId, organizationId, userId).');
         }
 
         const findColumn = (row, possibleNames) => {
@@ -128,9 +129,11 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
 
+        // Load tất cả Standard và Criteria thuộc năm học hiện tại
+        // NOTE: Giả sử Standard và Criteria vẫn dùng code là số (01, 02)
         const [allStandards, allCriteria] = await Promise.all([
-            StandardModel.find({ academicYearId, programId, organizationId, departmentId }).lean(),
-            CriteriaModel.find({ academicYearId, programId, organizationId, departmentId }).lean()
+            StandardModel.find({ academicYearId, programId, organizationId }).lean(),
+            CriteriaModel.find({ academicYearId, programId, organizationId }).lean()
         ]);
 
         console.log('Found in DB:', {
@@ -169,18 +172,20 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
             created: []
         };
 
+        // Xử lý từng dòng
         for (let i = 0; i < dataWithHeader.length; i++) {
             const row = dataWithHeader[i];
-            const rowNum = i + 2;
+            const rowNum = i + 2; // +2 vì Excel bắt đầu từ 1 và có header
 
             const codeStr = String(row[codeCol] || '').trim();
             const nameStr = nameCol ? String(row[nameCol] || '').trim() : '';
 
             if (!codeStr && !nameStr) continue;
-            if (!codeStr) continue;
+            if (!codeStr) continue; // Bỏ qua nếu không có mã
 
             console.log(`Row ${rowNum}: Processing code="${codeStr}", name="${nameStr}"`);
 
+            // Nhận diện loại mã
             const identified = identifyCodeType(codeStr);
 
             if (!identified) {
@@ -197,20 +202,21 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
             try {
                 if (identified.type === 'standard') {
+                    // Logic xử lý Standard (Tiêu chuẩn)
                     currentStandardCode = identified.parsed.standardCode;
-                    let displayCode = removeLeadingZero(currentStandardCode);
-                    let standardName = nameStr || `Tiêu chuẩn ${displayCode}`;
+                    let standardName = nameStr || `Tiêu chuẩn ${currentStandardCode}`;
 
+                    // 1. Tìm kiếm Standard đã tồn tại
                     currentStandardId = standardMap[currentStandardCode];
 
                     if (!currentStandardId && standardName) {
+                        // TẠO MỚI STANDARD
                         const newStandard = new StandardModel({
                             academicYearId,
                             code: currentStandardCode,
                             name: standardName,
                             programId,
                             organizationId,
-                            departmentId,
                             createdBy: userId,
                             updatedBy: userId
                         });
@@ -218,53 +224,56 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         const savedStandard = await newStandard.save();
                         currentStandardId = savedStandard._id;
 
+                        // Cập nhật lại Map NGAY LẬP TỨC
                         standardMap[currentStandardCode] = currentStandardId;
                         allStandards.push(savedStandard.toObject());
 
-                        results.created.push({ row: rowNum, code: currentStandardCode, name: standardName, type: 'standard' });
+                        results.created.push({ row: rowNum, code: codeStr, name: standardName, type: 'standard' });
                         console.log(`  → CREATED new standard: ${currentStandardCode}`);
 
                     } else if (!currentStandardId) {
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy Tiêu chuẩn ${displayCode} và thiếu tên để tạo mới`
+                            message: `Không tìm thấy Tiêu chuẩn ${currentStandardCode} và thiếu tên để tạo mới`
                         });
                     } else {
                         console.log(`  → Found existing standard: ${currentStandardCode}`);
                     }
 
-                    currentCriteriaId = null;
+                    currentCriteriaId = null; // Reset Criteria context
 
                 } else if (identified.type === 'criteria') {
+                    // Logic xử lý Criteria (Tiêu chí)
                     currentStandardCode = identified.parsed.standardCode;
                     currentCriteriaCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${currentStandardCode}.${currentCriteriaCode}`;
-                    let displayCode = `${removeLeadingZero(currentStandardCode)}.${removeLeadingZero(currentCriteriaCode)}`;
                     let criteriaName = nameStr || `Tiêu chí ${criteriaKey}`;
 
+                    // Lấy Standard cha (Nếu nó vừa được tạo ở trên hoặc đã tồn tại)
                     currentStandardId = standardMap[currentStandardCode];
 
                     if (!currentStandardId) {
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Tiêu chuẩn ${removeLeadingZero(currentStandardCode)} chưa tồn tại. Không thể tạo Tiêu chí ${displayCode}.`
+                            message: `Tiêu chuẩn ${currentStandardCode} chưa tồn tại. Không thể tạo Tiêu chí ${criteriaKey}.`
                         });
                         currentCriteriaId = null;
                         continue;
                     }
 
+                    // 1. Tìm kiếm Criteria đã tồn tại
                     currentCriteriaId = criteriaMap[criteriaKey];
 
                     if (!currentCriteriaId && criteriaName) {
+                        // TẠO MỚI CRITERIA
                         const newCriteria = new CriteriaModel({
                             academicYearId,
                             code: currentCriteriaCode,
                             name: criteriaName,
                             programId,
                             organizationId,
-                            departmentId,
                             standardId: currentStandardId,
                             createdBy: userId,
                             updatedBy: userId
@@ -273,23 +282,25 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         const savedCriteria = await newCriteria.save();
                         currentCriteriaId = savedCriteria._id;
 
+                        // Cập nhật lại Map NGAY LẬP TỨC
                         criteriaMap[criteriaKey] = currentCriteriaId;
                         allCriteria.push(savedCriteria.toObject());
 
-                        results.created.push({ row: rowNum, code: criteriaKey, name: criteriaName, type: 'criteria' });
+                        results.created.push({ row: rowNum, code: codeStr, name: criteriaName, type: 'criteria' });
                         console.log(`  → CREATED new criteria: ${criteriaKey}`);
 
                     } else if (!currentCriteriaId) {
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy Tiêu chí ${displayCode} và thiếu tên để tạo mới`
+                            message: `Không tìm thấy Tiêu chí ${criteriaKey} và thiếu tên để tạo mới`
                         });
                     } else {
                         console.log(`  → Found existing criteria: ${criteriaKey}`);
                     }
 
                 } else if (identified.type === 'evidence') {
+                    // Logic xử lý Evidence (Minh chứng)
                     if (!nameStr) {
                         results.errors.push({
                             row: rowNum,
@@ -300,24 +311,28 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                         continue;
                     }
 
+                    // Lấy standardId và criteriaId từ mã minh chứng
                     const stdCode = identified.parsed.standardCode;
                     const critCode = identified.parsed.criteriaCode;
                     const criteriaKey = `${stdCode}.${critCode}`;
-                    const evidenceCode = identified.original;
+                    const evidenceCode = identified.original; // Mã minh chứng đầy đủ (VD: A1.01.02.04)
 
+                    // TRA CỨU ID TỪ MAP (ĐÃ CÓ CÁC ID VỪA TẠO)
                     const evidenceStandardId = standardMap[stdCode];
                     const evidenceCriteriaId = criteriaMap[criteriaKey];
 
                     if (!evidenceStandardId || !evidenceCriteriaId) {
+                        // Lỗi này xảy ra khi TC/TC không tồn tại trong DB VÀ KHÔNG được tạo ở các dòng trên.
                         results.errors.push({
                             row: rowNum,
                             code: codeStr,
-                            message: `Không tìm thấy tiêu chuẩn ${removeLeadingZero(stdCode)} hoặc tiêu chí ${removeLeadingZero(stdCode)}.${removeLeadingZero(critCode)}. Hãy đảm bảo chúng nằm trên hoặc đã tồn tại.`
+                            message: `Không tìm thấy tiêu chuẩn ${stdCode} hoặc tiêu chí ${criteriaKey}. Hãy đảm bảo chúng nằm trên hoặc đã tồn tại.`
                         });
                         console.log(`  → Error: Standard or Criteria not found`);
                         continue;
                     }
 
+                    // Kiểm tra xem minh chứng đã tồn tại chưa
                     const existingEvidence = await Evidence.findOne({
                         code: evidenceCode,
                         academicYearId
@@ -325,12 +340,12 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
                     if (mode === 'update') {
                         if (existingEvidence) {
+                            // Cập nhật
                             existingEvidence.name = nameStr;
                             existingEvidence.standardId = evidenceStandardId;
                             existingEvidence.criteriaId = evidenceCriteriaId;
-                            existingEvidence.programId = programId;
-                            existingEvidence.organizationId = organizationId;
-                            existingEvidence.departmentId = departmentId;
+                            existingEvidence.programId = programId; // Lấy từ tham số
+                            existingEvidence.organizationId = organizationId; // Lấy từ tham số
                             existingEvidence.updatedBy = userId;
 
                             await existingEvidence.save();
@@ -342,13 +357,13 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             });
                             console.log(`  → Updated existing evidence`);
                         } else {
+                            // Tạo mới nếu chưa tồn tại
                             const newEvidence = new Evidence({
                                 academicYearId,
                                 code: evidenceCode,
                                 name: nameStr,
-                                programId,
-                                organizationId,
-                                departmentId: departmentId,
+                                programId, // Lấy từ tham số
+                                organizationId, // Lấy từ tham số
                                 standardId: evidenceStandardId,
                                 criteriaId: evidenceCriteriaId,
                                 createdBy: userId,
@@ -365,6 +380,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             console.log(`  → Created new evidence`);
                         }
                     } else {
+                        // Mode create
                         if (existingEvidence) {
                             results.errors.push({
                                 row: rowNum,
@@ -379,9 +395,8 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                             academicYearId,
                             code: evidenceCode,
                             name: nameStr,
-                            programId,
-                            organizationId,
-                            departmentId: departmentId,
+                            programId, // Lấy từ tham số
+                            organizationId, // Lấy từ tham số
                             standardId: evidenceStandardId,
                             criteriaId: evidenceCriteriaId,
                             createdBy: userId,
@@ -407,15 +422,17 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                 }
 
             } catch (error) {
+                // SỬA: Log toàn bộ chi tiết lỗi Validation hoặc CastError
                 const errorMessage = error.message || 'Lỗi không xác định';
                 console.error(`  → Error processing row ${rowNum} (${identified.type}):`, errorMessage, error);
 
+                // Nếu là lỗi validation Mongoose, lấy thông báo chi tiết
                 if (error.name === 'ValidationError') {
                     const messages = Object.values(error.errors).map(err => err.message).join('; ');
                     results.errors.push({
                         row: rowNum,
                         code: codeStr,
-                        message: `Lỗi Validation: ${messages}`
+                        message: `Lỗi Validation: ${messages}` // Sửa lỗi chi tiết hơn
                     });
                 } else if (error.name === 'CastError') {
                     results.errors.push({
@@ -427,7 +444,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
                     results.errors.push({
                         row: rowNum,
                         code: codeStr,
-                        message: errorMessage
+                        message: errorMessage // Lỗi chung (như "Không tìm thấy tiêu chuẩn")
                     });
                 }
             }
@@ -447,7 +464,7 @@ const importEvidencesFromExcel = async (filePath, academicYearId, programId, org
 
         return {
             success: true,
-            message: `Import hoàn tất: ${createdStandards} Tiêu chuẩn, ${createdCriteria} Tiêu chí, ${createdEvidences} Minh chứng tạo mới, ${results.updated.length} Minh chứng cập nhật, ${results.errors.length} lỗi`,
+            message: `Import hoàn tất: ${createdStandards} TC, ${createdCriteria} TC, ${createdEvidences} MC tạo mới, ${results.updated.length} MC cập nhật, ${results.errors.length} lỗi`,
             data: {
                 total: results.success.length + createdStandards + createdCriteria,
                 created: results.created.length,

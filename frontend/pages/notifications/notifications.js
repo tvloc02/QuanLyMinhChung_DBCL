@@ -196,12 +196,6 @@ export default function NotificationsPage() {
                     ? `/assignments/my-assignments`
                     : null
 
-            case 'completion_request':
-            case 'completion_notification':
-                return notification.data?.departmentId
-                    ? `/evidence-management/tree?departmentId=${notification.data.departmentId}`
-                    : '/evidence-management/tree'
-
             default:
                 return null
         }
@@ -489,8 +483,7 @@ export default function NotificationsPage() {
                                                                 {formatDate(notification.createdAt)}
                                                             </span>
 
-                                                            {/* SỬA LỖI RENDER: Sử dụng Optional Chaining khi truy cập fullName */}
-                                                            {notification.senderId?.fullName && (
+                                                            {notification.senderId && (
                                                                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
                                                                     Từ: {notification.senderId.fullName}
                                                                 </span>

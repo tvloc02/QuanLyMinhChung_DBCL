@@ -26,8 +26,8 @@ export default function FinalApprovals() {
     const router = useRouter()
     const { user, isLoading: authLoading } = useAuth()
 
-    // ✅ ĐÃ SỬA: Cho phép Admin, Supervisor VÀ Advisor truy cập
-    const allowedRoles = ['admin', 'supervisor', 'advisor']
+    // ✅ ĐÃ SỬA: Cho phép cả Admin và Supervisor truy cập
+    const allowedRoles = ['admin', 'supervisor']
 
     const [evaluations, setEvaluations] = useState([])
     const [loading, setLoading] = useState(true)
@@ -50,9 +50,7 @@ export default function FinalApprovals() {
     useEffect(() => {
         if (!authLoading && !user) {
             router.replace('/login')
-        }
-        // ✅ KIỂM TRA TRUY CẬP FRONTEND
-        else if (!authLoading && user && !allowedRoles.includes(user.role)) {
+        } else if (!authLoading && user && !allowedRoles.includes(user.role)) {
             toast.error('Bạn không có quyền truy cập trang Hoàn tất đánh giá.')
             router.replace('/')
         }
@@ -90,7 +88,7 @@ export default function FinalApprovals() {
 
         setIsProcessing(true)
         try {
-            // Backend đã được sửa để chấp nhận advisor/supervisor/admin
+            // Giả định apiMethods.evaluations đã được bổ sung hàm finalize
             const response = await apiMethods.evaluations.finalize(id)
 
             toast.success(response.data.message)
@@ -98,7 +96,6 @@ export default function FinalApprovals() {
 
         } catch (error) {
             console.error('Finalize error:', error)
-            // Lỗi 403 từ backend vẫn sẽ bị bắt ở đây nếu có vấn đề về token/session
             toast.error(error.response?.data?.message || 'Lỗi khi hoàn tất đánh giá')
         } finally {
             setIsProcessing(false)
@@ -126,6 +123,7 @@ export default function FinalApprovals() {
         return labels[status] || status
     }
 
+    // ... (Thêm các hàm getRatingColor, getRatingLabel nếu cần hiển thị chi tiết)
 
     const breadcrumbItems = [
         { name: 'Quản lý', href: '/management' },

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Target, BookOpen, Building2, Info, ListOrdered, Briefcase } from 'lucide-react'
+import { X, Save, Target, BookOpen, Building2, Info, ListOrdered } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
-export default function StandardModal({ standard, programs, organizations, departments, onClose, onSuccess }) {
+export default function StandardModal({ standard, programs, organizations, onClose, onSuccess }) {
     const isViewMode = standard?.isViewMode || false;
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -11,7 +11,6 @@ export default function StandardModal({ standard, programs, organizations, depar
         code: '',
         programId: '',
         organizationId: '',
-        departmentId: '',
         order: 1,
         objectives: '',
         status: 'active'
@@ -25,7 +24,6 @@ export default function StandardModal({ standard, programs, organizations, depar
                 code: standard.code || '',
                 programId: standard.programId?._id || standard.programId || '',
                 organizationId: standard.organizationId?._id || standard.organizationId || '',
-                departmentId: standard.departmentId?._id || standard.departmentId || '',
                 order: standard.order || 1,
                 objectives: standard.objectives || '',
                 status: standard.status || 'active'
@@ -61,10 +59,6 @@ export default function StandardModal({ standard, programs, organizations, depar
 
         if (!formData.organizationId) {
             newErrors.organizationId = 'Tổ chức là bắt buộc'
-        }
-
-        if (!formData.departmentId) {
-            newErrors.departmentId = 'Phòng ban là bắt buộc'
         }
 
         setErrors(newErrors)
@@ -108,6 +102,7 @@ export default function StandardModal({ standard, programs, organizations, depar
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+                {/* Header với gradient - Xanh Lam */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -133,6 +128,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
+                    {/* Mã tiêu chuẩn - Gradient Xanh */}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center mr-2">
@@ -160,6 +156,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                         )}
                     </div>
 
+                    {/* Tên tiêu chuẩn - Gradient Sky Blue */}
                     <div className="bg-gradient-to-br from-sky-50 to-cyan-50 border border-sky-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-sky-500 rounded-lg flex items-center justify-center mr-2">
@@ -188,6 +185,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Chương trình - Gradient Indigo/Purple */}
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <BookOpen className="w-5 h-5 text-indigo-500 mr-2" />
@@ -215,6 +213,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                             )}
                         </div>
 
+                        {/* Tổ chức - Gradient Teal/Green */}
                         <div className="bg-gradient-to-br from-teal-50 to-green-50 border border-teal-100 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <Building2 className="w-5 h-5 text-teal-500 mr-2" />
@@ -241,35 +240,9 @@ export default function StandardModal({ standard, programs, organizations, depar
                                 </p>
                             )}
                         </div>
-
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5">
-                            <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
-                                <Briefcase className="w-5 h-5 text-gray-500 mr-2" />
-                                Phòng ban <span className="text-red-500 ml-1">*</span>
-                            </label>
-                            <select
-                                name="departmentId"
-                                value={formData.departmentId}
-                                onChange={handleChange}
-                                disabled={!!standard || isViewMode}
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all ${
-                                    errors.departmentId ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
-                                } ${standard || isViewMode ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">Chọn phòng ban</option>
-                                {departments.map(d => (
-                                    <option key={d._id} value={d._id}>{d.name}</option>
-                                ))}
-                            </select>
-                            {errors.departmentId && (
-                                <p className="mt-2 text-sm text-red-600 flex items-center">
-                                    <Info size={14} className="mr-1" />
-                                    {errors.departmentId}
-                                </p>
-                            )}
-                        </div>
                     </div>
 
+                    {/* Mục tiêu - Gradient Cyan/Blue */}
                     <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <Target className="w-5 h-5 text-cyan-500 mr-2" />
@@ -287,7 +260,9 @@ export default function StandardModal({ standard, programs, organizations, depar
                         />
                     </div>
 
+                    {/* Thứ tự và Trạng thái */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Thứ tự - Gradient Indigo/Purple */}
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <ListOrdered className="w-5 h-5 text-indigo-500 mr-2" />
@@ -305,6 +280,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                             />
                         </div>
 
+                        {/* Trạng thái - Gradient Gray */}
                         <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5">
                             <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                                 <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center mr-2">
@@ -328,6 +304,7 @@ export default function StandardModal({ standard, programs, organizations, depar
                     </div>
                 </form>
 
+                {/* Footer Actions */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"

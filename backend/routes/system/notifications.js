@@ -3,7 +3,7 @@ const router = express.Router();
 const { query, param, body } = require('express-validator');
 const { auth } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
-const { getUnreadCount, requestEvidence, completeEvidenceRequest } = require('../../controllers/system/notificationController');
+const { getUnreadCount } = require('../../controllers/system/notificationController'); // Đã import
 const {
     getNotifications,
     markAsRead,
@@ -14,19 +14,7 @@ const {
 
 router.use(auth);
 
-// Route mới: Admin yêu cầu minh chứng
-router.post('/request-evidence', [
-    body('departmentId').isMongoId().withMessage('ID phòng ban không hợp lệ'),
-    body('standardId').isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
-    body('criteriaId').isMongoId().withMessage('ID tiêu chí không hợp lệ')
-], validation, requestEvidence);
-
-// Route mới: Manager xác nhận hoàn thành yêu cầu
-router.post('/request-evidence/:id/complete', [
-    param('id').isMongoId().withMessage('ID thông báo yêu cầu không hợp lệ')
-], validation, completeEvidenceRequest);
-
-router.get('/unread-count', auth, getUnreadCount);
+router.get('/unread-count', auth, getUnreadCount); // <-- Lỗi được khắc phục tại đây
 
 router.get('/stats', getNotificationStats);
 

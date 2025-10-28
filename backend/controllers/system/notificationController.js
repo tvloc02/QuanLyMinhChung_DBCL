@@ -206,6 +206,7 @@ const deleteNotification = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // **BỔ SUNG: Kiểm tra tính hợp lệ của ID**
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -419,7 +420,8 @@ const sendEvaluationNotification = async (req, res) => {
     try {
         const { evaluationId, type, recipientId } = req.body;
 
-        if (!['evaluation_submitted', 'evaluation_reviewed', 'evaluation_supervised', 'evaluation_reevaluated', 'evaluation_finalized'].includes(type)) {
+        // Chỉ kiểm tra các loại thông báo cũ, không bao gồm các loại mới (supervised, finalized, reevaluated)
+        if (!['evaluation_submitted', 'evaluation_reviewed'].includes(type)) {
             return res.status(400).json({
                 success: false,
                 message: 'Loại thông báo không hợp lệ'
@@ -448,97 +450,6 @@ const sendEvaluationNotification = async (req, res) => {
     }
 };
 
-const requestEvidence = async (req, res) => {
-    try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin mới có quyền yêu cầu minh chứng'
-            });
-        }
-
-        const { departmentId, standardId, criteriaId } = req.body;
-
-        if (!departmentId || !standardId || !criteriaId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu ID phòng ban, tiêu chuẩn hoặc tiêu chí'
-            });
-        }
-
-        const notification = await Notification.createEvidenceRequestNotification(
-            departmentId,
-            standardId,
-            criteriaId,
-            req.user.id
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'Gửi yêu cầu minh chứng thành công đến Quản lý phòng ban',
-            data: notification
-        });
-
-    } catch (error) {
-        console.error('Request evidence error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Lỗi hệ thống khi gửi yêu cầu minh chứng'
-        });
-    }
-};
-
-const completeEvidenceRequest = async (req, res) => {
-    try {
-        const { id } = req.params; // ID của thông báo yêu cầu (evidence_request)
-
-        const requestNotification = await Notification.findById(id);
-
-        if (!requestNotification) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy thông báo yêu cầu'
-            });
-        }
-
-        if (requestNotification.recipientId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Bạn không có quyền thao tác với thông báo này'
-            });
-        }
-
-        // Chỉ manager của phòng ban nhận yêu cầu được phép hoàn thành
-        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ Quản lý mới có quyền xác nhận Hoàn thành yêu cầu này'
-            });
-        }
-
-        const newNotification = await Notification.createEvidenceRequestCompletedNotification(
-            id,
-            req.user.id
-        );
-
-        // Đánh dấu thông báo yêu cầu đã đọc/clicked (tùy chọn)
-        await requestNotification.markAsRead();
-
-        res.status(201).json({
-            success: true,
-            message: 'Xác nhận Hoàn thành đã được gửi đến Admin',
-            data: newNotification
-        });
-
-    } catch (error) {
-        console.error('Complete evidence request error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Lỗi hệ thống khi xác nhận hoàn thành yêu cầu'
-        });
-    }
-};
-
 module.exports = {
     getNotifications,
     getNotificationById,
@@ -552,7 +463,5 @@ module.exports = {
     cleanupExpiredNotifications,
     getUnreadCount,
     sendAssignmentNotification,
-    sendEvaluationNotification,
-    requestEvidence,
-    completeEvidenceRequest
+    sendEvaluationNotification
 };

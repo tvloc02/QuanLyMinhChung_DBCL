@@ -45,13 +45,6 @@ const criteriaSchema = new mongoose.Schema({
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
-
-    departmentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Department',
-        required: [true, 'Phòng ban là bắt buộc']
-    },
-
     indicators: [{
         name: {
             type: String,
@@ -116,9 +109,9 @@ const criteriaSchema = new mongoose.Schema({
     }
 });
 
-criteriaSchema.index({ academicYearId: 1, standardId: 1, departmentId: 1, code: 1 }, { unique: true });
-criteriaSchema.index({ academicYearId: 1, standardId: 1, departmentId: 1 });
-criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, departmentId: 1 });
+criteriaSchema.index({ academicYearId: 1, standardId: 1, code: 1 }, { unique: true });
+criteriaSchema.index({ academicYearId: 1, standardId: 1 });
+criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 criteriaSchema.index({ academicYearId: 1, status: 1 });
 criteriaSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 

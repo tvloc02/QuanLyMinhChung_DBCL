@@ -53,18 +53,6 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN UPLOAD =====
-        // Admin: có quyền upload cho bất kỳ minh chứng nào
-        // TDG/Manager: chỉ được upload cho minh chứng của phòng ban mình
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền upload file cho minh chứng của phòng ban mình'
-                });
-            }
-        }
-
         // Validate parent folder if provided
         if (parentFolderId) {
             const parentFolder = await File.findOne({
@@ -108,8 +96,8 @@ const uploadFiles = async (req, res) => {
             }
 
             const fileDoc = new File({
-                originalName: file.originalname,
-                storedName,
+                originalName: file.originalname, // Lưu tên gốc (có thể chứa ký tự tiếng Việt)
+                storedName, // Lưu tên đã được mã hóa URI (an toàn trong filesystem)
                 filePath: permanentPath,
                 size: file.size,
                 mimeType: file.mimetype,
@@ -163,17 +151,6 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM FILE =====
-        const evidence = file.evidenceId;
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền tải file này'
-                });
-            }
-        }
-
         if (file.type === 'folder') {
             return res.status(400).json({
                 success: false,
@@ -214,41 +191,6 @@ const deleteFile = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file'
             });
-        }
-
-        const evidence = file.evidenceId;
-
-        // ===== KIỂM TRA QUYỀN XÓA FILE =====
-        // Admin: có quyền xóa file nào cũng được
-        // Manager/TDG: chỉ được xóa file của phòng ban mình
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền xóa file của phòng ban mình'
-                });
-            }
-
-            // Nếu là folder hoặc file folder
-            if (file.type === 'folder') {
-                const childrenCount = await File.countDocuments({ parentFolder: id });
-                if (childrenCount > 0) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Không thể xóa thư mục có chứa file/thư mục con'
-                    });
-                }
-            }
-
-            // ===== KIỂM TRA TRẠNG THÁI DUYỆT =====
-            // Nếu file đã được duyệt (approved), không được xóa
-            // Chỉ có thể xóa file pending hoặc rejected
-            if (file.approvalStatus === 'approved') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Không thể xóa file đã được duyệt. Vui lòng bỏ duyệt trước khi xóa.'
-                });
-            }
         }
 
         if (file.type === 'folder') {
@@ -301,7 +243,7 @@ const getFileInfo = async (req, res) => {
         const { id } = req.params;
 
         const file = await File.findById(id)
-            .populate('evidenceId', 'code name departmentId')
+            .populate('evidenceId', 'code name')
             .populate('uploadedBy', 'fullName email')
             .populate('parentFolder', 'originalName type');
 
@@ -310,17 +252,6 @@ const getFileInfo = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file'
             });
-        }
-
-        // ===== KIỂM TRA QUYỀN XEM THÔNG TIN FILE =====
-        const evidence = file.evidenceId;
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền xem thông tin file này'
-                });
-            }
         }
 
         res.json({
@@ -358,14 +289,13 @@ const createFolder = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN TẠO FOLDER =====
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền tạo thư mục cho minh chứng của phòng ban mình'
-                });
-            }
+        if (req.user.role !== 'admin' &&
+            !req.user.hasStandardAccess(evidence.standardId) &&
+            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền tạo thư mục cho minh chứng này'
+            });
         }
 
         if (parentFolderId) {
@@ -452,14 +382,13 @@ const renameFolder = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN ĐỔI TÊN FOLDER =====
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== folder.evidenceId.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền đổi tên thư mục của phòng ban mình'
-                });
-            }
+        if (req.user.role !== 'admin' &&
+            !req.user.hasStandardAccess(folder.evidenceId.standardId) &&
+            !req.user.hasCriteriaAccess(folder.evidenceId.criteriaId)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền đổi tên thư mục này'
+            });
         }
 
         folder.originalName = newName.trim();
@@ -487,24 +416,6 @@ const getFolderContents = async (req, res) => {
         const { id } = req.params;
         const { evidenceId } = req.query;
 
-        // ===== KIỂM TRA QUYỀN XEM NỘI DUNG FOLDER =====
-        const evidence = await Evidence.findById(evidenceId);
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng'
-            });
-        }
-
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền xem nội dung này'
-                });
-            }
-        }
-
         let query = {};
 
         if (id === 'root') {
@@ -526,7 +437,7 @@ const getFolderContents = async (req, res) => {
 
         const items = await File.find(query)
             .populate('uploadedBy', 'fullName email')
-            .sort({ type: -1, originalName: 1 });
+            .sort({ type: -1, originalName: 1 }); // Folders first, then files
 
         res.json({
             success: true,
@@ -555,14 +466,13 @@ const moveFile = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN DI CHUYỂN FILE =====
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== file.evidenceId.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn chỉ có quyền di chuyển file của phòng ban mình'
-                });
-            }
+        if (req.user.role !== 'admin' &&
+            !req.user.hasStandardAccess(file.evidenceId.standardId) &&
+            !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền di chuyển file/thư mục này'
+            });
         }
 
         if (targetFolderId && targetFolderId !== 'root') {
@@ -628,16 +538,6 @@ const getFolderTree = async (req, res) => {
             });
         }
 
-        // ===== KIỂM TRA QUYỀN XEM TREE =====
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền xem cây thư mục này'
-                });
-            }
-        }
-
         const allItems = await File.find({ evidenceId })
             .populate('uploadedBy', 'fullName')
             .sort({ type: -1, originalName: 1 });
@@ -675,24 +575,6 @@ const searchFiles = async (req, res) => {
         let query = {};
 
         if (evidenceId) {
-            const evidence = await Evidence.findById(evidenceId);
-            if (!evidence) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy minh chứng'
-                });
-            }
-
-            // ===== KIỂM TRA QUYỀN TÌM KIẾM =====
-            if (req.user.role !== 'admin') {
-                if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Bạn không có quyền tìm kiếm file này'
-                    });
-                }
-            }
-
             query.evidenceId = evidenceId;
         }
 
@@ -754,24 +636,6 @@ const searchFiles = async (req, res) => {
 const getFileStatistics = async (req, res) => {
     try {
         const { evidenceId } = req.params;
-
-        const evidence = await Evidence.findById(evidenceId);
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng'
-            });
-        }
-
-        // ===== KIỂM TRA QUYỀN XEM THỐNG KÊ =====
-        if (req.user.role !== 'admin') {
-            if (!req.user.department || req.user.department.toString() !== evidence.departmentId.toString()) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền xem thống kê này'
-                });
-            }
-        }
 
         const stats = await File.aggregate([
             { $match: { evidenceId: mongoose.Types.ObjectId(evidenceId) } },

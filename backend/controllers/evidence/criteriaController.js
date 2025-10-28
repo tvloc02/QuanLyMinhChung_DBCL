@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
+const XLSX = require('xlsx');
+const multer = require('multer');
 const Criteria = require('../../models/Evidence/Criteria');
 const Standard = require('../../models/Evidence/Standard');
 const Program = require('../../models/Evidence/Program');
 const Organization = require('../../models/Evidence/Organization');
-const Department = require('../../models/User/Department');
 
 const getCriteria = async (req, res) => {
     try {
@@ -14,7 +15,6 @@ const getCriteria = async (req, res) => {
             standardId,
             programId,
             organizationId,
-            departmentId,
             status,
             type,
             sortBy = 'code',
@@ -40,7 +40,6 @@ const getCriteria = async (req, res) => {
         if (standardId) query.standardId = standardId;
         if (programId) query.programId = programId;
         if (organizationId) query.organizationId = organizationId;
-        if (departmentId) query.departmentId = departmentId;
         if (status) query.status = status;
         if (type) query.type = type;
 
@@ -53,7 +52,6 @@ const getCriteria = async (req, res) => {
                 .populate('standardId', 'name code')
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
-                .populate('departmentId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .sort(sortOptions)
                 .skip(skip)
@@ -129,7 +127,6 @@ const getCriteriaById = async (req, res) => {
             .populate('standardId', 'name code')
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
-            .populate('departmentId', 'name code')
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email');
 
@@ -161,7 +158,6 @@ const createCriteria = async (req, res) => {
             code,
             description,
             standardId,
-            departmentId,
             requirements,
             guidelines,
             indicators,
@@ -171,6 +167,7 @@ const createCriteria = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
+        // Validate academicYearId
         if (!academicYearId) {
             return res.status(400).json({
                 success: false,
@@ -178,17 +175,11 @@ const createCriteria = async (req, res) => {
             });
         }
 
+        // Validate standardId
         if (!standardId) {
             return res.status(400).json({
                 success: false,
                 message: 'Tiêu chuẩn là bắt buộc'
-            });
-        }
-
-        if (!departmentId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phòng ban là bắt buộc'
             });
         }
 
@@ -202,34 +193,33 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        if (standard.departmentId.toString() !== departmentId.toString()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chí phải thuộc cùng phòng ban với Tiêu chuẩn đã chọn'
-            });
-        }
-
+        // Xử lý mã tiêu chí
         let criteriaCode = code;
 
+        // Nếu chọn tự động tạo mã hoặc không nhập mã
         if (autoGenerateCode || !criteriaCode) {
+            // Tìm mã lớn nhất trong tiêu chuẩn này
             const lastCriteria = await Criteria.findOne({
                 academicYearId,
-                standardId,
-                departmentId
+                standardId
             })
                 .sort({ code: -1 })
                 .select('code');
 
             if (lastCriteria) {
+                // Tăng mã lên 1
                 const lastCode = parseInt(lastCriteria.code);
                 criteriaCode = (lastCode + 1).toString().padStart(2, '0');
             } else {
+                // Mã đầu tiên
                 criteriaCode = '01';
             }
         } else {
+            // Định dạng mã do người dùng nhập
             criteriaCode = criteriaCode.toString().padStart(2, '0');
         }
 
+        // Validate code format
         if (!/^\d{1,2}$/.test(criteriaCode)) {
             return res.status(400).json({
                 success: false,
@@ -237,27 +227,27 @@ const createCriteria = async (req, res) => {
             });
         }
 
+        // Check duplicate
         const existingCriteria = await Criteria.findOne({
             academicYearId,
             standardId,
-            departmentId,
             code: criteriaCode
         });
 
         if (existingCriteria) {
             return res.status(400).json({
                 success: false,
-                message: `Mã tiêu chí ${criteriaCode} đã tồn tại trong tiêu chuẩn này cho phòng ban đã chọn. Vui lòng chọn mã khác.`
+                message: `Mã tiêu chí ${criteriaCode} đã tồn tại trong tiêu chuẩn này. Vui lòng chọn mã khác.`
             });
         }
 
+        // Create criteria
         const criteria = new Criteria({
             academicYearId,
             name: name.trim(),
             code: criteriaCode,
             description: description?.trim() || '',
             standardId,
-            departmentId,
             programId: standard.programId._id,
             organizationId: standard.organizationId._id,
             requirements: requirements?.trim() || '',
@@ -275,7 +265,6 @@ const createCriteria = async (req, res) => {
             { path: 'standardId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'departmentId', select: 'name code' },
             { path: 'createdBy', select: 'fullName email' }
         ]);
 
@@ -288,6 +277,7 @@ const createCriteria = async (req, res) => {
     } catch (error) {
         console.error('Create criteria error:', error);
 
+        // Chi tiết lỗi cho developer
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -300,7 +290,7 @@ const createCriteria = async (req, res) => {
         if (error.code === 11000) {
             return res.status(400).json({
                 success: false,
-                message: 'Mã tiêu chí đã tồn tại trong tiêu chuẩn này cho phòng ban đã chọn'
+                message: 'Mã tiêu chí đã tồn tại trong tiêu chuẩn này'
             });
         }
 
@@ -329,12 +319,12 @@ const updateCriteria = async (req, res) => {
         }
 
         if (updateData.code && updateData.code !== criteria.code) {
+            // Format mã
             const newCode = updateData.code.toString().padStart(2, '0');
 
             const existingCriteria = await Criteria.findOne({
                 academicYearId,
                 standardId: criteria.standardId,
-                departmentId: criteria.departmentId,
                 code: newCode,
                 _id: { $ne: id }
             });
@@ -342,7 +332,7 @@ const updateCriteria = async (req, res) => {
             if (existingCriteria) {
                 return res.status(400).json({
                     success: false,
-                    message: `Mã tiêu chí ${newCode} đã tồn tại trong tiêu chuẩn này cho phòng ban đã chọn`
+                    message: `Mã tiêu chí ${newCode} đã tồn tại trong tiêu chuẩn này`
                 });
             }
 
@@ -350,10 +340,10 @@ const updateCriteria = async (req, res) => {
         }
 
         const isInUse = await criteria.isInUse();
-        if (isInUse && (updateData.code || updateData.standardId || updateData.departmentId)) {
+        if (isInUse && (updateData.code || updateData.standardId)) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể thay đổi mã, tiêu chuẩn hoặc phòng ban của tiêu chí đang được sử dụng'
+                message: 'Không thể thay đổi mã hoặc tiêu chuẩn của tiêu chí đang được sử dụng'
             });
         }
 
@@ -372,10 +362,6 @@ const updateCriteria = async (req, res) => {
             criteria.code = updateData.code;
         }
 
-        if (updateData.departmentId) {
-            criteria.departmentId = updateData.departmentId;
-        }
-
         criteria.updatedBy = req.user.id;
         await criteria.save();
 
@@ -384,7 +370,6 @@ const updateCriteria = async (req, res) => {
             { path: 'standardId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'departmentId', select: 'name code' },
             { path: 'updatedBy', select: 'fullName email' }
         ]);
 
@@ -443,16 +428,9 @@ const deleteCriteria = async (req, res) => {
 const getCriteriaStatistics = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
-        const { programId, organizationId, departmentId } = req.query;
-
-        let matchQuery = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
-        if (programId) matchQuery.programId = mongoose.Types.ObjectId(programId);
-        if (organizationId) matchQuery.organizationId = mongoose.Types.ObjectId(organizationId);
-        if (departmentId) matchQuery.departmentId = mongoose.Types.ObjectId(departmentId);
-
 
         const stats = await Criteria.aggregate([
-            { $match: matchQuery },
+            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',

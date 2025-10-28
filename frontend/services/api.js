@@ -104,28 +104,20 @@ export const apiMethods = {
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
         getStats: () => api.get('/users/statistics'),
-        lock: (id, reason) => api.post(`/users/${id}/lock`, { reason }),
-        unlock: (id) => api.post(`/users/${id}/unlock`),
         getExperts: (params) => api.get('/users', { params: { ...params, role: 'expert' } }),
+        bulkImport: (file) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            return api.post('/users/bulk-import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+        },
         getPermissions: (id) => api.get(`/users/${id}/permissions`),
-        updatePermissions: (id, permissions) => api.put(`/users/${id}/permissions`, permissions),
         addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
         removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
         grantPermission: (id, permissionId) => api.post(`/users/${id}/permissions/grant`, { permissionId }),
         denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
         removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
-    },
-
-    departments: {
-        getAll: (params) => api.get('/api/departments', { params }),
-        getById: (id) => api.get(`/api/departments/${id}`),
-        create: (data) => api.post('/api/departments', data),
-        update: (id, data) => api.put(`/api/departments/${id}`, data),
-        delete: (id) => api.delete(`/api/departments/${id}`),
-        changeStatus: (id, status) => api.patch(`/api/departments/${id}/status`, { status }),
-        addMember: (id, userId, role) => api.post(`/api/departments/${id}/members`, { userId, role }),
-        removeMember: (id, userId) => api.delete(`/api/departments/${id}/members`, { data: { userId } }),
-        updateMemberRole: (id, userId, role) => api.patch(`/api/departments/${id}/members/role`, { userId, role })
     },
 
     programs: {
@@ -184,30 +176,27 @@ export const apiMethods = {
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
 
-        getTree: (programId, organizationId, departmentId) => {
-            const params = { programId, organizationId };
-            if (departmentId) params.departmentId = departmentId;
-            return api.get('/api/evidences/tree', { params });
-        },
+        getTree: (programId, organizationId) =>
+            api.get('/api/evidences/tree', {
+                params: { programId, organizationId }
+            }),
 
-        getFullTree: (programId, organizationId, departmentId) => {
-            const params = { programId, organizationId };
-            if (departmentId) params.departmentId = departmentId;
-            return api.get('/api/evidences/full-tree', { params });
-        },
+        getFullTree: (programId, organizationId) =>
+            api.get('/api/evidences/full-tree', {
+                params: { programId, organizationId }
+            }),
 
-        getStatistics: (params) => api.get('/api/evidences/statistics', { params }),
+        getStatistics: () => api.get('/api/evidences/statistics'),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
-        copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId) =>
-            api.post(`/api/evidences/${id}/copy`, {
+        copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
+            api.post('/api/evidences/${id}/copy', {
                 targetAcademicYearId,
                 targetStandardId,
-                targetCriteriaId,
-                targetDepartmentId
+                targetCriteriaId
             }),
-        move: (id, data) =>
-            api.post(`/api/evidences/${id}/move`, data),
+        move: (id, targetStandardId, targetCriteriaId) =>
+            api.post('/api/evidences/${id}/move', { targetStandardId, targetCriteriaId }),
         getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
 
         import: (formData) => {
@@ -230,13 +219,6 @@ export const apiMethods = {
             params: { format },
             responseType: 'arraybuffer'
         }),
-        assignUsers: (evidenceId, data) =>
-            api.post(`/api/evidences/${evidenceId}/assign-users`, data),
-        sendCompletionRequest: (departmentId) =>
-            api.post('/api/evidences/requests/send-completion-request', { departmentId }),
-
-        submitCompletionNotification: (departmentId, message) =>
-            api.post('/api/evidences/requests/submit-completion-notification', { departmentId, message }),
     },
 
     files: {
@@ -350,10 +332,7 @@ export const apiMethods = {
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
         delete: (id) => api.delete(`/api/notifications/${id}`),
         getUnreadCount: () => api.get('/api/notifications/unread-count'),
-        getStats: () => api.get('/api/notifications/stats'),
-        // Thêm API mới
-        requestEvidence: (data) => api.post('/api/notifications/request-evidence', data),
-        completeEvidenceRequest: (id) => api.post(`/api/notifications/request-evidence/${id}/complete`)
+        getStats: () => api.get('/api/notifications/stats')
     },
 
     activityLogs: {

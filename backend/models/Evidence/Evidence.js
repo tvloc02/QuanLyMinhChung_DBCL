@@ -44,12 +44,6 @@ const evidenceSchema = new mongoose.Schema({
         required: [true, 'Tổ chức - Cấp đánh giá là bắt buộc']
     },
 
-    departmentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Department',
-        required: [true, 'Phòng ban là bắt buộc']
-    },
-
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
@@ -106,14 +100,9 @@ const evidenceSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['new', 'assigned', 'in_progress', 'pending_approval', 'approved', 'rejected'],
+        enum: ['new', 'in_progress', 'completed', 'approved', 'rejected'],
         default: 'new'
     },
-
-    assignedTo: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }],
 
     rejectionReason: {
         type: String,
@@ -161,8 +150,7 @@ const evidenceSchema = new mongoose.Schema({
 });
 
 evidenceSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
-evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, departmentId: 1 });
-evidenceSchema.index({ academicYearId: 1, departmentId: 1 });
+evidenceSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 evidenceSchema.index({ academicYearId: 1, standardId: 1 });
 evidenceSchema.index({ academicYearId: 1, criteriaId: 1 });
 evidenceSchema.index({ academicYearId: 1, name: 'text', description: 'text', documentNumber: 'text' });
@@ -173,7 +161,6 @@ evidenceSchema.index({
     academicYearId: 1,
     programId: 1,
     organizationId: 1,
-    departmentId: 1,
     standardId: 1,
     criteriaId: 1
 });
@@ -200,34 +187,18 @@ evidenceSchema.methods.updateStatus = async function() {
     const File = require('./File');
     const files = await File.find({ evidenceId: this._id });
 
-    // Nếu minh chứng đang ở trạng thái mới hoặc phân quyền, không tự động thay đổi
-    if (this.status === 'new' || this.status === 'assigned') {
-        // Nếu có file, chuyển sang in_progress, trừ khi nó vẫn là 'new' và chưa có file
-        if (files.length > 0 && this.status === 'new') {
-            this.status = 'in_progress';
-        }
-        // Nếu đã được assigned, chỉ chuyển sang in_progress nếu có file
-        if (files.length > 0 && this.status === 'assigned') {
-            this.status = 'in_progress';
-        }
-    } else if (files.length === 0) {
-        // Nếu không có file nào, chuyển về trạng thái đang thực hiện
-        this.status = 'in_progress';
+    if (files.length === 0) {
+        this.status = this.status === 'new' ? 'new' : 'in_progress';
     } else {
-        // Xác định trạng thái dựa trên file
         const rejectedFiles = files.filter(f => f.approvalStatus === 'rejected');
-        const pendingFiles = files.filter(f => f.approvalStatus === 'pending');
         const approvedFiles = files.filter(f => f.approvalStatus === 'approved');
 
         if (rejectedFiles.length > 0) {
             this.status = 'rejected';
-        } else if (pendingFiles.length > 0) {
-            this.status = 'pending_approval';
         } else if (approvedFiles.length === files.length) {
             this.status = 'approved';
         } else {
-            // Nếu có file nhưng chưa có trạng thái duyệt rõ ràng (vẫn là in_progress hoặc pending)
-            this.status = 'in_progress';
+            this.status = 'completed';
         }
     }
 
@@ -350,7 +321,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
         academicYearId,
         programId,
         organizationId,
-        departmentId,
         standardId,
         criteriaId,
         dateFrom,
@@ -375,7 +345,6 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
 
     if (programId) query.programId = programId;
     if (organizationId) query.organizationId = organizationId;
-    if (departmentId) query.departmentId = departmentId;
     if (standardId) query.standardId = standardId;
     if (criteriaId) query.criteriaId = criteriaId;
     if (status) query.status = status;
@@ -389,7 +358,7 @@ evidenceSchema.statics.advancedSearch = function(searchParams) {
     return this.find(query);
 };
 
-evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStandardId, targetCriteriaId, targetDepartmentId, newCode, userId) {
+evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStandardId, targetCriteriaId, newCode, userId) {
     const Evidence = this.constructor;
 
     const evidenceData = this.toObject();
@@ -403,7 +372,6 @@ evidenceSchema.methods.copyTo = async function(targetAcademicYearId, targetStand
     evidenceData.code = newCode;
     evidenceData.standardId = targetStandardId;
     evidenceData.criteriaId = targetCriteriaId;
-    evidenceData.departmentId = targetDepartmentId;
     evidenceData.createdBy = userId;
     evidenceData.updatedBy = userId;
     evidenceData.status = 'new';
@@ -474,23 +442,14 @@ evidenceSchema.statics.findByAcademicYear = function(academicYearId, query = {})
     });
 };
 
-evidenceSchema.statics.getTreeByAcademicYear = async function(queryParams) {
-    const { academicYearId, programId, organizationId, departmentId } = queryParams;
-
-    const findQuery = {
+evidenceSchema.statics.getTreeByAcademicYear = async function(academicYearId, programId, organizationId) {
+    const evidences = await this.find({
         academicYearId,
         programId,
-        organizationId
-    };
-
-    if (departmentId) {
-        findQuery.departmentId = departmentId;
-    }
-
-    const evidences = await this.find(findQuery)
+        organizationId,
+    })
         .populate('standardId', 'name code')
         .populate('criteriaId', 'name code')
-        .populate('departmentId', 'name code')
         .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 });
 
     const tree = {};

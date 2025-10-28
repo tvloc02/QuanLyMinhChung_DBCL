@@ -297,24 +297,15 @@ evaluationSchema.methods.addHistory = function(action, userId, changes = {}, not
 evaluationSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
-    const evaluatorId = this.evaluatorId?._id || this.evaluatorId;
+    // 🚀 ĐÃ SỬA: Chuyên gia CHỈ có thể sửa nếu trạng thái là draft
+    return userRole === 'expert' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
 
-    const isExpert = userRole === 'expert';
-
-    const isOwner = isExpert && evaluatorId && evaluatorId.toString() === userId.toString();
-
-    const isDraft = this.status === 'draft';
-
-    return isOwner && isDraft;
 };
 
 evaluationSchema.methods.canView = function(userId, userRole) {
     // ✅ Convert sang string để so sánh chính xác
     const userIdStr = String(userId);
-    // Sửa lỗi populate: Lấy ID từ _id nếu có, nếu không thì lấy ID trực tiếp (nếu chưa populate)
-    const evaluatorIdStr = this.evaluatorId?._id
-        ? this.evaluatorId._id.toString()
-        : this.evaluatorId?.toString();
+    const evaluatorIdStr = String(this.evaluatorId._id || this.evaluatorId);
 
     console.log('🔍 [CAN VIEW CHECK]', {
         userId: userIdStr,
@@ -325,15 +316,16 @@ evaluationSchema.methods.canView = function(userId, userRole) {
     });
 
     if (userRole === 'admin') return true;
-    // Bổ sung các vai trò quản lý khác nếu cần
-    if (['supervisor', 'advisor', 'manager'].includes(userRole)) return true;
+    if (userRole === 'supervisor') return true;
 
     // ✅ Chuyên gia xem đánh giá của mình
     if (userRole === 'expert' && userIdStr === evaluatorIdStr) {
         return true;
     }
 
-    return false;
+    // Manager xem các đánh giá đã nộp
+    return userRole === 'manager' && this.status !== 'draft';
+
 };
 
 evaluationSchema.methods.autoSave = function() {
@@ -378,7 +370,7 @@ evaluationSchema.virtual('statusText').get(function() {
 });
 
 evaluationSchema.virtual('timeSpentHours').get(function() {
-    if (this.metadata.timeSpent) return 0;
+    if (!this.metadata.timeSpent) return 0;
     return Math.round(this.metadata.timeSpent / 60 * 100) / 100;
 });
 
