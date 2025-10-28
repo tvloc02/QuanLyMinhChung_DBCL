@@ -13,12 +13,12 @@ const academicYearSchema = yup.object({
         .number()
         .required('Năm bắt đầu là bắt buộc')
         .min(2020, 'Năm bắt đầu không được nhỏ hơn 2020')
-        .max(2100, 'Năm bắt đầu không được lớn hơn 2100'),
+        .max(2050, 'Năm bắt đầu không được lớn hơn 2050'),
     endYear: yup
         .number()
         .required('Năm kết thúc là bắt buộc')
         .min(2021, 'Năm kết thúc không được nhỏ hơn 2021')
-        .max(2100, 'Năm kết thúc không được lớn hơn 2100')
+        .max(2051, 'Năm kết thúc không được lớn hơn 2051')
         .test('end-after-start', 'Năm kết thúc phải lớn hơn năm bắt đầu', function(value) {
             return value > this.parent.startYear;
         }),

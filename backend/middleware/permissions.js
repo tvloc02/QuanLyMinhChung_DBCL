@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User/User');
 
+// Middleware xác thực user (giữ nguyên từ code cũ)
 const auth = async (req, res, next) => {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -14,13 +15,6 @@ const auth = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // 🔍 DEBUG: In decoded token
-        console.log('🔍 [AUTH] Decoded token:', {
-            userId: decoded.userId,
-            role: decoded.role,
-            email: decoded.email
-        });
-
         const user = await User.findById(decoded.userId)
             .populate({
                 path: 'userGroups',
@@ -31,8 +25,6 @@ const auth = async (req, res, next) => {
                 }
             })
             .populate('individualPermissions.permission')
-            .populate('standardAccess', 'name code')
-            .populate('criteriaAccess', 'name code')
             .select('-password -resetPasswordToken -resetPasswordExpires');
 
         if (!user) {
@@ -49,21 +41,11 @@ const auth = async (req, res, next) => {
             });
         }
 
-        // ✅ FIX: Đảm bảo req.user có đầy đủ thông tin từ token
         req.user = user;
-
-        // 🔍 DEBUG: In user info sau khi set
-        console.log('✅ [AUTH] User info set:', {
-            userId: req.user._id,
-            role: req.user.role,
-            email: req.user.email,
-            fullName: req.user.fullName
-        });
-
         next();
 
     } catch (error) {
-        console.error('❌ Auth middleware error:', error);
+        console.error('Auth middleware error:', error);
 
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({
@@ -86,8 +68,7 @@ const auth = async (req, res, next) => {
     }
 };
 
-
-// Kiểm tra quyền cụ thể
+// Middleware kiểm tra quyền cụ thể
 const requirePermission = (permissionCode) => {
     return async (req, res, next) => {
         try {
@@ -119,6 +100,7 @@ const requirePermission = (permissionCode) => {
     };
 };
 
+// Middleware kiểm tra nhiều quyền (AND logic - cần có tất cả)
 const requireAllPermissions = (permissionCodes) => {
     return async (req, res, next) => {
         try {
@@ -150,6 +132,7 @@ const requireAllPermissions = (permissionCodes) => {
     };
 };
 
+// Middleware kiểm tra ít nhất một quyền (OR logic - chỉ cần một trong các quyền)
 const requireAnyPermission = (permissionCodes) => {
     return async (req, res, next) => {
         try {
@@ -181,6 +164,7 @@ const requireAnyPermission = (permissionCodes) => {
     };
 };
 
+// Middleware kiểm tra quyền trên module
 const requireModulePermission = (module, action = null) => {
     return async (req, res, next) => {
         try {
@@ -213,66 +197,28 @@ const requireModulePermission = (module, action = null) => {
     };
 };
 
-
+// GIỮ LẠI các middleware cũ để tương thích ngược
 const requireAdmin = (req, res, next) => {
-    console.log('🔍 [REQUIRE ADMIN] User role:', req.user?.role);
-
-    if (!['admin', 'supervisor', 'advisor'].includes(req.user.role)) {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({
             success: false,
-            message: 'Chỉ admin, supervisor hoặc advisor mới có quyền thực hiện thao tác này'
+            message: 'Chỉ admin mới có quyền thực hiện thao tác này'
         });
     }
     next();
 };
 
 const requireManager = (req, res, next) => {
-    console.log('🔍 [REQUIRE MANAGER] User role:', req.user?.role);
-
-    if (!['admin', 'manager', 'supervisor', 'advisor'].includes(req.user.role)) { // Dòng này đã đúng
+    if (!['admin', 'manager'].includes(req.user.role)) {
         return res.status(403).json({
             success: false,
-            message: 'Cần quyền quản lý cấp cao (admin, manager, supervisor, advisor) để thực hiện thao tác này'
+            message: 'Cần quyền manager trở lên để thực hiện thao tác này'
         });
     }
     next();
 };
 
-
-const checkStandardAccess = (standardId) => {
-    return (req, res, next) => {
-        if (req.user.role === 'admin') {
-            return next();
-        }
-
-        if (!req.user.hasStandardAccess(standardId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền truy cập tiêu chuẩn này'
-            });
-        }
-
-        next();
-    };
-};
-
-const checkCriteriaAccess = (criteriaId) => {
-    return (req, res, next) => {
-        if (req.user.role === 'admin') {
-            return next();
-        }
-
-        if (!req.user.hasCriteriaAccess(criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền truy cập tiêu chí này'
-            });
-        }
-
-        next();
-    };
-};
-
+// Middleware để gán permissions vào req để sử dụng trong controller
 const attachPermissions = async (req, res, next) => {
     try {
         if (req.user) {
@@ -281,7 +227,7 @@ const attachPermissions = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Attach permissions error:', error);
-        next();
+        next(); // Vẫn tiếp tục, không block request
     }
 };
 
@@ -293,7 +239,5 @@ module.exports = {
     requireModulePermission,
     requireAdmin,
     requireManager,
-    checkStandardAccess,
-    checkCriteriaAccess,
     attachPermissions
 };
