@@ -5,7 +5,7 @@ import Layout from '../components/common/Layout';
 import AdminDashboard from '../components/dashboard/AdminDashboard';
 import ManagerDashboard from '../components/dashboard/ManagerDashboard';
 import ExpertDashboard from '../components/dashboard/ExpertDashboard';
-import AdvisorDashboard from '../components/dashboard/AdvisorDashboard';
+import TdgDashboard from '../components/dashboard/tdgDashboard';
 import { dashboardService } from '../services/dashboardService'; // Import service mới
 import { useInitData } from "../contexts/useInitData";
 
@@ -41,7 +41,7 @@ const useDashboardData = (user, academicYearId) => {
                     fetches.push(dashboardService.getUpcomingDeadlines(7));
                     fetches.push(dashboardService.getExpertAssignmentStats());
                     break;
-                case 'advisor':
+                case 'tdg':
                     fetches.push(dashboardService.getAdvisorStats());
                     fetches.push(dashboardService.getRecentEvidences(5));
                     fetches.push(dashboardService.getEvidencesByStandardStats());
@@ -74,7 +74,7 @@ const useDashboardData = (user, academicYearId) => {
                     new_data.urgentTasks = results[1]?.data;
                     new_data.assignmentStats = results[2]?.data;
                     break;
-                case 'advisor':
+                case 'tdg':
                     new_data.advisorStats = results[0]?.data;
                     new_data.recentEvidences = results[1]?.data?.evidences;
                     new_data.standardStats = results[2]?.data;
@@ -161,8 +161,8 @@ export default function DashboardPage() {
                     assignmentStats={data.assignmentStats}
                     loading={loading}
                 />;
-            case 'advisor':
-                return <AdvisorDashboard
+            case 'tdg':
+                return <TdgDashboard
                     stats={data.advisorStats}
                     recentEvidences={data.recentEvidences}
                     standardStats={data.standardStats}

@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
 import { ActionButton } from '../../components/ActionButtons'
+import SelfEvaluationModal from '../../components/reports/SelfEvaluationModal'
 import toast from 'react-hot-toast'
 import { UserPlus, ChevronDown, ChevronRight } from 'lucide-react'
 import {
@@ -21,9 +22,12 @@ import {
     Loader2,
     BarChart3,
     Send,
-    RotateCcw
+    RotateCcw,
+    Award,
+    Pencil
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
+import reportService from '../../services/reportService'
 
 export default function ReportsManagement() {
     const router = useRouter()
@@ -69,6 +73,11 @@ export default function ReportsManagement() {
     const [selectedItems, setSelectedItems] = useState([])
     const [showFilters, setShowFilters] = useState(false)
     const [expandedRows, setExpandedRows] = useState({})
+
+    const [showSelfEvalModal, setShowSelfEvalModal] = useState(false)
+    const [reportToSubmit, setReportToSubmit] = useState(null)
+    const [selfEvaluation, setSelfEvaluation] = useState(null)
+    const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -201,7 +210,6 @@ export default function ReportsManagement() {
             toast.error('Vui lòng chọn ít nhất một báo cáo')
             return
         }
-        // ✅ THAO TÁC CẦN THIẾT: Dùng replace để buộc Router xử lý tuyến đường mới
         router.replace(`/assignments/assign-reviewers?reportIds=${selectedItems.join(',')}`)
     }
 
@@ -240,21 +248,86 @@ export default function ReportsManagement() {
         }
     }
 
-    const handlePublish = async (id) => {
-        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
-
+    const finalizeAction = async (reportId, actionType) => {
         try {
-            await apiMethods.reports.publish(id)
-            toast.success('Xuất bản báo cáo thành công')
+            setSubmitting(true)
+            if (actionType === 'publish') {
+                await apiMethods.reports.publish(reportId)
+                toast.success('Xuất bản báo cáo thành công')
+            }
+            setReportToSubmit(null)
+            setSelfEvaluation(null)
             fetchReports()
         } catch (error) {
-            console.error('Publish error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản báo cáo')
+            console.error('Finalize action error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi thực hiện hành động')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const handleActionSubmitPublishWithSelfEval = async (report) => {
+        const isOwner = user?.id === report.createdBy?._id
+        const actionType = 'publish'
+
+        if (!isOwner) {
+            toast.error('Bạn không có quyền xuất bản báo cáo này')
+            return
+        }
+
+        if (!report.selfEvaluation) {
+            setReportToSubmit({ ...report, actionType })
+            setShowSelfEvalModal(true)
+            return
+        }
+
+        if (actionType === 'publish') {
+            handleActionSubmitPublish(report)
+        }
+    }
+
+    const handleActionSubmitPublish = async (report) => {
+        const isOwner = user?.id === report.createdBy?._id
+        const reportId = report._id
+
+        if (report.status !== 'draft') {
+            toast.error('Chỉ có thể xuất bản báo cáo ở trạng thái nháp')
+            return
+        }
+
+        if (!isOwner) {
+            toast.error('Bạn không có quyền xuất bản báo cáo này')
+            return
+        }
+
+        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+        await finalizeAction(reportId, 'publish')
+    }
+
+    const handleSelfEvaluationSubmit = async (evalData) => {
+        setSelfEvaluation(evalData)
+        setShowSelfEvalModal(false)
+
+        if (!reportToSubmit || !reportToSubmit.actionType) {
+            toast.error('Lỗi: Không tìm thấy báo cáo để xuất bản')
+            return
+        }
+
+        try {
+            setSubmitting(true)
+            await reportService.addSelfEvaluation(reportToSubmit._id, evalData)
+            toast.success('Tự đánh giá thành công')
+            await finalizeAction(reportToSubmit._id, reportToSubmit.actionType)
+        } catch (error) {
+            console.error('Self-evaluation submit error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi tự đánh giá')
+        } finally {
+            setSubmitting(false)
         }
     }
 
     const handleUnpublish = async (id) => {
-        if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này?')) return
+        if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này (chuyển về draft)?')) return
 
         try {
             await apiMethods.reports.unpublish(id)
@@ -306,6 +379,7 @@ export default function ReportsManagement() {
     const getStatusColor = (status) => {
         const colors = {
             draft: 'bg-gray-100 text-gray-800 border-gray-200',
+            submitted: 'bg-yellow-100 text-yellow-800 border-yellow-200',
             published: 'bg-green-100 text-green-800 border-green-200',
             archived: 'bg-blue-100 text-blue-800 border-blue-200'
         }
@@ -315,6 +389,7 @@ export default function ReportsManagement() {
     const getStatusLabel = (status) => {
         const labels = {
             draft: 'Bản nháp',
+            submitted: 'Đã nộp',
             published: 'Đã xuất bản',
             archived: 'Lưu trữ'
         }
@@ -339,8 +414,118 @@ export default function ReportsManagement() {
         return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200'
     }
 
+    const renderActionButtons = (report) => {
+        const isOwner = user?.id === report.createdBy?._id
+        const userRole = user?.role
+        const isDraft = report.status === 'draft'
+        const isSubmitted = report.status === 'submitted'
+        const isPublished = report.status === 'published'
+        const isEditable = isDraft && (userRole === 'manager' || (userRole === 'tdg' && isOwner))
+        const isDeletable = isDraft && (userRole === 'manager' || (userRole === 'tdg' && isOwner))
+
+        const buttons = []
+
+        buttons.push(
+            <ActionButton
+                key="view"
+                icon={Eye}
+                variant="view"
+                size="sm"
+                onClick={() => handleViewDetail(report._id)}
+                title="Xem chi tiết báo cáo"
+            />
+        )
+
+        if (userRole === 'admin' || userRole === 'supervisor') {
+            return <div className="flex items-center justify-center gap-2 flex-wrap">{buttons}</div>
+        }
+
+        if (isEditable) {
+            buttons.push(
+                <ActionButton
+                    key="edit"
+                    icon={Edit}
+                    variant="edit"
+                    size="sm"
+                    onClick={() => handleEdit(report._id)}
+                    title="Chỉnh sửa báo cáo"
+                />
+            )
+        }
+
+        if (isDraft && (userRole === 'tdg' && isOwner || userRole === 'manager')) {
+            buttons.push(
+                <ActionButton
+                    key="publish"
+                    icon={CheckCircle}
+                    variant="success"
+                    size="sm"
+                    disabled={submitting}
+                    onClick={() => handleActionSubmitPublishWithSelfEval(report)}
+                    title="Xuất bản báo cáo"
+                />
+            )
+        }
+
+        if ((isSubmitted || isPublished) && userRole === 'manager') {
+            buttons.push(
+                <ActionButton
+                    key="assign"
+                    icon={UserPlus}
+                    variant="primary"
+                    size="sm"
+                    onClick={() => router.push(`/assignments/assign-reviewers?reportIds=${report._id}`)}
+                    title="Phân quyền đánh giá"
+                />
+            )
+        }
+
+        if ((isSubmitted || isPublished) && userRole === 'expert') {
+            buttons.push(
+                <ActionButton
+                    key="evaluate"
+                    icon={Award}
+                    variant="primary"
+                    size="sm"
+                    onClick={() => router.push(`/evaluations/create?reportId=${report._id}`)}
+                    title="Thêm đánh giá"
+                />
+            )
+        }
+
+        if ((isSubmitted || isPublished) && (userRole === 'manager' || (userRole === 'tdg' && isOwner))) {
+            buttons.push(
+                <ActionButton
+                    key="unpublish"
+                    icon={RotateCcw}
+                    variant="warning"
+                    size="sm"
+                    onClick={() => handleUnpublish(report._id)}
+                    title="Thu hồi xuất bản (Chuyển về Draft)"
+                />
+            )
+        }
+
+        if (isDeletable) {
+            buttons.push(
+                <ActionButton
+                    key="delete"
+                    icon={Trash2}
+                    variant="delete"
+                    size="sm"
+                    onClick={() => handleDelete(report._id)}
+                    title="Xóa báo cáo"
+                />
+            )
+        }
+
+        return <div className="flex items-center justify-center gap-2 flex-wrap">{buttons}</div>
+    }
+
     const hasActiveFilters = filters.search || filters.type || filters.status || filters.programId ||
         filters.organizationId || filters.standardId || filters.criteriaId
+
+    const canCreateReport = user?.role === 'tdg' || user?.role === 'manager'
 
     if (isLoading) {
         return (
@@ -362,7 +547,6 @@ export default function ReportsManagement() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center space-x-4">
@@ -377,25 +561,19 @@ export default function ReportsManagement() {
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => router.push('/reports/evaluations')}
-                                className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
-                            >
-                                <BarChart3 className="h-5 w-5 mr-2" />
-                                Đánh giá
-                            </button>
-                            <button
-                                onClick={() => router.push('/reports/create')}
-                                className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
-                            >
-                                <Plus className="h-5 w-5 mr-2" />
-                                Tạo báo cáo mới
-                            </button>
+                            {canCreateReport && (
+                                <button
+                                    onClick={() => router.push('/reports/create')}
+                                    className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
+                                >
+                                    <Plus className="h-5 w-5 mr-2" />
+                                    Tạo báo cáo mới
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* Search & Filters */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
@@ -546,6 +724,7 @@ export default function ReportsManagement() {
                                     >
                                         <option value="">Tất cả trạng thái</option>
                                         <option value="draft">Bản nháp</option>
+                                        <option value="submitted">Đã nộp</option>
                                         <option value="published">Đã xuất bản</option>
                                         <option value="archived">Lưu trữ</option>
                                     </select>
@@ -555,21 +734,22 @@ export default function ReportsManagement() {
                     )}
                 </div>
 
-                {/* Bulk Actions */}
-                {selectedItems.length > 0 && (
+                {selectedItems.length > 0 && (user.role === 'manager' || user.role === 'admin') && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-blue-900 font-semibold">
                                 Đã chọn <strong className="text-lg text-blue-600">{selectedItems.length}</strong> báo cáo
                             </span>
                             <div className="flex space-x-3">
-                                <button
-                                    onClick={handleBulkAssign}
-                                    className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 font-semibold transition-all shadow-md"
-                                >
-                                    <UserPlus className="h-4 w-4 mr-2" />
-                                    Phân quyền đánh giá
-                                </button>
+                                {user.role === 'manager' ? (
+                                    <button
+                                        onClick={handleBulkAssign}
+                                        className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 font-semibold transition-all shadow-md"
+                                    >
+                                        <UserPlus className="h-4 w-4 mr-2" />
+                                        Phân quyền đánh giá
+                                    </button>
+                                ) : null}
                                 <button
                                     onClick={handleBulkDelete}
                                     className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md"
@@ -589,7 +769,6 @@ export default function ReportsManagement() {
                     </div>
                 )}
 
-                {/* Table */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                         <div className="flex items-center justify-between">
@@ -621,14 +800,7 @@ export default function ReportsManagement() {
                                     : 'Bắt đầu bằng cách tạo báo cáo đầu tiên'
                                 }
                             </p>
-                            {hasActiveFilters ? (
-                                <button
-                                    onClick={clearFilters}
-                                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
-                                >
-                                    Xóa bộ lọc
-                                </button>
-                            ) : (
+                            {canCreateReport && (
                                 <button
                                     onClick={() => router.push('/reports/create')}
                                     className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all"
@@ -645,12 +817,14 @@ export default function ReportsManagement() {
                                     <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                     <tr>
                                         <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedItems.length === reports.length}
-                                                onChange={toggleSelectAll}
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                                            />
+                                            {user.role === 'manager' ? (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedItems.length === reports.length}
+                                                    onChange={toggleSelectAll}
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                />
+                                            ) : null}
                                         </th>
                                         <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">
                                             STT
@@ -683,18 +857,17 @@ export default function ReportsManagement() {
                                     </thead>
                                     <tbody className="bg-white">
                                     {reports.map((report, index) => {
-                                        const isDraft = report.status === 'draft'
-                                        const isPublished = report.status === 'published'
-
                                         return (
                                             <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
                                                 <td className="px-4 py-3 text-center border-r border-gray-200">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedItems.includes(report._id)}
-                                                        onChange={() => toggleSelectItem(report._id)}
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                                                    />
+                                                    {user.role === 'manager' ? (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedItems.includes(report._id)}
+                                                            onChange={() => toggleSelectItem(report._id)}
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                        />
+                                                    ) : null}
                                                 </td>
                                                 <td className="px-4 py-3 text-center border-r border-gray-200">
                                                     <span className="text-sm font-semibold text-gray-700">
@@ -778,58 +951,7 @@ export default function ReportsManagement() {
                                                     {formatDate(report.createdAt)}
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <div className="flex items-center justify-center gap-2 flex-wrap">
-                                                        <ActionButton
-                                                            icon={Eye}
-                                                            variant="view"
-                                                            size="sm"
-                                                            onClick={() => handleViewDetail(report._id)}
-                                                            title="Xem chi tiết báo cáo"
-                                                        />
-
-                                                        <ActionButton
-                                                            icon={Edit}
-                                                            variant="edit"
-                                                            size="sm"
-                                                            onClick={() => handleEdit(report._id)}
-                                                            title="Chỉnh sửa báo cáo"
-                                                        />
-
-                                                        <ActionButton
-                                                            icon={UserPlus}
-                                                            variant="primary"
-                                                            size="sm"
-                                                            disabled={!isPublished}
-                                                            onClick={() => isPublished && router.push(`/assignments/assign-reviewers?reportIds=${report._id}`)}
-                                                            title={isPublished ? "Phân quyền đánh giá" : "Chỉ phân quyền khi đã xuất bản"}
-                                                        />
-
-                                                        <ActionButton
-                                                            icon={Send}
-                                                            variant="success"
-                                                            size="sm"
-                                                            disabled={!isDraft}
-                                                            onClick={() => isDraft && handlePublish(report._id)}
-                                                            title={isDraft ? "Xuất bản báo cáo" : "Đã xuất bản"}
-                                                        />
-
-                                                        <ActionButton
-                                                            icon={RotateCcw}
-                                                            variant="warning"
-                                                            size="sm"
-                                                            disabled={!isPublished}
-                                                            onClick={() => isPublished && handleUnpublish(report._id)}
-                                                            title={isPublished ? "Thu hồi xuất bản" : "Chỉ thu hồi khi đã xuất bản"}
-                                                        />
-
-                                                        <ActionButton
-                                                            icon={Trash2}
-                                                            variant="delete"
-                                                            size="sm"
-                                                            onClick={() => handleDelete(report._id)}
-                                                            title="Xóa báo cáo"
-                                                        />
-                                                    </div>
+                                                    {renderActionButtons(report)}
                                                 </td>
                                             </tr>
                                         )})}
@@ -894,6 +1016,14 @@ export default function ReportsManagement() {
                     )}
                 </div>
             </div>
+
+            {showSelfEvalModal && (
+                <SelfEvaluationModal
+                    onClose={() => setShowSelfEvalModal(false)}
+                    onSubmit={handleSelfEvaluationSubmit}
+                    initialData={selfEvaluation}
+                />
+            )}
         </Layout>
     )
 }

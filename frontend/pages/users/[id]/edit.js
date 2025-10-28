@@ -4,7 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext'
 import Layout from '../../../components/common/Layout'
 import {
     Save, X, AlertCircle, RefreshCw, Users, Mail, Phone,
-    Building, Briefcase, Lock, Eye, EyeOff, ArrowLeft, Shield
+    Building, Briefcase, Lock, Eye, EyeOff, ArrowLeft, Shield, Check
 } from 'lucide-react'
 import api from '../../../services/api'
 
@@ -17,6 +17,7 @@ export default function EditUserPage() {
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
     const [showPassword, setShowPassword] = useState(false)
+    const [departments, setDepartments] = useState([]) // ✨ THÊM
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -32,10 +33,30 @@ export default function EditUserPage() {
     const [errors, setErrors] = useState({})
 
     const roleOptions = [
-        { value: 'admin', label: 'Quản trị viên', color: 'from-red-500 to-pink-500' },
-        { value: 'manager', label: 'Cán bộ quản lý', color: 'from-blue-500 to-indigo-500' },
-        { value: 'expert', label: 'Chuyên gia', color: 'from-green-500 to-emerald-500' },
-        { value: 'advisor', label: 'Tư vấn', color: 'from-purple-500 to-violet-500' }
+        {
+            value: 'admin',
+            label: 'Quản trị viên',
+            color: 'from-red-500 to-pink-500',
+            description: 'Quản trị hệ thống'
+        },
+        {
+            value: 'manager',
+            label: 'Cán bộ quản lý',
+            color: 'from-blue-500 to-cyan-500',
+            description: 'Chức vụ cao nhất trong phòng ban'
+        },
+        {
+            value: 'expert',
+            label: 'Chuyên gia',
+            color: 'from-teal-500 to-cyan-500',
+            description: 'Thực hiện đánh giá'
+        },
+        {
+            value: 'tdg',
+            label: 'Cán bộ TĐG',
+            color: 'from-sky-500 to-blue-500',
+            description: 'Được giao đẩy file minh chứng'
+        }
     ]
 
     const statusOptions = [
@@ -53,6 +74,7 @@ export default function EditUserPage() {
     useEffect(() => {
         if (id) {
             fetchUser()
+            fetchDepartments() // ✨ THÊM
         }
     }, [id])
 
@@ -69,7 +91,7 @@ export default function EditUserPage() {
                     phoneNumber: user.phoneNumber || '',
                     roles: user.roles || [user.role] || [],
                     status: user.status || 'active',
-                    department: user.department || '',
+                    department: user.department?._id || user.department || '', // ✨ THAY
                     position: user.position || '',
                     password: ''
                 })
@@ -85,18 +107,35 @@ export default function EditUserPage() {
         }
     }
 
+    // ✨ THÊM: Fetch departments
+    const fetchDepartments = async () => {
+        try {
+            const response = await api.get('/api/departments', {
+                params: {
+                    status: 'active',
+                    limit: 100
+                }
+            })
+            if (response.data.success) {
+                setDepartments(response.data.data.departments || [])
+            }
+        } catch (error) {
+            console.error('Error fetching departments:', error)
+        }
+    }
+
     const handleChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({
             ...prev,
             [name]: value
         }))
-        // Clear error when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }))
         }
     }
 
+    // ✨ THAY: handleRoleToggle cho nhiều roles
     const handleRoleToggle = (roleValue) => {
         setFormData(prev => {
             const roles = prev.roles.includes(roleValue)
@@ -118,8 +157,6 @@ export default function EditUserPage() {
 
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc'
-        } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
-            newErrors.email = 'Email không hợp lệ'
         }
 
         if (formData.phoneNumber && !/^[0-9]{10,11}$/.test(formData.phoneNumber)) {
@@ -128,6 +165,10 @@ export default function EditUserPage() {
 
         if (formData.roles.length === 0) {
             newErrors.roles = 'Vui lòng chọn ít nhất một vai trò'
+        }
+
+        if (!formData.department) { // ✨ THÊM
+            newErrors.department = 'Phòng ban là bắt buộc'
         }
 
         if (formData.password && formData.password.length < 6) {
@@ -153,7 +194,6 @@ export default function EditUserPage() {
             setSaving(true)
             const updateData = { ...formData }
 
-            // Nếu không đổi password thì xóa field password
             if (!updateData.password) {
                 delete updateData.password
             }
@@ -166,7 +206,6 @@ export default function EditUserPage() {
                     text: 'Cập nhật người dùng thành công'
                 })
 
-                // Redirect sau 1.5s
                 setTimeout(() => {
                     router.push('/users/users')
                 }, 1500)
@@ -203,7 +242,7 @@ export default function EditUserPage() {
             <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
-                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
@@ -214,7 +253,6 @@ export default function EditUserPage() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Message Alert */}
                 {message.text && (
                     <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                         message.type === 'success'
@@ -251,21 +289,18 @@ export default function EditUserPage() {
                     </div>
                 )}
 
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <Shield className="w-8 h-8" />
-                            </div>
+                            <Shield className="w-10 h-10" />
                             <div>
-                                <h1 className="text-3xl font-bold mb-1">Chỉnh sửa người dùng</h1>
-                                <p className="text-indigo-100">Cập nhật thông tin người dùng trong hệ thống</p>
+                                <h1 className="text-3xl font-bold">Chỉnh sửa người dùng</h1>
+                                <p className="text-blue-100">Cập nhật thông tin người dùng</p>
                             </div>
                         </div>
                         <button
-                            onClick={() => router.push('/users/users')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            onClick={() => router.push('/users')}
+                            className="flex items-center space-x-2 px-6 py-3 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all font-medium"
                         >
                             <ArrowLeft className="w-5 h-5" />
                             <span>Quay lại</span>
@@ -273,18 +308,15 @@ export default function EditUserPage() {
                     </div>
                 </div>
 
-                {/* Form */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <form onSubmit={handleSubmit} className="p-8">
                         <div className="space-y-8">
-                            {/* Thông tin cơ bản */}
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <Users className="w-6 h-6 text-indigo-600" />
+                                    <Users className="w-6 h-6 text-blue-600" />
                                     Thông tin cơ bản
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Họ và tên */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Họ và tên <span className="text-red-500">*</span>
@@ -294,7 +326,7 @@ export default function EditUserPage() {
                                             name="fullName"
                                             value={formData.fullName}
                                             onChange={handleChange}
-                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                                 errors.fullName ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
                                             placeholder="Nguyễn Văn A"
@@ -304,7 +336,6 @@ export default function EditUserPage() {
                                         )}
                                     </div>
 
-                                    {/* Email */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Email <span className="text-red-500">*</span>
@@ -316,7 +347,7 @@ export default function EditUserPage() {
                                                 name="email"
                                                 value={formData.email}
                                                 onChange={handleChange}
-                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                                     errors.email ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
                                                 placeholder="email@example.com"
@@ -327,7 +358,6 @@ export default function EditUserPage() {
                                         )}
                                     </div>
 
-                                    {/* Số điện thoại */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Số điện thoại
@@ -339,7 +369,7 @@ export default function EditUserPage() {
                                                 name="phoneNumber"
                                                 value={formData.phoneNumber}
                                                 onChange={handleChange}
-                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                                     errors.phoneNumber ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
                                                 placeholder="0123456789"
@@ -350,7 +380,6 @@ export default function EditUserPage() {
                                         )}
                                     </div>
 
-                                    {/* Trạng thái */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Trạng thái <span className="text-red-500">*</span>
@@ -359,7 +388,7 @@ export default function EditUserPage() {
                                             name="status"
                                             value={formData.status}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                         >
                                             {statusOptions.map(option => (
                                                 <option key={option.value} value={option.value}>
@@ -371,68 +400,93 @@ export default function EditUserPage() {
                                 </div>
                             </div>
 
-                            {/* Vai trò */}
+                            {/* ✨ THÊM: Phần chọn VAI TRÒ (nhiều roles) */}
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <Shield className="w-6 h-6 text-indigo-600" />
+                                    <Shield className="w-6 h-6 text-blue-600" />
                                     Vai trò <span className="text-red-500">*</span>
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {roleOptions.map(role => (
-                                        <button
-                                            key={role.value}
-                                            type="button"
-                                            onClick={() => handleRoleToggle(role.value)}
-                                            className={`p-4 border-2 rounded-xl transition-all ${
-                                                formData.roles.includes(role.value)
-                                                    ? `border-transparent bg-gradient-to-r ${role.color} text-white shadow-lg scale-105`
-                                                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
-                                            }`}
-                                        >
-                                            <div className="text-center">
-                                                <div className={`font-bold text-lg mb-1 ${
-                                                    formData.roles.includes(role.value) ? 'text-white' : 'text-gray-900'
-                                                }`}>
-                                                    {role.label}
+                                    {roleOptions.map(role => {
+                                        const isSelected = formData.roles.includes(role.value)
+                                        return (
+                                            <label
+                                                key={role.value}
+                                                className={`relative p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                                                    isSelected
+                                                        ? `border-transparent bg-gradient-to-r ${role.color} text-white shadow-lg`
+                                                        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleRoleToggle(role.value)}
+                                                    className="hidden"
+                                                />
+                                                <div className="text-center">
+                                                    <div className={`font-bold text-sm mb-1 ${
+                                                        isSelected ? 'text-white' : 'text-gray-900'
+                                                    }`}>
+                                                        {role.label}
+                                                    </div>
+                                                    <div className={`text-xs ${
+                                                        isSelected ? 'text-white opacity-90' : 'text-gray-600'
+                                                    }`}>
+                                                        {role.description}
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="mt-2 flex justify-center">
+                                                            <Check className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {formData.roles.includes(role.value) && (
-                                                    <div className="text-sm text-white">✓ Đã chọn</div>
-                                                )}
-                                            </div>
-                                        </button>
-                                    ))}
+                                            </label>
+                                        )
+                                    })}
                                 </div>
                                 {errors.roles && (
                                     <p className="mt-2 text-sm text-red-600">{errors.roles}</p>
                                 )}
+                                <div className="mt-3 text-sm text-gray-600">
+                                    Đã chọn: <span className="font-bold text-blue-600">{formData.roles.length}</span> vai trò
+                                </div>
                             </div>
 
-                            {/* Thông tin công việc */}
+                            {/* ✨ THÊM: Phần chọn PHÒNG BAN */}
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <Briefcase className="w-6 h-6 text-indigo-600" />
+                                    <Briefcase className="w-6 h-6 text-blue-600" />
                                     Thông tin công việc
                                 </h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Phòng ban */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Phòng ban
+                                            Phòng ban <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative">
                                             <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="text"
+                                            <select
                                                 name="department"
                                                 value={formData.department}
                                                 onChange={handleChange}
-                                                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                placeholder="Phòng Kỹ thuật"
-                                            />
+                                                className={`w-full pl-11 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                                    errors.department ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                }`}
+                                            >
+                                                <option value="">-- Chọn phòng ban --</option>
+                                                {departments.map(dept => (
+                                                    <option key={dept._id} value={dept._id}>
+                                                        {dept.name} ({dept.code})
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
+                                        {errors.department && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.department}</p>
+                                        )}
                                     </div>
 
-                                    {/* Chức vụ */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Chức vụ
@@ -444,7 +498,7 @@ export default function EditUserPage() {
                                                 name="position"
                                                 value={formData.position}
                                                 onChange={handleChange}
-                                                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 placeholder="Trưởng phòng"
                                             />
                                         </div>
@@ -452,14 +506,13 @@ export default function EditUserPage() {
                                 </div>
                             </div>
 
-                            {/* Đổi mật khẩu */}
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <Lock className="w-6 h-6 text-indigo-600" />
+                                    <Lock className="w-6 h-6 text-blue-600" />
                                     Đổi mật khẩu
                                 </h2>
-                                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-4">
-                                    <p className="text-sm text-yellow-800">
+                                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+                                    <p className="text-sm text-blue-800">
                                         <strong>Lưu ý:</strong> Chỉ nhập mật khẩu mới nếu muốn thay đổi. Để trống nếu không muốn đổi mật khẩu.
                                     </p>
                                 </div>
@@ -474,7 +527,7 @@ export default function EditUserPage() {
                                             name="password"
                                             value={formData.password}
                                             onChange={handleChange}
-                                            className={`w-full pl-11 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                            className={`w-full pl-11 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                                                 errors.password ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
                                             placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
@@ -493,11 +546,10 @@ export default function EditUserPage() {
                                 </div>
                             </div>
 
-                            {/* Actions */}
                             <div className="flex items-center justify-end gap-4 pt-6 border-t-2 border-gray-100">
                                 <button
                                     type="button"
-                                    onClick={() => router.push('/users/users')}
+                                    onClick={() => router.push('/users')}
                                     className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                                 >
                                     Hủy
@@ -505,7 +557,7 @@ export default function EditUserPage() {
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl disabled:opacity-50 transition-all font-medium"
+                                    className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-xl disabled:opacity-50 transition-all font-medium"
                                 >
                                     {saving ? (
                                         <>

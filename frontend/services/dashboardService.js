@@ -71,5 +71,17 @@ export const dashboardService = {
     getEvidencesByStandard: async () => {
         const response = await api.get('/api/evidences/statistics');
         return response.data;
+    },
+    getEvidencesByStandardStats() {
+        return undefined;
+    },
+    getManagerDraftReports(number) {
+        return undefined;
+    },
+    getManagerRecentAssignments(number) {
+        return undefined;
+    },
+    getExpertAssignmentStats() {
+        return undefined;
     }
 };

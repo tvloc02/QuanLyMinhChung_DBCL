@@ -7,8 +7,12 @@ import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import ProgramModal from './ProgramModal'
 import { ActionButton } from '../ActionButtons'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function ProgramList() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+
     const [programs, setPrograms] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 })
@@ -59,6 +63,7 @@ export default function ProgramList() {
                 ['Hướng dẫn sử dụng:'],
                 ['1. Điền thông tin vào các cột bên dưới, bắt đầu từ dòng 15.'],
                 ['2. Các cột có dấu (*) là BẮT BUỘC. Chỉ nhập dữ liệu vào hàng DỮ LIỆU.'],
+                ['3. Chỉ Admin được phép Import/Export/Thêm chương trình.'],
                 [''],
                 ['Lưu ý về định dạng:'],
                 ['- Mã chương trình (*): VIẾT HOA, chỉ chứa chữ cái, số, gạch ngang (-) hoặc gạch dưới (_). Tối đa 20 ký tự.'],
@@ -133,6 +138,11 @@ export default function ProgramList() {
     }
 
     const handleExportExcel = () => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền Export dữ liệu.')
+            return;
+        }
+
         try {
             const exportData = programs.map((program, index) => ({
                 'STT': index + 1,
@@ -180,6 +190,12 @@ export default function ProgramList() {
     }
 
     const handleImport = async (file) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền Import dữ liệu.')
+            setShowImportModal(false)
+            return;
+        }
+
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -208,6 +224,11 @@ export default function ProgramList() {
     }
 
     const handleDelete = async (id) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền xóa chương trình.')
+            return;
+        }
+
         if (!confirm('Bạn có chắc muốn xóa chương trình này?')) return
 
         try {
@@ -227,6 +248,10 @@ export default function ProgramList() {
 
     // Hàm mở modal chỉnh sửa
     const handleEdit = (program) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền chỉnh sửa chương trình.')
+            return;
+        }
         setSelectedProgram(program)
         setShowProgramModal(true)
     }
@@ -265,44 +290,46 @@ export default function ProgramList() {
                             <p className="text-blue-100">Quản lý các chương trình đánh giá chất lượng</p>
                         </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={handleDownloadTemplate}
-                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                        >
-                            <Download size={18} />
-                            Tải mẫu
-                        </button>
-                        <button
-                            onClick={() => setShowImportModal(true)}
-                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                        >
-                            <Upload size={18} />
-                            Import
-                        </button>
-                        <button
-                            onClick={handleExportExcel}
-                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                        >
-                            <Download size={18} />
-                            Export
-                        </button>
-                        <button
-                            onClick={() => {
-                                setSelectedProgram(null)
-                                setShowProgramModal(true)
-                            }}
-                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
-                        >
-                            <Plus size={20} />
-                            Thêm chương trình
-                        </button>
-                    </div>
+                    {isAdmin && (
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleDownloadTemplate}
+                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                            >
+                                <Download size={18} />
+                                Tải mẫu
+                            </button>
+                            <button
+                                onClick={() => setShowImportModal(true)}
+                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                            >
+                                <Upload size={18} />
+                                Import
+                            </button>
+                            <button
+                                onClick={handleExportExcel}
+                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                            >
+                                <Download size={18} />
+                                Export
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setSelectedProgram(null)
+                                    setShowProgramModal(true)
+                                }}
+                                className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                            >
+                                <Plus size={20} />
+                                Thêm chương trình
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
@@ -315,14 +342,14 @@ export default function ProgramList() {
                             placeholder="Tìm kiếm chương trình..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         />
                     </div>
 
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
@@ -333,7 +360,7 @@ export default function ProgramList() {
 
                     <button
                         onClick={loadPrograms}
-                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -342,21 +369,21 @@ export default function ProgramList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
+                        <thead className="bg-blue-100">
                         <tr>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">STT</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Mã</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[35%]">Tên chương trình</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[5%]">STT</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Mã</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[30%]">Tên chương trình</th>
                             <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Trạng thái</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Năm áp dụng</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Năm áp dụng</th>
                             <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[15%]">Ngày tạo</th>
                             <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[10%]">Thao tác</th>
                         </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
+                        <tbody className="bg-white divide-y divide-blue-200">
                         {loading ? (
                             <tr>
                                 <td colSpan="7" className="px-6 py-16 text-center">
@@ -370,7 +397,7 @@ export default function ProgramList() {
                             <tr>
                                 <td colSpan="7" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <BookOpen className="w-16 h-16 text-gray-300 mb-4" />
+                                        <BookOpen className="w-16 h-16 text-blue-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
                                         <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc thêm chương trình mới</p>
                                     </div>
@@ -378,40 +405,40 @@ export default function ProgramList() {
                             </tr>
                         ) : (
                             programs.map((program, index) => (
-                                <tr key={program._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600 border-r border-gray-200">
+                                <tr key={program._id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors border-b border-blue-200`}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600 border-r border-blue-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-blue-200">
                                         <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {program.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-gray-200">
+                                    <td className="px-6 py-4 border-r border-blue-200">
                                         <div className="text-sm font-semibold text-gray-900">{program.name}</div>
-                                        {program.description && (
-                                            <div className="text-sm text-gray-500 truncate max-w-md mt-1">
-                                                {program.description}
+                                        {program.objectives && (
+                                            <div className="text-xs text-gray-500 truncate max-w-md mt-1" title={program.objectives}>
+                                                Mục tiêu: {program.objectives}
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-blue-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(program.status)}`}>
                                             {getStatusLabel(program.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-blue-200">
                                         <div className="flex items-center justify-center text-sm text-gray-900">
-                                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                                            <Calendar className="w-4 h-4 text-blue-400 mr-2" />
                                             <span className="font-semibold">{program.applicableYear}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 border-r border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 border-r border-blue-200">
                                         {formatDate(program.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <div className="flex items-center justify-center gap-2">
-                                            {/* ActionButton cho Xem chi tiết */}
+                                            {/* ActionButton cho Xem chi tiết (Luôn có) */}
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -419,22 +446,26 @@ export default function ProgramList() {
                                                 onClick={() => handleViewDetail(program)}
                                                 title="Xem chi tiết chương trình"
                                             />
-                                            {/* ActionButton cho Chỉnh sửa */}
-                                            <ActionButton
-                                                icon={Edit2}
-                                                variant="edit"
-                                                size="sm"
-                                                onClick={() => handleEdit(program)}
-                                                title="Chỉnh sửa chương trình"
-                                            />
-                                            {/* ActionButton cho Xóa */}
-                                            <ActionButton
-                                                icon={Trash2}
-                                                variant="delete"
-                                                size="sm"
-                                                onClick={() => handleDelete(program._id)}
-                                                title="Xóa chương trình"
-                                            />
+                                            {isAdmin && (
+                                                <>
+                                                    {/* ActionButton cho Chỉnh sửa */}
+                                                    <ActionButton
+                                                        icon={Edit2}
+                                                        variant="edit"
+                                                        size="sm"
+                                                        onClick={() => handleEdit(program)}
+                                                        title="Chỉnh sửa chương trình"
+                                                    />
+                                                    {/* ActionButton cho Xóa */}
+                                                    <ActionButton
+                                                        icon={Trash2}
+                                                        variant="delete"
+                                                        size="sm"
+                                                        onClick={() => handleDelete(program._id)}
+                                                        title="Xóa chương trình"
+                                                    />
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

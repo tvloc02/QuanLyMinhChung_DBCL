@@ -184,11 +184,11 @@ const AcademicYearsPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
+                {/* Header - Màu xanh lam đồng bộ */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                                 <Calendar className="w-8 h-8" />
                             </div>
                             <div>
@@ -198,7 +198,7 @@ const AcademicYearsPage = () => {
                         </div>
                         <button
                             onClick={() => router.push('/academic-years/create')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
+                            className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-lg transition-all font-semibold"
                         >
                             <Plus className="w-5 h-5" />
                             <span>Tạo năm học mới</span>
@@ -206,11 +206,11 @@ const AcademicYearsPage = () => {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+                {/* Filters - Màu xanh lam đồng bộ */}
+                <div className="bg-white rounded-2xl shadow-lg border border-blue-200">
                     <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-1">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                     <input
@@ -218,12 +218,12 @@ const AcademicYearsPage = () => {
                                         placeholder="Tìm kiếm năm học..."
                                         value={searchTerm}
                                         onChange={handleSearch}
-                                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                        className="w-full pl-10 pr-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                     />
                                 </div>
                             </div>
 
-                            <div>
+                            <div className='md:col-span-1'>
                                 <select
                                     value={`${sortBy}-${sortOrder}`}
                                     onChange={(e) => {
@@ -231,7 +231,7 @@ const AcademicYearsPage = () => {
                                         setSortBy(field)
                                         setSortOrder(order)
                                     }}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                 >
                                     <option value="createdAt-desc">Mới nhất</option>
                                     <option value="createdAt-asc">Cũ nhất</option>
@@ -241,11 +241,19 @@ const AcademicYearsPage = () => {
                                     <option value="startYear-asc">Năm bắt đầu (cũ)</option>
                                 </select>
                             </div>
+
+                            <button
+                                onClick={fetchAcademicYears}
+                                className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 font-semibold"
+                            >
+                                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                                <span>Làm mới</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Bulk Actions */}
+                {/* Bulk Actions - Màu xanh lam đồng bộ */}
                 {selectedItems.length > 0 && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                         <div className="flex items-center justify-between">
@@ -258,7 +266,7 @@ const AcademicYearsPage = () => {
                                     className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md hover:shadow-lg"
                                 >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    Xóa
+                                    Xóa hàng loạt
                                 </button>
                                 <button
                                     onClick={() => setSelectedItems([])}
@@ -272,8 +280,8 @@ const AcademicYearsPage = () => {
                     </div>
                 )}
 
-                {/* Years List */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                {/* Years List - Màu xanh lam đồng bộ */}
+                <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="text-center">
@@ -300,58 +308,58 @@ const AcademicYearsPage = () => {
                         <>
                             <div className="overflow-x-auto">
                                 <table className="w-full border-collapse">
-                                    <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
-                                    <tr>
-                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200 w-20">
+                                    <thead className="bg-blue-100">
+                                    <tr className='border-b-2 border-blue-200'>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200 w-16">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.length === academicYears.length}
                                                 onChange={toggleSelectAll}
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                             />
                                         </th>
-                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200 w-20">STT</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200">Năm học</th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200 w-40">Năm</th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200 w-48">Ngày bắt đầu</th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-b-2 border-blue-200 w-48">Ngày kết thúc</th>
-                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-b-2 border-blue-200 w-80">Thao tác</th>
+                                        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200 w-16">STT</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200">Năm học</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200 w-40">Năm</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200 w-48">Ngày bắt đầu</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase border-r border-blue-200 w-48">Ngày kết thúc</th>
+                                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase w-80">Thao tác</th>
                                     </tr>
                                     </thead>
-                                    <tbody className="bg-white">
+                                    <tbody className="bg-white divide-y divide-blue-200">
                                     {academicYears.map((year, index) => (
                                         <tr
                                             key={year._id}
-                                            className={`transition-all border-b border-gray-200 ${
+                                            className={`transition-all border-b border-blue-200 ${
                                                 year.isCurrent
-                                                    ? 'bg-gradient-to-r from-blue-50 to-sky-50'
-                                                    : 'hover:bg-gray-50'
-                                            }`}
+                                                    ? 'bg-blue-100 hover:bg-blue-200' // Current year color
+                                                    : (index % 2 === 0 ? 'bg-white' : 'bg-blue-50')
+                                            } hover:bg-blue-100`}
                                         >
-                                            <td className="px-4 py-4 text-center border-r border-gray-200">
+                                            <td className="px-4 py-4 text-center border-r border-blue-200">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedItems.includes(year._id)}
                                                     onChange={() => toggleSelectItem(year._id)}
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                    className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                                 />
                                             </td>
-                                            <td className="px-4 py-4 text-center border-r border-gray-200">
+                                            <td className="px-4 py-4 text-center border-r border-blue-200">
                                                 <span className="text-sm font-semibold text-gray-700">
                                                     {((currentPage - 1) * 10) + index + 1}
                                                 </span>
                                             </td>
 
-                                            <td className="px-6 py-4 border-r border-gray-200">
+                                            <td className="px-6 py-4 border-r border-blue-200 text-left">
                                                 <div className="flex items-center space-x-3">
                                                     <div>
                                                         <h3 className="text-sm font-bold text-gray-900 mb-1">{year.name}</h3>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg">
+                                                            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200">
                                                                 {year.code}
                                                             </span>
                                                             {year.isCurrent && (
-                                                                <span className="px-2.5 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold rounded-lg shadow-md">
+                                                                <span className="px-2.5 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white text-xs font-bold rounded-lg shadow-md">
                                                                     Hiện tại
                                                                 </span>
                                                             )}
@@ -360,30 +368,31 @@ const AcademicYearsPage = () => {
                                                 </div>
                                             </td>
 
-                                            <td className="px-6 py-4 text-center border-r border-gray-200">
+                                            <td className="px-6 py-4 text-center border-r border-blue-200">
                                                 <div className="text-sm font-bold text-gray-900">
                                                     {year.startYear} - {year.endYear}
                                                 </div>
                                             </td>
 
-                                            <td className="px-6 py-4 text-center border-r border-gray-200">
+                                            <td className="px-6 py-4 text-center border-r border-blue-200">
                                                 <div className="text-sm text-gray-700 font-medium">
                                                     {formatDate(year.startDate)}
                                                 </div>
                                             </td>
 
-                                            <td className="px-6 py-4 text-center border-r border-gray-200">
+                                            <td className="px-6 py-4 text-center border-r border-blue-200">
                                                 <div className="text-sm text-gray-700 font-medium">
                                                     {formatDate(year.endDate)}
                                                 </div>
                                             </td>
 
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-4">
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex items-center justify-center gap-2">
                                                     <ActionButton
                                                         icon={Eye}
                                                         variant="view"
                                                         size="sm"
+                                                        title="Xem chi tiết"
                                                         onClick={() => router.push(`/academic-years/${year._id}`)}
                                                     />
 
@@ -391,6 +400,7 @@ const AcademicYearsPage = () => {
                                                         icon={Edit3}
                                                         variant="edit"
                                                         size="sm"
+                                                        title="Chỉnh sửa"
                                                         onClick={() => router.push(`/academic-years/edit/${year._id}`)}
                                                     />
 
@@ -398,6 +408,7 @@ const AcademicYearsPage = () => {
                                                         icon={Copy}
                                                         variant="secondary"
                                                         size="sm"
+                                                        title="Sao chép"
                                                         onClick={() => router.push(`/academic-years/copy?source=${year._id}`)}
                                                     />
 
@@ -405,6 +416,7 @@ const AcademicYearsPage = () => {
                                                         icon={Trash2}
                                                         variant="delete"
                                                         size="sm"
+                                                        title="Xóa"
                                                         onClick={() => {
                                                             setSelectedYear(year)
                                                             setShowDeleteModal(true)
@@ -415,6 +427,7 @@ const AcademicYearsPage = () => {
                                                         icon={CheckCircle}
                                                         variant="success"
                                                         size="sm"
+                                                        title="Đặt làm hiện tại"
                                                         disabled={year.isCurrent}
                                                         onClick={() => !year.isCurrent && handleSetCurrent(year._id)}
                                                     />
@@ -426,7 +439,7 @@ const AcademicYearsPage = () => {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
+                            {/* Pagination - Màu xanh lam đồng bộ */}
                             {totalPages > 1 && (
                                 <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
                                     <div className="flex items-center justify-between">
