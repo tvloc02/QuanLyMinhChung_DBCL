@@ -51,6 +51,24 @@ const organizationSchema = new mongoose.Schema({
         }
     },
 
+    contactName: {
+        type: String,
+        maxlength: [100, 'Tên người liên hệ không được quá 100 ký tự'],
+        trim: true
+    },
+
+    address: {
+        type: String,
+        maxlength: [300, 'Địa chỉ không được quá 300 ký tự'],
+        trim: true
+    },
+
+    description: {
+        type: String,
+        maxlength: [1000, 'Mô tả không được quá 1000 ký tự'],
+        trim: true
+    },
+
     status: {
         type: String,
         enum: ['active', 'inactive', 'suspended'],
@@ -68,6 +86,7 @@ const organizationSchema = new mongoose.Schema({
         ref: 'User'
     },
 
+    // Metadata về dữ liệu
     metadata: {
         totalPrograms: {
             type: Number,
@@ -77,7 +96,15 @@ const organizationSchema = new mongoose.Schema({
             type: Number,
             default: 0
         },
+        totalCriteria: {
+            type: Number,
+            default: 0
+        },
         totalEvidences: {
+            type: Number,
+            default: 0
+        },
+        totalReports: {
             type: Number,
             default: 0
         }
@@ -94,11 +121,12 @@ const organizationSchema = new mongoose.Schema({
     }
 });
 
+// Indexes
 organizationSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
-organizationSchema.index({ academicYearId: 1, level: 1 });
-organizationSchema.index({ academicYearId: 1, type: 1 });
 organizationSchema.index({ academicYearId: 1, status: 1 });
+organizationSchema.index({ academicYearId: 1, name: 'text' });
 
+// Pre-save: cập nhật updatedAt
 organizationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -106,23 +134,32 @@ organizationSchema.pre('save', function(next) {
     next();
 });
 
+// Virtual: URL
 organizationSchema.virtual('url').get(function() {
     return `/organizations/${this._id}`;
 });
 
-organizationSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
+// Virtual: tên đầy đủ
+organizationSchema.virtual('fullName').get(function() {
+    return `${this.code} - ${this.name}`;
+});
+
+// Method: ghi log hoạt động
+organizationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,
         action,
+        description,
         targetType: 'Organization',
         targetId: this._id,
-        targetName: this.name,
+        targetName: this.fullName,
         ...additionalData
     });
 };
 
+// Method: kiểm tra tổ chức có đang được sử dụng
 organizationSchema.methods.isInUse = async function() {
     const Standard = require('./Standard');
     const Evidence = require('./Evidence');
@@ -141,6 +178,7 @@ organizationSchema.methods.isInUse = async function() {
     return standardCount > 0 || evidenceCount > 0;
 };
 
+// Static method: tìm theo năm học
 organizationSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
     return this.find({
         academicYearId,
@@ -148,11 +186,12 @@ organizationSchema.statics.findByAcademicYear = function(academicYearId, query =
     });
 };
 
+// Post-save: ghi log tạo mới
 organizationSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {
             await this.addActivityLog('organization_create', this.createdBy,
-                `Tạo mới tổ chức: ${this.name}`, {
+                `Tạo mới tổ chức: ${this.fullName}`, {
                     severity: 'medium',
                     result: 'success'
                 });
@@ -163,11 +202,12 @@ organizationSchema.post('save', async function(doc, next) {
     next();
 });
 
+// Post-update: ghi log cập nhật
 organizationSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.updatedBy) {
         try {
             await result.addActivityLog('organization_update', result.updatedBy,
-                `Cập nhật tổ chức: ${result.name}`, {
+                `Cập nhật tổ chức: ${result.fullName}`, {
                     severity: 'medium',
                     result: 'success'
                 });
@@ -178,11 +218,12 @@ organizationSchema.post('findOneAndUpdate', async function(result, next) {
     next();
 });
 
+// Post-delete: ghi log xóa
 organizationSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.updatedBy) {
         try {
             await doc.addActivityLog('organization_delete', doc.updatedBy,
-                `Xóa tổ chức: ${doc.name}`, {
+                `Xóa tổ chức: ${doc.fullName}`, {
                     severity: 'high',
                     result: 'success',
                     isAuditRequired: true
@@ -194,9 +235,8 @@ organizationSchema.post('findOneAndDelete', async function(doc, next) {
     next();
 });
 
+// Virtuals và transform JSON
 organizationSchema.set('toJSON', { virtuals: true });
 organizationSchema.set('toObject', { virtuals: true });
 
-const Organization = mongoose.model('Organization', organizationSchema);
-
-module.exports = Organization;
+module.exports = mongoose.model('Organization', organizationSchema);

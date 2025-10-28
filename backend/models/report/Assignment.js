@@ -35,12 +35,14 @@ const assignmentSchema = new mongoose.Schema({
         required: [true, 'Hạn chót đánh giá là bắt buộc']
     },
 
+    // low, normal, high, urgent
     priority: {
         type: String,
         enum: ['low', 'normal', 'high', 'urgent'],
         default: 'normal'
     },
 
+    // Tiêu chí đánh giá
     evaluationCriteria: [{
         name: {
             type: String,
@@ -59,6 +61,12 @@ const assignmentSchema = new mongoose.Schema({
         }
     }],
 
+    // pending: chờ phản hồi
+    // accepted: đã chấp nhận
+    // in_progress: đang đánh giá
+    // completed: đã hoàn thành
+    // overdue: quá hạn
+    // cancelled: đã hủy
     status: {
         type: String,
         enum: ['pending', 'accepted', 'in_progress', 'completed', 'overdue', 'cancelled'],
@@ -81,6 +89,7 @@ const assignmentSchema = new mongoose.Schema({
         ref: 'Evaluation'
     },
 
+    // Danh sách nhắc nhở
     reminders: [{
         sentAt: {
             type: Date,
@@ -115,6 +124,7 @@ const assignmentSchema = new mongoose.Schema({
     }
 });
 
+// Indexes
 assignmentSchema.index({ academicYearId: 1, reportId: 1 });
 assignmentSchema.index({ academicYearId: 1, expertId: 1 });
 assignmentSchema.index({ assignedBy: 1 });
@@ -123,11 +133,13 @@ assignmentSchema.index({ deadline: 1 });
 assignmentSchema.index({ createdAt: -1 });
 assignmentSchema.index({ reportId: 1, expertId: 1 }, { unique: true });
 
+// Pre-save: cập nhật updatedAt
 assignmentSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
     }
 
+    // Cập nhật thời gian dựa trên status
     if (this.isModified('status')) {
         if (this.status === 'completed' && !this.completedAt) {
             this.completedAt = new Date();
@@ -143,15 +155,18 @@ assignmentSchema.pre('save', function(next) {
     next();
 });
 
+// Virtual: kiểm tra quá hạn
 assignmentSchema.virtual('isOverdue').get(function() {
     return this.deadline < new Date() && !['completed', 'cancelled'].includes(this.status);
 });
 
+// Virtual: số ngày còn lại
 assignmentSchema.virtual('daysUntilDeadline').get(function() {
     const diffTime = this.deadline - new Date();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 });
 
+// Virtual: trạng thái văn bản
 assignmentSchema.virtual('statusText').get(function() {
     const statusMap = {
         'pending': 'Chờ phản hồi',
@@ -164,6 +179,7 @@ assignmentSchema.virtual('statusText').get(function() {
     return statusMap[this.status] || this.status;
 });
 
+// Virtual: ưu tiên văn bản
 assignmentSchema.virtual('priorityText').get(function() {
     const priorityMap = {
         'low': 'Thấp',
@@ -174,6 +190,7 @@ assignmentSchema.virtual('priorityText').get(function() {
     return priorityMap[this.priority] || this.priority;
 });
 
+// Method: ghi log hoạt động
 assignmentSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -188,6 +205,7 @@ assignmentSchema.methods.addActivityLog = async function(action, userId, descrip
     });
 };
 
+// Method: chấp nhận phân công
 assignmentSchema.methods.accept = async function(responseNote = '') {
     const oldStatus = this.status;
     this.status = 'accepted';
@@ -206,6 +224,7 @@ assignmentSchema.methods.accept = async function(responseNote = '') {
     return this;
 };
 
+// Method: từ chối phân công
 assignmentSchema.methods.reject = async function(responseNote = '') {
     const oldStatus = this.status;
     this.status = 'cancelled';
@@ -224,12 +243,14 @@ assignmentSchema.methods.reject = async function(responseNote = '') {
     return this;
 };
 
+// Method: bắt đầu đánh giá
 assignmentSchema.methods.start = function() {
     this.status = 'in_progress';
     this.startedAt = new Date();
     return this.save();
 };
 
+// Method: hoàn thành đánh giá
 assignmentSchema.methods.complete = async function(evaluationId) {
     const oldStatus = this.status;
     this.status = 'completed';
@@ -256,6 +277,7 @@ assignmentSchema.methods.complete = async function(evaluationId) {
     return this;
 };
 
+// Method: hủy phân công
 assignmentSchema.methods.cancel = async function(reason = '', userId) {
     const oldStatus = this.status;
     this.status = 'cancelled';
@@ -273,6 +295,7 @@ assignmentSchema.methods.cancel = async function(reason = '', userId) {
     return this;
 };
 
+// Method: đánh dấu quá hạn
 assignmentSchema.methods.markOverdue = function() {
     if (this.deadline < new Date() && !['completed', 'cancelled'].includes(this.status)) {
         this.status = 'overdue';
@@ -281,6 +304,7 @@ assignmentSchema.methods.markOverdue = function() {
     return Promise.resolve(this);
 };
 
+// Method: thêm nhắc nhở
 assignmentSchema.methods.addReminder = function(type = 'reminder', message = '') {
     this.reminders.push({
         type,
@@ -290,6 +314,7 @@ assignmentSchema.methods.addReminder = function(type = 'reminder', message = '')
     return this.save();
 };
 
+// Method: kiểm tra có thể chỉnh sửa không
 assignmentSchema.methods.canModify = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
@@ -304,6 +329,7 @@ assignmentSchema.methods.canModify = function(userId, userRole) {
     return false;
 };
 
+// Method: kiểm tra có thể đánh giá không
 assignmentSchema.methods.canEvaluate = function(userId) {
     return this.expertId.toString() === userId.toString() &&
         ['accepted', 'in_progress'].includes(this.status);
@@ -333,7 +359,7 @@ assignmentSchema.statics.getAssignmentStats = async function(academicYearId, fil
         };
     }
 
-    let matchStage = { };
+    let matchStage = {};
 
     try {
         matchStage.academicYearId = mongoose.Types.ObjectId(academicYearId);
@@ -347,13 +373,13 @@ assignmentSchema.statics.getAssignmentStats = async function(academicYearId, fil
     if (filters.assignedBy) {
         try {
             matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
-        } catch (e) { /* silent fail */ }
+        } catch (e) { }
     }
 
     if (filters.expertId) {
         try {
             matchStage.expertId = mongoose.Types.ObjectId(filters.expertId);
-        } catch (e) { /* silent fail */ }
+        } catch (e) { }
     }
 
     if (filters.status) matchStage.status = filters.status;
@@ -389,7 +415,7 @@ assignmentSchema.statics.getUpcomingDeadlines = async function(academicYearId, d
         deadline: { $lte: deadline },
         status: { $in: ['pending', 'accepted', 'in_progress'] }
     })
-        .populate('reportId', 'title type')
+        .populate('reportId', 'title type code')
         .populate('expertId', 'fullName email')
         .sort({ deadline: 1 });
 };

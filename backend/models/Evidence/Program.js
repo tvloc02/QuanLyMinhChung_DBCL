@@ -58,6 +58,12 @@ const programSchema = new mongoose.Schema({
         maxlength: [2000, 'Mục tiêu không được quá 2000 ký tự']
     },
 
+    description: {
+        type: String,
+        trim: true,
+        maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
+    },
+
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -81,6 +87,10 @@ const programSchema = new mongoose.Schema({
         totalEvidences: {
             type: Number,
             default: 0
+        },
+        totalReports: {
+            type: Number,
+            default: 0
         }
     },
 
@@ -98,7 +108,7 @@ const programSchema = new mongoose.Schema({
 programSchema.index({ academicYearId: 1, code: 1 }, { unique: true });
 programSchema.index({ academicYearId: 1, status: 1 });
 programSchema.index({ academicYearId: 1, applicableYear: 1 });
-programSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
+programSchema.index({ academicYearId: 1, name: 'text' });
 
 programSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -111,6 +121,10 @@ programSchema.virtual('url').get(function() {
     return `/programs/${this._id}`;
 });
 
+programSchema.virtual('fullName').get(function() {
+    return `${this.code} - ${this.name}`;
+});
+
 programSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -120,7 +134,7 @@ programSchema.methods.addActivityLog = async function(action, userId, descriptio
         description,
         targetType: 'Program',
         targetId: this._id,
-        targetName: this.name,
+        targetName: this.fullName,
         ...additionalData
     });
 };
@@ -170,7 +184,7 @@ programSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {
             await this.addActivityLog('program_create', this.createdBy,
-                `Tạo mới chương trình: ${this.name}`, {
+                `Tạo mới chương trình: ${this.fullName}`, {
                     severity: 'medium',
                     result: 'success'
                 });
@@ -185,7 +199,7 @@ programSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.updatedBy) {
         try {
             await result.addActivityLog('program_update', result.updatedBy,
-                `Cập nhật chương trình: ${result.name}`, {
+                `Cập nhật chương trình: ${result.fullName}`, {
                     severity: 'medium',
                     result: 'success'
                 });
@@ -200,7 +214,7 @@ programSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.updatedBy) {
         try {
             await doc.addActivityLog('program_delete', doc.updatedBy,
-                `Xóa chương trình: ${doc.name}`, {
+                `Xóa chương trình: ${doc.fullName}`, {
                     severity: 'high',
                     result: 'success',
                     isAuditRequired: true

@@ -27,8 +27,6 @@ const standardSchema = new mongoose.Schema({
         }
     },
 
-
-
     programId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program',
@@ -41,22 +39,45 @@ const standardSchema = new mongoose.Schema({
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
 
-
     objectives: {
         type: String,
         trim: true,
         maxlength: [2000, 'Mục tiêu không được quá 2000 ký tự']
     },
 
+    description: {
+        type: String,
+        trim: true,
+        maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
+    },
+
+    // Tiêu chí đánh giá cho tiêu chuẩn
     evaluationCriteria: [{
-        name: String,
-        weight: Number
+        name: {
+            type: String,
+            maxlength: [200, 'Tên tiêu chí không được quá 200 ký tự']
+        },
+        description: {
+            type: String,
+            maxlength: [500, 'Mô tả tiêu chí không được quá 500 ký tự']
+        },
+        weight: {
+            type: Number,
+            default: 1,
+            min: 0,
+            max: 100
+        }
     }],
 
     status: {
         type: String,
         enum: ['draft', 'active', 'inactive', 'archived'],
         default: 'active'
+    },
+
+    order: {
+        type: Number,
+        default: 0
     },
 
     createdBy: {
@@ -70,12 +91,17 @@ const standardSchema = new mongoose.Schema({
         ref: 'User'
     },
 
+    // Metadata về dữ liệu
     metadata: {
         totalCriteria: {
             type: Number,
             default: 0
         },
         totalEvidences: {
+            type: Number,
+            default: 0
+        },
+        totalReports: {
             type: Number,
             default: 0
         },
@@ -101,6 +127,7 @@ const standardSchema = new mongoose.Schema({
 standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, code: 1 }, { unique: true });
 standardSchema.index({ academicYearId: 1, programId: 1, organizationId: 1, order: 1 });
 standardSchema.index({ academicYearId: 1, status: 1 });
+standardSchema.index({ academicYearId: 1, name: 'text' });
 
 standardSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -117,12 +144,13 @@ standardSchema.virtual('url').get(function() {
     return `/standards/${this._id}`;
 });
 
-standardSchema.methods.addActivityLog = async function(action, userId, additionalData = {}) {
+standardSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
         userId,
         academicYearId: this.academicYearId,
         action,
+        description,
         targetType: 'Standard',
         targetId: this._id,
         targetName: this.fullName,
@@ -214,6 +242,4 @@ standardSchema.post('findOneAndDelete', async function(doc, next) {
 standardSchema.set('toJSON', { virtuals: true });
 standardSchema.set('toObject', { virtuals: true });
 
-const Standard = mongoose.model('Standard', standardSchema);
-
-module.exports = Standard;
+module.exports = mongoose.model('Standard', standardSchema);
