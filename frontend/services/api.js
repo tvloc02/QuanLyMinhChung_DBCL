@@ -116,17 +116,6 @@ export const apiMethods = {
         removePermission: (id, permissionId) => api.delete(`/api/users/${id}/permissions`, { data: { permissionId } })
     },
 
-    departments: {
-        getAll: (params) => api.get('/api/departments', { params }),
-        getById: (id) => api.get(`/api/departments/${id}`),
-        create: (data) => api.post('/api/departments', data),
-        update: (id, data) => api.put(`/api/departments/${id}`, data),
-        delete: (id) => api.delete(`/api/departments/${id}`),
-        changeStatus: (id, status) => api.patch(`/api/departments/${id}/status`, { status }),
-        addMember: (id, userId, role) => api.post(`/api/departments/${id}/members`, { userId, role }),
-        removeMember: (id, userId) => api.delete(`/api/departments/${id}/members`, { data: { userId } }),
-        updateMemberRole: (id, userId, role) => api.patch(`/api/departments/${id}/members/role`, { userId, role })
-    },
 
     programs: {
         getAll: (params) => api.get('/api/programs', { params }),
@@ -293,15 +282,7 @@ export const apiMethods = {
         streamFile: (id) => api.get(`/api/files/stream/${id}`)
     },
 
-    reportRequests: {
-        getAll: (params) => api.get('/api/report-requests', { params }),
-        getById: (id) => api.get(`/api/report-requests/${id}`),
-        create: (data) => api.post('/api/report-requests', data),
-        accept: (id) => api.post(`/api/report-requests/${id}/accept`),
-        reject: (id, data) => api.post(`/api/report-requests/${id}/reject`, data)
-    },
-
-    reports: {
+     reports: {
         getAll: (params) => api.get('/api/reports', { params }),
         getById: (id) => api.get(`/api/reports/${id}`),
         create: (data) => api.post('/api/reports', data),
@@ -389,31 +370,6 @@ export const apiMethods = {
         getDashboard: () => api.get('/system/dashboard'),
         backup: () => api.post('/system/backup'),
         getHealth: () => api.get('/system/health')
-    },
-
-    permissions: {
-        getAll: (params) => api.get('/api/permissions', { params }),
-        getByModule: () => api.get('/api/permissions/by-module'),
-        getById: (id) => api.get(`/api/permissions/${id}`),
-        create: (data) => api.post('/api/permissions', data),
-        update: (id, data) => api.put(`/api/permissions/${id}`, data),
-        delete: (id) => api.delete(`/api/permissions/${id}`),
-        seed: () => api.post('/api/permissions/seed')
-    },
-
-    userGroups: {
-        getAll: (params) => api.get('/api/user-groups', { params }),
-        getById: (id) => api.get(`/api/user-groups/${id}`),
-        create: (data) => api.post('/api/user-groups', data),
-        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
-        delete: (id) => api.delete(`/api/user-groups/${id}`),
-        seed: () => api.post('/api/user-groups/seed'),
-
-        addPermissions: (id, permissionIds) => api.post(`/api/user-groups/${id}/permissions`, { permissionIds }),
-        removePermissions: (id, permissionIds) => api.delete(`/api/user-groups/${id}/permissions`, { data: { permissionIds } }),
-
-        addMembers: (id, userIds) => api.post(`/api/user-groups/${id}/members`, { userIds }),
-        removeMembers: (id, userIds) => api.delete(`/api/user-groups/${id}/members`, { data: { userIds } })
     },
 
     publicEvidence: {

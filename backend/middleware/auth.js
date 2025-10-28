@@ -23,10 +23,8 @@ const auth = async (req, res, next) => {
 
         const user = await User.findById(decoded.userId)
             .populate({
-                path: 'userGroups',
                 match: { status: 'active' },
                 populate: {
-                    path: 'permissions',
                     match: { status: 'active' }
                 }
             })

@@ -1,8 +1,6 @@
 const User = require('../../models/User/User');
-const UserGroup = require('../../models/User/UserGroup');
-const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
-const emailService = require('../../services/emailService'); // ✅ THÊM IMPORT
+const emailService = require('../../services/emailService');
 
 const getUsers = async (req, res) => {
     try {
