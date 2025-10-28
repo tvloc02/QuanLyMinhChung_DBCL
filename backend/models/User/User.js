@@ -40,20 +40,16 @@ const userSchema = new mongoose.Schema({
         }
     },
 
-    // Vai trò chính của người dùng (một hoặc nhiều)
-    // admin: Quản trị toàn bộ hệ thống
-    // manager: Quản lý báo cáo tự đánh giá
-    // reporter: Báo cáo viên - nhập minh chứng, viết báo cáo
-    // evaluator: Chuyên gia đánh giá
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'reporter', 'evaluator']
+        enum: ['admin', 'manager', 'expert', 'advisor']
     }],
 
+    // Giữ lại để backward compatibility
     role: {
         type: String,
-        enum: ['admin', 'manager', 'reporter', 'evaluator'],
-        default: 'reporter'
+        enum: ['admin', 'manager', 'expert', 'advisor'],
+        default: 'expert'
     },
 
     status: {
@@ -62,38 +58,57 @@ const userSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    departmentName: {
+    department: {
         type: String,
-        maxlength: [100, 'Tên phòng/ban không được quá 100 ký tự'],
-        trim: true
+        maxlength: [100, 'Phòng ban không được quá 100 ký tự']
     },
 
     position: {
         type: String,
-        maxlength: [100, 'Chức vụ không được quá 100 ký tự'],
-        trim: true
+        maxlength: [100, 'Chức vụ không được quá 100 ký tự']
     },
+
+    userGroups: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserGroup'
+    }],
+
+    individualPermissions: [{
+        permission: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Permission'
+        },
+        type: {
+            type: String,
+            enum: ['granted', 'denied'],
+            default: 'granted'
+        },
+        grantedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        grantedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
 
     academicYearAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear'
     }],
-
     programAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program'
     }],
-
     organizationAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Organization'
     }],
-
     standardAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard'
     }],
-
     criteriaAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Criteria'
@@ -132,8 +147,8 @@ const userSchema = new mongoose.Schema({
     metadata: {
         totalReports: { type: Number, default: 0 },
         totalEvaluations: { type: Number, default: 0 },
-        totalAssignments: { type: Number, default: 0 },
-        completedAssignments: { type: Number, default: 0 }
+        averageEvaluationScore: { type: Number, default: 0 },
+        totalAssignments: { type: Number, default: 0 }
     },
 
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -145,6 +160,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ roles: 1, status: 1 });
 userSchema.index({ fullName: 'text' });
+userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
 
 userSchema.virtual('isLocked').get(function() {
@@ -155,12 +171,13 @@ userSchema.virtual('isLocked').get(function() {
 });
 
 userSchema.pre('validate', function(next) {
+    // Nếu roles rỗng hoặc không tồn tại, tự động set từ role
     if (!this.roles || this.roles.length === 0) {
         if (this.role) {
             this.roles = [this.role];
         } else {
-            this.roles = ['reporter'];
-            this.role = 'reporter';
+            this.roles = ['expert'];
+            this.role = 'expert';
         }
     }
 
@@ -172,6 +189,7 @@ userSchema.pre('validate', function(next) {
 });
 
 userSchema.pre('save', async function(next) {
+    // Sync roles và role (ưu tiên roles)
     if (this.isModified('roles') && this.roles.length > 0) {
         this.role = this.roles[0];
     } else if (this.isModified('role') && this.role && this.roles.length === 0) {
@@ -223,26 +241,59 @@ userSchema.methods.removeRole = function(role) {
     if (this.roles.length > 0) {
         this.role = this.roles[0];
     } else {
-        this.role = 'reporter';
-        this.roles = ['reporter'];
+        this.role = 'expert';
+        this.roles = ['expert'];
     }
 };
 
-userSchema.methods.hasAccessToAcademicYear = function(academicYearId) {
-    if (this.hasRole('admin')) return true;
-    return this.academicYearAccess.some(id => id.toString() === academicYearId.toString());
+userSchema.methods.getAllPermissions = async function() {
+    const UserGroup = mongoose.model('UserGroup');
+
+    await this.populate({
+        path: 'userGroups',
+        match: { status: 'active' },
+        populate: {
+            path: 'permissions',
+            match: { status: 'active' }
+        }
+    });
+
+    const groupPermissions = new Map();
+    if (this.userGroups) {
+        for (const group of this.userGroups) {
+            if (group.permissions) {
+                for (const perm of group.permissions) {
+                    if (perm && perm.code) {
+                        groupPermissions.set(perm.code, perm);
+                    }
+                }
+            }
+        }
+    }
+
+    await this.populate({
+        path: 'individualPermissions.permission',
+        match: { status: 'active' }
+    });
+
+    if (this.individualPermissions) {
+        for (const item of this.individualPermissions) {
+            if (item.permission && item.permission.code) {
+                if (item.type === 'granted') {
+                    groupPermissions.set(item.permission.code, item.permission);
+                } else if (item.type === 'denied') {
+                    groupPermissions.delete(item.permission.code);
+                }
+            }
+        }
+    }
+
+    return Array.from(groupPermissions.values());
 };
 
-userSchema.methods.hasAccessToProgram = function(programId) {
-    if (this.hasRole('admin')) return true;
-    if (this.programAccess.length === 0) return true; // Nếu không có hạn chế
-    return this.programAccess.some(id => id.toString() === programId.toString());
-};
-
-userSchema.methods.hasAccessToOrganization = function(organizationId) {
-    if (this.hasRole('admin')) return true;
-    if (this.organizationAccess.length === 0) return true;
-    return this.organizationAccess.some(id => id.toString() === organizationId.toString());
+userSchema.methods.hasPermission = async function(permissionCode) {
+    const permissions = await this.getAllPermissions();
+    return permissions.some(p => p.code === permissionCode.toUpperCase());
 };
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
@@ -262,33 +313,29 @@ userSchema.methods.recordLogin = function() {
     return this.save();
 };
 
+userSchema.methods.incFailedLoginAttempts = function() {
+    if (this.lockUntil && this.lockUntil < Date.now()) {
+        return this.updateOne({
+            $unset: { lockUntil: 1 },
+            $set: { failedLoginAttempts: 1 }
+        });
+    }
+
+    const updates = { $inc: { failedLoginAttempts: 1 } };
+
+    if (this.failedLoginAttempts + 1 >= 10 && !this.isLocked) {
+        updates.$set = { lockUntil: Date.now() + 300000 }; // 5 phút
+    }
+
+    return this.updateOne(updates);
+};
+
 userSchema.statics.generateDefaultPassword = function(email) {
     const username = email.split('@')[0];
     const firstChar = username.charAt(0).toUpperCase();
     const restChars = username.slice(1).toLowerCase();
     return `${firstChar}${restChars}@123`;
 };
-
-userSchema.post('save', async function(doc, next) {
-    if (this.isNew && this.createdBy) {
-        try {
-            const ActivityLog = require('../system/ActivityLog');
-            await ActivityLog.log({
-                userId: this.createdBy,
-                action: 'user_create',
-                description: `Tạo mới người dùng: ${this.fullName} (${this.email})`,
-                targetType: 'User',
-                targetId: this._id,
-                targetName: this.fullName,
-                severity: 'medium',
-                result: 'success'
-            });
-        } catch (error) {
-            console.error('Failed to log activity:', error);
-        }
-    }
-    next();
-});
 
 userSchema.set('toJSON', {
     virtuals: true,

@@ -5,8 +5,7 @@ const fileSchema = new mongoose.Schema({
     originalName: {
         type: String,
         required: [true, 'Tên file gốc là bắt buộc'],
-        trim: true,
-        maxlength: [255, 'Tên file không được quá 255 ký tự']
+        trim: true
     },
 
     storedName: {
@@ -37,7 +36,7 @@ const fileSchema = new mongoose.Schema({
 
     type: {
         type: String,
-        enum: ['file'],
+        enum: ['file', 'folder'],
         default: 'file'
     },
 
@@ -56,11 +55,21 @@ const fileSchema = new mongoose.Schema({
     url: String,
     publicId: String,
 
+    parentFolder: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'File'
+    },
 
     children: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'File'
     }],
+
+    folderMetadata: {
+        fileCount: { type: Number, default: 0 },
+        totalSize: { type: Number, default: 0 },
+        lastModified: Date
+    },
 
     metadata: {
         pageCount: Number,
@@ -68,18 +77,18 @@ const fileSchema = new mongoose.Schema({
         author: String,
         title: String,
         subject: String,
+
         dimensions: {
             width: Number,
             height: Number
         },
+
         hash: String
     },
 
-    // Nội dung trích xuất (cho full-text search)
     extractedContent: {
         type: String,
-        index: 'text',
-        maxlength: [50000, 'Nội dung trích xuất không được quá 50000 ký tự']
+        index: 'text'
     },
 
     status: {
@@ -88,7 +97,6 @@ const fileSchema = new mongoose.Schema({
         default: 'active'
     },
 
-    // Quét virus
     virusScanResult: {
         scanned: { type: Boolean, default: false },
         clean: { type: Boolean, default: true },
@@ -96,7 +104,6 @@ const fileSchema = new mongoose.Schema({
         details: String
     },
 
-    // Thống kê tải xuống
     downloadCount: {
         type: Number,
         default: 0
@@ -114,7 +121,6 @@ const fileSchema = new mongoose.Schema({
         default: Date.now
     },
 
-    // Thông tin phê duyệt file
     approvedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
@@ -132,21 +138,18 @@ const fileSchema = new mongoose.Schema({
 
     rejectionReason: {
         type: String,
-        trim: true,
-        maxlength: [500, 'Lý do từ chối không được quá 500 ký tự']
-    }
+        trim: true
+    },
+
 });
 
-// Indexes
 fileSchema.index({ evidenceId: 1 });
 fileSchema.index({ uploadedBy: 1 });
 fileSchema.index({ originalName: 'text', extractedContent: 'text' });
 fileSchema.index({ uploadedAt: -1 });
 fileSchema.index({ status: 1 });
 fileSchema.index({ type: 1 });
-fileSchema.index({ approvalStatus: 1 });
 
-// Pre-save: cập nhật updatedAt
 fileSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -154,7 +157,6 @@ fileSchema.pre('save', function(next) {
     next();
 });
 
-// Pre-validate: kiểm tra độ dài đường dẫn
 fileSchema.pre('validate', function(next) {
     const fullPath = `${this.filePath}/${this.storedName}`;
     if (fullPath.length > 255) {
@@ -163,22 +165,18 @@ fileSchema.pre('validate', function(next) {
     next();
 });
 
-// Virtual: tên đầy đủ
 fileSchema.virtual('fullName').get(function() {
     return this.storedName || this.originalName;
 });
 
-// Virtual: kiểm tra có phải ảnh không
 fileSchema.virtual('isImage').get(function() {
     return this.mimeType.startsWith('image/');
 });
 
-// Virtual: kiểm tra có phải PDF không
 fileSchema.virtual('isPdf').get(function() {
     return this.mimeType === 'application/pdf';
 });
 
-// Virtual: kiểm tra có phải Office doc không
 fileSchema.virtual('isOfficeDoc').get(function() {
     const officeMimes = [
         'application/msword',
@@ -191,7 +189,6 @@ fileSchema.virtual('isOfficeDoc').get(function() {
     return officeMimes.includes(this.mimeType);
 });
 
-// Method: ghi log hoạt động
 fileSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -205,55 +202,36 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
     });
 };
 
-// Method: phê duyệt file
-fileSchema.methods.approve = async function(userId, note = '') {
-    this.approvalStatus = 'approved';
-    this.approvedBy = userId;
-    this.approvalDate = new Date();
+fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
+    const ext = path.extname(originalName);
 
-    await this.save();
+    const cleanName = evidenceName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
 
-    await this.addActivityLog('file_approve', userId,
-        `Phê duyệt file: ${this.originalName}`, {
-            severity: 'medium',
-            metadata: { note }
-        });
+    let fileName = `${evidenceCode}-${cleanName}${ext}`;
 
-    // Cập nhật trạng thái minh chứng
-    const Evidence = require('./Evidence');
-    const evidence = await Evidence.findById(this.evidenceId);
-    if (evidence) {
-        await evidence.updateStatus();
+    fileName = fileName
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const maxNameLength = 200;
+    if (fileName.length > maxNameLength) {
+        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
+        fileName = truncatedName + ext;
     }
 
-    return this;
+    return fileName;
 };
 
-// Method: từ chối file
-fileSchema.methods.reject = async function(userId, reason = '') {
-    this.approvalStatus = 'rejected';
-    this.rejectionReason = reason;
-    this.approvalDate = new Date();
-
-    await this.save();
-
-    await this.addActivityLog('file_reject', userId,
-        `Từ chối file: ${this.originalName}`, {
-            severity: 'high',
-            metadata: { reason }
-        });
-
-    // Cập nhật trạng thái minh chứng
-    const Evidence = require('./Evidence');
-    const evidence = await Evidence.findById(this.evidenceId);
-    if (evidence) {
-        await evidence.updateStatus();
-    }
-
-    return this;
+fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
+    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
-// Method: tăng số lần tải xuống
 fileSchema.methods.incrementDownloadCount = async function() {
     this.downloadCount += 1;
     this.lastDownloaded = new Date();
@@ -269,7 +247,6 @@ fileSchema.methods.incrementDownloadCount = async function() {
     return this;
 };
 
-// Method: định dạng kích thước file
 fileSchema.methods.getFormattedSize = function() {
     const bytes = this.size;
     if (bytes === 0) return '0 Bytes';
@@ -281,42 +258,6 @@ fileSchema.methods.getFormattedSize = function() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Static method: vệ sinh tên file
-fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
-    const ext = path.extname(originalName);
-
-    // Xóa dấu từ tên minh chứng
-    const cleanName = evidenceName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D');
-
-    let fileName = `${evidenceCode}-${cleanName}${ext}`;
-
-    // Xóa các ký tự không hợp lệ
-    fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    // Cắt tên file nếu quá dài
-    const maxNameLength = 200;
-    if (fileName.length > maxNameLength) {
-        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
-        fileName = truncatedName + ext;
-    }
-
-    return fileName;
-};
-
-// Static method: sinh tên file lưu trữ
-fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
-    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
-};
-
-// Post-save: ghi log tạo mới
 fileSchema.post('save', async function(doc, next) {
     if (this.isNew && this.uploadedBy) {
         try {
@@ -336,7 +277,6 @@ fileSchema.post('save', async function(doc, next) {
     next();
 });
 
-// Post-update: ghi log cập nhật
 fileSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.uploadedBy) {
         try {
@@ -352,7 +292,6 @@ fileSchema.post('findOneAndUpdate', async function(result, next) {
     next();
 });
 
-// Post-delete: ghi log xóa
 fileSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.uploadedBy) {
         try {
@@ -369,7 +308,6 @@ fileSchema.post('findOneAndDelete', async function(doc, next) {
     next();
 });
 
-// Virtuals và transform JSON
 fileSchema.set('toJSON', { virtuals: true });
 fileSchema.set('toObject', { virtuals: true });
 

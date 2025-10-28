@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// Sub-schema cho phiên bản báo cáo
+// Định nghĩa sub-schema cho Versions
 const versionSubSchema = new mongoose.Schema({
     content: { type: String, required: true },
     changeNote: String,
@@ -14,14 +14,14 @@ const versionSubSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-// Sub-schema cho minh chứng được liên kết
+// Định nghĩa sub-schema cho Linked Evidences
 const linkedEvidenceSubSchema = new mongoose.Schema({
     evidenceId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Evidence',
         required: true
     },
-    contextText: {
+    contextText: { // Ngữ cảnh/Giải thích việc liên kết
         type: String,
         maxlength: 500
     },
@@ -31,6 +31,7 @@ const linkedEvidenceSubSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
+// Định nghĩa sub-schema cho Reviewer Comments
 const reviewerCommentSubSchema = new mongoose.Schema({
     comment: String,
     section: String,
@@ -44,13 +45,14 @@ const reviewerCommentSubSchema = new mongoose.Schema({
     },
     reviewerType: {
         type: String,
-        enum: ['manager', 'evaluator', 'admin']
+        enum: ['manager', 'expert', 'admin', 'reviewer']
     },
     isResolved: {
         type: Boolean,
         default: false
     }
 });
+
 
 const reportSchema = new mongoose.Schema({
     academicYearId: {
@@ -110,13 +112,12 @@ const reportSchema = new mongoose.Schema({
     content: {
         type: String,
         default: '',
-        required: false,
-        maxlength: [100000, 'Nội dung không được quá 100000 ký tự']
+        required: false
     },
 
     contentMethod: {
         type: String,
-        enum: ['online_editor'],
+        enum: ['online_editor', 'file_upload'],
         default: 'online_editor'
     },
 
@@ -125,14 +126,9 @@ const reportSchema = new mongoose.Schema({
         ref: 'File'
     },
 
-    // draft: bản nháp
-    // in_review: đang được duyệt
-    // approved: đã duyệt
-    // published: đã công khai
-    // archived: lưu trữ
     status: {
         type: String,
-        enum: ['draft', 'in_review', 'approved', 'published', 'archived'],
+        enum: ['draft', 'published', 'archived'],
         default: 'draft'
     },
 
@@ -159,12 +155,13 @@ const reportSchema = new mongoose.Schema({
         ref: 'User'
     },
 
+    // THÊM CÁC TRƯỜNG MỚI ĐỂ HỖ TRỢ API
     versions: [versionSubSchema],
-
     linkedEvidences: [linkedEvidenceSubSchema],
-
     reviewerComments: [reviewerCommentSubSchema],
 
+
+    // Danh sách đánh giá của báo cáo
     evaluations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Evaluation'
@@ -188,11 +185,6 @@ const reportSchema = new mongoose.Schema({
             default: 0,
             min: 0,
             max: 10
-        },
-        lastReviewedAt: Date,
-        lastReviewedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
         }
     },
 
@@ -207,6 +199,7 @@ const reportSchema = new mongoose.Schema({
     }
 });
 
+// Indexes
 reportSchema.index({ academicYearId: 1, type: 1 });
 reportSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 reportSchema.index({ academicYearId: 1, standardId: 1 });
@@ -216,6 +209,7 @@ reportSchema.index({ status: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
 
+// Pre hooks
 reportSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -223,11 +217,11 @@ reportSchema.pre('save', function(next) {
         if (this.isModified('content')) {
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
 
-            // Tự động thêm phiên bản
+            // Tự động thêm phiên bản mới (Logic mẫu)
             if (this.versions) {
                 this.versions.push({
                     content: this.content,
-                    changeNote: 'Cập nhật nội dung',
+                    changeNote: 'Cập nhật nội dung tự động',
                     changedBy: this.updatedBy
                 });
             }
@@ -238,10 +232,11 @@ reportSchema.pre('save', function(next) {
     next();
 });
 
+// Virtuals
 reportSchema.virtual('typeText').get(function() {
     const typeMap = {
-        'criteria_analysis': 'Báo cáo tiêu chí',
-        'standard_analysis': 'Báo cáo tiêu chuẩn',
+        'criteria_analysis': 'Phiếu phân tích tiêu chí',
+        'standard_analysis': 'Phiếu phân tích tiêu chuẩn',
         'comprehensive_report': 'Báo cáo tổng hợp'
     };
     return typeMap[this.type] || this.type;
@@ -250,9 +245,7 @@ reportSchema.virtual('typeText').get(function() {
 reportSchema.virtual('statusText').get(function() {
     const statusMap = {
         'draft': 'Bản nháp',
-        'in_review': 'Đang duyệt',
-        'approved': 'Đã duyệt',
-        'published': 'Đã công khai',
+        'published': 'Đã xuất bản',
         'archived': 'Lưu trữ'
     };
     return statusMap[this.status] || this.status;
@@ -262,6 +255,7 @@ reportSchema.virtual('url').get(function() {
     return `/reports/${this._id}`;
 });
 
+// Methods
 reportSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -278,15 +272,23 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
 
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
-    return this.createdBy.toString() === userId.toString() && this.status === 'draft';
+    return this.createdBy.toString() === userId.toString();
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
+    // Admin - xem tất cả
     if (userRole === 'admin') return true;
-    if (this.createdBy.toString() === userId.toString()) return true;
-    if (this.status === 'published') return true;
-    if (userRole === 'manager') return true;
 
+    // Creator - xem báo cáo của mình
+    if (this.createdBy.toString() === userId.toString()) return true;
+
+    // Published - ai cũng xem được
+    if (this.status === 'published') return true;
+
+    // Supervisor - xem tất cả kể cả draft
+    if (userRole === 'supervisor') return true;
+
+    // Kiểm tra quyền truy cập theo tiêu chuẩn/tiêu chí
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
     if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
 
@@ -317,61 +319,6 @@ reportSchema.methods.incrementDownload = async function(userId) {
     return this;
 };
 
-reportSchema.methods.submitForReview = async function(userId) {
-    const oldStatus = this.status;
-    this.status = 'in_review';
-    this.updatedBy = userId;
-
-    await this.save();
-
-    await this.addActivityLog('report_submit', userId,
-        `Gửi duyệt báo cáo: ${this.title}`, {
-            severity: 'medium',
-            oldData: { status: oldStatus },
-            newData: { status: 'in_review' }
-        });
-
-    return this;
-};
-
-reportSchema.methods.approve = async function(userId) {
-    const oldStatus = this.status;
-    this.status = 'approved';
-    this.updatedBy = userId;
-    this.metadata.lastReviewedAt = new Date();
-    this.metadata.lastReviewedBy = userId;
-
-    await this.save();
-
-    await this.addActivityLog('report_approve', userId,
-        `Phê duyệt báo cáo: ${this.title}`, {
-            severity: 'high',
-            oldData: { status: oldStatus },
-            newData: { status: 'approved' },
-            isAuditRequired: true
-        });
-
-    return this;
-};
-
-reportSchema.methods.reject = async function(userId, reason = '') {
-    const oldStatus = this.status;
-    this.status = 'draft';
-    this.updatedBy = userId;
-
-    await this.save();
-
-    await this.addActivityLog('report_reject', userId,
-        `Từ chối báo cáo: ${this.title} - ${reason}`, {
-            severity: 'high',
-            oldData: { status: oldStatus },
-            newData: { status: 'draft' },
-            metadata: { reason }
-        });
-
-    return this;
-};
-
 reportSchema.methods.publish = async function(userId) {
     const oldStatus = this.status;
     this.status = 'published';
@@ -380,7 +327,7 @@ reportSchema.methods.publish = async function(userId) {
     await this.save();
 
     await this.addActivityLog('report_publish', userId,
-        `Công khai báo cáo: ${this.title}`, {
+        `Xuất bản báo cáo: ${this.title}`, {
             severity: 'high',
             oldData: { status: oldStatus },
             newData: { status: 'published' },
@@ -398,7 +345,7 @@ reportSchema.methods.unpublish = async function(userId) {
     await this.save();
 
     await this.addActivityLog('report_unpublish', userId,
-        `Thu hồi công khai báo cáo: ${this.title}`, {
+        `Thu hồi xuất bản báo cáo: ${this.title}`, {
             severity: 'high',
             oldData: { status: oldStatus },
             newData: { status: 'draft' },
@@ -426,6 +373,8 @@ reportSchema.methods.resolveComment = async function(commentId) {
     return this.save();
 };
 
+
+// Static methods
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
     const typePrefix = {
         'criteria_analysis': 'CA',
@@ -433,8 +382,7 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
         'comprehensive_report': 'CR'
     };
 
-    const AcademicYear = require('../system/AcademicYear');
-    const academicYear = await AcademicYear.findById(academicYearId);
+    const academicYear = await mongoose.model('AcademicYear').findById(academicYearId);
     const yearCode = academicYear ? academicYear.code.replace('-', '') : 'XXXX';
 
     let baseCode = `${typePrefix[type]}-${yearCode}`;
@@ -459,6 +407,7 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
     return `${baseCode}-${sequence.toString().padStart(3, '0')}`;
 };
 
+// Post hooks
 reportSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {

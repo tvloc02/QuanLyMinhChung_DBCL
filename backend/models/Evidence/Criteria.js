@@ -27,6 +27,7 @@ const criteriaSchema = new mongoose.Schema({
         }
     },
 
+
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
@@ -44,22 +45,28 @@ const criteriaSchema = new mongoose.Schema({
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
-
-    description: {
-        type: String,
-        trim: true,
-        maxlength: [2000, 'Mô tả không được quá 2000 ký tự']
-    },
+    indicators: [{
+        name: {
+            type: String,
+            required: true,
+            maxlength: [200, 'Tên chỉ số không được quá 200 ký tự']
+        },
+        description: {
+            type: String,
+            maxlength: [1000, 'Mô tả chỉ số không được quá 1000 ký tự']
+        },
+        measurementMethod: {
+            type: String,
+            maxlength: [500, 'Phương pháp đo không được quá 500 ký tự']
+        },
+        targetValue: String,
+        unit: String
+    }],
 
     status: {
         type: String,
         enum: ['draft', 'active', 'inactive', 'archived'],
         default: 'active'
-    },
-
-    order: {
-        type: Number,
-        default: 0
     },
 
     createdBy: {
@@ -79,10 +86,6 @@ const criteriaSchema = new mongoose.Schema({
             default: 0
         },
         totalFiles: {
-            type: Number,
-            default: 0
-        },
-        totalReports: {
             type: Number,
             default: 0
         },
@@ -110,7 +113,7 @@ criteriaSchema.index({ academicYearId: 1, standardId: 1, code: 1 }, { unique: tr
 criteriaSchema.index({ academicYearId: 1, standardId: 1 });
 criteriaSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 criteriaSchema.index({ academicYearId: 1, status: 1 });
-criteriaSchema.index({ academicYearId: 1, name: 'text' });
+criteriaSchema.index({ academicYearId: 1, name: 'text', description: 'text' });
 
 criteriaSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -156,7 +159,7 @@ criteriaSchema.statics.findByStandard = function(standardId, academicYearId) {
         standardId,
         status: 'active'
     })
-        .sort({ order: 1, code: 1 });
+        .sort({ code: 1 });
 };
 
 criteriaSchema.statics.findByProgramAndOrganization = function(programId, organizationId, academicYearId) {
@@ -167,7 +170,7 @@ criteriaSchema.statics.findByProgramAndOrganization = function(programId, organi
         status: 'active'
     })
         .populate('standardId', 'name code')
-        .sort({ 'standardId.code': 1, order: 1, code: 1 });
+        .sort({ 'standardId.code': 1, code: 1 });
 };
 
 criteriaSchema.statics.findByAcademicYear = function(academicYearId, query = {}) {
@@ -226,4 +229,6 @@ criteriaSchema.post('findOneAndDelete', async function(doc, next) {
 criteriaSchema.set('toJSON', { virtuals: true });
 criteriaSchema.set('toObject', { virtuals: true });
 
-module.exports = mongoose.model('Criteria', criteriaSchema);
+const Criteria = mongoose.model('Criteria', criteriaSchema);
+
+module.exports = Criteria;

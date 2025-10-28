@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const ActivityLog = require("../system/ActivityLog");
 
 const evaluationSchema = new mongoose.Schema({
     academicYearId: {
@@ -10,7 +11,7 @@ const evaluationSchema = new mongoose.Schema({
     assignmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Assignment',
-        required: [true, 'Phân công là bắt buộc']
+        required: [true, 'Phân quyền là bắt buộc']
     },
 
     reportId: {
@@ -25,25 +26,18 @@ const evaluationSchema = new mongoose.Schema({
         required: [true, 'Chuyên gia đánh giá là bắt buộc']
     },
 
-    // excellent: xuất sắc
-    // good: tốt
-    // satisfactory: đạt yêu cầu
-    // needs_improvement: cần cải thiện
-    // poor: kém
     rating: {
         type: String,
         enum: ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor', ''],
         default: ''
     },
 
-    // Bình luận tổng thể
     overallComment: {
         type: String,
         default: '',
         maxlength: [5000, 'Bình luận tổng thể không được quá 5000 ký tự']
     },
 
-    // Điểm mạnh
     strengths: [{
         point: {
             type: String,
@@ -53,7 +47,6 @@ const evaluationSchema = new mongoose.Schema({
         evidenceReference: String
     }],
 
-    // Điểm cần cải thiện
     improvementAreas: [{
         area: {
             type: String,
@@ -71,14 +64,12 @@ const evaluationSchema = new mongoose.Schema({
         }
     }],
 
-    // Khuyến nghị
     recommendations: [{
         recommendation: {
             type: String,
             required: true,
             maxlength: [1000, 'Khuyến nghị không được quá 1000 ký tự']
         },
-        // immediate: ngay lập tức, short_term: ngắn hạn, long_term: dài hạn
         type: {
             type: String,
             enum: ['immediate', 'short_term', 'long_term'],
@@ -91,15 +82,12 @@ const evaluationSchema = new mongoose.Schema({
         }
     }],
 
-    // Đánh giá minh chứng
     evidenceAssessment: {
-        // insufficient, adequate, comprehensive
         adequacy: {
             type: String,
             enum: ['insufficient', 'adequate', 'comprehensive', ''],
             default: ''
         },
-        // poor, fair, good, excellent
         relevance: {
             type: String,
             enum: ['poor', 'fair', 'good', 'excellent', ''],
@@ -112,7 +100,6 @@ const evaluationSchema = new mongoose.Schema({
         }
     },
 
-    // Hướng dẫn từ quản lý
     supervisorGuidance: {
         comments: {
             type: String,
@@ -125,10 +112,6 @@ const evaluationSchema = new mongoose.Schema({
         }
     },
 
-    // draft: bản nháp
-    // submitted: đã nộp
-    // supervised: đã giám sát
-    // final: hoàn tất
     status: {
         type: String,
         enum: ['draft', 'submitted', 'supervised', 'final'],
@@ -147,7 +130,7 @@ const evaluationSchema = new mongoose.Schema({
     finalizedAt: Date,
 
     metadata: {
-        timeSpent: Number, // milliseconds
+        timeSpent: Number,
         wordCount: {
             type: Number,
             default: 0
@@ -162,7 +145,6 @@ const evaluationSchema = new mongoose.Schema({
         }
     },
 
-    // Lịch sử thay đổi
     history: [{
         action: {
             type: String,
@@ -199,19 +181,17 @@ evaluationSchema.index({ assignmentId: 1 }, { unique: true });
 evaluationSchema.index({ status: 1 });
 evaluationSchema.index({ submittedAt: -1 });
 
-// Pre-save: cập nhật metadata
+// Pre hooks
 evaluationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
         this.metadata.lastSaved = Date.now();
     }
 
-    // Tính số từ từ bình luận
     if (this.isModified('overallComment')) {
         this.metadata.wordCount = this.overallComment ? this.overallComment.split(/\s+/).length : 0;
     }
 
-    // Cập nhật thời gian dựa trên trạng thái
     if (this.isModified('status')) {
         const now = new Date();
         switch (this.status) {
@@ -230,41 +210,7 @@ evaluationSchema.pre('save', function(next) {
     next();
 });
 
-// Virtual: đánh giá văn bản
-evaluationSchema.virtual('ratingText').get(function() {
-    const ratingMap = {
-        'excellent': 'Xuất sắc',
-        'good': 'Tốt',
-        'satisfactory': 'Đạt yêu cầu',
-        'needs_improvement': 'Cần cải thiện',
-        'poor': 'Kém'
-    };
-    return ratingMap[this.rating] || this.rating;
-});
-
-// Virtual: trạng thái văn bản
-evaluationSchema.virtual('statusText').get(function() {
-    const statusMap = {
-        'draft': 'Bản nháp',
-        'submitted': 'Đã nộp',
-        'supervised': 'Đã giám sát',
-        'final': 'Hoàn tất'
-    };
-    return statusMap[this.status] || this.status;
-});
-
-// Virtual: thời gian (giờ)
-evaluationSchema.virtual('timeSpentHours').get(function() {
-    if (!this.metadata.timeSpent) return 0;
-    return Math.round(this.metadata.timeSpent / 60 * 100) / 100;
-});
-
-// Virtual: hoàn thành
-evaluationSchema.virtual('isComplete').get(function() {
-    return this.getProgress() === 100;
-});
-
-// Method: ghi log hoạt động
+// Methods
 evaluationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -279,7 +225,6 @@ evaluationSchema.methods.addActivityLog = async function(action, userId, descrip
     });
 };
 
-// Method: nộp đánh giá
 evaluationSchema.methods.submit = async function() {
     const oldStatus = this.status;
     this.status = 'submitted';
@@ -298,7 +243,6 @@ evaluationSchema.methods.submit = async function() {
     return this;
 };
 
-// Method: giám sát đánh giá
 evaluationSchema.methods.supervise = async function(supervisorId, comments = '') {
     const oldStatus = this.status;
     this.status = 'supervised';
@@ -321,7 +265,6 @@ evaluationSchema.methods.supervise = async function(supervisorId, comments = '')
     return this;
 };
 
-// Method: hoàn tất đánh giá
 evaluationSchema.methods.finalize = async function(userId) {
     const oldStatus = this.status;
     this.status = 'final';
@@ -341,7 +284,6 @@ evaluationSchema.methods.finalize = async function(userId) {
     return this;
 };
 
-// Method: thêm vào lịch sử
 evaluationSchema.methods.addHistory = function(action, userId, changes = {}, note = '') {
     this.history.push({
         action,
@@ -352,38 +294,46 @@ evaluationSchema.methods.addHistory = function(action, userId, changes = {}, not
     });
 };
 
-// Method: kiểm tra có thể chỉnh sửa không
 evaluationSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
-    // Chuyên gia chỉ có thể sửa nếu status là draft
-    return userRole === 'evaluator' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
+    // 🚀 ĐÃ SỬA: Chuyên gia CHỈ có thể sửa nếu trạng thái là draft
+    return userRole === 'expert' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
+
 };
 
-// Method: kiểm tra có thể xem không
 evaluationSchema.methods.canView = function(userId, userRole) {
+    // ✅ Convert sang string để so sánh chính xác
     const userIdStr = String(userId);
     const evaluatorIdStr = String(this.evaluatorId._id || this.evaluatorId);
 
-    if (userRole === 'admin') return true;
-    if (userRole === 'manager') return true;
+    console.log('🔍 [CAN VIEW CHECK]', {
+        userId: userIdStr,
+        evaluatorId: evaluatorIdStr,
+        userRole,
+        status: this.status,
+        isSameId: userIdStr === evaluatorIdStr
+    });
 
-    // Chuyên gia xem đánh giá của mình
-    if (userRole === 'evaluator' && userIdStr === evaluatorIdStr) {
+    if (userRole === 'admin') return true;
+    if (userRole === 'supervisor') return true;
+
+    // ✅ Chuyên gia xem đánh giá của mình
+    if (userRole === 'expert' && userIdStr === evaluatorIdStr) {
         return true;
     }
 
-    return false;
+    // Manager xem các đánh giá đã nộp
+    return userRole === 'manager' && this.status !== 'draft';
+
 };
 
-// Method: tự động lưu
 evaluationSchema.methods.autoSave = function() {
     this.metadata.autoSaveCount += 1;
     this.metadata.lastSaved = new Date();
     return this.save();
 };
 
-// Method: tính tiến độ
 evaluationSchema.methods.getProgress = function() {
     const totalFields = 5;
     let completedFields = 0;
@@ -397,7 +347,43 @@ evaluationSchema.methods.getProgress = function() {
     return Math.round((completedFields / totalFields) * 100);
 };
 
-// Static method: lấy thống kê chuyên gia
+// Virtuals
+evaluationSchema.virtual('ratingText').get(function() {
+    const ratingMap = {
+        'excellent': 'Xuất sắc',
+        'good': 'Tốt',
+        'satisfactory': 'Đạt yêu cầu',
+        'needs_improvement': 'Cần cải thiện',
+        'poor': 'Kém'
+    };
+    return ratingMap[this.rating] || this.rating;
+});
+
+evaluationSchema.virtual('statusText').get(function() {
+    const statusMap = {
+        'draft': 'Bản nháp',
+        'submitted': 'Đã nộp',
+        'supervised': 'Đã giám sát',
+        'final': 'Hoàn tất'
+    };
+    return statusMap[this.status] || this.status;
+});
+
+evaluationSchema.virtual('timeSpentHours').get(function() {
+    if (!this.metadata.timeSpent) return 0;
+    return Math.round(this.metadata.timeSpent / 60 * 100) / 100;
+});
+
+evaluationSchema.virtual('isComplete').get(function() {
+    return this.getProgress() === 100;
+});
+
+// Static methods
+evaluationSchema.statics.getAverageScoreByReport = async function(reportId) {
+    // Không còn tính điểm trung bình dựa trên criteriaScores. Trả về 0 hoặc một giá trị mặc định.
+    return 0;
+};
+
 evaluationSchema.statics.getEvaluatorStats = async function(evaluatorId, academicYearId) {
     const evaluations = await this.find({
         evaluatorId,
@@ -423,7 +409,6 @@ evaluationSchema.statics.getEvaluatorStats = async function(evaluatorId, academi
     return stats;
 };
 
-// Static method: lấy thống kê hệ thống
 evaluationSchema.statics.getSystemStats = async function(academicYearId) {
     const evaluations = await this.find({ academicYearId });
 
@@ -447,7 +432,7 @@ evaluationSchema.statics.getSystemStats = async function(academicYearId) {
     return stats;
 };
 
-// Post-save: ghi log tạo mới
+// Post hooks
 evaluationSchema.post('save', async function(doc, next) {
     if (this.isNew && this.evaluatorId) {
         try {
@@ -463,7 +448,6 @@ evaluationSchema.post('save', async function(doc, next) {
     next();
 });
 
-// Post-delete: ghi log xóa
 evaluationSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.evaluatorId) {
         try {
@@ -480,7 +464,6 @@ evaluationSchema.post('findOneAndDelete', async function(doc, next) {
     next();
 });
 
-// Virtuals và transform JSON
 evaluationSchema.set('toJSON', { virtuals: true });
 evaluationSchema.set('toObject', { virtuals: true });
 
