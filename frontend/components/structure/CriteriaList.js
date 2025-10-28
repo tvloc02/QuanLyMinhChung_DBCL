@@ -1,37 +1,22 @@
 import { useState, useEffect } from 'react'
-import { FileText, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, CheckSquare, Filter, Eye, Briefcase } from 'lucide-react'
+import { FileText, Plus, Search, Download, Upload, Edit2, Trash2, RefreshCw, CheckSquare, Filter, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import CriteriaModal from './CriteriaModal'
-import { ActionButton } from '../ActionButtons'
-import { useAuth } from '../../contexts/AuthContext'
+import { ActionButton } from '../../components/ActionButtons'
 
 export default function CriteriaList() {
-    const { user, isLoading: isAuthLoading } = useAuth();
-    const isAdmin = user?.role === 'admin';
-    const isManager = user?.role === 'manager';
-    const isTDG = user?.role === 'tdg';
-    const isExpert = user?.role === 'ex';
-    const userDepartmentId = user?.department;
-    // Sửa logic quyền: Manager cũng có quyền tạo/import/export trong phạm vi quản lý của họ
-    const canCreateOrImport = isAdmin || isManager;
-    const canEditOrDelete = isAdmin || isManager;
-
     const [criteria, setCriteria] = useState([])
     const [standards, setStandards] = useState([])
     const [programs, setPrograms] = useState([])
-    const [organizations, setOrganizations] = useState([])
-    const [departments, setDepartments] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 })
     const [search, setSearch] = useState('')
     const [standardId, setStandardId] = useState('')
     const [programId, setProgramId] = useState('')
-    const [organizationId, setOrganizationId] = useState('')
-    const [departmentId, setDepartmentId] = useState(isAdmin ? '' : userDepartmentId || '')
     const [status, setStatus] = useState('')
     const [showImportModal, setShowImportModal] = useState(false)
     const [showCriteriaModal, setShowCriteriaModal] = useState(false)
@@ -39,28 +24,20 @@ export default function CriteriaList() {
 
     useEffect(() => {
         loadPrograms()
-        loadOrganizations()
-        if (isAdmin) {
-            loadDepartments()
-        } else if (userDepartmentId) {
-            setDepartments([{ _id: userDepartmentId, name: user.departmentName }]);
-        }
-    }, [isAdmin, userDepartmentId])
+    }, [])
 
     useEffect(() => {
-        if (programId && organizationId && departmentId) {
+        if (programId) {
             loadStandards()
         } else {
             setStandards([])
             setStandardId('')
         }
-    }, [programId, organizationId, departmentId])
+    }, [programId])
 
     useEffect(() => {
-        if (!isAuthLoading) {
-            loadCriteria()
-        }
-    }, [isAuthLoading, pagination.current, search, standardId, programId, organizationId, departmentId, status])
+        loadCriteria()
+    }, [pagination.current, search, standardId, programId, status])
 
     const loadPrograms = async () => {
         try {
@@ -73,43 +50,18 @@ export default function CriteriaList() {
         }
     }
 
-    const loadOrganizations = async () => {
-        try {
-            const response = await apiMethods.organizations.getAll({ status: 'active', limit: 100 })
-            if (response.data.success) {
-                setOrganizations(response.data.data.organizations || response.data.data || [])
-            }
-        } catch (error) {
-            console.error('Load organizations error:', error)
-        }
-    }
-
-    const loadDepartments = async () => {
-        try {
-            const response = await apiMethods.departments.getAll({ status: 'active', limit: 100 })
-            if (response.data.success) {
-                setDepartments(response.data.data.departments || response.data.data || [])
-            }
-        } catch (error) {
-            console.error('Load departments error:', error)
-        }
-    }
-
     const loadStandards = async () => {
-        if (!programId || !organizationId || !departmentId) return
-
         try {
-            const params = {
+            if (!programId) return
+
+            const response = await apiMethods.standards.getAll({
                 programId,
-                organizationId,
-                departmentId,
                 status: 'active',
                 limit: 100
-            }
-
-            const response = await apiMethods.standards.getAll(params)
+            })
             if (response.data.success) {
-                setStandards((response.data.data.standards || []).filter(s => s._id))
+                // Ensure the list contains only objects with _id and name
+                setStandards((response.data.data.standards || response.data.data || []).filter(s => s._id))
             }
         } catch (error) {
             console.error('Load standards error:', error)
@@ -117,8 +69,6 @@ export default function CriteriaList() {
     }
 
     const loadCriteria = async () => {
-        if (!isAdmin && !userDepartmentId) return;
-
         try {
             setLoading(true)
             const params = {
@@ -129,15 +79,7 @@ export default function CriteriaList() {
             if (search) params.search = search;
             if (standardId) params.standardId = standardId;
             if (programId) params.programId = programId;
-            if (organizationId) params.organizationId = organizationId;
             if (status) params.status = status;
-
-            // Áp dụng giới hạn phòng ban cho Manager/TDG/Expert
-            if (!isAdmin) {
-                params.departmentId = userDepartmentId;
-            } else if (departmentId) {
-                params.departmentId = departmentId;
-            }
 
             const response = await apiMethods.criteria.getAll(params);
 
@@ -153,14 +95,10 @@ export default function CriteriaList() {
     }
 
     const handleDownloadTemplate = () => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền thực hiện thao tác này.')
-            return;
-        }
-
         try {
             const wb = XLSX.utils.book_new()
 
+            // ===== SHEET 1: Giới thiệu =====
             const introData = [
                 [''],
                 ['HỆ THỐNG QUẢN LÝ ĐÁNH GIÁ CHẤT LƯỢNG'],
@@ -189,12 +127,13 @@ export default function CriteriaList() {
 
             XLSX.utils.book_append_sheet(wb, wsIntro, 'Giới thiệu')
 
+            // ===== SHEET 2: Dữ liệu nhập =====
             const templateData = [
                 {
                     'Mã tiêu chí (*)': '1',
                     'Tên tiêu chí (*)': 'Mục tiêu chương trình đào tạo được xây dựng phù hợp',
                     'Mô tả': 'Mục tiêu thể hiện rõ định hướng phát triển và đáp ứng yêu cầu của xã hội',
-                    'Mã tiêu chuẩn (*)': standards[0]?.code || '1',
+                    'Mã tiêu chuẩn (*)': '1',
                     'Yêu cầu': 'Có văn bản mô tả mục tiêu rõ ràng, có sự tham gia của các bên liên quan',
                     'Hướng dẫn': 'Kiểm tra tính nhất quán giữa mục tiêu với sứ mệnh và tầm nhìn'
                 }
@@ -203,12 +142,12 @@ export default function CriteriaList() {
             const wsData = XLSX.utils.json_to_sheet(templateData)
 
             wsData['!cols'] = [
-                { wch: 12 },
-                { wch: 55 },
-                { wch: 60 },
-                { wch: 15 },
-                { wch: 50 },
-                { wch: 50 }
+                { wch: 12 },  // Mã
+                { wch: 55 },  // Tên
+                { wch: 60 },  // Mô tả
+                { wch: 15 },  // Mã tiêu chuẩn
+                { wch: 50 },  // Yêu cầu
+                { wch: 50 }   // Hướng dẫn
             ]
 
             const headerStyle = {
@@ -252,6 +191,7 @@ export default function CriteriaList() {
 
             XLSX.utils.book_append_sheet(wb, wsData, 'Dữ liệu nhập')
 
+            // ===== SHEET 3: Hướng dẫn chi tiết =====
             const instructionData = [
                 {
                     'Tên cột': 'Mã tiêu chí (*)',
@@ -305,25 +245,25 @@ export default function CriteriaList() {
 
             XLSX.utils.book_append_sheet(wb, wsInstruction, 'Hướng dẫn chi tiết')
 
+            // ===== SHEET 4: DS Tiêu chuẩn =====
             const standardsData = standards.length > 0 ? standards.map(s => ({
                 'Mã tiêu chuẩn': s.code,
                 'Tên tiêu chuẩn': s.name,
                 'Chương trình': s.programId?.name || '',
-                'Tổ chức': s.organizationId?.name || '',
-                'Phòng ban': s.departmentId?.name || ''
+                'Tổ chức': s.organizationId?.name || ''
             })) : [{
                 'Mã tiêu chuẩn': 'Không có dữ liệu',
                 'Tên tiêu chuẩn': programId ? 'Không có tiêu chuẩn cho chương trình này' : 'Vui lòng chọn chương trình để xem danh sách',
                 'Chương trình': '',
-                'Tổ chức': '',
-                'Phòng ban': ''
+                'Tổ chức': ''
             }]
 
             const wsStandardsList = XLSX.utils.json_to_sheet(standardsData)
-            wsStandardsList['!cols'] = [{ wch: 15 }, { wch: 50 }, { wch: 35 }, { wch: 30 }, { wch: 30 }]
+            wsStandardsList['!cols'] = [{ wch: 15 }, { wch: 50 }, { wch: 35 }, { wch: 30 }]
 
             XLSX.utils.book_append_sheet(wb, wsStandardsList, 'DS Tiêu chuẩn')
 
+            // ===== SHEET 5: Lỗi thường gặp =====
             const errorsData = [
                 {
                     'STT': '1',
@@ -367,7 +307,7 @@ export default function CriteriaList() {
 
             const errorHeaderStyle = {
                 fill: { fgColor: { rgb: "C00000" } },
-                font: { bold: true, color: { rgb: "FFFFFF" } },
+                font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
                 alignment: { horizontal: "center", vertical: "center" }
             }
 
@@ -389,11 +329,6 @@ export default function CriteriaList() {
     }
 
     const handleExportExcel = () => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền Export dữ liệu.')
-            return;
-        }
-
         try {
             const exportData = criteria.map((c, index) => ({
                 'STT': index + 1,
@@ -401,7 +336,6 @@ export default function CriteriaList() {
                 'Tên tiêu chí': c.name,
                 'Tiêu chuẩn': `${c.standardId?.code} - ${c.standardId?.name}` || '',
                 'Chương trình': c.programId?.name || '',
-                'Phòng ban': c.departmentId?.name || '',
                 'Trạng thái': getStatusLabel(c.status),
                 'Người tạo': c.createdBy?.fullName || '',
                 'Ngày tạo': formatDate(c.createdAt)
@@ -411,18 +345,18 @@ export default function CriteriaList() {
             const ws = XLSX.utils.json_to_sheet(exportData)
 
             ws['!cols'] = [
-                { wch: 5 },
-                { wch: 12 },
-                { wch: 55 },
-                { wch: 50 },
-                { wch: 35 },
-                { wch: 20 },
-                { wch: 12 },
-                { wch: 25 },
-                { wch: 12 }
+                { wch: 5 },   // STT
+                { wch: 12 },  // Mã
+                { wch: 55 },  // Tên
+                { wch: 50 },  // Tiêu chuẩn
+                { wch: 35 },  // Chương trình
+                { wch: 12 },  // Trạng thái
+                { wch: 25 },  // Người tạo
+                { wch: 12 }   // Ngày tạo
             ]
 
             const range = XLSX.utils.decode_range(ws['!ref'])
+            // Custom header style (Báo cáo style: rgb 1F4E78 - dark blue)
             const customHeaderStyle = {
                 fill: { fgColor: { rgb: "1F4E78" } },
                 font: { bold: true, color: { rgb: "FFFFFF" } },
@@ -436,7 +370,7 @@ export default function CriteriaList() {
             }
 
             XLSX.utils.book_append_sheet(wb, ws, 'Tiêu chí')
-            XLSX.writeFile(wb, `Danh_sach_tieu_chuan_${Date.now()}.xlsx`)
+            XLSX.writeFile(wb, `Danh_sach_tieu_chi_${Date.now()}.xlsx`)
             toast.success('Xuất file thành công')
         } catch (error) {
             toast.error('Có lỗi khi xuất file')
@@ -444,12 +378,6 @@ export default function CriteriaList() {
     }
 
     const handleImport = async (file) => {
-        if (!canCreateOrImport) {
-            toast.error('Bạn không có quyền Import dữ liệu.')
-            setShowImportModal(false)
-            return;
-        }
-
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -481,23 +409,9 @@ export default function CriteriaList() {
     }
 
     const handleDelete = async (id) => {
-        if (!canEditOrDelete) {
-            toast.error('Bạn không có quyền xóa tiêu chí.')
-            return;
-        }
+        if (!confirm('Bạn có chắc muốn xóa tiêu chí này?')) return
 
         try {
-            const criteriaToDelete = criteria.find(c => c._id === id);
-            // Kiểm tra quyền của Manager/Admin
-            const hasPermission = isAdmin || (isManager && criteriaToDelete.departmentId._id === userDepartmentId);
-
-            if (!hasPermission) {
-                toast.error('Bạn chỉ có thể xóa tiêu chí thuộc phòng ban của mình.')
-                return;
-            }
-
-            if (!confirm('Bạn có chắc muốn xóa tiêu chí này?')) return
-
             await apiMethods.criteria.delete(id)
             toast.success('Xóa thành công')
             loadCriteria()
@@ -506,24 +420,14 @@ export default function CriteriaList() {
         }
     }
 
+    // Hàm giả lập xem chi tiết
     const handleViewDetail = (item) => {
         setSelectedCriteria({ ...item, isViewMode: true })
         setShowCriteriaModal(true)
     }
 
+    // Hàm mở modal chỉnh sửa
     const handleEdit = (item) => {
-        if (!canEditOrDelete) {
-            toast.error('Bạn không có quyền chỉnh sửa tiêu chí.')
-            return;
-        }
-
-        const hasPermission = isAdmin || (isManager && item.departmentId._id === userDepartmentId);
-
-        if (!hasPermission) {
-            toast.error('Bạn chỉ có thể chỉnh sửa tiêu chí thuộc phòng ban của mình.')
-            return;
-        }
-
         setSelectedCriteria(item)
         setShowCriteriaModal(true)
     }
@@ -548,16 +452,9 @@ export default function CriteriaList() {
         return colors[status] || 'bg-gray-100 text-gray-700'
     }
 
-    if (isAuthLoading) {
-        return (
-            <div className="flex justify-center items-center h-48">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
-
     return (
         <div className="space-y-6">
+            {/* Header với gradient - Xanh Lam */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -569,50 +466,49 @@ export default function CriteriaList() {
                             <p className="text-blue-100">Quản lý các tiêu chí đánh giá chất lượng</p>
                         </div>
                     </div>
-                    {canCreateOrImport && (
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleDownloadTemplate}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Tải mẫu
-                            </button>
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Upload size={18} />
-                                Import
-                            </button>
-                            <button
-                                onClick={handleExportExcel}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Export
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setSelectedCriteria(null)
-                                    setShowCriteriaModal(true)
-                                }}
-                                className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
-                            >
-                                <Plus size={20} />
-                                Thêm tiêu chí
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Tải mẫu
+                        </button>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Upload size={18} />
+                            Import
+                        </button>
+                        <button
+                            onClick={handleExportExcel}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Export
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSelectedCriteria(null)
+                                setShowCriteriaModal(true)
+                            }}
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                        >
+                            <Plus size={20} />
+                            Thêm tiêu chí
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg border border-blue-200 p-6">
+            {/* Filters */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -620,7 +516,7 @@ export default function CriteriaList() {
                             placeholder="Tìm kiếm tiêu chí..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
@@ -630,7 +526,7 @@ export default function CriteriaList() {
                             setProgramId(e.target.value)
                             setStandardId('')
                         }}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả chương trình</option>
                         {programs.map(p => (
@@ -639,36 +535,10 @@ export default function CriteriaList() {
                     </select>
 
                     <select
-                        value={organizationId}
-                        onChange={(e) => {
-                            setOrganizationId(e.target.value)
-                            setStandardId('')
-                        }}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    >
-                        <option value="">Tất cả tổ chức</option>
-                        {organizations.map(o => (
-                            <option key={o._id} value={o._id}>{o.name}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={isAdmin ? departmentId : userDepartmentId}
-                        onChange={(e) => isAdmin && setDepartmentId(e.target.value)}
-                        className={`px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${!isAdmin ? 'bg-blue-50 cursor-not-allowed' : ''}`}
-                        disabled={!isAdmin && userDepartmentId}
-                    >
-                        {isAdmin ? <option value="">Tất cả phòng ban</option> : null}
-                        {departments.map(d => (
-                            <option key={d._id} value={d._id}>{d.name}</option>
-                        ))}
-                    </select>
-
-                    <select
                         value={standardId}
                         onChange={(e) => setStandardId(e.target.value)}
-                        className={`px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${!programId || !organizationId || !departmentId ? 'bg-blue-50 cursor-not-allowed' : ''}`}
-                        disabled={!programId || !organizationId || !departmentId}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        disabled={!programId}
                     >
                         <option value="">Tất cả tiêu chuẩn</option>
                         {standards.map(s => (
@@ -681,7 +551,7 @@ export default function CriteriaList() {
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="draft">Nháp</option>
@@ -690,36 +560,34 @@ export default function CriteriaList() {
                         <option value="archived">Lưu trữ</option>
                     </select>
 
-                    <div className='md:col-span-1'>
-                        <button
-                            onClick={loadCriteria}
-                            className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
-                        >
-                            <RefreshCw size={18} />
-                            Làm mới
-                        </button>
-                    </div>
+                    <button
+                        onClick={loadCriteria}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                    >
+                        <RefreshCw size={18} />
+                        Làm mới
+                    </button>
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+            {/* Table */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-blue-100">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chí</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Tiêu chuẩn</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-40">Phòng ban</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-32">Thao tác</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tiêu chí</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Tiêu chuẩn</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-blue-200">
+                        <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -728,9 +596,9 @@ export default function CriteriaList() {
                             </tr>
                         ) : criteria.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-16 text-center">
+                                <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <CheckSquare className="w-16 h-16 text-blue-300 mb-4" />
+                                        <CheckSquare className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
                                         <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc thêm tiêu chí mới</p>
                                     </div>
@@ -738,42 +606,38 @@ export default function CriteriaList() {
                             </tr>
                         ) : (
                             criteria.map((item, index) => (
-                                <tr key={item._id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors border-b border-blue-200`}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600 border-r border-blue-200">
+                                <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {item.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{item.name}</div>
                                         {item.description && (
-                                            <div className="text-xs text-gray-500 truncate max-w-md mt-1" title={item.description}>
-                                                Mô tả: {item.description}
+                                            <div className="text-sm text-gray-500 truncate max-w-md mt-1">
+                                                {item.description}
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm text-gray-900">
                                             <span className="font-bold text-indigo-600">{item.standardId?.code}</span>
                                             {' - '}
                                             <span className="text-gray-700">{item.standardId?.name || '-'}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
-                                        <div className="text-sm text-gray-900">
-                                            {item.departmentId?.name || '-'}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(item.status)}`}>
                                             {getStatusLabel(item.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <div className="flex items-center justify-center gap-2">
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex items-center justify-end gap-2">
+                                            {/* ActionButton cho Xem chi tiết */}
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -781,24 +645,22 @@ export default function CriteriaList() {
                                                 onClick={() => handleViewDetail(item)}
                                                 title="Xem chi tiết tiêu chí"
                                             />
-                                            {(isAdmin || (isManager && item.departmentId?._id === userDepartmentId)) && (
-                                                <>
-                                                    <ActionButton
-                                                        icon={Edit2}
-                                                        variant="edit"
-                                                        size="sm"
-                                                        onClick={() => handleEdit(item)}
-                                                        title="Chỉnh sửa tiêu chí"
-                                                    />
-                                                    <ActionButton
-                                                        icon={Trash2}
-                                                        variant="delete"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(item._id)}
-                                                        title="Xóa tiêu chí"
-                                                    />
-                                                </>
-                                            )}
+                                            {/* ActionButton cho Chỉnh sửa */}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
+                                                onClick={() => handleEdit(item)}
+                                                title="Chỉnh sửa tiêu chí"
+                                            />
+                                            {/* ActionButton cho Xóa */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
+                                                onClick={() => handleDelete(item._id)}
+                                                title="Xóa tiêu chí"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -808,6 +670,7 @@ export default function CriteriaList() {
                     </table>
                 </div>
 
+                {/* Pagination */}
                 {!loading && criteria.length > 0 && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
@@ -847,7 +710,6 @@ export default function CriteriaList() {
                     criteria={selectedCriteria}
                     standards={standards}
                     programs={programs}
-                    departments={departments}
                     onClose={() => {
                         setShowCriteriaModal(false)
                         setSelectedCriteria(null)

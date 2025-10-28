@@ -4,12 +4,9 @@ import Sidebar from './Sidebar'
 import Footer from './Footer'
 import Breadcrumb from './Breadcrumb'
 import AIChatWidget from "./AIChatWidget";
-import { useAuth } from '../../contexts/AuthContext'
+
 
 export default function Layout({ children, title, breadcrumbItems }) {
-    const { user } = useAuth() // Lấy thông tin người dùng
-    const userRole = user?.role || 'expert' // Trích xuất vai trò, mặc định là 'expert' nếu chưa load
-
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [isDesktop, setIsDesktop] = useState(true)
@@ -38,7 +35,6 @@ export default function Layout({ children, title, breadcrumbItems }) {
                     onClose={() => setSidebarOpen(false)}
                     collapsed={sidebarCollapsed}
                     onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    userRole={userRole} // TRUYỀN VAI TRÒ CHÍNH XÁC VÀO ĐÂY
                 />
 
                 {/* Main Content - PHÓNG TO THẬT SỰ */}

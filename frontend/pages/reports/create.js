@@ -4,634 +4,776 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import RichTextEditor from '../../components/reports/RichTextEditor'
 import EvidencePicker from '../../components/reports/EvidencePicker'
-import SelfEvaluationModal from '../../components/reports/SelfEvaluationModal'
-import { apiMethods } from '../../services/api'
-import reportService from '../../services/reportService'
+import EvidenceViewer from '../../components/reports/EvidenceViewer'
 import toast from 'react-hot-toast'
-import { FileText, Save, Send, Loader2, X } from 'lucide-react'
+import {
+    FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
+    Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
+    RefreshCw, Plus
+} from 'lucide-react'
+import reportService from '../../services/reportService'
+import { apiMethods } from '../../services/api'
 
-const REPORT_TYPES = [
-    { value: 'criteria_analysis', label: 'Phân tích tiêu chí' },
-    { value: 'standard_analysis', label: 'Phân tích tiêu chuẩn' },
-    { value: 'comprehensive_report', label: 'Báo cáo tổng hợp' }
-]
-
-const cleanData = (data) => {
-    return Object.keys(data).reduce((acc, key) => {
-        if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
-            acc[key] = data[key];
-        }
-        return acc;
-    }, {});
-};
-
-export default function CreateReport() {
-    const router = useRouter()
-    const { requestId } = router.query
+export default function CreateReportPage() {
     const { user, isLoading } = useAuth()
+    const router = useRouter()
     const editorRef = useRef(null)
-
-    const breadcrumbItems = [
-        { name: 'Báo cáo', href: '/reports/reports', icon: FileText },
-        { name: 'Tạo báo cáo mới' }
-    ]
 
     const [loading, setLoading] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [message, setMessage] = useState({ type: '', text: '' })
+
+    const [programs, setPrograms] = useState([])
+    const [organizations, setOrganizations] = useState([])
+    const [standards, setStandards] = useState([])
+    const [criteria, setCriteria] = useState([])
+
     const [formData, setFormData] = useState({
         title: '',
-        type: '',
+        type: 'criteria_analysis',
         programId: '',
         organizationId: '',
         standardId: '',
         criteriaId: '',
+        content: '',
+        contentMethod: 'online_editor',
         summary: '',
-        keywords: [],
-        requestId: requestId || '',
-        contentMethod: 'online_editor'
+        keywords: []
     })
 
-    const [displayInfo, setDisplayInfo] = useState({
-        standardText: '',
-        criteriaText: '',
-        standardId: '',
-        criteriaId: '',
-    })
+    const [formErrors, setFormErrors] = useState({})
+    const [keywordInput, setKeywordInput] = useState('')
+    const [selectedFile, setSelectedFile] = useState(null)
+    const [selectedEvidenceCode, setSelectedEvidenceCode] = useState(null)
+    const [showEvidenceViewer, setShowEvidenceViewer] = useState(false)
 
-    const [programs, setPrograms] = useState([])
-    const [organizations, setOrganizations] = useState([])
-    const [request, setRequest] = useState(null)
-    const [allowedTypes, setAllowedTypes] = useState([])
-    const [selectedEvidences, setSelectedEvidences] = useState([])
-    const [showSelfEvalModal, setShowSelfEvalModal] = useState(false)
-    const [selfEvaluation, setSelfEvaluation] = useState(null)
+    const breadcrumbItems = [
+        { name: 'Báo cáo', icon: FileText, path: '/reports/reports' },
+        { name: 'Tạo báo cáo mới', icon: Plus }
+    ]
 
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
+        } else if (user) {
+            fetchInitialData()
         }
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user) {
-            fetchPrograms()
-            fetchOrganizations()
+        if (formData.programId && formData.organizationId) {
+            fetchStandards()
+        } else {
+            setStandards([])
+            setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
         }
-    }, [user])
+    }, [formData.programId, formData.organizationId])
 
     useEffect(() => {
-        if (requestId && user) {
-            fetchRequest()
+        if (formData.standardId) {
+            fetchCriteria()
+        } else {
+            setCriteria([])
+            setFormData(prev => ({ ...prev, criteriaId: '' }))
         }
-    }, [requestId, user])
+    }, [formData.standardId])
 
-    const fetchPrograms = async () => {
-        try {
-            const response = await apiMethods.programs.getAll()
-            setPrograms(response.data?.data?.programs || [])
-        } catch (error) {
-            console.error('Fetch programs error:', error)
-        }
-    }
-
-    const fetchOrganizations = async () => {
-        try {
-            const response = await apiMethods.organizations.getAll()
-            setOrganizations(response.data?.data?.organizations || [])
-        } catch (error) {
-            console.error('Fetch organizations error:', error)
-        }
-    }
-
-    const fetchRequest = async () => {
-        try {
-            const response = await apiMethods.reportRequests.getById(requestId)
-            const req = response.data?.data || response.data
-            setRequest(req)
-
-            const reqTypes = req.types && Array.isArray(req.types) ? req.types : []
-            setAllowedTypes(reqTypes)
-
-            const programId = req.programId?._id || req.programId || ''
-            const organizationId = req.organizationId?._id || req.organizationId || ''
-            const standardId = req.standardId?._id || req.standardId || ''
-            const criteriaId = req.criteriaId?._id || req.criteriaId || ''
-
-            const standardText = req.standardId ? `${req.standardId.code} - ${req.standardId.name}` : standardId;
-            const criteriaText = req.criteriaId ? `${req.criteriaId.code} - ${req.criteriaId.name}` : criteriaId;
-
-            const baseFormData = {
-                title: req.title || '',
-                programId: programId,
-                organizationId: organizationId,
-                standardId: standardId,
-                criteriaId: criteriaId,
-                requestId: req._id,
-                contentMethod: 'online_editor'
-            }
-
-            setDisplayInfo({
-                standardText: standardText,
-                criteriaText: criteriaText,
-                standardId: standardId,
-                criteriaId: criteriaId
-            })
-
-            if (reqTypes.length === 1) {
-                setFormData(prev => ({
-                    ...prev,
-                    ...baseFormData,
-                    type: reqTypes[0],
-                }))
-                toast.success(`Loại báo cáo tự động chọn: ${REPORT_TYPES.find(t => t.value === reqTypes[0])?.label}`)
-            } else if (reqTypes.length > 1) {
-                setFormData(prev => ({
-                    ...prev,
-                    ...baseFormData,
-                    type: ''
-                }))
-                toast.success(`Vui lòng chọn 1 trong ${reqTypes.length} loại báo cáo được phép`)
-            } else {
-                setFormData(prev => ({
-                    ...prev,
-                    ...baseFormData,
-                    type: ''
-                }))
-            }
-        } catch (error) {
-            console.error('Fetch request error:', error)
-            toast.error('Lỗi khi tải thông tin yêu cầu')
-        }
-    }
-
-    const handleChange = (e) => {
-        const { name, value } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }))
-    }
-
-    const handleKeywordsChange = (e) => {
-        const value = e.target.value
-        const keywords = value.split(',').map(k => k.trim()).filter(k => k)
-        setFormData(prev => ({
-            ...prev,
-            keywords
-        }))
-    }
-
-    const handleSelectEvidence = (evidence) => {
-        const exists = selectedEvidences.find(e => e.evidenceId === evidence.evidenceId)
-        if (!exists) {
-            setSelectedEvidences(prev => [...prev, evidence])
-            if (editorRef.current) {
-                editorRef.current.insertEvidenceCode(evidence.code)
+    useEffect(() => {
+        const handleEvidenceClick = (e) => {
+            if (e.target.classList.contains('evidence-code')) {
+                const code = e.target.getAttribute('data-code')
+                if (code) {
+                    setSelectedEvidenceCode(code)
+                    setShowEvidenceViewer(true)
+                }
             }
         }
-    }
+        document.addEventListener('click', handleEvidenceClick)
+        return () => document.removeEventListener('click', handleEvidenceClick)
+    }, [])
 
-    const handleRemoveEvidence = (evidenceId) => {
-        setSelectedEvidences(prev => prev.filter(e => e.evidenceId !== evidenceId))
-    }
-
-    const getContentFromEditor = () => {
-        return editorRef.current?.getContent() || ''
-    }
-
-    const getReportDataToSend = (data) => {
-        const rawData = {
-            title: data.title.trim(),
-            type: data.type,
-            programId: data.programId,
-            organizationId: data.organizationId,
-            standardId: data.standardId,
-            criteriaId: data.criteriaId,
-            summary: data.summary.trim(),
-            keywords: data.keywords,
-            content: getContentFromEditor(),
-            contentMethod: data.contentMethod,
-            linkedEvidences: selectedEvidences,
-            requestId: data.requestId
-        };
-
-        return cleanData(rawData);
-    }
-
-    const handleSave = async () => {
-        if (!formData.title.trim()) {
-            toast.error('Vui lòng nhập tiêu đề báo cáo')
-            return
-        }
-
-        if (!formData.type) {
-            toast.error('Vui lòng chọn loại báo cáo')
-            return
-        }
-
-        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
-            const allowedTypeLabels = allowedTypes
-                .map(t => REPORT_TYPES.find(rt => rt.value === t)?.label)
-                .filter(Boolean)
-                .join(', ')
-            toast.error(`Loại báo cáo này không được cho phép. Các loại được phép: ${allowedTypeLabels}`)
-            return
-        }
-
-        if (!formData.programId || !formData.organizationId) {
-            toast.error('Vui lòng chọn chương trình và tổ chức')
-            return
-        }
-
-        const content = getContentFromEditor()
-        if (!content.trim()) {
-            toast.error('Vui lòng nhập nội dung báo cáo')
-            return
-        }
-
+    const fetchInitialData = async () => {
         try {
             setLoading(true)
-
-            const dataToSend = getReportDataToSend(formData);
-            const response = await reportService.create(dataToSend)
-            toast.success('Lưu báo cáo thành công')
-            router.push(`/reports/${response.data?.data?._id || response.data?._id}`)
+            const [programsRes, orgsRes] = await Promise.all([
+                apiMethods.programs.getAll(),
+                apiMethods.organizations.getAll()
+            ])
+            setPrograms(programsRes.data.data.programs || [])
+            setOrganizations(orgsRes.data.data.organizations || [])
         } catch (error) {
-            console.error('Save error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi lưu báo cáo')
+            console.error('Fetch initial data error:', error)
+            setMessage({ type: 'error', text: 'Lỗi tải dữ liệu ban đầu' })
         } finally {
             setLoading(false)
         }
     }
 
-    // ✅ FIX: Hàm mới để xuất bản công khai (thay vì submit)
-    const handlePublish = async () => {
-        if (!formData.title.trim() || !formData.type || !formData.programId || !formData.organizationId || !getContentFromEditor().trim()) {
-            toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc trước khi xuất bản.')
-            return
+    const fetchStandards = async () => {
+        if (!formData.programId || !formData.organizationId) return
+        try {
+            const response = await apiMethods.standards.getAll({
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                status: 'active'
+            })
+            const standards = response.data.data.standards || response.data.data || []
+            setStandards(standards)
+        } catch (error) {
+            console.error('Fetch standards error:', error)
+            setMessage({ type: 'error', text: 'Lỗi khi tải danh sách tiêu chuẩn' })
         }
+    }
 
-        if (request && allowedTypes.length > 0 && !allowedTypes.includes(formData.type)) {
-            const allowedTypeLabels = allowedTypes
-                .map(t => REPORT_TYPES.find(rt => rt.value === t)?.label)
-                .filter(Boolean)
-                .join(', ')
-            toast.error(`Loại báo cáo này không được cho phép. Các loại được phép: ${allowedTypeLabels}`)
-            return
+    const fetchCriteria = async () => {
+        if (!formData.standardId) return
+        try {
+            const response = await apiMethods.criteria.getAll({
+                standardId: formData.standardId,
+                status: 'active'
+            })
+            let criteriaData = []
+            if (response.data.data) {
+                if (Array.isArray(response.data.data.criterias)) {
+                    criteriaData = response.data.data.criterias
+                } else if (Array.isArray(response.data.data.criteria)) {
+                    criteriaData = response.data.data.criteria
+                } else if (Array.isArray(response.data.data)) {
+                    criteriaData = response.data.data
+                }
+            }
+            setCriteria(criteriaData)
+        } catch (error) {
+            console.error('Fetch criteria error:', error)
+            setMessage({ type: 'error', text: 'Lỗi khi tải danh sách tiêu chí' })
+            setCriteria([])
+        }
+    }
+
+    const validateForm = () => {
+        const errors = {}
+        if (!formData.title.trim()) errors.title = 'Tiêu đề báo cáo là bắt buộc'
+        if (!formData.programId) errors.programId = 'Chương trình là bắt buộc'
+        if (!formData.organizationId) errors.organizationId = 'Tổ chức là bắt buộc'
+        if (formData.type !== 'comprehensive_report' && !formData.standardId) {
+            errors.standardId = 'Tiêu chuẩn là bắt buộc'
+        }
+        if (formData.type === 'criteria_analysis' && !formData.criteriaId) {
+            errors.criteriaId = 'Tiêu chí là bắt buộc'
+        }
+        if (formData.contentMethod === 'online_editor' && !formData.content.trim()) {
+            errors.content = 'Nội dung báo cáo là bắt buộc'
+        }
+        if (formData.contentMethod === 'file_upload' && !selectedFile) {
+            errors.file = 'Vui lòng chọn file để upload'
+        }
+        setFormErrors(errors)
+        return Object.keys(errors).length === 0
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        console.log('=== SUBMIT FORM START ===');
+        console.log('Form data:', formData);
+        console.log('Selected file:', selectedFile);
+
+        if (!validateForm()) {
+            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' });
+            return;
         }
 
         try {
-            setSubmitting(true)
+            setSubmitting(true);
+            const submitData = {
+                title: formData.title,
+                type: formData.type,
+                programId: formData.programId,
+                organizationId: formData.organizationId,
+                contentMethod: formData.contentMethod,
+                summary: formData.summary,
+                keywords: formData.keywords
+            };
 
-            const dataToSend = getReportDataToSend(formData);
+            if (formData.type !== 'comprehensive_report') {
+                submitData.standardId = formData.standardId;
+            }
+            if (formData.type === 'criteria_analysis') {
+                submitData.criteriaId = formData.criteriaId;
+            }
+            if (formData.contentMethod === 'online_editor') {
+                submitData.content = formData.content;
+            } else {
+                submitData.content = '';
+            }
 
-            // 1. Tạo báo cáo
-            const createResponse = await reportService.create(dataToSend)
-            const reportId = createResponse.data?.data?._id || createResponse.data?._id
+            console.log('Submitting data:', submitData);
 
-            // 2. Thêm tự đánh giá
-            await reportService.addSelfEvaluation(reportId, selfEvaluation)
+            const response = await reportService.createReport(submitData);
+            console.log('Create response:', response);
 
-            // 3. ✅ Xuất bản công khai (status = 'published')
-            await reportService.publishReport(reportId)
+            if (response.success) {
+                const reportId = response.data._id;
 
-            toast.success('✅ Báo cáo đã được xuất bản công khai thành công!')
-            router.push(`/reports/${reportId}`)
+                if (formData.contentMethod === 'file_upload' && selectedFile) {
+                    try {
+                        console.log('Uploading file...');
+                        await reportService.uploadFile(reportId, selectedFile);
+                        console.log('File uploaded successfully');
+                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' });
+                    } catch (uploadError) {
+                        console.error('Upload error:', uploadError);
+                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' });
+                    }
+                } else {
+                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' });
+                }
+
+                setTimeout(() => {
+                    router.push(`/reports/reports`);
+                }, 1500);
+            }
         } catch (error) {
-            console.error('Publish error:', error)
-            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi xuất bản báo cáo'
-            toast.error(errorMessage)
+            console.error('=== SUBMIT ERROR ===');
+            console.error('Error:', error);
+            console.error('Error response:', error.response);
+
+            let errorMessage = 'Lỗi tạo báo cáo';
+
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            setMessage({ type: 'error', text: errorMessage });
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
+        }
+    };
+
+    const handleAddKeyword = () => {
+        if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
+            setFormData({
+                ...formData,
+                keywords: [...formData.keywords, keywordInput.trim()]
+            })
+            setKeywordInput('')
         }
     }
 
-    // ✅ FIX: Xử lý khi submit tự đánh giá modal
-    const handleSelfEvaluationSubmit = async (evalData) => {
-        setSelfEvaluation(evalData)
-        setShowSelfEvalModal(false)
-
-        await handlePublish()
+    const handleRemoveKeyword = (keyword) => {
+        setFormData({
+            ...formData,
+            keywords: formData.keywords.filter(k => k !== keyword)
+        })
     }
 
-    const availableTypes = allowedTypes.length > 0
-        ? REPORT_TYPES.filter(t => allowedTypes.includes(t.value))
-        : REPORT_TYPES
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+            const maxSize = 50 * 1024 * 1024
+            if (file.size > maxSize) {
+                setMessage({ type: 'error', text: 'File không được vượt quá 50MB' })
+                return
+            }
 
-    if (isLoading) {
+            const allowedTypes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]
+
+            if (!allowedTypes.includes(file.type)) {
+                setMessage({ type: 'error', text: 'Chỉ chấp nhận file PDF hoặc Word' })
+                return
+            }
+
+            setSelectedFile(file)
+            setFormErrors(prev => ({ ...prev, file: '' }))
+        }
+    }
+
+    const handleInsertEvidence = (code) => {
+        if (editorRef.current?.insertEvidenceCode) {
+            editorRef.current.insertEvidenceCode(code)
+            toast.success(`Đã chèn mã minh chứng ${code}`)
+        }
+    }
+
+    const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }))
+        if (formErrors[field]) {
+            setFormErrors(prev => ({ ...prev, [field]: '' }))
+        }
+    }
+
+    if (isLoading || loading) {
         return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
+            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <div className="text-center">
+                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải dữ liệu...</p>
+                    </div>
                 </div>
             </Layout>
         )
     }
 
-    if (!user) {
-        return null
-    }
-
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="space-y-6">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <FileText className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold mb-1">Tạo báo cáo mới</h1>
-                                <p className="text-blue-100">
-                                    {request ? `Theo yêu cầu: ${request.title}` : 'Điền thông tin để tạo báo cáo'}
-                                </p>
-                                {request && allowedTypes.length > 0 && (
-                                    <p className="text-blue-100 text-sm mt-1">
-                                        Loại báo cáo cho phép:
-                                        <span className="font-bold ml-1">
-                                            {allowedTypes.length === 1
-                                                ? availableTypes[0]?.label
-                                                : `${allowedTypes.length} loại`
-                                            }
-                                        </span>
+            <div className="flex gap-6">
+                {/* Main Form */}
+                <div className="flex-1 space-y-6">
+                    {/* Message Alert */}
+                    {message.text && (
+                        <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                            message.type === 'success'
+                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                        }`}>
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                        message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                                    }`}>
+                                        <AlertCircle className={`w-7 h-7 ${
+                                            message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                        }`} />
+                                    </div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <h3 className={`font-bold text-lg mb-1 ${
+                                        message.type === 'success' ? 'text-green-900' : 'text-red-900'
+                                    }`}>
+                                        {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
+                                    </h3>
+                                    <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                        {message.text}
                                     </p>
-                                )}
+                                </div>
+                                <button
+                                    onClick={() => setMessage({ type: '', text: '' })}
+                                    className="ml-4 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Thông tin cơ bản</h2>
-                            <div className="space-y-4">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                                    <FileText className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold mb-1">Tạo báo cáo mới</h1>
+                                    <p className="text-indigo-100">Tạo báo cáo phân tích tiêu chuẩn/tiêu chí</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => router.push('/reports/reports')}
+                                className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                                <span>Quay lại</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Thông tin cơ bản */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <FileText className="w-6 h-6 text-indigo-600" />
+                                Thông tin cơ bản
+                            </h2>
+
+                            <div className="space-y-6">
+                                {/* Tiêu đề */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tiêu đề báo cáo <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
-                                        name="title"
                                         value={formData.title}
-                                        onChange={handleChange}
-                                        disabled={!!request}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                        onChange={(e) => handleChange('title', e.target.value)}
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                            formErrors.title ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                        }`}
                                         placeholder="Nhập tiêu đề báo cáo"
-                                        required
+                                        maxLength={500}
                                     />
+                                    {formErrors.title && (
+                                        <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>
+                                    )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Loại báo cáo */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <FileType className="w-4 h-4 inline mr-1" />
                                             Loại báo cáo <span className="text-red-500">*</span>
                                         </label>
                                         <select
-                                            name="type"
                                             value={formData.type}
-                                            onChange={handleChange}
-                                            disabled={!!request && allowedTypes.length === 1}
-                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                            required
+                                            onChange={(e) => handleChange('type', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                         >
-                                            <option value="">
-                                                {allowedTypes.length > 0 ? 'Chọn loại báo cáo (được phép)' : 'Chọn loại báo cáo'}
-                                            </option>
-                                            {availableTypes.map(type => (
-                                                <option
-                                                    key={type.value}
-                                                    value={type.value}
-                                                >
-                                                    {type.label}
-                                                    {allowedTypes.includes(type.value) ? ' ✓' : ''}
-                                                </option>
-                                            ))}
+                                            <option value="criteria_analysis">Phiếu phân tích tiêu chí</option>
+                                            <option value="standard_analysis">Phiếu phân tích tiêu chuẩn</option>
+                                            <option value="comprehensive_report">Báo cáo tổng hợp</option>
                                         </select>
-
-                                        {request && allowedTypes.length > 0 && (
-                                            <p className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded border border-blue-200 font-semibold">
-                                                {allowedTypes.length === 1
-                                                    ? `✓ Loại duy nhất cho phép: ${availableTypes[0]?.label}`
-                                                    : `✓ ${allowedTypes.length} loại báo cáo được phép`
-                                                }
-                                            </p>
-                                        )}
                                     </div>
 
+                                    {/* Phương thức nhập */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            Phương thức nhập <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            value={formData.contentMethod}
+                                            onChange={(e) => handleChange('contentMethod', e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                        >
+                                            <option value="online_editor">Soạn thảo trực tuyến</option>
+                                            <option value="file_upload">Upload file</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Chương trình */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <BookOpen className="w-4 h-4 inline mr-1" />
                                             Chương trình <span className="text-red-500">*</span>
                                         </label>
                                         <select
-                                            name="programId"
                                             value={formData.programId}
-                                            onChange={handleChange}
-                                            disabled={!!request}
-                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                            required
+                                            onChange={(e) => {
+                                                handleChange('programId', e.target.value)
+                                                setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
+                                            }}
+                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                            }`}
                                         >
                                             <option value="">Chọn chương trình</option>
-                                            {programs.map(p => (
-                                                <option key={p._id} value={p._id}>{p.name}</option>
+                                            {programs.map(program => (
+                                                <option key={program._id} value={program._id}>
+                                                    {program.name}
+                                                </option>
                                             ))}
                                         </select>
+                                        {formErrors.programId && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>
+                                        )}
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Tổ chức <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        name="organizationId"
-                                        value={formData.organizationId}
-                                        onChange={handleChange}
-                                        disabled={!!request}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                                        required
-                                    >
-                                        <option value="">Chọn tổ chức</option>
-                                        {organizations.map(o => (
-                                            <option key={o._id} value={o._id}>{o.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                    {/* Tổ chức */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <Building className="w-4 h-4 inline mr-1" />
+                                            Tổ chức <span className="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            value={formData.organizationId}
+                                            onChange={(e) => handleChange('organizationId', e.target.value)}
+                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                            }`}
+                                        >
+                                            <option value="">Chọn tổ chức</option>
+                                            {organizations.map(org => (
+                                                <option key={org._id} value={org._id}>
+                                                    {org.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {formErrors.organizationId && (
+                                            <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>
+                                        )}
+                                    </div>
 
-                                {(displayInfo.standardId || displayInfo.criteriaId) && (
-                                    <div className="grid grid-cols-2 gap-4">
+                                    {/* Tiêu chuẩn */}
+                                    {formData.type !== 'comprehensive_report' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Tiêu chuẩn
+                                                <Layers className="w-4 h-4 inline mr-1" />
+                                                Tiêu chuẩn <span className="text-red-500">*</span>
                                             </label>
-                                            <input
-                                                type="text"
-                                                name="standardId"
-                                                value={displayInfo.standardText}
-                                                disabled
-                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 disabled:opacity-100"
-                                            />
+                                            <select
+                                                value={formData.standardId}
+                                                onChange={(e) => {
+                                                    handleChange('standardId', e.target.value)
+                                                    setFormData(prev => ({ ...prev, criteriaId: '' }))
+                                                }}
+                                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                    formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                }`}
+                                                disabled={!formData.programId || !formData.organizationId}
+                                            >
+                                                <option value="">Chọn tiêu chuẩn</option>
+                                                {standards.map(standard => (
+                                                    <option key={standard._id} value={standard._id}>
+                                                        {standard.code} - {standard.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {formErrors.standardId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.standardId}</p>
+                                            )}
                                         </div>
+                                    )}
+
+                                    {/* Tiêu chí */}
+                                    {formData.type === 'criteria_analysis' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Tiêu chí
+                                                <Hash className="w-4 h-4 inline mr-1" />
+                                                Tiêu chí <span className="text-red-500">*</span>
                                             </label>
-                                            <input
-                                                type="text"
-                                                name="criteriaId"
-                                                value={displayInfo.criteriaText}
-                                                disabled
-                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-100 disabled:opacity-100"
-                                            />
+                                            <select
+                                                value={formData.criteriaId}
+                                                onChange={(e) => handleChange('criteriaId', e.target.value)}
+                                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
+                                                    formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                }`}
+                                                disabled={!formData.standardId}
+                                            >
+                                                <option value="">Chọn tiêu chí</option>
+                                                {criteria.map(criterion => (
+                                                    <option key={criterion._id} value={criterion._id}>
+                                                        {criterion.code} - {criterion.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {formErrors.criteriaId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.criteriaId}</p>
+                                            )}
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Nội dung báo cáo</h2>
-                            <RichTextEditor
-                                ref={editorRef}
-                                placeholder="Nhập nội dung báo cáo..."
-                            />
+                        {/* Nội dung */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <AlignLeft className="w-6 h-6 text-indigo-600" />
+                                Nội dung báo cáo
+                            </h2>
+
+                            {formData.contentMethod === 'online_editor' ? (
+                                <div>
+                                    <RichTextEditor
+                                        ref={editorRef}
+                                        value={formData.content}
+                                        onChange={(content) => handleChange('content', content)}
+                                        placeholder="Nhập nội dung báo cáo..."
+                                    />
+                                    {formErrors.content && (
+                                        <p className="text-red-500 text-sm mt-2">{formErrors.content}</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 hover:border-indigo-400 transition-all">
+                                        <div className="text-center">
+                                            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Upload className="w-8 h-8 text-indigo-600" />
+                                            </div>
+                                            <p className="text-base font-medium text-gray-900 mb-2">
+                                                Kéo thả file hoặc click để chọn
+                                            </p>
+                                            <p className="text-sm text-gray-500 mb-4">
+                                                Hỗ trợ: PDF, DOC, DOCX (tối đa 50MB)
+                                            </p>
+                                            <input
+                                                type="file"
+                                                onChange={handleFileSelect}
+                                                accept=".pdf,.doc,.docx"
+                                                className="hidden"
+                                                id="file-upload"
+                                            />
+                                            <label
+                                                htmlFor="file-upload"
+                                                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg cursor-pointer transition-all font-medium"
+                                            >
+                                                <File className="w-5 h-5 mr-2" />
+                                                Chọn file
+                                            </label>
+                                        </div>
+
+                                        {selectedFile && (
+                                            <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border-2 border-indigo-200">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center flex-1 min-w-0">
+                                                        <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                                                            <File className="w-6 h-6 text-indigo-600" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                                                {selectedFile.name}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedFile(null)}
+                                                        className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {formErrors.file && (
+                                        <p className="text-red-500 text-sm mt-2">{formErrors.file}</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Thông tin bổ sung</h2>
-                            <div className="space-y-4">
+                        {/* Thông tin bổ sung */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <Tag className="w-6 h-6 text-indigo-600" />
+                                Thông tin bổ sung
+                            </h2>
+
+                            <div className="space-y-6">
+                                {/* Tóm tắt */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tóm tắt
                                     </label>
                                     <textarea
-                                        name="summary"
                                         value={formData.summary}
-                                        onChange={handleChange}
-                                        rows={3}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Nhập tóm tắt ngắn gọn về báo cáo"
+                                        onChange={(e) => handleChange('summary', e.target.value)}
+                                        rows={4}
+                                        maxLength={1000}
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
+                                        placeholder="Tóm tắt ngắn gọn về nội dung báo cáo"
                                     />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {formData.summary.length}/1000 ký tự
+                                    </p>
                                 </div>
 
+                                {/* Từ khóa */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Từ khóa
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={formData.keywords.join(', ')}
-                                        onChange={handleKeywordsChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Nhập từ khóa, phân cách bằng dấu phẩy"
-                                    />
+                                    <div className="flex gap-3 mb-3">
+                                        <input
+                                            type="text"
+                                            value={keywordInput}
+                                            onChange={(e) => setKeywordInput(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
+                                            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                            placeholder="Nhập từ khóa và nhấn Enter"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleAddKeyword}
+                                            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {formData.keywords.map((keyword, index) => (
+                                            <span
+                                                key={index}
+                                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full text-sm font-medium border border-indigo-200"
+                                            >
+                                                {keyword}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveKeyword(keyword)}
+                                                    className="ml-2 text-indigo-500 hover:text-indigo-700"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ✅ FIX: Cập nhật button text từ "Nộp báo cáo" → "Xuất bản công khai" */}
-                        <div className="flex justify-end gap-3">
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-4 pt-6">
                             <button
-                                onClick={() => router.back()}
-                                className="px-6 py-3 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-semibold transition-all"
+                                type="button"
+                                onClick={() => router.push('/reports/reports')}
+                                className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                             >
                                 Hủy
                             </button>
                             <button
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="px-6 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                        Đang lưu...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="h-5 w-5" />
-                                        Lưu nháp
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setShowSelfEvalModal(true)}
+                                type="submit"
                                 disabled={submitting}
-                                className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+                                className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl disabled:opacity-50 transition-all font-medium"
                             >
                                 {submitting ? (
                                     <>
-                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                        Đang xuất bản...
+                                        <RefreshCw className="w-5 h-5 animate-spin" />
+                                        <span>Đang tạo...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Send className="h-5 w-5" />
-                                        Xuất bản công khai
+                                        <Save className="w-5 h-5" />
+                                        <span>Tạo báo cáo</span>
                                     </>
                                 )}
                             </button>
                         </div>
-                    </div>
+                    </form>
+                </div>
 
-                    <div className="space-y-6">
-                        {formData.type && formData.programId && formData.organizationId && (
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                {/* Sidebar - Evidence Picker */}
+                {formData.contentMethod === 'online_editor' && (formData.standardId || formData.criteriaId) && (
+                    <div className="w-96 flex-shrink-0">
+                        <div className="sticky top-6">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                {/* TRUYỀN ID CHÍNH XÁC VÀO EVIDENCE PICKER */}
                                 <EvidencePicker
-                                    reportType={formData.type}
-                                    programId={formData.programId}
-                                    organizationId={formData.organizationId}
-                                    onSelectEvidence={handleSelectEvidence}
-                                    selectedEvidences={selectedEvidences}
+                                    standardId={formData.standardId}
+                                    criteriaId={formData.criteriaId}
+                                    programId={formData.programId} // Thêm programId
+                                    organizationId={formData.organizationId} // Thêm organizationId
+                                    onSelect={handleInsertEvidence}
+                                    onViewEvidence={(code) => {
+                                        setSelectedEvidenceCode(code)
+                                        setShowEvidenceViewer(true)
+                                    }}
                                 />
                             </div>
-                        )}
-
-                        {selectedEvidences.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-3">
-                                    Minh chứng đã chọn ({selectedEvidences.length})
-                                </h3>
-                                <div className="space-y-2">
-                                    {selectedEvidences.map((evidence) => (
-                                        <div
-                                            key={evidence.evidenceId}
-                                            className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-mono text-sm font-semibold text-green-700">
-                                                    {evidence.code}
-                                                </p>
-                                                <p className="text-xs text-gray-600 truncate">
-                                                    {evidence.name}
-                                                </p>
-                                                {evidence.selectedFileIds && evidence.selectedFileIds.length > 0 && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        {evidence.selectedFileIds.length} file(s)
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <button
-                                                onClick={() => handleRemoveEvidence(evidence.evidenceId)}
-                                                className="ml-2 p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
-            {showSelfEvalModal && (
-                <SelfEvaluationModal
-                    onClose={() => setShowSelfEvalModal(false)}
-                    onSubmit={handleSelfEvaluationSubmit}
-                    initialData={selfEvaluation}
+            {showEvidenceViewer && selectedEvidenceCode && (
+                <EvidenceViewer
+                    evidenceCode={selectedEvidenceCode}
+                    onClose={() => {
+                        setShowEvidenceViewer(false)
+                        setSelectedEvidenceCode(null)
+                    }}
+                    onInsert={handleInsertEvidence}
                 />
             )}
         </Layout>

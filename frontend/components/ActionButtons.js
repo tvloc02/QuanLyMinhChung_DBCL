@@ -56,14 +56,6 @@ const ActionButton = ({
             hover: 'hover:from-slate-100 hover:to-slate-200',
             ring: 'focus:ring-slate-300'
         },
-        disabled: {
-            bg: 'bg-gray-200 text-gray-200 cursor-not-allowed',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-
         delete: {
             bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
             icon: 'text-blue-600',

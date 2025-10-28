@@ -7,12 +7,8 @@ import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import OrganizationModal from './OrganizationModal'
 import { ActionButton } from '../ActionButtons'
-import { useAuth } from '../../contexts/AuthContext'
 
 export default function OrganizationsList() {
-    const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
-
     const [organizations, setOrganizations] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 })
@@ -62,7 +58,7 @@ export default function OrganizationsList() {
                 ['Hướng dẫn sử dụng:'],
                 ['1. Điền thông tin vào sheet "Dữ liệu nhập"'],
                 ['2. Các cột có dấu (*) là BẮT BUỘC'],
-                ['3. Chỉ Admin được phép Import/Export/Thêm tổ chức.'],
+                ['3. Xem sheet "Hướng dẫn chi tiết" để biết thêm thông tin'],
                 ['4. Sau khi điền xong, lưu file và import vào hệ thống'],
                 [''],
                 ['Lưu ý:'],
@@ -117,11 +113,6 @@ export default function OrganizationsList() {
     }
 
     const handleExportExcel = () => {
-        if (!isAdmin) {
-            toast.error('Bạn không có quyền Export dữ liệu.')
-            return;
-        }
-
         try {
             const exportData = organizations.map((org, index) => ({
                 'STT': index + 1,
@@ -171,12 +162,6 @@ export default function OrganizationsList() {
     }
 
     const handleImport = async (file) => {
-        if (!isAdmin) {
-            toast.error('Bạn không có quyền Import dữ liệu.')
-            setShowImportModal(false)
-            return;
-        }
-
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -208,11 +193,6 @@ export default function OrganizationsList() {
     }
 
     const handleDelete = async (id) => {
-        if (!isAdmin) {
-            toast.error('Bạn không có quyền xóa tổ chức.')
-            return;
-        }
-
         if (!confirm('Bạn có chắc muốn xóa tổ chức này?')) return
 
         try {
@@ -232,10 +212,6 @@ export default function OrganizationsList() {
 
     // Hàm mở modal chỉnh sửa
     const handleEdit = (org) => {
-        if (!isAdmin) {
-            toast.error('Bạn không có quyền chỉnh sửa tổ chức.')
-            return;
-        }
         setSelectedOrg(org)
         setShowOrgModal(true)
     }
@@ -272,46 +248,44 @@ export default function OrganizationsList() {
                             <p className="text-blue-100">Quản lý các tổ chức - cấp đánh giá</p>
                         </div>
                     </div>
-                    {isAdmin && (
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleDownloadTemplate}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Tải mẫu
-                            </button>
-                            <button
-                                onClick={() => setShowImportModal(true)}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Upload size={18} />
-                                Import
-                            </button>
-                            <button
-                                onClick={handleExportExcel}
-                                className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
-                            >
-                                <Download size={18} />
-                                Export
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setSelectedOrg(null)
-                                    setShowOrgModal(true)
-                                }}
-                                className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
-                            >
-                                <Plus size={20} />
-                                Thêm tổ chức
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Tải mẫu
+                        </button>
+                        <button
+                            onClick={() => setShowImportModal(true)}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Upload size={18} />
+                            Import
+                        </button>
+                        <button
+                            onClick={handleExportExcel}
+                            className="px-4 py-2.5 bg-white bg-opacity-20 backdrop-blur-sm text-white rounded-xl hover:bg-opacity-30 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <Download size={18} />
+                            Export
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSelectedOrg(null)
+                                setShowOrgModal(true)
+                            }}
+                            className="px-6 py-2.5 bg-white text-blue-600 rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2 font-semibold"
+                        >
+                            <Plus size={20} />
+                            Thêm tổ chức
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
@@ -324,14 +298,14 @@ export default function OrganizationsList() {
                             placeholder="Tìm kiếm tổ chức..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
 
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     >
                         <option value="">Tất cả trạng thái</option>
                         <option value="active">Hoạt động</option>
@@ -341,7 +315,7 @@ export default function OrganizationsList() {
 
                     <button
                         onClick={loadOrganizations}
-                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -350,20 +324,20 @@ export default function OrganizationsList() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-blue-100">
+                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-16">STT</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-24">Mã</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[200px]">Tên tổ chức</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-60">Liên hệ</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-32">Thao tác</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
                         </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-blue-200">
+                        <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
                                 <td colSpan="6" className="px-6 py-16 text-center">
@@ -377,7 +351,7 @@ export default function OrganizationsList() {
                             <tr>
                                 <td colSpan="6" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
-                                        <Building2 className="w-16 h-16 text-blue-300 mb-4" />
+                                        <Building2 className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
                                         <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc thêm tổ chức mới</p>
                                     </div>
@@ -385,45 +359,45 @@ export default function OrganizationsList() {
                             </tr>
                         ) : (
                             organizations.map((org, index) => (
-                                <tr key={org._id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition-colors border-b border-blue-200`}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-blue-200">
+                                <tr key={org._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                             {org.code}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         <div className="text-sm font-semibold text-gray-900">{org.name}</div>
                                         {org.description && (
-                                            <div className="text-xs text-gray-500 truncate max-w-md mt-1" title={org.description}>
-                                                Mô tả: {org.description}
+                                            <div className="text-sm text-gray-500 truncate max-w-md mt-1">
+                                                {org.description}
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-blue-200">
+                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                                         <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(org.status)}`}>
                                             {getStatusLabel(org.status)}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-blue-200">
+                                    <td className="px-6 py-4 border-r border-gray-200">
                                         {org.contactEmail && (
                                             <div className="flex items-center text-sm text-gray-900 mb-1">
-                                                <Mail className="w-4 h-4 text-blue-400 mr-2" />
+                                                <Mail className="w-4 h-4 text-gray-400 mr-2" />
                                                 {org.contactEmail}
                                             </div>
                                         )}
                                         {org.contactPhone && (
                                             <div className="flex items-center text-sm text-gray-500">
-                                                <Phone className="w-4 h-4 text-blue-400 mr-2" />
+                                                <Phone className="w-4 h-4 text-gray-400 mr-2" />
                                                 {org.contactPhone}
                                             </div>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end gap-2">
-                                            {/* ActionButton cho Xem chi tiết (Luôn có) */}
+                                            {/* ActionButton cho Xem chi tiết */}
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -431,26 +405,22 @@ export default function OrganizationsList() {
                                                 onClick={() => handleViewDetail(org)}
                                                 title="Xem chi tiết tổ chức"
                                             />
-                                            {isAdmin && (
-                                                <>
-                                                    {/* ActionButton cho Chỉnh sửa */}
-                                                    <ActionButton
-                                                        icon={Edit2}
-                                                        variant="edit"
-                                                        size="sm"
-                                                        onClick={() => handleEdit(org)}
-                                                        title="Chỉnh sửa tổ chức"
-                                                    />
-                                                    {/* ActionButton cho Xóa */}
-                                                    <ActionButton
-                                                        icon={Trash2}
-                                                        variant="delete"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(org._id)}
-                                                        title="Xóa tổ chức"
-                                                    />
-                                                </>
-                                            )}
+                                            {/* ActionButton cho Chỉnh sửa */}
+                                            <ActionButton
+                                                icon={Edit2}
+                                                variant="edit"
+                                                size="sm"
+                                                onClick={() => handleEdit(org)}
+                                                title="Chỉnh sửa tổ chức"
+                                            />
+                                            {/* ActionButton cho Xóa */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                variant="delete"
+                                                size="sm"
+                                                onClick={() => handleDelete(org._id)}
+                                                title="Xóa tổ chức"
+                                            />
                                         </div>
                                     </td>
                                 </tr>

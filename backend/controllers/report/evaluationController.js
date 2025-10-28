@@ -3,9 +3,6 @@ const Evaluation = require('../../models/report/Evaluation');
 const Assignment = require('../../models/report/Assignment');
 const Report = require('../../models/report/Report');
 
-// Giả định mô hình User đã được import hoặc có thể truy cập qua mongoose.model('User')
-const User = mongoose.model('User');
-
 const getEvaluations = async (req, res) => {
     try {
         const {
@@ -17,8 +14,7 @@ const getEvaluations = async (req, res) => {
             reportId,
             rating,
             sortBy = 'createdAt',
-            sortOrder = 'desc',
-            forSupervisionView // Flag cho trang giám sát (Manager/Supervisor)
+            sortOrder = 'desc'
         } = req.query;
 
         const academicYearId = req.academicYearId;
@@ -28,44 +24,20 @@ const getEvaluations = async (req, res) => {
 
         let query = { academicYearId };
 
-        // 1. Lọc cho Expert: Chỉ xem đánh giá của mình
-        if (req.user.role === 'expert' && !forSupervisionView) {
+        if (req.user.role === 'expert') {
             query.evaluatorId = req.user.id;
         }
 
-        // 2. Lọc cho Trang Giám sát (Manager/Supervisor/Admin): CHỈ xem đánh giá đã nộp trở lên
-        if (forSupervisionView) {
-            query.status = { $ne: 'draft' };
+        if (search) {
+            query.$or = [
+                { overallComment: { $regex: search, $options: 'i' } }
+            ];
         }
 
-        // 3. Lọc theo các tiêu chí khác
         if (status) query.status = status;
         if (evaluatorId) query.evaluatorId = evaluatorId;
         if (reportId) query.reportId = reportId;
         if (rating) query.rating = rating;
-
-
-        if (search) {
-            // Tìm kiếm trong Report (Title, Code)
-            const reportIds = await Report.find({
-                $or: [
-                    { title: { $regex: search, $options: 'i' } },
-                    { code: { $regex: search, $options: 'i' } }
-                ]
-            }).select('_id');
-
-            // Tìm kiếm trong Evaluator (Giả định có thể tìm theo tên đầy đủ)
-            const expertIds = await User.find({
-                fullName: { $regex: search, $options: 'i' }
-            }).select('_id');
-
-            query.$or = [
-                { overallComment: { $regex: search, $options: 'i' } },
-                { reportId: { $in: reportIds } },
-                { evaluatorId: { $in: expertIds } }
-            ];
-        }
-
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -109,76 +81,29 @@ const getEvaluationById = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
-        const currentUserId = req.user._id;
+        const currentUserId = req.user.id;
         const currentUserRole = req.user.role;
 
-        // 🔍 DEBUG: In ra thông tin chi tiết
-        console.log('🔍 [GET EVALUATION BY ID] Debug Info:');
-        console.log('   - Current User ID:', currentUserId?.toString());
-        console.log('   - Current User Role:', currentUserRole);
-        console.log('   - User Full Info:', {
-            _id: req.user._id,
-            email: req.user.email,
-            fullName: req.user.fullName,
-            role: req.user.role
-        });
-        console.log('   - Requested Evaluation ID:', id);
-        console.log('   - Academic Year ID:', academicYearId);
-
         const evaluation = await Evaluation.findOne({ _id: id, academicYearId })
-            .populate({
-                path: 'reportId',
-                select: 'title type code'
-            })
-            .populate({
-                path: 'evaluatorId',
-                select: 'fullName email _id'
-            })
-            .populate({
-                path: 'assignmentId',
-                select: 'deadline priority'
-            })
-            .populate({
-                path: 'supervisorGuidance.guidedBy',
-                select: 'fullName email _id'
-            });
+            .populate('reportId', 'title type code')
+            .populate('evaluatorId', 'fullName email')
+            .populate('assignmentId', 'deadline priority')
+            .populate('supervisorGuidance.guidedBy', 'fullName email');
 
         if (!evaluation) {
-            console.log('   ❌ Evaluation not found');
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy đánh giá'
             });
         }
 
-        // 🔍 DEBUG: In thêm thông tin đánh giá
-        console.log('   - Evaluation Evaluator ID:', evaluation.evaluatorId._id?.toString());
-        console.log('   - Evaluation Status:', evaluation.status);
-        console.log('   - Are IDs the same?:',
-            evaluation.evaluatorId._id?.toString() === currentUserId?.toString());
-
-        // Kiểm tra quyền trước khi trả về (Đã sửa lỗi so sánh ID trong model)
-        const canView = evaluation.canView(currentUserId, currentUserRole);
-        console.log('   - Can View Result:', canView);
-
-        if (!canView) {
-            console.warn(`❌ 403: User ${currentUserId} (${currentUserRole}) denied access to evaluation ${id}.`);
-            console.warn('   - Reason: Failed canView check');
-            console.warn('   - Evaluator:', evaluation.evaluatorId._id);
-            console.warn('   - Status:', evaluation.status);
-
+        if (!evaluation.canView(currentUserId, currentUserRole)) {
+            console.warn(`403: User ${currentUserId} (${currentUserRole}) tried to view evaluation ${id}.`);
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xem đánh giá này',
-                debug: {
-                    reason: 'canView returned false',
-                    currentUserRole,
-                    evaluationStatus: evaluation.status
-                }
+                message: 'Không có quyền xem đánh giá này'
             });
         }
-
-        console.log('   ✅ Access granted - returning evaluation');
 
         res.json({
             success: true,
@@ -186,7 +111,7 @@ const getEvaluationById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Get evaluation by ID error:', error);
+        console.error('Get evaluation by ID error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi lấy thông tin đánh giá'
@@ -259,6 +184,7 @@ const createEvaluation = async (req, res) => {
             assignmentId,
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
+            criteriaScores: assignment.evaluationCriteria || [],
             rating: '',
             overallComment: '',
             evidenceAssessment: {
@@ -357,6 +283,11 @@ const updateEvaluation = async (req, res) => {
             evaluation.evidenceAssessment = updateData.evidenceAssessment;
         }
 
+        if (updateData.criteriaScores !== undefined) {
+            evaluation.criteriaScores = updateData.criteriaScores;
+            evaluation.calculateScores();
+        }
+
         if (updateData.strengths !== undefined) {
             evaluation.strengths = updateData.strengths;
         }
@@ -438,6 +369,25 @@ const submitEvaluation = async (req, res) => {
             validationErrors.push('Chất lượng minh chứng là bắt buộc');
         }
 
+        if (evaluation.criteriaScores && evaluation.criteriaScores.length > 0) {
+            const invalidCriteria = [];
+            evaluation.criteriaScores.forEach((c, idx) => {
+                if (!c.criteriaName || c.criteriaName.trim() === '') {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`);
+                }
+                if (c.score === undefined || c.score === null || c.score === '') {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`);
+                }
+                if (typeof c.score === 'number' && (c.score < 0 || c.score > (c.maxScore || 10))) {
+                    invalidCriteria.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${c.maxScore || 10}`);
+                }
+            });
+
+            if (invalidCriteria.length > 0) {
+                validationErrors.push(...invalidCriteria);
+            }
+        }
+
         if (validationErrors.length > 0) {
             return res.status(400).json({
                 success: false,
@@ -450,7 +400,8 @@ const submitEvaluation = async (req, res) => {
                         adequacy: evaluation.evidenceAssessment?.adequacy ? '✅' : '❌',
                         relevance: evaluation.evidenceAssessment?.relevance ? '✅' : '❌',
                         quality: evaluation.evidenceAssessment?.quality ? '✅' : '❌'
-                    }
+                    },
+                    criteriaScores: evaluation.criteriaScores?.length > 0 ? '✅' : '❌'
                 }
             });
         }
@@ -464,7 +415,11 @@ const submitEvaluation = async (req, res) => {
 
         const report = await Report.findById(evaluation.reportId);
         if (report) {
-            // Không còn AverageScore nữa
+            const averageScore = await Evaluation.getAverageScoreByReport(evaluation.reportId);
+            if (report.metadata) {
+                report.metadata.averageScore = averageScore;
+                report.metadata.evaluationCount = (report.metadata.evaluationCount || 0) + 1;
+            }
             if (!report.evaluations.map(e => e.toString()).includes(evaluation._id.toString())) {
                 report.evaluations.push(evaluation._id);
             }
@@ -494,11 +449,10 @@ const superviseEvaluation = async (req, res) => {
         const { comments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Thêm vai trò 'manager'
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager') {
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin/supervisor/manager có quyền'
+                message: 'Chỉ admin/supervisor có quyền'
             });
         }
 
@@ -517,15 +471,11 @@ const superviseEvaluation = async (req, res) => {
             });
         }
 
-        // Cập nhật supervisorGuidance trước
-        evaluation.supervisorGuidance.comments = comments || 'Đã chấp thuận đánh giá';
-
-        // Chuyển trạng thái sang supervised (Đồng ý)
         await evaluation.supervise(req.user.id, comments);
 
         res.json({
             success: true,
-            message: 'Giám sát đánh giá thành công. Đánh giá đã được chấp thuận.',
+            message: 'Giám sát đánh giá thành công',
             data: evaluation
         });
 
@@ -538,97 +488,15 @@ const superviseEvaluation = async (req, res) => {
     }
 };
 
-const requestReEvaluation = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { comments } = req.body;
-        const academicYearId = req.academicYearId;
-
-        // Thêm vai trò 'manager'
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor' && req.user.role !== 'manager') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin/supervisor/manager có quyền yêu cầu đánh giá lại'
-            });
-        }
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá'
-            });
-        }
-
-        if (evaluation.status !== 'submitted') {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ có thể yêu cầu đánh giá lại cho đánh giá đã nộp'
-            });
-        }
-
-        // 1. Cập nhật thông tin giám sát/nhận xét
-        evaluation.supervisorGuidance = {
-            comments: comments || 'Yêu cầu chuyên gia xem xét và chỉnh sửa lại đánh giá.',
-            guidedAt: new Date(),
-            guidedBy: req.user.id,
-        };
-
-        // 2. Thay đổi trạng thái về draft
-        const oldStatus = evaluation.status;
-        evaluation.status = 'draft';
-        evaluation.submittedAt = undefined; // Đặt lại ngày nộp
-
-        // 3. Ghi lại lịch sử
-        evaluation.addHistory('requested_reevaluation', req.user.id, { reason: comments, fromStatus: oldStatus, toStatus: 'draft' }, 'Yêu cầu chuyên gia đánh giá lại');
-
-        // 4. Lưu
-        await evaluation.save();
-
-        // 5. Cập nhật Assignment (Chuyển trạng thái Assignment về in_progress nếu cần)
-        const assignment = await Assignment.findById(evaluation.assignmentId);
-        if (assignment && assignment.status === 'completed') {
-            assignment.status = 'in_progress';
-            // Cập nhật lại ngày nộp mới (Tùy chọn)
-            assignment.submittedAt = undefined;
-            await assignment.save();
-        }
-
-        // 6. Log Activity
-        await evaluation.addActivityLog('evaluation_reevaluate', req.user.id,
-            'Yêu cầu đánh giá lại báo cáo', {
-                severity: 'medium',
-                oldData: { status: oldStatus },
-                newData: { status: 'draft' },
-                metadata: { comments }
-            });
-
-
-        res.json({
-            success: true,
-            message: 'Đã gửi yêu cầu đánh giá lại thành công. Đánh giá đã được chuyển về bản nháp.',
-            data: evaluation
-        });
-
-    } catch (error) {
-        console.error('Request Re-evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi yêu cầu đánh giá lại'
-        });
-    }
-};
-
 const finalizeEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        // ✅ ĐÃ SỬA: Cho phép cả 'admin' và 'supervisor' thực hiện hoàn tất
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
+        if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ admin hoặc supervisor có quyền hoàn tất đánh giá'
+                message: 'Chỉ admin có quyền'
             });
         }
 
@@ -700,7 +568,7 @@ const autoSaveEvaluation = async (req, res) => {
 
         const allowedAutoSaveFields = [
             'overallComment', 'rating', 'evidenceAssessment',
-            'strengths', 'improvementAreas', 'recommendations'
+            'strengths', 'improvementAreas', 'recommendations', 'criteriaScores'
         ];
 
         allowedAutoSaveFields.forEach(field => {
@@ -708,6 +576,10 @@ const autoSaveEvaluation = async (req, res) => {
                 evaluation[field] = updateData[field];
             }
         });
+
+        if (updateData.criteriaScores !== undefined) {
+            evaluation.calculateScores();
+        }
 
         await evaluation.autoSave();
 
@@ -771,8 +643,7 @@ const getAverageScoreByReport = async (req, res) => {
     try {
         const { reportId } = req.params;
 
-        // Không còn điểm trung bình nữa
-        const averageScore = 0;
+        const averageScore = await Evaluation.getAverageScoreByReport(reportId);
 
         res.json({
             success: true,
@@ -841,7 +712,6 @@ module.exports = {
     deleteEvaluation,
     submitEvaluation,
     superviseEvaluation,
-    requestReEvaluation,
     finalizeEvaluation,
     autoSaveEvaluation,
     getEvaluatorStats,

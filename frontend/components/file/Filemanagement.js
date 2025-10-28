@@ -23,18 +23,46 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
     const [files, setFiles] = useState([])
     const [loading, setLoading] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [userDepartment, setUserDepartment] = useState('')
-    const [isManagerOfDept, setIsManagerOfDept] = useState(false)
+
+    // Thêm các state cần thiết cho modal duyệt (dù modal không nằm trong component này)
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [approvalAction, setApprovalAction] = useState('');
+    const [rejectionReason, setRejectionReason] = useState('');
+
+    const isAdmin = user?.role === 'admin';
 
     useEffect(() => {
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
-        setUserDepartment(storedUser.department || '')
-        setIsManagerOfDept(storedUser.role === 'manager')
-
         if (evidence) {
             fetchFiles()
         }
     }, [evidence])
+
+    // Hàm này phải tồn tại (hoặc được gọi từ bên ngoài) để mở modal
+    const handleApproveClick = (file, action) => {
+        if (!isAdmin) {
+            toast.error('Bạn không có quyền duyệt file.');
+            return;
+        }
+        setSelectedFile(file);
+        setApprovalAction(action);
+        setRejectionReason('');
+        setShowApprovalModal(true); // Giả định modal được quản lý tại đây
+    };
+
+    // Hàm duyệt file đơn (Giống files.js)
+    const handleApproveFile = async (fileId, status, rejectionReason = '') => {
+        try {
+            await apiMethods.files.approve(fileId, { status, rejectionReason })
+            toast.success(status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công')
+            fetchFiles()
+            if (onUpdate) onUpdate()
+        } catch (error) {
+            console.error('Approve file error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi khi duyệt file')
+        }
+    }
+
 
     const fetchFiles = async () => {
         try {
@@ -47,11 +75,7 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
         } catch (error) {
             console.error('Fetch files error:', error)
             // Xử lý lỗi 403/500 tương tự như file files.js
-            if (error.response?.status === 403) {
-                toast.error('Bạn không có quyền truy cập minh chứng này')
-            } else {
-                toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách files')
-            }
+            toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách files')
         } finally {
             setLoading(false)
         }
@@ -60,16 +84,6 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
     const handleFileSelect = async (e) => {
         const selectedFiles = Array.from(e.target.files)
         if (selectedFiles.length === 0) return
-
-        // ===== KIỂM TRA QUYỀN UPLOAD =====
-        // Admin hoặc TDG/Manager của phòng ban mình mới được upload
-        if (user?.role !== 'admin') {
-            if (userDepartment !== evidence.departmentId._id && userDepartment !== evidence.departmentId) {
-                toast.error('Bạn chỉ có quyền upload file cho phòng ban mình')
-                e.target.value = ''
-                return
-            }
-        }
 
         setUploading(true)
         try {
@@ -84,26 +98,15 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                 toast.error(response.data?.message || 'Upload thất bại')
             }
         } catch (error) {
-            if (error.response?.status === 403) {
-                toast.error('Bạn chỉ có quyền upload file cho phòng ban mình')
-            } else {
-                const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi upload files'
-                toast.error(errorMessage)
-            }
+            const errorMessage = error.response?.data?.message || error.message || 'Lỗi khi upload files'
+            toast.error(errorMessage)
         } finally {
             setUploading(false)
             e.target.value = ''
         }
     }
 
-    const handleDeleteFile = async (fileId, fileStatus) => {
-        // ===== KIỂM TRA QUYỀN XÓA FILE =====
-        // Nếu file đã được duyệt (approved), chỉ Manager mới có quyền xóa (bỏ duyệt trước)
-        if (fileStatus === 'approved' && !isManagerOfDept) {
-            toast.error('File đã được duyệt. Vui lòng liên hệ Manager để bỏ duyệt trước khi xóa.')
-            return
-        }
-
+    const handleDeleteFile = async (fileId) => {
         if (!confirm('Bạn có chắc chắn muốn xóa file này?')) return
 
         try {
@@ -112,39 +115,8 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
             fetchFiles()
             if (onUpdate) onUpdate()
         } catch (error) {
-            if (error.response?.status === 403) {
-                toast.error(error.response?.data?.message || 'Bạn không có quyền xóa file này')
-            } else {
-                console.error('Delete file error:', error)
-                toast.error('Lỗi khi xóa file')
-            }
-        }
-    }
-
-    const handleApproveFile = async (fileId, status, rejectionReason = '') => {
-        // ===== KIỂM TRA QUYỀN DUYỆT FILE =====
-        // Chỉ Manager (và Admin) mới có quyền duyệt file
-        if (user?.role !== 'admin' && user?.role !== 'manager') {
-            toast.error('Chỉ Manager mới có quyền duyệt file')
-            return
-        }
-
-        // Manager chỉ được duyệt file của phòng ban mình
-        if (user?.role === 'manager') {
-            if (userDepartment !== evidence.departmentId._id && userDepartment !== evidence.departmentId) {
-                toast.error('Bạn chỉ có quyền duyệt file của phòng ban mình')
-                return
-            }
-        }
-
-        try {
-            await apiMethods.files.approve(fileId, { status, rejectionReason })
-            toast.success(status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công')
-            fetchFiles()
-            if (onUpdate) onUpdate()
-        } catch (error) {
-            console.error('Approve file error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi duyệt file')
+            console.error('Delete file error:', error)
+            toast.error('Lỗi khi xóa file')
         }
     }
 
@@ -178,8 +150,8 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
             'pending': 'Chờ duyệt',
             'approved': 'Đã duyệt',
             'rejected': 'Từ chối',
-            'new': 'Mới',
-            'in_progress': 'Đang thực hiện'
+            'new': 'Mới', // Thêm trạng thái Evidence
+            'in_progress': 'Đang thực hiện' // Thêm trạng thái Evidence
         }
         return labels[status] || status
     }
@@ -223,54 +195,11 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
 
             toast.success('Tải file thành công');
         } catch (error) {
-            if (error.response?.status === 403) {
-                toast.error('Bạn không có quyền tải file này')
-            } else {
-                console.error('Download error:', error);
-                toast.error(error.response?.data?.message || 'Lỗi khi tải file');
-            }
+            console.error('Download error:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi tải file');
         }
     }
 
-    const canDeleteFile = (file) => {
-        // Admin có thể xóa file bất kỳ nào
-        if (user?.role === 'admin') {
-            return true
-        }
-
-        // TDG chỉ có thể xóa file pending hoặc rejected (chưa được duyệt)
-        if (file.approvalStatus === 'approved') {
-            return false
-        }
-
-        // TDG chỉ có thể xóa file của phòng ban mình
-        if (userDepartment !== evidence.departmentId._id && userDepartment !== evidence.departmentId) {
-            return false
-        }
-
-        return true
-    }
-
-    const canApproveFile = (file) => {
-        // Chỉ Manager (và Admin) mới có quyền duyệt
-        if (user?.role !== 'admin' && user?.role !== 'manager') {
-            return false
-        }
-
-        // Manager chỉ được duyệt file của phòng ban mình
-        if (user?.role === 'manager') {
-            if (userDepartment !== evidence.departmentId._id && userDepartment !== evidence.departmentId) {
-                return false
-            }
-        }
-
-        // Chỉ duyệt file pending hoặc rejected
-        if (file.approvalStatus === 'pending' || file.approvalStatus === 'rejected') {
-            return true
-        }
-
-        return false
-    }
 
     return (
         <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-100">
@@ -298,52 +227,38 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                     <span className={`text-xs px-2 py-1 rounded border font-medium ${getStatusColor(evidence.status)}`}>
                         {getStatusLabel(evidence.status)}
                     </span>
-                    {/* HIỂN THỊ PHÒNG BAN */}
-                    <span className="text-xs px-2 py-1 rounded border border-gray-300 bg-gray-50 font-medium text-gray-700">
-                        Phòng: {evidence.departmentId?.name || 'N/A'}
-                    </span>
                 </div>
                 <p className="text-sm text-gray-900 font-medium">{evidence.name}</p>
             </div>
 
             {/* Upload Area */}
             <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                {/* ===== CHỈ HIỂN THỊ NÚT UPLOAD NẾU LÀ ADMIN HOẶC TDG/MANAGER CỦA PHÒNG BAN MÌNH ===== */}
-                {user?.role === 'admin' || (userDepartment === (evidence.departmentId._id || evidence.departmentId)) ? (
-                    <label className={`cursor-pointer block ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-indigo-400 transition-colors text-center">
-                            {uploading ? (
-                                <>
-                                    <Loader2 className="h-8 w-8 text-indigo-600 mx-auto mb-2 animate-spin" />
-                                    <p className="text-sm text-indigo-600 font-medium">Đang upload...</p>
-                                </>
-                            ) : (
-                                <>
-                                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                    <p className="text-sm text-gray-600">
-                                        <span className="text-indigo-600 font-medium">Chọn files</span> để upload
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">Tối đa 50MB mỗi file</p>
-                                </>
-                            )}
-                            <input
-                                type="file"
-                                multiple
-                                onChange={handleFileSelect}
-                                disabled={uploading}
-                                className="hidden"
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
-                            />
-                        </div>
-                    </label>
-                ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center bg-gray-50">
-                        <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">
-                            Bạn không có quyền upload file cho phòng ban khác
-                        </p>
+                <label className={`cursor-pointer block ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-indigo-400 transition-colors text-center">
+                        {uploading ? (
+                            <>
+                                <Loader2 className="h-8 w-8 text-indigo-600 mx-auto mb-2 animate-spin" />
+                                <p className="text-sm text-indigo-600 font-medium">Đang upload...</p>
+                            </>
+                        ) : (
+                            <>
+                                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600">
+                                    <span className="text-indigo-600 font-medium">Chọn files</span> để upload
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Tối đa 50MB mỗi file</p>
+                            </>
+                        )}
+                        <input
+                            type="file"
+                            multiple
+                            onChange={handleFileSelect}
+                            disabled={uploading}
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
+                        />
                     </div>
-                )}
+                </label>
             </div>
 
             {/* Files List */}
@@ -385,9 +300,8 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                                 Lý do: {file.rejectionReason}
                                             </p>
                                         )}
-                                        <div className="flex items-center space-x-2 mt-2 flex-wrap">
-                                            {/* ===== NÚT DUYỆT FILE: CHỈ MANAGER/ADMIN CÓ QUYỀN ===== */}
-                                            {canApproveFile(file) && (
+                                        <div className="flex items-center space-x-2 mt-2">
+                                            {isAdmin && file.approvalStatus === 'pending' && (
                                                 <>
                                                     <button
                                                         onClick={() => handleApproveFile(file._id, 'approved')}
@@ -408,31 +322,20 @@ export default function FileManagement({ evidence, onClose, onUpdate }) {
                                                     </button>
                                                 </>
                                             )}
-
-                                            {/* ===== NÚT TẢI XUỐNG: ADMIN/MANAGER/TDG CÓ QUYỀN =====*/}
                                             <button
                                                 onClick={() => handleDownloadFile(file._id, file.originalName)}
-                                                className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium inline-flex items-center"
+                                                className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium inline-flex items-center"
                                             >
-                                                <FileIcon className="h-3 w-3 mr-1" />
+                                                <Trash2 className="h-3 w-3 mr-1" />
                                                 Tải xuống
                                             </button>
-
-                                            {/* ===== NÚT XÓA FILE: TUỲ THEO TRẠNG THÁI ===== */}
-                                            {canDeleteFile(file) ? (
-                                                <button
-                                                    onClick={() => handleDeleteFile(file._id, file.approvalStatus)}
-                                                    className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
-                                                >
-                                                    <Trash2 className="h-3 w-3 mr-1" />
-                                                    Xóa
-                                                </button>
-                                            ) : (
-                                                <div className="text-xs px-2.5 py-1 bg-gray-100 text-gray-500 rounded-lg font-medium inline-flex items-center cursor-not-allowed" title="Không thể xóa file đã duyệt">
-                                                    <Trash2 className="h-3 w-3 mr-1" />
-                                                    Không xóa được
-                                                </div>
-                                            )}
+                                            <button
+                                                onClick={() => handleDeleteFile(file._id)}
+                                                className="text-xs px-2.5 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium inline-flex items-center"
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                Xóa
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
