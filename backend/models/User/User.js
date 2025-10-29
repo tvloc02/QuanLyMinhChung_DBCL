@@ -42,14 +42,16 @@ const userSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        enum: ['admin', 'manager', 'expert', 'advisor']
+        // Cập nhật vai trò chính
+        enum: ['admin', 'manager', 'reporter', 'evaluator']
     }],
 
     // Giữ lại để backward compatibility
     role: {
         type: String,
-        enum: ['admin', 'manager', 'expert', 'advisor'],
-        default: 'expert'
+        // Cập nhật vai trò chính
+        enum: ['admin', 'manager', 'reporter', 'evaluator'],
+        default: 'evaluator' // Thay expert thành evaluator
     },
 
     status: {
@@ -176,8 +178,8 @@ userSchema.pre('validate', function(next) {
         if (this.role) {
             this.roles = [this.role];
         } else {
-            this.roles = ['expert'];
-            this.role = 'expert';
+            this.roles = ['evaluator']; // Thay expert thành evaluator
+            this.role = 'evaluator'; // Thay expert thành evaluator
         }
     }
 
@@ -241,8 +243,8 @@ userSchema.methods.removeRole = function(role) {
     if (this.roles.length > 0) {
         this.role = this.roles[0];
     } else {
-        this.role = 'expert';
-        this.roles = ['expert'];
+        this.role = 'evaluator'; // Thay expert thành evaluator
+        this.roles = ['evaluator']; // Thay expert thành evaluator
     }
 };
 

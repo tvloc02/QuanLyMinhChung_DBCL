@@ -133,12 +133,13 @@ const createUser = async (req, res) => {
             organizationDepartmentId
         } = req.body;
 
-        let userRoles = roles || ['expert'];
+        // Cập nhật giá trị mặc định và kiểm tra vai trò hợp lệ
+        let userRoles = roles || ['evaluator']; // Thay expert thành evaluator
         if (!Array.isArray(userRoles)) {
             userRoles = [userRoles];
         }
 
-        const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+        const validRoles = ['admin', 'manager', 'reporter', 'evaluator']; // Cập nhật vai trò
         const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
         if (invalidRoles.length > 0) {
@@ -285,7 +286,7 @@ const updateUser = async (req, res) => {
                 userRoles = [userRoles];
             }
 
-            const validRoles = ['admin', 'manager', 'expert', 'advisor'];
+            const validRoles = ['admin', 'manager', 'reporter', 'evaluator']; // Cập nhật vai trò
             const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
             if (invalidRoles.length > 0) {
@@ -779,11 +780,12 @@ const getUserStatistics = async (req, res) => {
                     managerUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'manager'] }, 1, 0] }
                     },
-                    expertUsers: {
-                        $sum: { $cond: [{ $eq: ['$role', 'expert'] }, 1, 0] }
+                    // Cập nhật thống kê vai trò
+                    reporterUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'reporter'] }, 1, 0] }
                     },
-                    advisorUsers: {
-                        $sum: { $cond: [{ $eq: ['$role', 'advisor'] }, 1, 0] }
+                    evaluatorUsers: {
+                        $sum: { $cond: [{ $eq: ['$role', 'evaluator'] }, 1, 0] }
                     }
                 }
             }
@@ -794,8 +796,8 @@ const getUserStatistics = async (req, res) => {
             activeUsers: 0,
             adminUsers: 0,
             managerUsers: 0,
-            expertUsers: 0,
-            advisorUsers: 0
+            reporterUsers: 0, // Cập nhật thống kê vai trò
+            evaluatorUsers: 0 // Cập nhật thống kê vai trò
         };
 
         await ActivityLog.logUserAction(req.user?.id, 'user_statistics',

@@ -162,14 +162,15 @@ export default function UserProfile() {
         }
     }
 
+    // Cập nhật vai trò: expert -> evaluator, advisor -> reporter
     const getRoleBadge = (role) => {
         const roleConfig = {
-            admin: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Quản trị viên' },
-            manager: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Cán bộ quản lý' },
-            expert: { bg: 'bg-green-100', text: 'text-green-800', label: 'Chuyên gia đánh giá' },
-            advisor: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Tư vấn/Giám sát' }
+            admin: { bg: 'bg-red-100', text: 'text-red-800', label: 'Quản trị viên' },
+            manager: { bg: 'bg-indigo-100', text: 'text-indigo-800', label: 'Cán bộ quản lý' },
+            reporter: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Báo cáo viên' }, // Vai trò mới
+            evaluator: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Chuyên gia đánh giá' } // Vai trò mới
         }
-        const config = roleConfig[role] || roleConfig.expert
+        const config = roleConfig[role] || roleConfig.evaluator
         return (
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
         {config.label}
@@ -207,7 +208,7 @@ export default function UserProfile() {
         return (
             <Layout title="Thông tin cá nhân" breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center min-h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
             </Layout>
         )
@@ -217,18 +218,18 @@ export default function UserProfile() {
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
 
-                {/* Header với gradient */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                {/* Header với gradient - Màu Xanh Lam mới */}
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="w-20 h-20 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center border-2 border-white border-opacity-30">
-                <span className="text-3xl font-bold text-white">
-                  {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
+                                <span className="text-3xl font-bold text-white">
+                                  {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                                </span>
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold mb-1">{user?.fullName || 'Người dùng'}</h1>
-                                <p className="text-indigo-100">
+                                <p className="text-blue-100">
                                     {user?.position || 'Chức vụ'} {user?.department && `• ${user.department}`}
                                 </p>
                                 <div className="mt-2 flex items-center space-x-2">
@@ -309,7 +310,7 @@ export default function UserProfile() {
                                         </button>
                                         <button
                                             onClick={handleProfileUpdate}
-                                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm hover:shadow-lg transition-all"
+                                            className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg text-sm hover:shadow-lg transition-all" // Màu Xanh Lam
                                         >
                                             <Save className="h-4 w-4 mr-1" />
                                             Lưu
@@ -330,7 +331,7 @@ export default function UserProfile() {
                                                     type="text"
                                                     value={profileForm.fullName}
                                                     onChange={(e) => setProfileForm({...profileForm, fullName: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                             ) : (
                                                 <p className="text-sm text-gray-900 font-medium">{user?.fullName || 'Chưa cập nhật'}</p>
@@ -359,7 +360,7 @@ export default function UserProfile() {
                                                     type="tel"
                                                     value={profileForm.phoneNumber}
                                                     onChange={(e) => setProfileForm({...profileForm, phoneNumber: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                             ) : (
                                                 <p className="text-sm text-gray-900 font-medium">{user?.phoneNumber || 'Chưa cập nhật'}</p>
@@ -378,7 +379,7 @@ export default function UserProfile() {
                                                     type="text"
                                                     value={profileForm.department}
                                                     onChange={(e) => setProfileForm({...profileForm, department: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                             ) : (
                                                 <p className="text-sm text-gray-900 font-medium">{user?.department || 'Chưa cập nhật'}</p>
@@ -394,7 +395,7 @@ export default function UserProfile() {
                                                     type="text"
                                                     value={profileForm.position}
                                                     onChange={(e) => setProfileForm({...profileForm, position: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                             ) : (
                                                 <p className="text-sm text-gray-900 font-medium">{user?.position || 'Chưa cập nhật'}</p>
@@ -436,7 +437,7 @@ export default function UserProfile() {
                                                     type={showOldPassword ? "text" : "password"}
                                                     value={passwordForm.currentPassword}
                                                     onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                                 <button
                                                     type="button"
@@ -457,7 +458,7 @@ export default function UserProfile() {
                                                     type={showNewPassword ? "text" : "password"}
                                                     value={passwordForm.newPassword}
                                                     onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                                 <button
                                                     type="button"
@@ -479,7 +480,7 @@ export default function UserProfile() {
                                                     type={showConfirmPassword ? "text" : "password"}
                                                     value={passwordForm.confirmPassword}
                                                     onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                                 />
                                                 <button
                                                     type="button"
@@ -493,7 +494,7 @@ export default function UserProfile() {
 
                                         <button
                                             onClick={handlePasswordChange}
-                                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-lg hover:shadow-lg transition-all font-medium"
+                                            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-2 rounded-lg hover:shadow-lg transition-all font-medium" // Màu Xanh Lam
                                         >
                                             Đổi mật khẩu
                                         </button>
@@ -506,7 +507,7 @@ export default function UserProfile() {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                             <div className="px-6 py-4 border-b border-gray-100">
                                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Bell className="h-5 w-5 mr-2 text-indigo-600" />
+                                    <Bell className="h-5 w-5 mr-2 text-blue-600" />
                                     Cài đặt thông báo
                                 </h2>
                             </div>
@@ -535,7 +536,7 @@ export default function UserProfile() {
                                                     disabled={!isEditingProfile}
                                                     className="sr-only peer"
                                                 />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                             </label>
                                         </div>
                                     ))}
@@ -547,7 +548,7 @@ export default function UserProfile() {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                             <div className="px-6 py-4 border-b border-gray-100">
                                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Shield className="h-5 w-5 mr-2 text-indigo-600" />
+                                    <Shield className="h-5 w-5 mr-2 text-blue-600" />
                                     Quyền truy cập
                                 </h2>
                             </div>
@@ -610,17 +611,17 @@ export default function UserProfile() {
                                 <h2 className="text-lg font-semibold text-gray-900">Thông tin tài khoản</h2>
                             </div>
                             <div className="p-6 space-y-4">
-                                <div className="p-3 bg-indigo-50 rounded-lg">
-                                    <p className="text-xs text-indigo-600 mb-1">Đăng nhập cuối</p>
-                                    <p className="text-sm font-semibold text-indigo-900">{formatDate(user?.lastLogin)}</p>
-                                </div>
-                                <div className="p-3 bg-purple-50 rounded-lg">
-                                    <p className="text-xs text-purple-600 mb-1">Số lần đăng nhập</p>
-                                    <p className="text-sm font-semibold text-purple-900">{user?.loginCount || 0} lần</p>
-                                </div>
                                 <div className="p-3 bg-blue-50 rounded-lg">
-                                    <p className="text-xs text-blue-600 mb-1">Ngày tham gia</p>
-                                    <p className="text-sm font-semibold text-blue-900">{formatDate(user?.createdAt)}</p>
+                                    <p className="text-xs text-blue-600 mb-1">Đăng nhập cuối</p>
+                                    <p className="text-sm font-semibold text-blue-900">{formatDate(user?.lastLogin)}</p>
+                                </div>
+                                <div className="p-3 bg-cyan-50 rounded-lg">
+                                    <p className="text-xs text-cyan-600 mb-1">Số lần đăng nhập</p>
+                                    <p className="text-sm font-semibold text-cyan-900">{user?.loginCount || 0} lần</p>
+                                </div>
+                                <div className="p-3 bg-green-50 rounded-lg">
+                                    <p className="text-xs text-green-600 mb-1">Ngày tham gia</p>
+                                    <p className="text-sm font-semibold text-green-900">{formatDate(user?.createdAt)}</p>
                                 </div>
                             </div>
                         </div>
@@ -629,7 +630,7 @@ export default function UserProfile() {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                             <div className="px-6 py-4 border-b border-gray-100">
                                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <BarChart3 className="h-5 w-5 mr-2 text-indigo-600" />
+                                    <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
                                     Thống kê hoạt động
                                 </h2>
                             </div>
@@ -640,8 +641,8 @@ export default function UserProfile() {
                                         <span className="text-sm text-blue-900 font-medium">Báo cáo</span>
                                     </div>
                                     <span className="text-lg font-bold text-blue-700">
-                    {user?.metadata?.totalReports || 0}
-                  </span>
+                                        {user?.metadata?.totalReports || 0}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                     <div className="flex items-center">
@@ -649,8 +650,8 @@ export default function UserProfile() {
                                         <span className="text-sm text-green-900 font-medium">Đánh giá</span>
                                     </div>
                                     <span className="text-lg font-bold text-green-700">
-                    {user?.metadata?.totalEvaluations || 0}
-                  </span>
+                                        {user?.metadata?.totalEvaluations || 0}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
                                     <div className="flex items-center">
@@ -658,8 +659,8 @@ export default function UserProfile() {
                                         <span className="text-sm text-yellow-900 font-medium">Điểm TB</span>
                                     </div>
                                     <span className="text-lg font-bold text-yellow-700">
-                    {user?.metadata?.averageEvaluationScore?.toFixed(1) || '0.0'}
-                  </span>
+                                        {user?.metadata?.averageEvaluationScore?.toFixed(1) || '0.0'}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                                     <div className="flex items-center">
@@ -667,8 +668,8 @@ export default function UserProfile() {
                                         <span className="text-sm text-purple-900 font-medium">Phân công</span>
                                     </div>
                                     <span className="text-lg font-bold text-purple-700">
-                    {user?.metadata?.totalAssignments || 0}
-                  </span>
+                                        {user?.metadata?.totalAssignments || 0}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -678,16 +679,16 @@ export default function UserProfile() {
                             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                                 <div className="px-6 py-4 border-b border-gray-100">
                                     <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                                        <Users className="h-5 w-5 mr-2 text-indigo-600" />
+                                        <Users className="h-5 w-5 mr-2 text-blue-600" />
                                         Nhóm người dùng
                                     </h2>
                                 </div>
                                 <div className="p-6">
                                     <div className="space-y-2">
                                         {user.userGroups.map(group => (
-                                            <div key={group._id} className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                                            <div key={group._id} className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
                                                 <span className="text-sm font-medium text-gray-900">{group.name}</span>
-                                                <span className="text-xs text-indigo-600 font-semibold">{group.code}</span>
+                                                <span className="text-xs text-blue-600 font-semibold">{group.code}</span>
                                             </div>
                                         ))}
                                     </div>

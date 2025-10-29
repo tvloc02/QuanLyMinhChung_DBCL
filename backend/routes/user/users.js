@@ -23,26 +23,37 @@ const {
     unlockUser
 } = require('../../controllers/user/userController');
 
+// Thống kê người dùng
 router.get('/statistics', auth, requireManager, getUserStatistics);
-router.get('/experts', auth, requireManager, getUsers);
 
+// Lấy danh sách người dùng (tổng quát)
 router.get('/', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    query('role').optional().isIn(['admin', 'manager', 'expert', 'advisor']),
+    // Cập nhật vai trò hợp lệ trong query
+    query('role').optional().isIn(['admin', 'manager', 'reporter', 'evaluator']),
     query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']),
     query('groupId').optional().isMongoId(),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers);
 
-router.get('/:id', auth, requireManager, getUserById);
+// Lấy danh sách "chuyên gia" (evaluators) - Giữ nguyên tên route nhưng áp dụng vai trò mới
+router.get('/experts', auth, requireManager, [
+    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('search').optional().trim().escape(),
+    query('sortBy').optional().isIn(['createdAt', 'fullName']),
+    query('sortOrder').optional().isIn(['asc', 'desc'])
+], validation, getUsers); // Có thể thêm logic mặc định role=evaluator trong controller hoặc middleware nếu route này chỉ dành cho evaluator
 
+// Lấy thông tin người dùng theo ID (có 2 route giống nhau, giữ lại 1 và thêm validation)
 router.get('/:id', auth, requireManager, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, getUserById);
 
+// Tạo người dùng mới
 router.post('/',
     auth,
     requireAdmin,
@@ -74,9 +85,10 @@ router.post('/',
             .optional()
             .matches(/^[0-9]{10,11}$/)
             .withMessage('Số điện thoại không hợp lệ'),
+        // Cập nhật vai trò hợp lệ
         body('role')
             .optional()
-            .isIn(['admin', 'manager', 'expert', 'advisor'])
+            .isIn(['admin', 'manager', 'reporter', 'evaluator'])
             .withMessage('Vai trò không hợp lệ'),
         body('roles')
             .optional()
@@ -135,6 +147,7 @@ router.post('/',
     createUser
 );
 
+// Cập nhật người dùng
 router.put('/:id',
     auth,
     requireAdmin,
@@ -148,9 +161,10 @@ router.put('/:id',
             .optional()
             .matches(/^[0-9]{10,11}$/)
             .withMessage('Số điện thoại không hợp lệ'),
+        // Cập nhật vai trò hợp lệ
         body('role')
             .optional()
-            .isIn(['admin', 'manager', 'expert', 'advisor'])
+            .isIn(['admin', 'manager', 'reporter', 'evaluator'])
             .withMessage('Vai trò không hợp lệ'),
         body('roles')
             .optional()
@@ -201,6 +215,7 @@ router.put('/:id',
     updateUser
 );
 
+// Các route khác không thay đổi
 router.delete('/:id', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, deleteUser);
@@ -292,12 +307,5 @@ router.delete('/:id/permissions', auth, requireAdmin, [
         .withMessage('permissionId không hợp lệ')
 ], validation, removeUserPermission);
 
-router.get('/experts', auth, requireManager, [
-    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
-    query('search').optional().trim().escape(),
-    query('sortBy').optional().isIn(['createdAt', 'fullName']),
-    query('sortOrder').optional().isIn(['asc', 'desc'])
-], validation, getUsers);
 
 module.exports = router;
