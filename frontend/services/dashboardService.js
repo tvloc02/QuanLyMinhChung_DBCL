@@ -1,15 +1,7 @@
-// fileName: dashboardService.js
 import api from './api';
 
 export const dashboardService = {
     // Admin Dashboard
-    // HÀM MỚI: Gọi API tổng hợp toàn bộ thống kê
-    getAllAdminStats: async (academicYearId) => {
-        const response = await api.get(`/api/dashboard/admin/all-stats?academicYearId=${academicYearId}`);
-        return response.data;
-    },
-
-    // Các hàm cũ (giữ lại cho mục đích khác, nhưng Dashboard Admin sẽ dùng hàm mới)
     getAdminStats: async () => {
         const response = await api.get('/api/dashboard/admin/stats');
         return response.data;
@@ -71,17 +63,5 @@ export const dashboardService = {
     getEvidencesByStandard: async () => {
         const response = await api.get('/api/evidences/statistics');
         return response.data;
-    },
-    getEvidencesByStandardStats() {
-        return undefined;
-    },
-    getManagerDraftReports(number) {
-        return undefined;
-    },
-    getManagerRecentAssignments(number) {
-        return undefined;
-    },
-    getExpertAssignmentStats() {
-        return undefined;
     }
 };

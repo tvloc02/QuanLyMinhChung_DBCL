@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const ActivityLog = require("../system/ActivityLog");
 
 const evaluationSchema = new mongoose.Schema({
     academicYearId: {
@@ -26,15 +25,57 @@ const evaluationSchema = new mongoose.Schema({
         required: [true, 'Chuyên gia đánh giá là bắt buộc']
     },
 
+    criteriaScores: [{
+        criteriaName: {
+            type: String,
+            required: true
+        },
+        maxScore: {
+            type: Number,
+            required: true
+        },
+        score: {
+            type: Number,
+            required: true,
+            min: 0
+        },
+        weight: {
+            type: Number,
+            default: 1,
+            min: 0,
+            max: 1
+        },
+        comment: {
+            type: String,
+            maxlength: [2000, 'Bình luận tiêu chí không được quá 2000 ký tự']
+        }
+    }],
+
+    totalScore: {
+        type: Number,
+        min: 0
+    },
+
+    maxTotalScore: {
+        type: Number,
+        min: 0
+    },
+
+    averageScore: {
+        type: Number,
+        min: 0,
+        max: 10
+    },
+
     rating: {
         type: String,
-        enum: ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor', ''],
-        default: ''
+        enum: ['excellent', 'good', 'satisfactory', 'needs_improvement', 'poor'],
+        required: [true, 'Phân loại đánh giá là bắt buộc']
     },
 
     overallComment: {
         type: String,
-        default: '',
+        required: [true, 'Bình luận tổng thể là bắt buộc'],
         maxlength: [5000, 'Bình luận tổng thể không được quá 5000 ký tự']
     },
 
@@ -85,18 +126,18 @@ const evaluationSchema = new mongoose.Schema({
     evidenceAssessment: {
         adequacy: {
             type: String,
-            enum: ['insufficient', 'adequate', 'comprehensive', ''],
-            default: ''
+            enum: ['insufficient', 'adequate', 'comprehensive'],
+            required: [true, 'Đánh giá tính đầy đủ minh chứng là bắt buộc']
         },
         relevance: {
             type: String,
-            enum: ['poor', 'fair', 'good', 'excellent', ''],
-            default: ''
+            enum: ['poor', 'fair', 'good', 'excellent'],
+            required: [true, 'Đánh giá tính liên quan minh chứng là bắt buộc']
         },
         quality: {
             type: String,
-            enum: ['poor', 'fair', 'good', 'excellent', ''],
-            default: ''
+            enum: ['poor', 'fair', 'good', 'excellent'],
+            required: [true, 'Đánh giá chất lượng minh chứng là bắt buộc']
         }
     },
 
@@ -179,6 +220,7 @@ evaluationSchema.index({ academicYearId: 1, reportId: 1 });
 evaluationSchema.index({ academicYearId: 1, evaluatorId: 1 });
 evaluationSchema.index({ assignmentId: 1 }, { unique: true });
 evaluationSchema.index({ status: 1 });
+evaluationSchema.index({ averageScore: 1 });
 evaluationSchema.index({ submittedAt: -1 });
 
 // Pre hooks
@@ -186,6 +228,10 @@ evaluationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
         this.metadata.lastSaved = Date.now();
+    }
+
+    if (this.isModified('criteriaScores')) {
+        this.calculateScores();
     }
 
     if (this.isModified('overallComment')) {
@@ -225,6 +271,48 @@ evaluationSchema.methods.addActivityLog = async function(action, userId, descrip
     });
 };
 
+evaluationSchema.methods.calculateScores = function() {
+    if (!this.criteriaScores || this.criteriaScores.length === 0) {
+        this.totalScore = 0;
+        this.maxTotalScore = 0;
+        this.averageScore = 0;
+        return;
+    }
+
+    let totalWeightedScore = 0;
+    let totalMaxWeightedScore = 0;
+    let totalWeight = 0;
+
+    this.criteriaScores.forEach(criteria => {
+        const weight = criteria.weight || 1;
+        totalWeightedScore += criteria.score * weight;
+        totalMaxWeightedScore += criteria.maxScore * weight;
+        totalWeight += weight;
+    });
+
+    this.totalScore = Math.round(totalWeightedScore * 100) / 100;
+    this.maxTotalScore = Math.round(totalMaxWeightedScore * 100) / 100;
+
+    if (totalMaxWeightedScore > 0) {
+        this.averageScore = Math.round((totalWeightedScore / totalMaxWeightedScore) * 10 * 100) / 100;
+    } else {
+        this.averageScore = 0;
+    }
+
+    // Tự động xác định rating dựa trên averageScore
+    if (this.averageScore >= 9) {
+        this.rating = 'excellent';
+    } else if (this.averageScore >= 7) {
+        this.rating = 'good';
+    } else if (this.averageScore >= 5) {
+        this.rating = 'satisfactory';
+    } else if (this.averageScore >= 3) {
+        this.rating = 'needs_improvement';
+    } else {
+        this.rating = 'poor';
+    }
+};
+
 evaluationSchema.methods.submit = async function() {
     const oldStatus = this.status;
     this.status = 'submitted';
@@ -237,7 +325,7 @@ evaluationSchema.methods.submit = async function() {
         'Nộp đánh giá báo cáo', {
             severity: 'medium',
             oldData: { status: oldStatus },
-            newData: { status: 'submitted' }
+            newData: { status: 'submitted', averageScore: this.averageScore }
         });
 
     return this;
@@ -297,35 +385,23 @@ evaluationSchema.methods.addHistory = function(action, userId, changes = {}, not
 evaluationSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
-    // 🚀 ĐÃ SỬA: Chuyên gia CHỈ có thể sửa nếu trạng thái là draft
-    return userRole === 'expert' && this.status === 'draft' && this.evaluatorId.toString() === userId.toString();
-
-};
-
-evaluationSchema.methods.canView = function(userId, userRole) {
-    // ✅ Convert sang string để so sánh chính xác
-    const userIdStr = String(userId);
-    const evaluatorIdStr = String(this.evaluatorId._id || this.evaluatorId);
-
-    console.log('🔍 [CAN VIEW CHECK]', {
-        userId: userIdStr,
-        evaluatorId: evaluatorIdStr,
-        userRole,
-        status: this.status,
-        isSameId: userIdStr === evaluatorIdStr
-    });
-
-    if (userRole === 'admin') return true;
-    if (userRole === 'supervisor') return true;
-
-    // ✅ Chuyên gia xem đánh giá của mình
-    if (userRole === 'expert' && userIdStr === evaluatorIdStr) {
+    if (this.evaluatorId.toString() === userId.toString() && this.status === 'draft') {
         return true;
     }
 
-    // Manager xem các đánh giá đã nộp
-    return userRole === 'manager' && this.status !== 'draft';
+    return false;
+};
 
+evaluationSchema.methods.canView = function(userId, userRole) {
+    if (userRole === 'admin') return true;
+
+    if (this.evaluatorId.toString() === userId.toString()) return true;
+
+    if (userRole === 'supervisor') return true;
+
+    if (userRole === 'manager' && this.status !== 'draft') return true;
+
+    return false;
 };
 
 evaluationSchema.methods.autoSave = function() {
@@ -380,8 +456,15 @@ evaluationSchema.virtual('isComplete').get(function() {
 
 // Static methods
 evaluationSchema.statics.getAverageScoreByReport = async function(reportId) {
-    // Không còn tính điểm trung bình dựa trên criteriaScores. Trả về 0 hoặc một giá trị mặc định.
-    return 0;
+    const evaluations = await this.find({
+        reportId,
+        status: { $in: ['submitted', 'supervised', 'final'] }
+    });
+
+    if (evaluations.length === 0) return 0;
+
+    const totalScore = evaluations.reduce((sum, evaluation) => sum + evaluation.averageScore, 0);
+    return Math.round((totalScore / evaluations.length) * 100) / 100;
 };
 
 evaluationSchema.statics.getEvaluatorStats = async function(evaluatorId, academicYearId) {
@@ -396,13 +479,19 @@ evaluationSchema.statics.getEvaluatorStats = async function(evaluatorId, academi
         submitted: 0,
         supervised: 0,
         final: 0,
+        averageScore: 0,
         totalTimeSpent: 0
     };
 
     evaluations.forEach(evaluation => {
         stats[evaluation.status]++;
+        stats.averageScore += evaluation.averageScore || 0;
         stats.totalTimeSpent += evaluation.metadata.timeSpent || 0;
     });
+
+    if (stats.total > 0) {
+        stats.averageScore = Math.round((stats.averageScore / stats.total) * 100) / 100;
+    }
 
     stats.totalTimeSpentHours = Math.round(stats.totalTimeSpent / 60 * 100) / 100;
 
@@ -416,6 +505,7 @@ evaluationSchema.statics.getSystemStats = async function(academicYearId) {
         total: evaluations.length,
         byStatus: {},
         byRating: {},
+        averageScore: 0,
         totalTimeSpent: 0
     };
 
@@ -426,8 +516,13 @@ evaluationSchema.statics.getSystemStats = async function(academicYearId) {
             stats.byRating[evaluation.rating] = (stats.byRating[evaluation.rating] || 0) + 1;
         }
 
+        stats.averageScore += evaluation.averageScore || 0;
         stats.totalTimeSpent += evaluation.metadata.timeSpent || 0;
     });
+
+    if (stats.total > 0) {
+        stats.averageScore = Math.round((stats.averageScore / stats.total) * 100) / 100;
+    }
 
     return stats;
 };

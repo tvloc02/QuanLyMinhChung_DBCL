@@ -20,10 +20,6 @@ const notificationSchema = new mongoose.Schema({
             'assignment_overdue',
             'assignment_cancelled',
             'evaluation_submitted',
-            // ✅ Bổ sung loại thông báo mới
-            'evaluation_supervised',
-            'evaluation_reevaluated',
-            'evaluation_finalized',
             'evaluation_reviewed',
             'report_published',
             'report_updated',
@@ -186,11 +182,6 @@ notificationSchema.virtual('typeText').get(function() {
         'assignment_overdue': 'Phân công quá hạn',
         'assignment_cancelled': 'Hủy phân công',
         'evaluation_submitted': 'Đánh giá đã nộp',
-        // ✅ Bổ sung typeText mới
-        'evaluation_supervised': 'Đánh giá được chấp thuận',
-        'evaluation_reevaluated': 'Yêu cầu đánh giá lại',
-        'evaluation_finalized': 'Đánh giá đã Hoàn tất',
-        // ---
         'evaluation_reviewed': 'Đánh giá đã xem xét',
         'report_published': 'Báo cáo được xuất bản',
         'report_updated': 'Báo cáo được cập nhật',
@@ -278,15 +269,10 @@ notificationSchema.methods.getActionUrl = function() {
         case 'assignment_new':
         case 'assignment_reminder':
         case 'assignment_overdue':
-        case 'assignment_cancelled':
             return this.data?.assignmentId ? `/assignments/${this.data.assignmentId}` : null;
 
         case 'evaluation_submitted':
         case 'evaluation_reviewed':
-        // ✅ Cập nhật ActionUrl cho các loại thông báo mới
-        case 'evaluation_supervised':
-        case 'evaluation_reevaluated':
-        case 'evaluation_finalized':
             return this.data?.evaluationId ? `/evaluations/${this.data.evaluationId}` : null;
 
         case 'report_published':
@@ -345,7 +331,6 @@ notificationSchema.statics.createAssignmentNotification = async function(assignm
     return notification.save();
 };
 
-// ✅ Sửa đổi hàm này để bao gồm các loại thông báo mới
 notificationSchema.statics.createEvaluationNotification = async function(evaluationId, type, recipientId, senderId = null) {
     const Evaluation = mongoose.model('Evaluation');
     const evaluation = await Evaluation.findById(evaluationId)
@@ -354,32 +339,15 @@ notificationSchema.statics.createEvaluationNotification = async function(evaluat
 
     if (!evaluation) throw new Error('Evaluation not found');
 
-    // Cần lấy tên người gửi thông báo (Giám sát/Admin)
-    let senderName = senderId ? (await mongoose.model('User').findById(senderId))?.fullName : 'Hệ thống';
-
     const titleMap = {
         'evaluation_submitted': `Đánh giá đã nộp: ${evaluation.reportId.title}`,
-        'evaluation_reviewed': `Đánh giá đã xem xét: ${evaluation.reportId.title}`,
-        'evaluation_supervised': `✅ Đánh giá được chấp thuận: ${evaluation.reportId.title}`,
-        'evaluation_reevaluated': `⚠️ Yêu cầu đánh giá lại: ${evaluation.reportId.title}`,
-        'evaluation_finalized': `⭐ Đánh giá đã Hoàn tất: ${evaluation.reportId.title}`
+        'evaluation_reviewed': `Đánh giá đã xem xét: ${evaluation.reportId.title}`
     };
 
     const messageMap = {
         'evaluation_submitted': `${evaluation.evaluatorId.fullName} đã nộp đánh giá cho báo cáo "${evaluation.reportId.title}".`,
-        'evaluation_reviewed': `Đánh giá của bạn cho báo cáo "${evaluation.reportId.title}" đã được xem xét.`,
-        'evaluation_supervised': `Đánh giá của bạn cho báo cáo "${evaluation.reportId.title}" đã được ${senderName} chấp thuận giám sát.`,
-        'evaluation_reevaluated': `Đánh giá của bạn cho báo cáo "${evaluation.reportId.title}" đã bị ${senderName} yêu cầu đánh giá lại. Vui lòng kiểm tra nhận xét.`,
-        'evaluation_finalized': `Đánh giá của bạn cho báo cáo "${evaluation.reportId.title}" đã được ${senderName} Hoàn tất (Finalized).`
+        'evaluation_reviewed': `Đánh giá của bạn cho báo cáo "${evaluation.reportId.title}" đã được xem xét.`
     };
-
-    const priorityMap = {
-        'evaluation_submitted': 'high', // Quan trọng với Supervisor
-        'evaluation_reviewed': 'normal',
-        'evaluation_supervised': 'normal',
-        'evaluation_reevaluated': 'urgent', // Quan trọng nhất với Expert
-        'evaluation_finalized': 'high'
-    }
 
     const notification = new this({
         recipientId,
@@ -392,10 +360,10 @@ notificationSchema.statics.createEvaluationNotification = async function(evaluat
             reportId: evaluation.reportId._id,
             url: `/evaluations/${evaluationId}`
         },
-        priority: priorityMap[type] || 'normal',
+        priority: 'normal',
         channels: {
             inApp: true,
-            email: ['evaluation_submitted', 'evaluation_reevaluated', 'evaluation_finalized'].includes(type)
+            email: true
         }
     });
 
@@ -529,8 +497,7 @@ notificationSchema.statics.getNotificationStats = async function(userId = null) 
     let matchStage = {};
     if (userId) {
         if (mongoose.Types.ObjectId.isValid(userId)) {
-            // FIX: Sử dụng new mongoose.Types.ObjectId(userId) thay vì mongoose.Types.ObjectId(userId)
-            matchStage.recipientId = new mongoose.Types.ObjectId(userId);
+            matchStage.recipientId = mongoose.Types.ObjectId(userId);
         } else {
             console.error(`Invalid userId passed to getNotificationStats: ${userId}`);
             if (userId === 'Invalid ID from req.user.id') {

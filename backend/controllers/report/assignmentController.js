@@ -92,7 +92,7 @@ const getAssignments = async (req, res) => {
                 .populate('reportId', 'title type code')
                 .populate('expertId', 'fullName email')
                 .populate('assignedBy', 'fullName email')
-                .populate('evaluationId', 'averageScore status rating')
+                .populate('evaluationId', 'averageScore status')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -565,34 +565,47 @@ const getExpertWorkload = async (req, res) => {
 const getAssignmentStats = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
-        let { expertId } = req.query;
+        const { expertId } = req.query;
 
-        // Nếu là expert, chỉ xem stats của chính mình
-        if (req.user.role === 'expert') {
-            expertId = req.user.id;
-        }
+        let matchQuery = {
+            academicYearId: mongoose.Types.ObjectId(academicYearId)
+        };
 
-        // Tạo filters object cho hàm static
-        const filters = {};
         if (expertId) {
-            filters.expertId = expertId;
+            matchQuery.expertId = mongoose.Types.ObjectId(expertId);
         }
 
-        // Gọi phương thức static đã được bảo vệ khỏi lỗi CastError
-        const stats = await Assignment.getAssignmentStats(academicYearId, filters);
+        const stats = await Assignment.aggregate([
+            { $match: matchQuery },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+                    accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+                    inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
+                    completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                    overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
+                    cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        const defaultStats = {
+            total: 0, pending: 0, accepted: 0, inProgress: 0,
+            completed: 0, overdue: 0, cancelled: 0
+        };
 
         res.json({
             success: true,
-            data: stats
+            data: stats[0] || defaultStats
         });
 
     } catch (error) {
-        console.error('Get assignment stats error (Final Check):', error);
-
-        // Bất kỳ lỗi nào không được xử lý trong model (như kết nối DB, v.v.)
+        console.error('Get assignment stats error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê phân quyền. Vui lòng kiểm tra logs server.'
+            message: 'Lỗi hệ thống khi lấy thống kê phân quyền'
         });
     }
 };
@@ -821,6 +834,22 @@ const bulkCreateAssignments = async (req, res) => {
         }
 
         await Promise.all(notifications);
+
+        // Log activity
+        await ActivityLog.logCriticalAction(
+            req.user.id,
+            'assignment_bulk_create',
+            `Tạo ${newAssignments.length} phân công đánh giá hàng loạt`,
+            {
+                severity: 'high',
+                metadata: {
+                    totalCreated: newAssignments.length,
+                    totalSkipped: skipped.length,
+                    reports: reportIds.length,
+                    experts: expertIds.length
+                }
+            }
+        );
 
         res.status(201).json({
             success: true,

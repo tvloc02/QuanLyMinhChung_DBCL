@@ -326,36 +326,10 @@ assignmentSchema.statics.getExpertWorkload = async function(expertId, academicYe
 };
 
 assignmentSchema.statics.getAssignmentStats = async function(academicYearId, filters = {}) {
-    if (!academicYearId) {
-        return {
-            total: 0, pending: 0, accepted: 0, inProgress: 0,
-            completed: 0, overdue: 0, cancelled: 0
-        };
-    }
+    let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
 
-    let matchStage = { };
-
-    try {
-        matchStage.academicYearId = mongoose.Types.ObjectId(academicYearId);
-    } catch (e) {
-        return {
-            total: 0, pending: 0, accepted: 0, inProgress: 0,
-            completed: 0, overdue: 0, cancelled: 0
-        };
-    }
-
-    if (filters.assignedBy) {
-        try {
-            matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
-        } catch (e) { /* silent fail */ }
-    }
-
-    if (filters.expertId) {
-        try {
-            matchStage.expertId = mongoose.Types.ObjectId(filters.expertId);
-        } catch (e) { /* silent fail */ }
-    }
-
+    if (filters.assignedBy) matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
+    if (filters.expertId) matchStage.expertId = mongoose.Types.ObjectId(filters.expertId);
     if (filters.status) matchStage.status = filters.status;
 
     const stats = await this.aggregate([

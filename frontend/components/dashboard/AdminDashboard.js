@@ -1,15 +1,82 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
     Users, FileText, Calendar, Clock, Shield, Settings,
-    Download, Activity, BarChart3, Database, Loader2, BookOpen, CheckCircle, ListTodo, ClipboardCheck, AlertCircle
+    Download, Activity, BarChart3, Database, Loader2
 } from 'lucide-react';
 import { StatCard, QuickAction, ActivityItem, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
-// Cấu trúc props: { stats: object, recentActivities: array, loading: boolean }
-const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
+const AdminDashboard = () => {
     const router = useRouter();
-    const error = null; // Error được xử lý ở component cha (DashboardPage)
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalUsers: 0,
+        totalEvidences: 0,
+        activeYears: 0,
+        pendingReports: 0
+    });
+    const [activities, setActivities] = useState([]);
+    const [roleStats, setRoleStats] = useState([]);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+
+            // Fetch stats
+            const statsResponse = await fetch('/api/dashboard/admin/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (statsResponse.ok) {
+                const statsResult = await statsResponse.json();
+                if (statsResult.success) {
+                    setStats(statsResult.data);
+                }
+            }
+
+            // Fetch recent activities
+            const activitiesResponse = await fetch('/api/activity-logs?limit=10&sortOrder=desc', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (activitiesResponse.ok) {
+                const activitiesResult = await activitiesResponse.json();
+                if (activitiesResult.success) {
+                    setActivities(activitiesResult.data.logs || []);
+                }
+            }
+
+            // Fetch user statistics by role
+            const userStatsResponse = await fetch('/api/users/statistics', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (userStatsResponse.ok) {
+                const userStatsResult = await userStatsResponse.json();
+                if (userStatsResult.success) {
+                    const data = userStatsResult.data;
+                    setRoleStats([
+                        { role: 'Admin', count: data.adminUsers || 0, total: data.totalUsers || 1, color: 'bg-indigo-600' },
+                        { role: 'Manager', count: data.managerUsers || 0, total: data.totalUsers || 1, color: 'bg-blue-600' },
+                        { role: 'Expert', count: data.expertUsers || 0, total: data.totalUsers || 1, color: 'bg-green-600' },
+                        { role: 'Advisor', count: data.advisorUsers || 0, total: data.totalUsers || 1, color: 'bg-purple-600' }
+                    ]);
+                }
+            }
+
+        } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+            setError('Không thể tải dữ liệu dashboard');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const formatTimeAgo = (date) => {
         if (!date) return '';
@@ -22,29 +89,6 @@ const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
         if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
         return `${Math.floor(diff / 86400)} ngày trước`;
     };
-
-    // Hàm tiện ích để lấy giá trị thống kê
-    const getStatValue = (path, defaultValue = 0) => {
-        const keys = path.split('.');
-        let value = stats;
-        for (const key of keys) {
-            if (value && value.hasOwnProperty(key)) {
-                value = value[key];
-            } else {
-                return defaultValue;
-            }
-        }
-        return value || defaultValue;
-    };
-
-    // Dữ liệu cho Role Stats
-    const totalUsers = getStatValue('totalUsers', 1);
-    const roleStats = [
-        { role: 'Admin', count: getStatValue('roleStats.adminUsers'), total: totalUsers, color: 'bg-indigo-600' },
-        { role: 'Manager', count: getStatValue('roleStats.managerUsers'), total: totalUsers, color: 'bg-blue-600' },
-        { role: 'Expert', count: getStatValue('roleStats.expertUsers'), total: totalUsers, color: 'bg-green-600' },
-        { role: 'Advisor', count: getStatValue('roleStats.advisorUsers'), total: totalUsers, color: 'bg-purple-600' }
-    ];
 
     return (
         <div className="space-y-6">
@@ -66,138 +110,77 @@ const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
                 </div>
             )}
 
-            {/* General System Stats Grid */}
-            <h2 className="text-xl font-bold text-gray-900 pt-2 border-b pb-2 mb-4">Tổng quan Hệ thống</h2>
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Tổng người dùng"
-                    value={getStatValue('totalUsers')}
+                    value={stats.totalUsers}
                     icon={Users}
                     color="bg-blue-500"
                     loading={loading}
                 />
                 <StatCard
+                    title="Tổng minh chứng"
+                    value={stats.totalEvidences}
+                    icon={FileText}
+                    color="bg-green-500"
+                    loading={loading}
+                />
+                <StatCard
                     title="Năm học hoạt động"
-                    value={getStatValue('activeYears')}
+                    value={stats.activeYears}
                     icon={Calendar}
                     color="bg-purple-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Báo cáo đã xuất bản"
-                    value={getStatValue('reportStats.published')}
-                    icon={BookOpen}
-                    color="bg-teal-500"
-                    loading={loading}
-                />
-                <StatCard
-                    title="Tổng Minh chứng"
-                    value={getStatValue('evidenceStats.totalEvidences')}
-                    icon={FileText}
-                    color="bg-green-500"
+                    title="Báo cáo chờ duyệt"
+                    value={stats.pendingReports}
+                    icon={Clock}
+                    color="bg-orange-500"
                     loading={loading}
                 />
             </div>
-
-            {/* Evidence & Report Focus Stats */}
-            <h2 className="text-xl font-bold text-gray-900 pt-4 border-b pb-2 mb-4">Trọng tâm Minh chứng & Đánh giá</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    title="Minh chứng đã duyệt"
-                    value={getStatValue('evidenceStats.approved')}
-                    icon={CheckCircle}
-                    color="bg-green-600"
-                    loading={loading}
-                />
-                <StatCard
-                    title="Tổng dung lượng File"
-                    value={`${getStatValue('evidenceStats.totalFileSizeGB', 0).toFixed(2)} GB`}
-                    icon={Database}
-                    color="bg-gray-600"
-                    loading={loading}
-                />
-                <StatCard
-                    title="Phân quyền quá hạn"
-                    value={getStatValue('assignmentStats.overdue')}
-                    icon={AlertCircle}
-                    color="bg-red-500"
-                    loading={loading}
-                />
-                <StatCard
-                    title="Đánh giá đã nộp"
-                    value={getStatValue('evaluationStats.submitted')}
-                    icon={ClipboardCheck}
-                    color="bg-indigo-500"
-                    loading={loading}
-                />
-            </div>
-
 
             {/* Quick Actions */}
             <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-4 pt-4">Thao tác nhanh</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Thao tác nhanh</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <QuickAction
                         title="Quản lý người dùng"
                         description="Thêm, sửa, xóa người dùng"
                         icon={Users}
                         color="bg-blue-500"
-                        href="/users"
+                        href="/users/create"
                     />
                     <QuickAction
-                        title="Tiêu chuẩn & Tiêu chí"
-                        description="Cấu hình hệ thống đánh giá"
-                        icon={Shield}
+                        title="Năm học"
+                        description="Quản lý năm học và sao chép"
+                        icon={Calendar}
                         color="bg-purple-500"
-                        href="/standards"
+                        href="/academic-years/academic-years"
                     />
                     <QuickAction
-                        title="Duyệt File Minh chứng"
-                        description="Xem và duyệt các file mới"
-                        icon={CheckCircle}
-                        color="bg-green-500"
-                        href="/file-approval"
+                        title="Cấu hình hệ thống"
+                        description="Cài đặt và bảo mật"
+                        icon={Settings}
+                        color="bg-gray-600"
+                        href="/settings"
                     />
                     <QuickAction
                         title="Sao lưu dữ liệu"
                         description="Backup và khôi phục"
                         icon={Download}
-                        color="bg-gray-600"
+                        color="bg-green-500"
                         href="/settings/backups"
                     />
                 </div>
             </div>
 
             {/* Activity & Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Role Statistics - Col 1 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê theo Vai trò</h3>
-
-                    {loading ? (
-                        <LoadingSkeleton count={4} />
-                    ) : (
-                        <div className="space-y-4">
-                            {roleStats.map((stat, index) => (
-                                <div key={index}>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="text-gray-600 font-medium">{stat.role}</span>
-                                        <span className="font-semibold">{stat.count} người ({((stat.count / stat.total) * 100).toFixed(1)}%)</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div
-                                            className={`${stat.color} h-2 rounded-full transition-all duration-500`}
-                                            style={{ width: `${(stat.count / stat.total) * 100}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Recent Activities - Col 2 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Activities */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-900">Hoạt động gần đây</h3>
                         <button
@@ -210,13 +193,13 @@ const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
 
                     {loading ? (
                         <LoadingSkeleton count={5} />
-                    ) : recentActivities?.length > 0 ? (
+                    ) : activities.length > 0 ? (
                         <div className="space-y-2">
-                            {recentActivities.map((activity) => (
+                            {activities.map((activity) => (
                                 <ActivityItem
                                     key={activity._id}
                                     action={activity.description}
-                                    user={activity.userId?.fullName || activity.userId?.email || 'Hệ thống'}
+                                    user={activity.userId?.fullName || activity.userId?.email}
                                     time={formatTimeAgo(activity.createdAt)}
                                     type={activity.action}
                                     metadata={activity}
@@ -231,69 +214,43 @@ const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
                         />
                     )}
                 </div>
-            </div>
 
-            {/* Chart Placeholders */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-                {/* Chart 1: Evidence Status Distribution */}
+                {/* Role Statistics */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-indigo-500"/>Phân bố Trạng thái Minh chứng</h3>
-                    {loading ? (
-                        <LoadingSkeleton count={3} />
-                    ) : (
-                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-500 text-sm">
-                                Biểu đồ tròn: Đã duyệt ({getStatValue('evidenceStats.approved')} | {((getStatValue('evidenceStats.approved') / getStatValue('evidenceStats.totalEvidences', 1)) * 100).toFixed(1)}%) vs Đang làm ({getStatValue('evidenceStats.inProgress')}) vs Từ chối ({getStatValue('evidenceStats.rejected')})
-                            </p>
-                        </div>
-                    )}
-                </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê theo vai trò</h3>
 
-                {/* Chart 2: Report Views vs Downloads */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center"><Activity className="w-5 h-5 mr-2 text-green-500"/>Lượt xem và Tải báo cáo</h3>
                     {loading ? (
-                        <LoadingSkeleton count={3} />
-                    ) : (
-                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-500 text-sm">
-                                Biểu đồ cột/đường: Tổng lượt xem báo cáo ({getStatValue('reportStats.totalViews')}) và Tổng lượt tải xuống ({getStatValue('reportStats.totalDownloads')})
-                            </p>
+                        <div className="space-y-4">
+                            {[...Array(4)].map((_, i) => (
+                                <div key={i} className="animate-pulse">
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <div className="h-4 bg-gray-200 rounded w-20"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-16"></div>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2"></div>
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Assignment & Evaluation Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
-                {/* Chart 3: Assignment Status */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center"><Clock className="w-5 h-5 mr-2 text-red-500"/>Trạng thái Phân quyền</h3>
-                    {loading ? (
-                        <LoadingSkeleton count={3} />
                     ) : (
-                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-500 text-sm">
-                                Biểu đồ tròn: Hoàn thành ({getStatValue('assignmentStats.completed')}) vs Đang chờ ({getStatValue('assignmentStats.pending')}) vs Quá hạn ({getStatValue('assignmentStats.overdue')})
-                            </p>
-                        </div>
-                    )}
-                </div>
-                {/* Chart 4: Standard & Criteria Count */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center"><Database className="w-5 h-5 mr-2 text-blue-500"/>Số lượng Tiêu chuẩn & Tiêu chí (Hoạt động)</h3>
-                    {loading ? (
-                        <LoadingSkeleton count={3} />
-                    ) : (
-                        <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-500 text-sm">
-                                Biểu đồ cột ngang: Tiêu chuẩn hoạt động ({getStatValue('standardStats.active')}) và Tiêu chí hoạt động ({getStatValue('criteriaStats.active')})
-                            </p>
+                        <div className="space-y-4">
+                            {roleStats.map((stat, index) => (
+                                <div key={index}>
+                                    <div className="flex justify-between text-sm mb-2">
+                                        <span className="text-gray-600">{stat.role}</span>
+                                        <span className="font-semibold">{stat.count} người</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                            className={`${stat.color} h-2 rounded-full transition-all duration-500`}
+                                            style={{ width: `${(stat.count / stat.total) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
             </div>
-
         </div>
     );
 };

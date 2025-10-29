@@ -1,86 +1,51 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, FileText, Filter, File, Check } from 'lucide-react'
-import { apiMethods } from '../../services/api'
+import { Search, Plus, FileText, Filter } from 'lucide-react'
 import evidenceService from '../../services/evidenceService'
 import toast from 'react-hot-toast'
 
 export default function EvidencePicker({
-                                           reportType,
+                                           standardId,
+                                           criteriaId,
+                                           onSelect,
+                                           onViewEvidence,
                                            programId,
-                                           organizationId,
-                                           onSelectEvidence,
-                                           selectedEvidences = []
+                                           organizationId
                                        }) {
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
-    const [standardId, setStandardId] = useState('')
-    const [criteriaId, setCriteriaId] = useState('')
-    const [standards, setStandards] = useState([])
-    const [criteria, setCriteria] = useState([])
-    const [expandedEvidence, setExpandedEvidence] = useState(null)
-    const [selectedFiles, setSelectedFiles] = useState({})
+    const [filter, setFilter] = useState('all') // all, standard, criteria
 
     useEffect(() => {
-        if (programId && organizationId) {
-            fetchStandards()
+        if (standardId || criteriaId) {
+            fetchEvidences()
         }
-    }, [programId, organizationId])
-
-    useEffect(() => {
-        if (standardId) {
-            fetchCriteria()
-        }
-    }, [standardId])
-
-    useEffect(() => {
-        if (programId && organizationId) {
-            if (reportType === 'comprehensive_report') {
-                fetchEvidences()
-            } else if (standardId || criteriaId) {
-                fetchEvidences()
-            }
-        }
-    }, [programId, organizationId, standardId, criteriaId, reportType])
-
-    const fetchStandards = async () => {
-        try {
-            const response = await apiMethods.standards.getAll({ programId, organizationId })
-            setStandards(response.data?.data?.standards || response.data?.data || [])
-        } catch (error) {
-            console.error('Fetch standards error:', error)
-        }
-    }
-
-    const fetchCriteria = async () => {
-        try {
-            const response = await apiMethods.criteria.getAll({ standardId })
-            setCriteria(response.data?.data?.criterias || response.data?.data?.criteria || response.data?.data || [])
-        } catch (error) {
-            console.error('Fetch criteria error:', error)
-        }
-    }
+    }, [standardId, criteriaId, filter, programId, organizationId])
 
     const fetchEvidences = async () => {
         try {
             setLoading(true)
-            const allowedStatuses = ['new', 'in_progress', 'completed', 'approved']
+
+            const allowedStatuses = ['new', 'in_progress', 'completed', 'approved'];
             const params = {
                 limit: 100,
-                statuses: allowedStatuses.join(','),
-                programId,
-                organizationId
+                statuses: allowedStatuses.join(',')
             }
 
-            if (reportType === 'comprehensive_report') {
-            } else if (criteriaId) {
+            if (programId) params.programId = programId;
+            if (organizationId) params.organizationId = organizationId;
+
+            if (filter === 'criteria' && criteriaId) {
                 params.criteriaId = criteriaId
+            } else if (filter === 'standard' && standardId) {
+                params.standardId = standardId
             } else if (standardId) {
+                // Get all evidences from this standard
                 params.standardId = standardId
             }
 
             const response = await evidenceService.getEvidences(params)
-            setEvidences(response.data?.evidences || response.evidences || [])
+            setEvidences(response.data?.evidences || [])
         } catch (error) {
             console.error('Fetch evidences error:', error)
             toast.error('Lỗi khi tải danh sách minh chứng')
@@ -99,101 +64,67 @@ export default function EvidencePicker({
         )
     })
 
-    const handleSelectEvidence = (evidence) => {
-        const selectedFileIds = selectedFiles[evidence._id] || []
-        const fileIds = selectedFileIds.length > 0 ? selectedFileIds : evidence.files?.map(f => f._id) || []
-
-        onSelectEvidence({
-            evidenceId: evidence._id,
-            code: evidence.code,
-            name: evidence.name,
-            selectedFileIds: fileIds
-        })
-
-        setExpandedEvidence(null)
-        setSelectedFiles(prev => {
-            const newState = { ...prev }
-            delete newState[evidence._id]
-            return newState
-        })
-    }
-
-    const toggleFileSelection = (evidenceId, fileId) => {
-        setSelectedFiles(prev => {
-            const currentFiles = prev[evidenceId] || []
-            const newFiles = currentFiles.includes(fileId)
-                ? currentFiles.filter(id => id !== fileId)
-                : [...currentFiles, fileId]
-            return {
-                ...prev,
-                [evidenceId]: newFiles
-            }
-        })
-    }
-
-    const isEvidenceSelected = (evidenceId) => {
-        return selectedEvidences.some(e => e.evidenceId === evidenceId)
+    if (!standardId && !criteriaId) {
+        return (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                Vui lòng chọn Tiêu chuẩn hoặc Tiêu chí để xem danh sách minh chứng
+            </div>
+        )
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
+            {/* Header */}
             <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-900 flex items-center">
+                <h4 className="font-medium text-gray-900 flex items-center">
                     <FileText className="h-4 w-4 mr-2" />
-                    Danh sách minh chứng
+                    Minh chứng tham chiếu
                 </h4>
                 <span className="text-xs text-gray-500">
                     {filteredEvidences.length} minh chứng
                 </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tiêu chuẩn
-                    </label>
-                    <select
-                        value={standardId}
-                        onChange={(e) => setStandardId(e.target.value)}
-                        disabled={reportType === 'comprehensive_report'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                    >
-                        <option value="">Tất cả tiêu chuẩn</option>
-                        {standards.map(s => (
-                            <option key={s._id} value={s._id}>{s.code} - {s.name}</option>
-                        ))}
-                    </select>
+            {/* Search & Filter */}
+            <div className="space-y-2">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Tìm kiếm minh chứng..."
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tiêu chí
-                    </label>
-                    <select
-                        value={criteriaId}
-                        onChange={(e) => setCriteriaId(e.target.value)}
-                        disabled={!standardId || reportType === 'comprehensive_report'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                    >
-                        <option value="">Tất cả tiêu chí</option>
-                        {criteria.map(c => (
-                            <option key={c._id} value={c._id}>{c.code} - {c.name}</option>
-                        ))}
-                    </select>
-                </div>
+                {standardId && criteriaId && (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setFilter('all')}
+                            className={`flex-1 px-3 py-1 text-xs rounded ${
+                                filter === 'all'
+                                    ? 'bg-blue-100 text-blue-700 font-medium'
+                                    : 'bg-gray-100 text-gray-600'
+                            }`}
+                        >
+                            Tất cả tiêu chuẩn
+                        </button>
+                        <button
+                            onClick={() => setFilter('criteria')}
+                            className={`flex-1 px-3 py-1 text-xs rounded ${
+                                filter === 'criteria'
+                                    ? 'bg-blue-100 text-blue-700 font-medium'
+                                    : 'bg-gray-100 text-gray-600'
+                            }`}
+                        >
+                            Chỉ tiêu chí này
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Tìm kiếm minh chứng..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-            </div>
-
+            {/* Evidence List */}
             {loading ? (
                 <div className="flex justify-center py-8">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -205,103 +136,61 @@ export default function EvidencePicker({
             ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                     {filteredEvidences.map((evidence) => (
-                        <div key={evidence._id} className="border border-gray-200 rounded-lg overflow-hidden">
-                            <div className={`p-3 hover:bg-blue-50 transition-all cursor-pointer ${isEvidenceSelected(evidence._id) ? 'bg-green-50' : ''}`}>
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1 min-w-0" onClick={() => setExpandedEvidence(expandedEvidence === evidence._id ? null : evidence._id)}>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-mono text-sm font-semibold text-blue-600">
-                                                {evidence.code}
+                        <div
+                            key={evidence._id}
+                            className="group border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer"
+                            onClick={() => onViewEvidence && onViewEvidence(evidence.code)}
+                        >
+                            <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-mono text-sm font-semibold text-blue-600">
+                                            {evidence.code}
+                                        </span>
+                                        {evidence.criteriaId && (
+                                            <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                                Tiêu chí {evidence.criteriaId.code}
                                             </span>
-                                            {isEvidenceSelected(evidence._id) && (
-                                                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded flex items-center gap-1">
-                                                    <Check className="h-3 w-3" />
-                                                    Đã chọn
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-gray-900 font-medium mb-1 line-clamp-2">
-                                            {evidence.name}
-                                        </p>
-                                        {evidence.files && evidence.files.length > 0 && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                📎 {evidence.files.length} file(s)
-                                            </p>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            if (isEvidenceSelected(evidence._id)) {
-                                                return
-                                            }
-                                            if (evidence.files && evidence.files.length > 0) {
-                                                setExpandedEvidence(evidence._id)
-                                            } else {
-                                                handleSelectEvidence(evidence)
-                                            }
-                                        }}
-                                        disabled={isEvidenceSelected(evidence._id)}
-                                        className={`ml-2 px-3 py-1.5 text-white rounded text-xs font-medium transition-all flex items-center gap-1 ${
-                                            isEvidenceSelected(evidence._id)
-                                                ? 'bg-gray-400 cursor-not-allowed'
-                                                : 'bg-blue-600 hover:bg-blue-700'
-                                        }`}
-                                        title={isEvidenceSelected(evidence._id) ? "Đã chọn" : "Chọn minh chứng"}
-                                    >
-                                        {isEvidenceSelected(evidence._id) ? (
-                                            <>
-                                                <Check className="h-3 w-3" />
-                                                Đã chọn
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Plus className="h-3 w-3" />
-                                                Chọn
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {expandedEvidence === evidence._id && evidence.files && evidence.files.length > 0 && (
-                                <div className="border-t border-gray-200 bg-gray-50 p-3">
-                                    <p className="text-xs font-semibold text-gray-700 mb-2">
-                                        Chọn file để đính kèm (hoặc bỏ trống để chọn tất cả):
+                                    <p className="text-sm text-gray-900 font-medium mb-1 line-clamp-2">
+                                        {evidence.name}
                                     </p>
-                                    <div className="space-y-1 mb-3">
-                                        {evidence.files.map(file => (
-                                            <label key={file._id} className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={(selectedFiles[evidence._id] || []).includes(file._id)}
-                                                    onChange={() => toggleFileSelection(evidence._id, file._id)}
-                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                                                />
-                                                <File className="h-4 w-4 text-gray-400 mr-2" />
-                                                <span className="text-sm text-gray-700">{file.originalName}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={() => handleSelectEvidence(evidence)}
-                                        className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-medium"
-                                    >
-                                        Xác nhận chọn
-                                    </button>
+                                    {evidence.description && (
+                                        <p className="text-xs text-gray-600 line-clamp-1">
+                                            {evidence.description}
+                                        </p>
+                                    )}
+                                    {evidence.files && evidence.files.length > 0 && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            📎 {evidence.files.length} file(s)
+                                        </p>
+                                    )}
                                 </div>
-                            )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onSelect(evidence.code)
+                                    }}
+                                    className="ml-2 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                                    title="Chèn vào báo cáo"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    Chèn
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
             )}
 
+            {/* Info */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
                 <p className="font-medium mb-1">💡 Hướng dẫn:</p>
                 <ul className="list-disc list-inside space-y-0.5 text-blue-700">
-                    <li>Click "Chọn" để thêm minh chứng vào báo cáo</li>
-                    <li>Nếu minh chứng có file, bạn có thể chọn file cụ thể hoặc chọn tất cả</li>
-                    <li>Mã minh chứng sẽ tự động chèn vào nội dung báo cáo</li>
+                    <li>Click vào minh chứng để xem chi tiết</li>
+                    <li>Click nút "Chèn" để thêm mã minh chứng vào báo cáo</li>
+                    <li>Mã minh chứng sẽ hiển thị màu xanh trong báo cáo</li>
                 </ul>
             </div>
         </div>

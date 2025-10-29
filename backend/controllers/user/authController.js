@@ -24,34 +24,12 @@ const login = async (req, res) => {
             });
         }
 
-        // Chuẩn bị input
-        const inputEmail = email.toLowerCase().trim();
-
-        // Tìm user bằng 2 cách:
-        // 1. Nếu input là email đầy đủ (có @), tìm trực tiếp
-        // 2. Nếu không tìm thấy, thử lấy username từ @ trước và tìm lại
-        // 3. Nếu input là username (không có @), tìm trực tiếp
-        let user = null;
-
-        if (inputEmail.includes('@')) {
-            // Input là email đầy đủ (vd: locvt@cmc.edu.vn)
-            // Trước tiên tìm với email đầy đủ
-            user = await User.findOne({ email: inputEmail });
-
-            // Nếu không tìm thấy, thử tìm bằng username (phần trước @)
-            // Vì trong hệ thống có thể lưu username dạng "locvt" mà không có @
-            if (!user) {
-                const username = inputEmail.split('@')[0].toLowerCase();
-                user = await User.findOne({ email: username });
-            }
-        } else {
-            // Input là username (không có @), vd: locvt
-            user = await User.findOne({ email: inputEmail });
-        }
+        const username = email.split('@')[0].toLowerCase().trim();
+        const user = await User.findOne({ email: username });
 
         if (!user) {
             await ActivityLog.logUserAction(null, 'user_login_failed',
-                `Đăng nhập thất bại: Tài khoản ${inputEmail} không tồn tại`, {
+                `Đăng nhập thất bại: Tài khoản ${username} không tồn tại`, {
                     requestInfo: {
                         ipAddress: req.ip,
                         userAgent: req.get('User-Agent'),
@@ -260,30 +238,17 @@ const forgotPassword = async (req, res) => {
             });
         }
 
-        // Chuẩn bị input
-        const inputEmail = email.toLowerCase().trim();
-
-        // Tìm user tương tự như trong login
-        let user = null;
-
-        if (inputEmail.includes('@')) {
-            user = await User.findOne({ email: inputEmail });
-            if (!user) {
-                const username = inputEmail.split('@')[0].toLowerCase();
-                user = await User.findOne({ email: username });
-            }
-        } else {
-            user = await User.findOne({ email: inputEmail });
-        }
+        const username = email.split('@')[0].toLowerCase().trim();
+        const user = await User.findOne({ email: username });
 
         if (!user) {
             await ActivityLog.logUserAction(null, 'user_password_reset_request',
-                `Yêu cầu reset password thất bại: Email ${inputEmail} không tồn tại`, {
+                `Yêu cầu reset password thất bại: Email ${username} không tồn tại`, {
                     requestInfo: {
                         ipAddress: req.ip,
                         userAgent: req.get('User-Agent')
                     },
-                    metadata: { email: inputEmail }
+                    metadata: { email: username }
                 });
 
             return res.status(404).json({

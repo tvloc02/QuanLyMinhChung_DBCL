@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
     FileText, Clock, CheckCircle, Target, ClipboardCheck,
-    Plus, UserCheck, BarChart3, Download, ArrowRight, Loader2, ListTodo
+    Plus, UserCheck, BarChart3, Download, ArrowRight, Loader2
 } from 'lucide-react';
 import { StatCard, QuickAction, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
@@ -27,10 +27,11 @@ const ManagerDashboard = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch manager stats (dashboardController.js)
-            const statsResponse = await fetch('/api/dashboard/manager/stats', { headers });
+            // Fetch manager stats
+            const statsResponse = await fetch('/api/dashboard/manager/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (statsResponse.ok) {
                 const result = await statsResponse.json();
@@ -39,8 +40,10 @@ const ManagerDashboard = () => {
                 }
             }
 
-            // Fetch pending reports (reportController.js) - Báo cáo do tôi tạo đang ở trạng thái nháp/chờ xử lý
-            const reportsResponse = await fetch('/api/reports?status=draft&limit=5&sortBy=updatedAt', { headers });
+            // Fetch pending reports
+            const reportsResponse = await fetch('/api/reports?status=pending&limit=5', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (reportsResponse.ok) {
                 const result = await reportsResponse.json();
@@ -49,8 +52,10 @@ const ManagerDashboard = () => {
                 }
             }
 
-            // Fetch recent assignments (assignmentController.js) - Phân công tôi tạo
-            const assignmentsResponse = await fetch('/api/assignments?assignedBy=me&limit=5&sortOrder=desc', { headers });
+            // Fetch recent assignments
+            const assignmentsResponse = await fetch('/api/assignments?limit=5&sortOrder=desc', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (assignmentsResponse.ok) {
                 const result = await assignmentsResponse.json();
@@ -69,20 +74,17 @@ const ManagerDashboard = () => {
 
     const getStatusBadge = (status) => {
         const statusConfig = {
-            pending: { label: 'Chờ nhận', color: 'bg-yellow-100 text-yellow-800' },
-            accepted: { label: 'Đã nhận', color: 'bg-indigo-100 text-indigo-800' },
-            in_progress: { label: 'Đang làm', color: 'bg-blue-100 text-blue-800' },
-            submitted: { label: 'Đã nộp', color: 'bg-teal-100 text-teal-800' },
+            pending: { label: 'Chờ xử lý', color: 'bg-yellow-100 text-yellow-800' },
+            in_progress: { label: 'Đang xử lý', color: 'bg-blue-100 text-blue-800' },
             completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800' },
-            rejected: { label: 'Từ chối', color: 'bg-red-100 text-red-800' },
-            cancelled: { label: 'Đã hủy', color: 'bg-gray-100 text-gray-800' }
+            rejected: { label: 'Từ chối', color: 'bg-red-100 text-red-800' }
         };
 
         const config = statusConfig[status] || statusConfig.pending;
         return (
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}>
-                {config.label}
-            </span>
+        {config.label}
+      </span>
         );
     };
 
@@ -109,28 +111,28 @@ const ManagerDashboard = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Tổng báo cáo (Tôi tạo)"
+                    title="Tổng báo cáo"
                     value={stats.totalReports}
                     icon={FileText}
                     color="bg-blue-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Chờ chuyên gia nhận"
+                    title="Chờ đánh giá"
                     value={stats.pendingEvaluations}
                     icon={Clock}
                     color="bg-yellow-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Báo cáo hoàn thành"
+                    title="Đã hoàn thành"
                     value={stats.completedReports}
                     icon={CheckCircle}
                     color="bg-green-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Tổng phân công"
+                    title="Phân công của tôi"
                     value={stats.myAssignments}
                     icon={Target}
                     color="bg-purple-500"
@@ -157,11 +159,11 @@ const ManagerDashboard = () => {
                         href="/assignments/create"
                     />
                     <QuickAction
-                        title="Quản lý Phân công"
-                        description="Theo dõi toàn bộ phân công"
-                        icon={ListTodo}
+                        title="Theo dõi tiến độ"
+                        description="Xem tiến độ đánh giá"
+                        icon={BarChart3}
                         color="bg-purple-500"
-                        href="/assignments"
+                        href="/reports/progress"
                     />
                     <QuickAction
                         title="Xuất báo cáo"
@@ -175,12 +177,12 @@ const ManagerDashboard = () => {
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Pending Reports (Draft/Waiting for Input) */}
+                {/* Pending Reports */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Báo cáo đang nháp</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Báo cáo cần xử lý</h3>
                         <button
-                            onClick={() => router.push('/reports?status=draft')}
+                            onClick={() => router.push('/reports?status=pending')}
                             className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                         >
                             Xem tất cả
@@ -215,8 +217,8 @@ const ManagerDashboard = () => {
                     ) : (
                         <EmptyState
                             icon={FileText}
-                            title="Không có báo cáo nháp"
-                            description="Hãy tạo báo cáo mới hoặc xuất bản báo cáo hiện tại"
+                            title="Không có báo cáo chờ xử lý"
+                            description="Tất cả báo cáo đã được xử lý"
                         />
                     )}
                 </div>
@@ -240,14 +242,13 @@ const ManagerDashboard = () => {
                             {recentAssignments.map((assignment) => (
                                 <div
                                     key={assignment._id}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    onClick={() => router.push(`/assignments/${assignment._id}`)}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                                 >
                                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                                         <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                                            <span className="text-white text-xs font-bold">
-                                                {assignment.expertId?.fullName?.substring(0, 2).toUpperCase() || 'CV'}
-                                            </span>
+                      <span className="text-white text-xs font-bold">
+                        {assignment.expertId?.fullName?.substring(0, 2).toUpperCase() || 'CV'}
+                      </span>
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium text-gray-900 truncate">

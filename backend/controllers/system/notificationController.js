@@ -420,7 +420,6 @@ const sendEvaluationNotification = async (req, res) => {
     try {
         const { evaluationId, type, recipientId } = req.body;
 
-        // Chỉ kiểm tra các loại thông báo cũ, không bao gồm các loại mới (supervised, finalized, reevaluated)
         if (!['evaluation_submitted', 'evaluation_reviewed'].includes(type)) {
             return res.status(400).json({
                 success: false,

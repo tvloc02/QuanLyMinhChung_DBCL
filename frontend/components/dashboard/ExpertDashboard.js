@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
     Target, CheckCircle, Clock, Star, Award, ClipboardCheck,
-    Edit, Activity, BookOpen, AlertCircle, Calendar, ListTodo
+    Edit, Activity, BookOpen, AlertCircle, Calendar
 } from 'lucide-react';
 import { StatCard, QuickAction, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
@@ -16,7 +16,7 @@ const ExpertDashboard = () => {
         avgScore: 0
     });
     const [urgentTasks, setUrgentTasks] = useState([]);
-    const [assignmentStats, setAssignmentStats] = useState({
+    const [evaluationStats, setEvaluationStats] = useState({
         completionRate: 0,
         onTimeRate: 0
     });
@@ -30,10 +30,11 @@ const ExpertDashboard = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
 
-            // Fetch expert stats (dashboardController.js)
-            const statsResponse = await fetch('/api/dashboard/expert/stats', { headers });
+            // Fetch expert stats
+            const statsResponse = await fetch('/api/dashboard/expert/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (statsResponse.ok) {
                 const result = await statsResponse.json();
@@ -42,8 +43,10 @@ const ExpertDashboard = () => {
                 }
             }
 
-            // Fetch urgent/upcoming tasks (assignmentController.js)
-            const upcomingResponse = await fetch('/api/assignments/upcoming-deadlines?days=7', { headers });
+            // Fetch urgent/upcoming tasks
+            const upcomingResponse = await fetch('/api/assignments/upcoming-deadlines?days=7', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (upcomingResponse.ok) {
                 const result = await upcomingResponse.json();
@@ -52,19 +55,17 @@ const ExpertDashboard = () => {
                 }
             }
 
-            // Fetch assignment statistics (assignmentController.js)
-            const assignmentStatsResponse = await fetch('/api/assignments/stats', { headers });
+            // Fetch evaluation statistics
+            const evalStatsResponse = await fetch('/api/evaluations/my-stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-            if (assignmentStatsResponse.ok) {
-                const result = await assignmentStatsResponse.json();
+            if (evalStatsResponse.ok) {
+                const result = await evalStatsResponse.json();
                 if (result.success) {
-                    const totalAssignments = result.data.totalAssignments || 1;
-                    const completed = result.data.completedAssignments || 0;
-                    const onTime = result.data.onTimeCompletedAssignments || 0;
-
-                    setAssignmentStats({
-                        completionRate: totalAssignments > 0 ? ((completed / totalAssignments) * 100).toFixed(1) : 0,
-                        onTimeRate: completed > 0 ? ((onTime / completed) * 100).toFixed(1) : 0
+                    setEvaluationStats({
+                        completionRate: result.data.completionRate || 0,
+                        onTimeRate: result.data.onTimeRate || 0
                     });
                 }
             }
@@ -88,9 +89,9 @@ const ExpertDashboard = () => {
 
     const getPriorityColor = (priority) => {
         switch(priority) {
-            case 'urgent': return 'border-red-400 bg-red-50';
-            case 'high': return 'border-orange-400 bg-orange-50';
-            default: return 'border-yellow-400 bg-yellow-50';
+            case 'urgent': return 'border-red-200 bg-red-50';
+            case 'high': return 'border-orange-200 bg-orange-50';
+            default: return 'border-yellow-200 bg-yellow-50';
         }
     };
 
@@ -117,21 +118,21 @@ const ExpertDashboard = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Phân công mới/đang làm"
+                    title="Phân công hiện tại"
                     value={stats.myAssignments}
-                    icon={ListTodo}
+                    icon={Target}
                     color="bg-blue-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Đánh giá đã hoàn thành"
+                    title="Đã hoàn thành"
                     value={stats.completed}
                     icon={CheckCircle}
                     color="bg-green-500"
                     loading={loading}
                 />
                 <StatCard
-                    title="Đánh giá đang nháp"
+                    title="Đang xử lý"
                     value={stats.pending}
                     icon={Clock}
                     color="bg-yellow-500"
@@ -155,11 +156,11 @@ const ExpertDashboard = () => {
                         description="Xem các nhiệm vụ được giao"
                         icon={ClipboardCheck}
                         color="bg-blue-500"
-                        href="/assignments?expertId=me"
+                        href="/my-assignments"
                     />
                     <QuickAction
-                        title="Tạo đánh giá nháp"
-                        description="Khởi tạo đánh giá cho phân công"
+                        title="Bắt đầu đánh giá"
+                        description="Đánh giá báo cáo mới"
                         icon={Edit}
                         color="bg-green-500"
                         href="/evaluations/create"
@@ -169,7 +170,7 @@ const ExpertDashboard = () => {
                         description="Xem các đánh giá đã thực hiện"
                         icon={Activity}
                         color="bg-purple-500"
-                        href="/evaluations?evaluatorId=me"
+                        href="/my-evaluations"
                     />
                     <QuickAction
                         title="Hướng dẫn"
@@ -186,13 +187,10 @@ const ExpertDashboard = () => {
                 {/* Urgent Tasks */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Nhiệm vụ sắp đến hạn (7 ngày)</h3>
-                        <button
-                            onClick={() => router.push('/assignments?status=pending')}
-                            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                        >
-                            Xem tất cả
-                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900">Nhiệm vụ sắp đến hạn</h3>
+                        <span className="text-sm px-3 py-1 bg-red-100 text-red-800 rounded-full font-medium">
+              Ưu tiên
+            </span>
                     </div>
 
                     {loading ? (
@@ -210,7 +208,7 @@ const ExpertDashboard = () => {
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-semibold text-gray-900 mb-1 truncate">
-                                                    {task.reportId?.title || 'Báo cáo không có tiêu đề'}
+                                                    {task.reportId?.title || 'Báo cáo'}
                                                 </p>
                                                 <p className="text-sm text-gray-600 mb-2">
                                                     Mã: {task.reportId?.code}
@@ -219,12 +217,12 @@ const ExpertDashboard = () => {
                                                     <Clock className="w-3 h-3 mr-1" />
                                                     {daysRemaining !== null && (
                                                         <span>
-                                                            {daysRemaining > 0
-                                                                ? `Còn ${daysRemaining} ngày`
-                                                                : daysRemaining === 0
-                                                                    ? 'Hết hạn hôm nay'
-                                                                    : `Quá hạn ${Math.abs(daysRemaining)} ngày`}
-                                                        </span>
+                              {daysRemaining > 0
+                                  ? `Còn ${daysRemaining} ngày`
+                                  : daysRemaining === 0
+                                      ? 'Hết hạn hôm nay'
+                                      : `Quá hạn ${Math.abs(daysRemaining)} ngày`}
+                            </span>
                                                     )}
                                                 </div>
                                             </div>
@@ -240,14 +238,14 @@ const ExpertDashboard = () => {
                         <EmptyState
                             icon={CheckCircle}
                             title="Không có nhiệm vụ khẩn cấp"
-                            description="Tất cả nhiệm vụ đều trong tầm kiểm soát (7 ngày tới)"
+                            description="Tất cả nhiệm vụ đều trong tầm kiểm soát"
                         />
                     )}
                 </div>
 
-                {/* Assignment Statistics */}
+                {/* Evaluation Statistics */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Hiệu suất phân công</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê đánh giá</h3>
 
                     {loading ? (
                         <div className="space-y-4">
@@ -266,28 +264,28 @@ const ExpertDashboard = () => {
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm font-medium text-gray-700">Tỷ lệ hoàn thành</span>
                                     <span className="text-2xl font-bold text-green-600">
-                                        {assignmentStats.completionRate}%
-                                    </span>
+                    {evaluationStats.completionRate}%
+                  </span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
                                     <div
                                         className="bg-green-600 h-2 rounded-full transition-all duration-500"
-                                        style={{ width: `${assignmentStats.completionRate}%` }}
+                                        style={{ width: `${evaluationStats.completionRate}%` }}
                                     ></div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-blue-50 rounded-lg text-center">
-                                    <p className="text-sm text-gray-600 mb-1">Hoàn thành đúng hạn</p>
+                                    <p className="text-sm text-gray-600 mb-1">Đúng hạn</p>
                                     <p className="text-2xl font-bold text-blue-600">
-                                        {assignmentStats.onTimeRate}%
+                                        {evaluationStats.onTimeRate}%
                                     </p>
                                 </div>
                                 <div className="p-4 bg-purple-50 rounded-lg text-center">
-                                    <p className="text-sm text-gray-600 mb-1">Quá hạn (trong 7 ngày)</p>
+                                    <p className="text-sm text-gray-600 mb-1">Điểm TB</p>
                                     <p className="text-2xl font-bold text-purple-600">
-                                        {urgentTasks.filter(t => getDaysRemaining(t.deadline) < 0).length}
+                                        {stats.avgScore}
                                     </p>
                                 </div>
                             </div>
