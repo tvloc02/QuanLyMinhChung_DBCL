@@ -166,8 +166,7 @@ const createAcademicYear = async (req, res) => {
             endYear,
             startDate,
             endDate,
-            isCurrent,
-            copySettings
+            isCurrent
         } = req.body;
 
         const code = `${startYear}-${endYear}`;
@@ -188,7 +187,6 @@ const createAcademicYear = async (req, res) => {
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             isCurrent: isCurrent || false,
-            copySettings: copySettings || {},
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -379,68 +377,6 @@ const setCurrentAcademicYear = async (req, res) => {
     }
 };
 
-const copyDataFromYear = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { sourceYearId, copySettings } = req.body;
-
-        if (!sourceYearId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu năm học nguồn'
-            });
-        }
-
-        if (sourceYearId === id) {
-            return res.status(400).json({
-                success: false,
-                message: 'Không thể sao chép từ chính năm học này'
-            });
-        }
-
-        const [targetYear, sourceYear] = await Promise.all([
-            AcademicYear.findById(id),
-            AcademicYear.findById(sourceYearId)
-        ]);
-
-        if (!targetYear || !sourceYear) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy năm học'
-            });
-        }
-
-        const results = await targetYear.copyDataFrom(sourceYearId, copySettings, req.user.id);
-
-        res.json({
-            success: true,
-            message: 'Sao chép dữ liệu thành công',
-            data: {
-                results,
-                sourceYear: {
-                    name: sourceYear.name,
-                    code: sourceYear.code
-                },
-                targetYear: {
-                    name: targetYear.name,
-                    code: targetYear.code
-                }
-            }
-        });
-
-    } catch (error) {
-        console.error('Copy data from year error:', error);
-        await ActivityLog.logError(req.user?.id, 'academic_year_copy', error, {
-            targetId: req.params.id,
-            metadata: req.body
-        });
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi sao chép dữ liệu'
-        });
-    }
-};
-
 const getAcademicYearStatistics = async (req, res) => {
     try {
         const { id } = req.params;
@@ -509,32 +445,6 @@ const getAcademicYearStatistics = async (req, res) => {
     }
 };
 
-const getAvailableYearsForCopy = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const availableYears = await AcademicYear.find({
-            _id: { $ne: id },
-            status: { $in: ['active', 'completed'] }
-        })
-            .select('name code startYear endYear status')
-            .sort({ startYear: -1 });
-
-        res.json({
-            success: true,
-            data: availableYears
-        });
-
-    } catch (error) {
-        console.error('Get available years for copy error:', error);
-        await ActivityLog.logError(req.user?.id, 'academic_year_copy_list', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách năm học'
-        });
-    }
-};
-
 module.exports = {
     getAcademicYears,
     getAllAcademicYears,
@@ -544,7 +454,5 @@ module.exports = {
     updateAcademicYear,
     deleteAcademicYear,
     setCurrentAcademicYear,
-    copyDataFromYear,
-    getAcademicYearStatistics,
-    getAvailableYearsForCopy
+    getAcademicYearStatistics
 };

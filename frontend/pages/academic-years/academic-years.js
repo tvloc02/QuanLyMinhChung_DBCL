@@ -5,7 +5,7 @@ import Layout from '../../components/common/Layout'
 import { ActionButton } from '../../components/ActionButtons'
 import toast from 'react-hot-toast'
 import {
-    Plus, Search, Edit3, Trash2, Copy, Calendar, CheckCircle, Eye, RefreshCw, X, Loader2
+    Plus, Search, Edit3, Trash2, Calendar, CheckCircle, Eye, RefreshCw, X, Loader2
 } from 'lucide-react'
 
 const AcademicYearsPage = () => {
@@ -392,13 +392,6 @@ const AcademicYearsPage = () => {
                                                         variant="edit"
                                                         size="sm"
                                                         onClick={() => router.push(`/academic-years/edit/${year._id}`)}
-                                                    />
-
-                                                    <ActionButton
-                                                        icon={Copy}
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        onClick={() => router.push(`/academic-years/copy?source=${year._id}`)}
                                                     />
 
                                                     <ActionButton

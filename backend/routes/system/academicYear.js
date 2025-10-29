@@ -12,9 +12,7 @@ const {
     updateAcademicYear,
     deleteAcademicYear,
     setCurrentAcademicYear,
-    copyDataFromYear,
-    getAcademicYearStatistics,
-    getAvailableYearsForCopy
+    getAcademicYearStatistics
 } = require('../../controllers/system/academicYearController');
 
 // Validation rules
@@ -62,11 +60,7 @@ const createAcademicYearValidation = [
     body('isCurrent')
         .optional()
         .isBoolean()
-        .withMessage('isCurrent phải là boolean'),
-    body('copySettings')
-        .optional()
-        .isObject()
-        .withMessage('copySettings phải là object')
+        .withMessage('isCurrent phải là boolean')
 ];
 
 const updateAcademicYearValidation = [
@@ -105,19 +99,6 @@ const updateAcademicYearValidation = [
         .withMessage('isCurrent phải là boolean')
 ];
 
-const copyDataValidation = [
-    param('id').isMongoId().withMessage('ID năm học không hợp lệ'),
-    body('sourceYearId')
-        .notEmpty()
-        .withMessage('Năm học nguồn là bắt buộc')
-        .isMongoId()
-        .withMessage('ID năm học nguồn không hợp lệ'),
-    body('copySettings')
-        .optional()
-        .isObject()
-        .withMessage('Cài đặt sao chép phải là object')
-];
-
 router.get('/current', getCurrentAcademicYear);
 
 router.get('/statistics/:id',
@@ -128,16 +109,6 @@ router.get('/statistics/:id',
     ],
     validation,
     getAcademicYearStatistics
-);
-
-router.get('/:id/available-for-copy',
-    auth,
-    requireManager,
-    [
-        param('id').isMongoId().withMessage('ID năm học không hợp lệ')
-    ],
-    validation,
-    getAvailableYearsForCopy
 );
 
 router.get('/', auth, [
@@ -189,14 +160,6 @@ router.post('/:id/set-current',
     ],
     validation,
     setCurrentAcademicYear
-);
-
-router.post('/:id/copy-data',
-    auth,
-    requireManager,
-    copyDataValidation,
-    validation,
-    copyDataFromYear
 );
 
 module.exports = router;

@@ -66,7 +66,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             submenu: [
                 { name: 'Danh sách năm học', icon: Calendar, path: '/academic-years/academic-years' },
                 { name: 'Tạo năm học mới', icon: UserPlus, path: '/academic-years/create' },
-                { name: 'Sao chép năm học', icon: Archive, path: '/academic-years/copy' },
             ]
         },
         {
@@ -129,9 +128,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
                 { name: 'Danh sách người dùng', icon: Users, path: '/users/users' },
                 { name: 'Thêm người dùng', icon: UserPlus, path: '/users/create' },
                 { name: 'Chuyên gia đánh giá', icon: User, path: '/users/experts' },
-                { name: 'Cán bộ quản lý', icon: UserCheck, path: '/users/managers' },
-                { name: 'Nhóm người dùng', icon: Users, path: '/admin/user-groups' },
-                { name: 'Phân quyền', icon: Shield, path: '/admin/permissions' }
             ]
         },
         {

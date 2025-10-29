@@ -27,6 +27,7 @@ export default function CreateReportPage() {
     const [organizations, setOrganizations] = useState([])
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
+    const [isFromTask, setIsFromTask] = useState(false)
 
     const [formData, setFormData] = useState({
         title: '',
@@ -52,46 +53,22 @@ export default function CreateReportPage() {
         { name: 'Tạo báo cáo mới', icon: Plus }
     ]
 
+    // Xử lý query params từ task
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
-        } else if (user) {
+        } else if (user && router.isReady) {
             fetchInitialData()
-        }
-    }, [user, isLoading, router])
 
-    useEffect(() => {
-        if (formData.programId && formData.organizationId) {
-            fetchStandards()
-        } else {
-            setStandards([])
-            setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
-        }
-    }, [formData.programId, formData.organizationId])
-
-    useEffect(() => {
-        if (formData.standardId) {
-            fetchCriteria()
-        } else {
-            setCriteria([])
-            setFormData(prev => ({ ...prev, criteriaId: '' }))
-        }
-    }, [formData.standardId])
-
-    useEffect(() => {
-        const handleEvidenceClick = (e) => {
-            if (e.target.classList.contains('evidence-code')) {
-                const code = e.target.getAttribute('data-code')
-                if (code) {
-                    setSelectedEvidenceCode(code)
-                    setShowEvidenceViewer(true)
-                }
+            // Nếu có criteriaId từ URL, tức là từ task
+            if (router.query.criteriaId) {
+                setIsFromTask(true)
+                preloadTaskData()
             }
         }
-        document.addEventListener('click', handleEvidenceClick)
-        return () => document.removeEventListener('click', handleEvidenceClick)
-    }, [])
+    }, [user, isLoading, router.isReady])
 
+    // Fetch dữ liệu ban đầu
     const fetchInitialData = async () => {
         try {
             setLoading(true)
@@ -108,6 +85,91 @@ export default function CreateReportPage() {
             setLoading(false)
         }
     }
+
+    // Pre-load dữ liệu từ task
+    const preloadTaskData = async () => {
+        try {
+            const criteriaId = router.query.criteriaId
+            const standardId = router.query.standardId
+
+            // Fetch criteria để lấy programId và organizationId
+            const criteriaRes = await apiMethods.criteria.getById(criteriaId)
+            const criteriaData = criteriaRes.data.data
+
+            // Set programId, organizationId dựa vào criteria
+            const programId = criteriaData.programId?._id || criteriaData.programId
+            const organizationId = criteriaData.organizationId?._id || criteriaData.organizationId
+
+            // Update form data với toàn bộ thông tin từ task
+            setFormData(prev => ({
+                ...prev,
+                criteriaId,
+                standardId,
+                programId,
+                organizationId,
+                type: 'criteria_analysis'
+            }))
+
+            // Fetch standards
+            if (programId && organizationId) {
+                const standardsRes = await apiMethods.standards.getAll({
+                    programId,
+                    organizationId,
+                    status: 'active'
+                })
+                setStandards(standardsRes.data.data.standards || standardsRes.data.data || [])
+            }
+
+            // Fetch criteria
+            if (standardId) {
+                const criteriasRes = await apiMethods.criteria.getAll({
+                    standardId,
+                    status: 'active'
+                })
+                let criteriaData = []
+                if (criteriasRes.data.data) {
+                    if (Array.isArray(criteriasRes.data.data.criterias)) {
+                        criteriaData = criteriasRes.data.data.criterias
+                    } else if (Array.isArray(criteriasRes.data.data.criteria)) {
+                        criteriaData = criteriasRes.data.data.criteria
+                    } else if (Array.isArray(criteriasRes.data.data)) {
+                        criteriaData = criteriasRes.data.data
+                    }
+                }
+                setCriteria(criteriaData)
+            }
+        } catch (error) {
+            console.error('Preload task data error:', error)
+            console.log('Query params:', router.query)
+            setMessage({ type: 'error', text: 'Lỗi tải dữ liệu từ nhiệm vụ' })
+        }
+    }
+
+    useEffect(() => {
+        if (formData.programId && formData.organizationId) {
+            fetchStandards()
+        }
+    }, [formData.programId, formData.organizationId])
+
+    useEffect(() => {
+        if (formData.standardId) {
+            fetchCriteria()
+        }
+    }, [formData.standardId])
+
+    useEffect(() => {
+        const handleEvidenceClick = (e) => {
+            if (e.target.classList.contains('evidence-code')) {
+                const code = e.target.getAttribute('data-code')
+                if (code) {
+                    setSelectedEvidenceCode(code)
+                    setShowEvidenceViewer(true)
+                }
+            }
+        }
+        document.addEventListener('click', handleEvidenceClick)
+        return () => document.removeEventListener('click', handleEvidenceClick)
+    }, [])
 
     const fetchStandards = async () => {
         if (!formData.programId || !formData.organizationId) return
@@ -172,19 +234,15 @@ export default function CreateReportPage() {
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        console.log('=== SUBMIT FORM START ===');
-        console.log('Form data:', formData);
-        console.log('Selected file:', selectedFile);
+        e.preventDefault()
 
         if (!validateForm()) {
-            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' });
-            return;
+            setMessage({ type: 'error', text: 'Vui lòng điền đầy đủ thông tin' })
+            return
         }
 
         try {
-            setSubmitting(true);
+            setSubmitting(true)
             const submitData = {
                 title: formData.title,
                 type: formData.type,
@@ -193,64 +251,54 @@ export default function CreateReportPage() {
                 contentMethod: formData.contentMethod,
                 summary: formData.summary,
                 keywords: formData.keywords
-            };
+            }
 
             if (formData.type !== 'comprehensive_report') {
-                submitData.standardId = formData.standardId;
+                submitData.standardId = formData.standardId
             }
             if (formData.type === 'criteria_analysis') {
-                submitData.criteriaId = formData.criteriaId;
+                submitData.criteriaId = formData.criteriaId
             }
             if (formData.contentMethod === 'online_editor') {
-                submitData.content = formData.content;
+                submitData.content = formData.content
             } else {
-                submitData.content = '';
+                submitData.content = ''
             }
 
-            console.log('Submitting data:', submitData);
-
-            const response = await reportService.createReport(submitData);
-            console.log('Create response:', response);
+            const response = await reportService.createReport(submitData)
 
             if (response.success) {
-                const reportId = response.data._id;
+                const reportId = response.data._id
 
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
-                        console.log('Uploading file...');
-                        await reportService.uploadFile(reportId, selectedFile);
-                        console.log('File uploaded successfully');
-                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' });
+                        await reportService.uploadFile(reportId, selectedFile)
+                        setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' })
                     } catch (uploadError) {
-                        console.error('Upload error:', uploadError);
-                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' });
+                        console.error('Upload error:', uploadError)
+                        setMessage({ type: 'success', text: 'Báo cáo đã được tạo nhưng có lỗi khi upload file' })
                     }
                 } else {
-                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' });
+                    setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
                 }
 
                 setTimeout(() => {
-                    router.push(`/reports/reports`);
-                }, 1500);
+                    router.push(`/reports/reports`)
+                }, 1500)
             }
         } catch (error) {
-            console.error('=== SUBMIT ERROR ===');
-            console.error('Error:', error);
-            console.error('Error response:', error.response);
-
-            let errorMessage = 'Lỗi tạo báo cáo';
-
+            console.error('Submit error:', error)
+            let errorMessage = 'Lỗi tạo báo cáo'
             if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
+                errorMessage = error.response.data.message
             } else if (error.message) {
-                errorMessage = error.message;
+                errorMessage = error.message
             }
-
-            setMessage({ type: 'error', text: errorMessage });
+            setMessage({ type: 'error', text: errorMessage })
         } finally {
-            setSubmitting(false);
+            setSubmitting(false)
         }
-    };
+    }
 
     const handleAddKeyword = () => {
         if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
@@ -371,8 +419,12 @@ export default function CreateReportPage() {
                                     <FileText className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-bold mb-1">Tạo báo cáo mới</h1>
-                                    <p className="text-indigo-100">Tạo báo cáo phân tích tiêu chuẩn/tiêu chí</p>
+                                    <h1 className="text-3xl font-bold mb-1">
+                                        {isFromTask ? 'Viết báo cáo tiêu chí' : 'Tạo báo cáo mới'}
+                                    </h1>
+                                    <p className="text-indigo-100">
+                                        {isFromTask ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí'}
+                                    </p>
                                 </div>
                             </div>
                             <button
@@ -473,6 +525,11 @@ export default function CreateReportPage() {
                                         {formErrors.programId && (
                                             <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>
                                         )}
+                                        {isFromTask && formData.programId && (
+                                            <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                                                ✓ Được tự động chọn từ tiêu chí
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Tổ chức */}
@@ -497,6 +554,11 @@ export default function CreateReportPage() {
                                         </select>
                                         {formErrors.organizationId && (
                                             <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>
+                                        )}
+                                        {isFromTask && formData.organizationId && (
+                                            <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                                                ✓ Được tự động chọn từ tiêu chí
+                                            </p>
                                         )}
                                     </div>
 
@@ -528,6 +590,11 @@ export default function CreateReportPage() {
                                             {formErrors.standardId && (
                                                 <p className="mt-1 text-sm text-red-600">{formErrors.standardId}</p>
                                             )}
+                                            {isFromTask && formData.standardId && (
+                                                <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                                                    ✓ Được tự động chọn từ nhiệm vụ
+                                                </p>
+                                            )}
                                         </div>
                                     )}
 
@@ -555,6 +622,11 @@ export default function CreateReportPage() {
                                             </select>
                                             {formErrors.criteriaId && (
                                                 <p className="mt-1 text-sm text-red-600">{formErrors.criteriaId}</p>
+                                            )}
+                                            {isFromTask && formData.criteriaId && (
+                                                <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                                                    ✓ Được tự động chọn từ nhiệm vụ
+                                                </p>
                                             )}
                                         </div>
                                     )}
@@ -748,12 +820,11 @@ export default function CreateReportPage() {
                     <div className="w-96 flex-shrink-0">
                         <div className="sticky top-6">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                {/* TRUYỀN ID CHÍNH XÁC VÀO EVIDENCE PICKER */}
                                 <EvidencePicker
                                     standardId={formData.standardId}
                                     criteriaId={formData.criteriaId}
-                                    programId={formData.programId} // Thêm programId
-                                    organizationId={formData.organizationId} // Thêm organizationId
+                                    programId={formData.programId}
+                                    organizationId={formData.organizationId}
                                     onSelect={handleInsertEvidence}
                                     onViewEvidence={(code) => {
                                         setSelectedEvidenceCode(code)

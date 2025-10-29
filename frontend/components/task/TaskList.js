@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2, Eye, RefreshCw, Filter, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { useRouter } from 'next/router'
+import { Plus, Search, Trash2, Edit2, Eye, RefreshCw, Filter, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
@@ -8,15 +9,20 @@ import TaskDetail from './TaskDetail'
 import { ActionButton } from '../ActionButtons'
 
 export default function TaskList() {
+    const router = useRouter()
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
     const [search, setSearch] = useState('')
     const [status, setStatus] = useState('')
+    const [standardId, setStandardId] = useState('')
+    const [criteriaId, setCriteriaId] = useState('')
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [showTaskDetail, setShowTaskDetail] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
     const [userRole, setUserRole] = useState('')
+    const [standards, setStandards] = useState([])
+    const [criterias, setCriterias] = useState([])
 
     useEffect(() => {
         const role = localStorage.getItem('userRole') || ''
@@ -25,7 +31,25 @@ export default function TaskList() {
 
     useEffect(() => {
         loadTasks()
-    }, [pagination.current, search, status])
+    }, [pagination.current, search, status, standardId, criteriaId])
+
+    useEffect(() => {
+        fetchStandardsAndCriteria()
+    }, [])
+
+    const fetchStandardsAndCriteria = async () => {
+        try {
+            const [standardsRes, criteriasRes] = await Promise.all([
+                apiMethods.standards.getAll({ limit: 100 }),
+                apiMethods.criteria.getAll({ limit: 100 })
+            ])
+            setStandards(standardsRes.data.data.standards || standardsRes.data.data || [])
+            const criteriaData = criteriasRes.data.data.criterias || criteriasRes.data.data || []
+            setCriterias(Array.isArray(criteriaData) ? criteriaData : [])
+        } catch (error) {
+            console.error('Fetch standards/criteria error:', error)
+        }
+    }
 
     const loadTasks = async () => {
         try {
@@ -39,6 +63,8 @@ export default function TaskList() {
 
             if (search) params.search = search
             if (status) params.status = status
+            if (standardId) params.standardId = standardId
+            if (criteriaId) params.criteriaId = criteriaId
 
             const response = await apiMethods.tasks.getAll(params)
 
@@ -65,6 +91,31 @@ export default function TaskList() {
         }
     }
 
+    const handleWriteReport = (task) => {
+        // Chuyển hướng đến trang tạo báo cáo với criteriaId cố định
+        router.push({
+            pathname: '/reports/create',
+            query: {
+                criteriaId: task.criteriaId?._id || task.criteriaId,
+                standardId: task.standardId?._id || task.standardId,
+                taskId: task._id
+            }
+        })
+    }
+
+    // Hàm trả về icon cho trạng thái (đã được di chuyển vào getStatusLabel)
+    const getStatusIconComponent = (status) => {
+        const icons = {
+            pending: <Clock className="w-4 h-4 mr-2" />,
+            in_progress: <Clock className="w-4 h-4 mr-2" />,
+            submitted: <CheckCircle className="w-4 h-4 mr-2" />,
+            approved: <CheckCircle className="w-4 h-4 mr-2" />,
+            rejected: <AlertCircle className="w-4 h-4 mr-2" />,
+            completed: <CheckCircle className="w-4 h-4 mr-2" />
+        }
+        return icons[status] || null
+    }
+
     const getStatusLabel = (status) => {
         const statuses = {
             pending: 'Chờ xử lý',
@@ -74,7 +125,17 @@ export default function TaskList() {
             rejected: 'Bị từ chối',
             completed: 'Hoàn thành'
         }
-        return statuses[status] || status
+        return (
+            <div className={`
+                flex items-center justify-center 
+                px-3 py-1.5 text-xs font-bold rounded-lg border 
+                ${getStatusColor(status)}
+                whitespace-nowrap
+            `}>
+                {getStatusIconComponent(status)}
+                {statuses[status] || status}
+            </div>
+        )
     }
 
     const getStatusColor = (status) => {
@@ -89,17 +150,8 @@ export default function TaskList() {
         return colors[status] || 'bg-gray-100 text-gray-700'
     }
 
-    const getStatusIcon = (status) => {
-        const icons = {
-            pending: <Clock className="w-4 h-4" />,
-            submitted: <CheckCircle className="w-4 h-4" />,
-            approved: <CheckCircle className="w-4 h-4" />,
-            rejected: <AlertCircle className="w-4 h-4" />
-        }
-        return icons[status] || null
-    }
-
     const canManage = userRole === 'admin' || userRole === 'manager'
+    const isReporter = userRole === 'reporter'
 
     return (
         <div className="space-y-6 p-6">
@@ -134,7 +186,7 @@ export default function TaskList() {
                     <Filter className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -160,9 +212,48 @@ export default function TaskList() {
                         <option value="completed">Hoàn thành</option>
                     </select>
 
+                    <select
+                        value={standardId}
+                        onChange={(e) => setStandardId(e.target.value)}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                        <option value="">Tất cả tiêu chuẩn</option>
+                        {standards.map(std => (
+                            <option key={std._id} value={std._id}>
+                                {std.code} - {std.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={criteriaId}
+                        onChange={(e) => setCriteriaId(e.target.value)}
+                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                        <option value="">Tất cả tiêu chí</option>
+                        {criterias.map(crit => (
+                            <option key={crit._id} value={crit._id}>
+                                {crit.code} - {crit.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={() => {
+                            setSearch('')
+                            setStatus('')
+                            setStandardId('')
+                            setCriteriaId('')
+                        }}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                    >
+                        <RefreshCw size={18} />
+                        Reset
+                    </button>
+
                     <button
                         onClick={loadTasks}
-                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
                         Làm mới
@@ -175,19 +266,20 @@ export default function TaskList() {
                     <table className="w-full border-collapse">
                         <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-20">STT</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-28">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[250px]">Mô tả</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Tiêu chí</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-32">Trạng thái</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-20">Hạn</th>
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-48">Thao tác</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[50px]">STT</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[80px]">Mã</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[180px] max-w-[250px]">Mô tả</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Tiêu chuẩn</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Tiêu chí</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[130px]">Trạng thái</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[90px]">Hạn</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[200px]">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-16 text-center">
+                                <td colSpan="8" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -196,7 +288,7 @@ export default function TaskList() {
                             </tr>
                         ) : tasks.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="px-6 py-16 text-center">
+                                <td colSpan="8" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <CheckCircle className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
@@ -207,35 +299,35 @@ export default function TaskList() {
                         ) : (
                             tasks.map((item, index) => (
                                 <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200">
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200 text-center">
                                         {((pagination.current - 1) * 10) + index + 1}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                                            <span className="px-3 py-1 text-sm font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
+                                            <span className="px-2 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                                 {item.taskCode}
                                             </span>
                                     </td>
                                     <td className="px-6 py-4 border-r border-gray-200">
-                                        <div className="text-sm font-semibold text-gray-900 truncate">{item.description}</div>
+                                        <div className="text-sm font-semibold text-gray-900 line-clamp-2">{item.description}</div>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-gray-200">
+                                    <td className="px-3 py-4 border-r border-gray-200 text-center">
                                         <div className="text-sm text-gray-900">
-                                            <span className="font-bold text-blue-600">{item.criteriaId?.code}</span>
+                                            <span className="font-bold text-purple-600">{item.standardId?.code || '-'}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
-                                        <div className="flex items-center gap-2">
-                                            {getStatusIcon(item.status)}
-                                            <span className={`px-3 py-1.5 text-xs font-bold rounded-lg border ${getStatusColor(item.status)}`}>
-                                                    {getStatusLabel(item.status)}
-                                                </span>
+                                    <td className="px-3 py-4 border-r border-gray-200 text-center">
+                                        <div className="text-sm text-gray-900">
+                                            <span className="font-bold text-blue-600">{item.criteriaId?.code || '-'}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200 text-sm text-gray-600">
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
+                                        {getStatusLabel(item.status)}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-sm text-gray-600 text-center">
                                         {item.dueDate ? formatDate(item.dueDate) : '-'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end gap-2">
+                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                        <div className="flex items-center justify-center gap-2">
                                             <ActionButton
                                                 icon={Eye}
                                                 variant="view"
@@ -246,6 +338,15 @@ export default function TaskList() {
                                                 }}
                                                 title="Xem chi tiết"
                                             />
+                                            {isReporter && (
+                                                <ActionButton
+                                                    icon={FileText} // Dùng FileText cho Viết báo cáo
+                                                    variant="primary" // Dùng variant có sẵn
+                                                    size="sm"
+                                                    onClick={() => handleWriteReport(item)}
+                                                    title="Viết báo cáo"
+                                                />
+                                            )}
                                             {canManage && (
                                                 <>
                                                     <ActionButton

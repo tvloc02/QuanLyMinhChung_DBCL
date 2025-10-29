@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
+const { auth, requireAdmin, requireManager, requireReporter } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
 const { upload } = require('../../middleware/upload');
 
@@ -45,7 +45,7 @@ router.get('/', auth, [
     query('criteriaId').optional().isMongoId()
 ], validation, getReports);
 
-router.post('/', auth, requireManager, [
+router.post('/', auth, requireReporter, [
     body('title').notEmpty().isLength({ max: 500 }),
     body('type').isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
     body('programId').isMongoId(),
@@ -62,11 +62,11 @@ router.get('/:id', auth, [
     param('id').isMongoId()
 ], validation, getReportById);
 
-router.post('/:id/unpublish', auth, requireManager, [
+router.post('/:id/unpublish', auth, requireReporter, [
     param('id').isMongoId()
 ], validation, unpublishReport);
 
-router.put('/:id', auth, requireManager, [
+router.put('/:id', auth, requireReporter, [
     param('id').isMongoId(),
     body('title').optional().isLength({ max: 500 }),
     body('content').optional(),
@@ -75,11 +75,11 @@ router.put('/:id', auth, requireManager, [
     body('contentMethod').optional().isIn(['online_editor', 'file_upload'])
 ], validation, updateReport);
 
-router.delete('/:id', auth, requireManager, [
+router.delete('/:id', auth, requireReporter, [
     param('id').isMongoId()
 ], validation, deleteReport);
 
-router.post('/:id/publish', auth, requireManager, [
+router.post('/:id/publish', auth, requireReporter, [
     param('id').isMongoId()
 ], validation, publishReport);
 
@@ -91,7 +91,7 @@ router.get('/:id/versions', auth, [
     param('id').isMongoId()
 ], validation, getReportVersions);
 
-router.post('/:id/versions', auth, requireManager, [
+router.post('/:id/versions', auth, requireReporter, [
     param('id').isMongoId(),
     body('content').notEmpty(),
     body('changeNote').optional().isLength({ max: 500 })
@@ -107,7 +107,7 @@ router.post('/:id/comments', auth, [
     body('section').optional()
 ], validation, addReportComment);
 
-router.put('/:id/comments/:commentId/resolve', auth, requireManager, [
+router.put('/:id/comments/:commentId/resolve', auth, requireReporter, [
     param('id').isMongoId(),
     param('commentId').isMongoId()
 ], validation, resolveReportComment);
@@ -117,7 +117,7 @@ router.get('/:id/download', auth, [
     query('format').optional().isIn(['html', 'pdf'])
 ], validation, downloadReport);
 
-router.post('/:id/upload', auth, requireManager, [
+router.post('/:id/upload', auth, requireReporter, [
     param('id').isMongoId()
 ], upload.single('file'), uploadReportFile);
 
@@ -125,7 +125,7 @@ router.get('/:id/download-file', auth, [
     param('id').isMongoId()
 ], validation, downloadReportFile);
 
-router.post('/:id/convert', auth, requireManager, [
+router.post('/:id/convert', auth, requireReporter, [
     param('id').isMongoId()
 ], validation, convertFileToContent);
 
