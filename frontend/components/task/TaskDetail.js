@@ -10,12 +10,17 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     const [evidences, setEvidences] = useState([])
     const [currentPage, setCurrentPage] = useState(0)
     const [selectedFile, setSelectedFile] = useState(null)
-    const [userRole] = useState(localStorage.getItem('userRole') || 'reporter')
+    const [userRole, setUserRole] = useState('')
     const [reviewMode, setReviewMode] = useState(false)
     const [rejectionReason, setRejectionReason] = useState('')
     const [reviewLoading, setReviewLoading] = useState(false)
 
     const itemsPerPage = 1
+
+    useEffect(() => {
+        const role = localStorage.getItem('userRole') || ''
+        setUserRole(role)
+    }, [])
 
     useEffect(() => {
         loadTaskData()
@@ -88,7 +93,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-6 text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
@@ -104,9 +108,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 overflow-hidden flex">
-                    {/* Left: Report */}
                     <div className="flex-1 border-r border-gray-200 overflow-y-auto p-6">
                         {loading ? (
                             <div className="flex items-center justify-center h-full">
@@ -162,7 +164,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                         )}
                     </div>
 
-                    {/* Right: Evidence Files */}
                     <div className="w-80 border-l border-gray-200 overflow-y-auto p-6 bg-gray-50">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Minh chứng</h3>
 
@@ -222,7 +223,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
-                {/* Footer - Review Actions */}
                 <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-slate-50">
                     {canReview ? (
                         <div className="space-y-4">
@@ -292,7 +292,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     )}
                 </div>
 
-                {/* File Viewer Modal */}
                 {selectedFile && (
                     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
                         <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">

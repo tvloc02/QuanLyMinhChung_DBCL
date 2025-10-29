@@ -95,129 +95,6 @@ class AuthService {
         this.stopRefreshTokenTimer()
     }
 
-    // Get current user
-    async getCurrentUser() {
-        try {
-            if (!this.token) {
-                return { success: false, message: 'Không có token' }
-            }
-
-            const response = await apiMethods.getMe()
-
-            if (response.data.success) {
-                this.user = response.data.data
-
-                // Update stored user data
-                const storedToken = getLocalStorage('token')
-                if (storedToken) {
-                    setLocalStorage('user', this.user)
-                } else {
-                    sessionStorage.setItem('user', JSON.stringify(this.user))
-                }
-
-                return {
-                    success: true,
-                    user: this.user
-                }
-            }
-
-            return {
-                success: false,
-                message: response.data.message
-            }
-        } catch (error) {
-            if (error.response?.status === 401) {
-                this.clearAuth()
-                return {
-                    success: false,
-                    message: 'Phiên đăng nhập đã hết hạn',
-                    requireLogin: true
-                }
-            }
-
-            return {
-                success: false,
-                message: error.response?.data?.message || 'Lỗi xác thực'
-            }
-        }
-    }
-
-    // Change password
-    async changePassword(currentPassword, newPassword) {
-        try {
-            const response = await apiMethods.changePassword({
-                currentPassword,
-                newPassword
-            })
-
-            if (response.data.success) {
-                return {
-                    success: true,
-                    message: 'Đổi mật khẩu thành công'
-                }
-            }
-
-            return {
-                success: false,
-                message: response.data.message || 'Đổi mật khẩu thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: error.response?.data?.message || 'Lỗi đổi mật khẩu'
-            }
-        }
-    }
-
-    // Forgot password
-    async forgotPassword(email) {
-        try {
-            const response = await apiMethods.forgotPassword(email)
-
-            if (response.data.success) {
-                return {
-                    success: true,
-                    message: 'Email khôi phục mật khẩu đã được gửi'
-                }
-            }
-
-            return {
-                success: false,
-                message: response.data.message || 'Gửi email thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: error.response?.data?.message || 'Lỗi gửi email'
-            }
-        }
-    }
-
-    // Reset password
-    async resetPassword(token, newPassword) {
-        try {
-            const response = await apiMethods.resetPassword(token, newPassword)
-
-            if (response.data.success) {
-                return {
-                    success: true,
-                    message: 'Đặt lại mật khẩu thành công'
-                }
-            }
-
-            return {
-                success: false,
-                message: response.data.message || 'Đặt lại mật khẩu thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: error.response?.data?.message || 'Lỗi đặt lại mật khẩu'
-            }
-        }
-    }
-
-    // Refresh token
     async refreshToken() {
         try {
             const refreshToken = getLocalStorage('refreshToken') ||
@@ -305,29 +182,16 @@ class AuthService {
         }
     }
 
-    // Check if user is authenticated
-    isAuthenticated() {
-        return !!this.token && !!this.user
-    }
-
-    // Get current token
-    getToken() {
-        return this.token || getLocalStorage('token') || sessionStorage.getItem('token')
-    }
-
-    // Get current user
     getUser() {
         return this.user || getLocalStorage('user') ||
             JSON.parse(sessionStorage.getItem('user') || 'null')
     }
 
-    // Check if user has specific role
     hasRole(role) {
         const user = this.getUser()
         return user && user.role === role
     }
 
-    // Check if user has any of the specified roles
     hasAnyRole(roles) {
         const user = this.getUser()
         return user && roles.includes(user.role)
@@ -355,110 +219,6 @@ class AuthService {
         return permissions.some(permission => user.permissions.includes(permission))
     }
 
-    // Update user profile
-    async updateProfile(userData) {
-        try {
-            const user = this.getUser()
-            if (!user) {
-                throw new Error('User not authenticated')
-            }
-
-            const response = await apiMethods.updateUser(user.id, userData)
-
-            if (response.data.success) {
-                const updatedUser = response.data.data
-                this.user = updatedUser
-
-                // Update stored user data
-                const storedToken = getLocalStorage('token')
-                if (storedToken) {
-                    setLocalStorage('user', updatedUser)
-                } else {
-                    sessionStorage.setItem('user', JSON.stringify(updatedUser))
-                }
-
-                return {
-                    success: true,
-                    user: updatedUser,
-                    message: 'Cập nhật thông tin thành công'
-                }
-            }
-
-            return {
-                success: false,
-                message: response.data.message || 'Cập nhật thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: error.response?.data?.message || 'Lỗi cập nhật thông tin'
-            }
-        }
-    }
-
-    // Verify email
-    async verifyEmail(token) {
-        try {
-            const response = await fetch('/api/auth/verify-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ token })
-            })
-
-            const data = await response.json()
-
-            if (data.success) {
-                return {
-                    success: true,
-                    message: 'Xác thực email thành công'
-                }
-            }
-
-            return {
-                success: false,
-                message: data.message || 'Xác thực email thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: 'Lỗi xác thực email'
-            }
-        }
-    }
-
-    // Resend verification email
-    async resendVerificationEmail() {
-        try {
-            const response = await fetch('/api/auth/resend-verification', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.getToken()}`
-                }
-            })
-
-            const data = await response.json()
-
-            if (data.success) {
-                return {
-                    success: true,
-                    message: 'Email xác thực đã được gửi lại'
-                }
-            }
-
-            return {
-                success: false,
-                message: data.message || 'Gửi email thất bại'
-            }
-        } catch (error) {
-            return {
-                success: false,
-                message: 'Lỗi gửi email xác thực'
-            }
-        }
-    }
 }
 
 // Create singleton instance

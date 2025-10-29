@@ -65,9 +65,14 @@ export const AuthProvider = ({ children }) => {
 
             const response = await axios.get('/api/auth/me')
             if (response.data.success) {
-                setUser(response.data.data)
+                const userData = response.data.data
+                setUser(userData)
+                localStorage.setItem('user', JSON.stringify(userData))
+                localStorage.setItem('userRole', userData.role)
             } else {
                 localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                localStorage.removeItem('userRole')
                 setToken(null)
                 delete axios.defaults.headers.common['Authorization']
             }
@@ -75,6 +80,8 @@ export const AuthProvider = ({ children }) => {
             console.error('Auth check failed:', error)
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                localStorage.removeItem('userRole')
             }
             setToken(null)
             delete axios.defaults.headers.common['Authorization']
@@ -87,7 +94,7 @@ export const AuthProvider = ({ children }) => {
         try {
             setIsLoading(true)
 
-            console.log('🔄 Attempting login:', {
+            console.log('Attempting login:', {
                 url: `${axios.defaults.baseURL}/api/auth/login`,
                 email,
                 timestamp: new Date().toISOString()
@@ -98,13 +105,15 @@ export const AuthProvider = ({ children }) => {
                 password
             })
 
-            console.log('📡 Login response:', response.data)
+            console.log('Login response:', response.data)
 
             if (response.data.success) {
                 const { token: newToken, user: userData } = response.data.data
 
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('token', newToken)
+                    localStorage.setItem('user', JSON.stringify(userData))
+                    localStorage.setItem('userRole', userData.role)
                 }
                 setToken(newToken)
                 axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
@@ -117,7 +126,7 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: response.data.message }
             }
         } catch (error) {
-            console.error('❌ Login error:', error)
+            console.error('Login error:', error)
 
             let errorMessage = 'Lỗi kết nối mạng'
 
@@ -150,6 +159,8 @@ export const AuthProvider = ({ children }) => {
         } finally {
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                localStorage.removeItem('userRole')
             }
             setToken(null)
             setUser(null)

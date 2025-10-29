@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Save, CheckSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
+import api from '../../services/api'
 import { apiMethods } from '../../services/api'
 
 export default function TaskModal({ task, onClose, onSuccess, criteriaId = null }) {
@@ -40,7 +41,9 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
 
     const loadStandards = async () => {
         try {
-            const response = await apiMethods.standards.getAll({ status: 'active', limit: 100 })
+            const response = await api.get('/api/standards', {
+                params: { status: 'active', limit: 100 }
+            })
             setStandards(response.data.data.standards || response.data.data || [])
         } catch (error) {
             console.error('Load standards error:', error)
@@ -49,8 +52,9 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
 
     const loadCriteria = async (standardId) => {
         try {
-            const response = await apiMethods.criteria.getByStandard?.(standardId) ||
-                await apiMethods.criteria.getAll({ standardId, status: 'active', limit: 100 })
+            const response = await api.get('/api/criteria', {
+                params: { standardId, status: 'active', limit: 100 }
+            })
             const list = response.data.data.criteria || response.data.data || []
             setCriteria(list)
         } catch (error) {
@@ -60,10 +64,26 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
 
     const loadUsers = async () => {
         try {
-            const response = await apiMethods.users.getAll({ role: 'reporter', status: 'active', limit: 100 })
-            setUsers(response.data.data || [])
+            const response = await api.get('/api/users', {
+                params: { limit: 100 }
+            })
+            let userList = response.data.data || []
+
+            if (Array.isArray(userList) && userList.length > 0 && userList[0]?.users) {
+                userList = userList[0].users
+            } else if (userList && userList.users) {
+                userList = userList.users
+            }
+
+            if (!Array.isArray(userList)) {
+                userList = []
+            }
+
+            userList = userList.filter(u => u.role === 'reporter' && u.status === 'active')
+            setUsers(userList)
         } catch (error) {
             console.error('Load users error:', error)
+            setUsers([])
         }
     }
 
@@ -124,10 +144,10 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
             }
 
             if (task) {
-                await apiMethods.tasks.update(task._id, submitData)
+                await api.put(`/api/tasks/${task._id}`, submitData)
                 toast.success('Cập nhật nhiệm vụ thành công')
             } else {
-                await apiMethods.tasks.create(submitData)
+                await api.post('/api/tasks', submitData)
                 toast.success('Tạo nhiệm vụ thành công')
             }
 
@@ -142,7 +162,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -168,7 +187,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-220px)]">
-                    {/* Tiêu chuẩn */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Tiêu chuẩn <span className="text-red-500">*</span>
@@ -192,7 +210,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                         {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
                     </div>
 
-                    {/* Tiêu chí */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Tiêu chí <span className="text-red-500">*</span>
@@ -216,7 +233,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                         {errors.criteriaId && <p className="mt-1 text-sm text-red-600">{errors.criteriaId}</p>}
                     </div>
 
-                    {/* Mô tả */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Mô tả <span className="text-red-500">*</span>
@@ -234,7 +250,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                         {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
                     </div>
 
-                    {/* Phân công */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-3">
                             Phân công cho <span className="text-red-500">*</span>
@@ -259,7 +274,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                         {errors.assignedTo && <p className="mt-1 text-sm text-red-600">{errors.assignedTo}</p>}
                     </div>
 
-                    {/* Ngày hết hạn */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Ngày hết hạn
@@ -274,7 +288,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                     </div>
                 </form>
 
-                {/* Footer */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"

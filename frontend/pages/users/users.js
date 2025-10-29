@@ -88,7 +88,6 @@ export default function UsersPage() {
             if (roleFilter) params.role = roleFilter
             if (statusFilter) params.status = statusFilter
 
-            // Giả định API chạy trên cùng domain hoặc đã được cấu hình CORS/Proxy
             const response = await api.get('/api/users', { params })
 
             if (response.data.success) {

@@ -2,7 +2,6 @@ import axios from 'axios'
 import { getLocalStorage, removeLocalStorage } from '../utils/helpers'
 import toast from 'react-hot-toast'
 
-// API instance với authentication (cho protected routes)
 export const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
     timeout: 30000,
@@ -11,7 +10,6 @@ export const api = axios.create({
     }
 })
 
-// API instance công khai (cho public routes - không cần token)
 export const publicApi = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
     timeout: 30000,
@@ -64,7 +62,6 @@ api.interceptors.response.use(
     }
 )
 
-// Public API không cần error handling đặc biệt
 publicApi.interceptors.response.use(
     (response) => {
         return response
@@ -99,7 +96,7 @@ export const apiMethods = {
     },
 
     users: {
-        getAll: (params) => api.get('/users', { params }),
+        getAll: (params) => api.get('/api/users', { params }),
         getById: (id) => api.get(`/users/${id}`),
         create: (data) => api.post('/users', data),
         update: (id, data) => api.put(`/users/${id}`, data),
@@ -389,7 +386,6 @@ export const apiMethods = {
         removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
     },
 
-    // ✅ Public API methods (không cần authentication)
     publicEvidence: {
         getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
         getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)

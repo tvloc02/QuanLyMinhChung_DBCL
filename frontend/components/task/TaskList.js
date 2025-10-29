@@ -10,37 +10,22 @@ import { ActionButton } from '../ActionButtons'
 export default function TaskList() {
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(false)
-    // Sửa lỗi tiềm ẩn: Khởi tạo pagination với các trường cần thiết
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
     const [search, setSearch] = useState('')
     const [status, setStatus] = useState('')
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [showTaskDetail, setShowTaskDetail] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
-    // Khởi tạo userRole mặc định, sau đó lấy từ localStorage
     const [userRole, setUserRole] = useState('')
 
-    // Lấy role ngay khi component mount
     useEffect(() => {
-        const user = localStorage.getItem('user')
-        if (user) {
-            try {
-                const userData = JSON.parse(user)
-                // ✅ Đảm bảo role được lấy chính xác
-                setUserRole(userData.role || 'reporter')
-            } catch (e) {
-                console.error("Lỗi parse JSON User từ localStorage:", e)
-                setUserRole('reporter')
-            }
-        }
+        const role = localStorage.getItem('userRole') || ''
+        setUserRole(role)
     }, [])
 
     useEffect(() => {
-        // loadTasks chỉ chạy sau khi role được set lần đầu (hoặc khi pagination, search, status thay đổi)
-        if (userRole) {
-            loadTasks()
-        }
-    }, [pagination.current, search, status, userRole]) // Thêm userRole vào dependency list
+        loadTasks()
+    }, [pagination.current, search, status])
 
     const loadTasks = async () => {
         try {
@@ -114,12 +99,10 @@ export default function TaskList() {
         return icons[status] || null
     }
 
-    // ✅ Manager và Admin mới có thể quản lý (bao gồm nút Thêm nhiệm vụ)
     const canManage = userRole === 'admin' || userRole === 'manager'
 
     return (
         <div className="space-y-6 p-6">
-            {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -131,7 +114,6 @@ export default function TaskList() {
                             <p className="text-blue-100">Giao việc báo cáo minh chứng cho báo cáo viên</p>
                         </div>
                     </div>
-                    {/* Nút Thêm Nhiệm vụ được kiểm soát bởi canManage */}
                     {canManage && (
                         <button
                             onClick={() => {
@@ -147,7 +129,6 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="w-5 h-5 text-blue-600" />
@@ -189,7 +170,6 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Table */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
@@ -296,7 +276,6 @@ export default function TaskList() {
                     </table>
                 </div>
 
-                {/* Pagination */}
                 {!loading && tasks.length > 0 && (
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
