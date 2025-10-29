@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles, FolderOpen, Code, FileText, Globe } from 'lucide-react'
+import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles, FileText, Globe, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import TaskModal from '../task/TaskModal' // Đã sửa đường dẫn theo cấu trúc gợi ý
 import { apiMethods } from '../../services/api'
 
 export default function CriteriaModal({ criteria, standards, programs, onClose, onSuccess }) {
@@ -18,6 +19,10 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     })
     const [errors, setErrors] = useState({})
     const [selectedStandard, setSelectedStandard] = useState(null)
+    const [showTaskModal, setShowTaskModal] = useState(false) // BƯỚC 2: Thêm state
+    // Giả định role người dùng để kiểm soát quyền (thay thế bằng logic lấy role thực tế)
+    const [userRole] = useState('manager')
+
 
     useEffect(() => {
         if (criteria) {
@@ -483,6 +488,18 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
 
                 {/* Footer Actions */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
+                    {/* BƯỚC 3: Thêm nút Giao nhiệm vụ */}
+                    {criteria && !isViewMode && userRole === 'manager' && (
+                        <button
+                            type="button"
+                            onClick={() => setShowTaskModal(true)}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all font-medium"
+                        >
+                            <CheckCircle size={20} />
+                            <span>Giao nhiệm vụ</span>
+                        </button>
+                    )}
+
                     <button
                         type="button"
                         onClick={onClose}
@@ -512,6 +529,18 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     )}
                 </div>
             </div>
+
+            {/* BƯỚC 4: Thêm TaskModal component */}
+            {showTaskModal && criteria && (
+                <TaskModal
+                    criteriaId={criteria._id}
+                    onClose={() => setShowTaskModal(false)}
+                    onSuccess={() => {
+                        setShowTaskModal(false)
+                        toast.success('Giao nhiệm vụ thành công')
+                    }}
+                />
+            )}
         </div>
     )
 }

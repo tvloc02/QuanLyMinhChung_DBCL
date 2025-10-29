@@ -24,12 +24,15 @@ const login = async (req, res) => {
             });
         }
 
-        const username = email.split('@')[0].toLowerCase().trim();
-        const user = await User.findOne({ email: username });
+        // CHỈNH SỬA TẠI ĐÂY: Chuẩn hóa email nhập vào (chữ thường, bỏ khoảng trắng)
+        const cleanEmail = email.toLowerCase().trim();
+
+        // CHỈNH SỬA TẠI ĐÂY: Tìm kiếm người dùng bằng email đã chuẩn hóa
+        const user = await User.findOne({ email: cleanEmail });
 
         if (!user) {
             await ActivityLog.logUserAction(null, 'user_login_failed',
-                `Đăng nhập thất bại: Tài khoản ${username} không tồn tại`, {
+                `Đăng nhập thất bại: Tài khoản ${cleanEmail} không tồn tại`, {
                     requestInfo: {
                         ipAddress: req.ip,
                         userAgent: req.get('User-Agent'),
@@ -41,7 +44,7 @@ const login = async (req, res) => {
 
             return res.status(401).json({
                 success: false,
-                message: 'Tên đăng nhập không tồn tại'
+                message: 'Tên đăng nhập hoặc Email không tồn tại'
             });
         }
 
@@ -238,17 +241,20 @@ const forgotPassword = async (req, res) => {
             });
         }
 
-        const username = email.split('@')[0].toLowerCase().trim();
-        const user = await User.findOne({ email: username });
+        // CHỈNH SỬA TẠI ĐÂY: Chuẩn hóa email nhập vào
+        const cleanEmail = email.toLowerCase().trim();
+
+        // CHỈNH SỬA TẠI ĐÂY: Tìm kiếm người dùng bằng email đã chuẩn hóa
+        const user = await User.findOne({ email: cleanEmail });
 
         if (!user) {
             await ActivityLog.logUserAction(null, 'user_password_reset_request',
-                `Yêu cầu reset password thất bại: Email ${username} không tồn tại`, {
+                `Yêu cầu reset password thất bại: Email ${cleanEmail} không tồn tại`, {
                     requestInfo: {
                         ipAddress: req.ip,
                         userAgent: req.get('User-Agent')
                     },
-                    metadata: { email: username }
+                    metadata: { email: cleanEmail }
                 });
 
             return res.status(404).json({
@@ -272,9 +278,10 @@ const forgotPassword = async (req, res) => {
         );
 
         const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-        const fullEmail = `${user.email}@cmc.edu.vn`;
+        // CHỈNH SỬA TẠI ĐÂY: Sử dụng email trong DB (đã chuẩn hóa) để gửi mail
+        const emailToSend = user.email;
 
-        await emailService.sendPasswordResetEmail(fullEmail, user.fullName, resetUrl);
+        await emailService.sendPasswordResetEmail(emailToSend, user.fullName, resetUrl);
 
         await ActivityLog.logUserAction(user._id, 'user_password_reset_request',
             `Yêu cầu reset password thành công`, {
@@ -283,7 +290,7 @@ const forgotPassword = async (req, res) => {
                     userAgent: req.get('User-Agent')
                 },
                 metadata: {
-                    email: fullEmail,
+                    email: emailToSend,
                     tokenExpires: new Date(Date.now() + 10 * 60 * 1000)
                 }
             });

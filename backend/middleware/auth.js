@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User/User');
 
+// Middleware xác thực token và đính kèm thông tin người dùng (Auth)
 const auth = async (req, res, next) => {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -70,7 +71,7 @@ const auth = async (req, res, next) => {
 };
 
 
-// Kiểm tra quyền cụ thể
+// Kiểm tra quyền cụ thể (Single Permission)
 const requirePermission = (permissionCode) => {
     return async (req, res, next) => {
         try {
@@ -102,6 +103,7 @@ const requirePermission = (permissionCode) => {
     };
 };
 
+// Yêu cầu tất cả các quyền trong danh sách (All Permissions)
 const requireAllPermissions = (permissionCodes) => {
     return async (req, res, next) => {
         try {
@@ -133,6 +135,7 @@ const requireAllPermissions = (permissionCodes) => {
     };
 };
 
+// Yêu cầu bất kỳ quyền nào trong danh sách (Any Permission)
 const requireAnyPermission = (permissionCodes) => {
     return async (req, res, next) => {
         try {
@@ -164,6 +167,7 @@ const requireAnyPermission = (permissionCodes) => {
     };
 };
 
+// Kiểm tra quyền Module (module.action)
 const requireModulePermission = (module, action = null) => {
     return async (req, res, next) => {
         try {
@@ -197,17 +201,25 @@ const requireModulePermission = (module, action = null) => {
 };
 
 
+// Yêu cầu quyền Admin (chỉ dùng cho mục đích backward compatibility, nên dùng requireModulePermission)
 const requireAdmin = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Cần đăng nhập' });
+    }
     if (req.user.role !== 'admin') {
         return res.status(403).json({
             success: false,
-            message: 'Chỉ admin mới có quyền thực hiện thao tác này'
+            message: 'Chỉ quản trị viên mới có quyền'
         });
     }
     next();
 };
 
+// Yêu cầu quyền Manager hoặc Admin (chỉ dùng cho mục đích backward compatibility)
 const requireManager = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Cần đăng nhập' });
+    }
     if (!['admin', 'manager'].includes(req.user.role)) {
         return res.status(403).json({
             success: false,
@@ -217,7 +229,35 @@ const requireManager = (req, res, next) => {
     next();
 };
 
+// Yêu cầu quyền Reporter
+const requireReporter = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Cần đăng nhập' });
+    }
+    if (req.user.role !== 'reporter') {
+        return res.status(403).json({
+            success: false,
+            message: 'Chỉ báo cáo viên mới có quyền'
+        });
+    }
+    next();
+};
 
+// Yêu cầu quyền Evaluator
+const requireEvaluator = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Cần đăng nhập' });
+    }
+    if (req.user.role !== 'evaluator') {
+        return res.status(403).json({
+            success: false,
+            message: 'Chỉ chuyên gia đánh giá mới có quyền'
+        });
+    }
+    next();
+};
+
+// Kiểm tra quyền truy cập tiêu chuẩn
 const checkStandardAccess = (standardId) => {
     return (req, res, next) => {
         if (req.user.role === 'admin') {
@@ -235,6 +275,7 @@ const checkStandardAccess = (standardId) => {
     };
 };
 
+// Kiểm tra quyền truy cập tiêu chí
 const checkCriteriaAccess = (criteriaId) => {
     return (req, res, next) => {
         if (req.user.role === 'admin') {
@@ -252,9 +293,11 @@ const checkCriteriaAccess = (criteriaId) => {
     };
 };
 
+// Đính kèm tất cả permissions vào req.userPermissions
 const attachPermissions = async (req, res, next) => {
     try {
         if (req.user) {
+            // Đảm bảo req.user đã tồn tại từ middleware 'auth'
             req.userPermissions = await req.user.getAllPermissions();
         }
         next();
@@ -264,6 +307,60 @@ const attachPermissions = async (req, res, next) => {
     }
 };
 
+// Kiểm tra xem user có trong danh sách được giao nhiệm vụ không
+const checkTaskAssignment = async (req, res, next) => {
+    try {
+        const Task = require('../models/Task/Task');
+        // Giả định Task ID được truyền qua params
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const task = await Task.findById(id);
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy nhiệm vụ'
+            });
+        }
+
+        const isAssigned = task.assignedTo.some(uid => uid.toString() === userId);
+
+        // Reporter chỉ được xem task nếu được giao
+        if (!isAssigned && req.user.role === 'reporter') {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không được giao nhiệm vụ này'
+            });
+        }
+
+        req.task = task;
+        next();
+    } catch (error) {
+        // Thêm log chi tiết hơn để debug
+        console.error('Task Assignment Check error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi kiểm tra quyền hạn nhiệm vụ'
+        });
+    }
+};
+
+// Kiểm tra trạng thái nhiệm vụ cho phép thực hiện action
+const checkTaskStatus = (allowedStatuses = []) => {
+    return (req, res, next) => {
+        // req.task được đính kèm bởi checkTaskAssignment
+        if (req.task && !allowedStatuses.includes(req.task.status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Không thể thực hiện action này ở trạng thái ${req.task.status}`
+            });
+        }
+        next();
+    };
+};
+
+
+// Hợp nhất và export tất cả các middleware
 module.exports = {
     auth,
     requirePermission,
@@ -272,7 +369,11 @@ module.exports = {
     requireModulePermission,
     requireAdmin,
     requireManager,
+    requireReporter, // Đã thêm
+    requireEvaluator, // Đã thêm
     checkStandardAccess,
     checkCriteriaAccess,
-    attachPermissions
+    attachPermissions,
+    checkTaskAssignment, // Đã thêm
+    checkTaskStatus // Đã thêm
 };

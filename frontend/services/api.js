@@ -170,6 +170,17 @@ export const apiMethods = {
         })
     },
 
+    tasks: {
+        getAll: (params) => api.get('/api/tasks', { params }),
+        getById: (id) => api.get(`/api/tasks/${id}`),
+        create: (data) => api.post('/api/tasks', data),
+        update: (id, data) => api.put(`/api/tasks/${id}`, data),
+        delete: (id) => api.delete(`/api/tasks/${id}`),
+        getByCriteria: (criteriaId) => api.get('/api/tasks/by-criteria', { params: { criteriaId } }),
+        submitReport: (id, reportId) => api.post(`/api/tasks/${id}/submit-report`, { reportId }),
+        reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
+    },
+
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
         getById: (id) => api.get(`/api/evidences/${id}`),

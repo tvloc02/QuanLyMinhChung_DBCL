@@ -99,6 +99,12 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             ]
         },
         {
+            name: 'Nhiệm vụ được giao',
+            icon: Bell,
+            path: '/task/Task',
+            active: router.pathname.includes('/task/Task')
+        },
+        {
             name: 'Báo cáo & Đánh giá',
             icon: FileSignature,
             path: '/reports',
