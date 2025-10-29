@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
+// Đảm bảo auth.js đã được sửa để requireManager bao gồm advisor/supervisor
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
 const validation = require('../../middleware/validation');
 const { upload } = require('../../middleware/upload');
@@ -45,6 +46,7 @@ router.get('/', auth, [
     query('criteriaId').optional().isMongoId()
 ], validation, getReports);
 
+// ✅ Yêu cầu quyền Manager+ (bao gồm advisor/supervisor)
 router.post('/', auth, requireManager, [
     body('title').notEmpty().isLength({ max: 500 }),
     body('type').isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
@@ -62,10 +64,12 @@ router.get('/:id', auth, [
     param('id').isMongoId()
 ], validation, getReportById);
 
+// ✅ Yêu cầu quyền Manager+
 router.post('/:id/unpublish', auth, requireManager, [
     param('id').isMongoId()
 ], validation, unpublishReport);
 
+// ✅ Yêu cầu quyền Manager+
 router.put('/:id', auth, requireManager, [
     param('id').isMongoId(),
     body('title').optional().isLength({ max: 500 }),
@@ -75,10 +79,12 @@ router.put('/:id', auth, requireManager, [
     body('contentMethod').optional().isIn(['online_editor', 'file_upload'])
 ], validation, updateReport);
 
+// ✅ Yêu cầu quyền Manager+
 router.delete('/:id', auth, requireManager, [
     param('id').isMongoId()
 ], validation, deleteReport);
 
+// ✅ Yêu cầu quyền Manager+
 router.post('/:id/publish', auth, requireManager, [
     param('id').isMongoId()
 ], validation, publishReport);
@@ -91,6 +97,7 @@ router.get('/:id/versions', auth, [
     param('id').isMongoId()
 ], validation, getReportVersions);
 
+// ✅ Yêu cầu quyền Manager+
 router.post('/:id/versions', auth, requireManager, [
     param('id').isMongoId(),
     body('content').notEmpty(),
@@ -107,6 +114,7 @@ router.post('/:id/comments', auth, [
     body('section').optional()
 ], validation, addReportComment);
 
+// ✅ Yêu cầu quyền Manager+
 router.put('/:id/comments/:commentId/resolve', auth, requireManager, [
     param('id').isMongoId(),
     param('commentId').isMongoId()
@@ -117,6 +125,7 @@ router.get('/:id/download', auth, [
     query('format').optional().isIn(['html', 'pdf'])
 ], validation, downloadReport);
 
+// ✅ Yêu cầu quyền Manager+
 router.post('/:id/upload', auth, requireManager, [
     param('id').isMongoId()
 ], upload.single('file'), uploadReportFile);
@@ -125,6 +134,7 @@ router.get('/:id/download-file', auth, [
     param('id').isMongoId()
 ], validation, downloadReportFile);
 
+// ✅ Yêu cầu quyền Manager+
 router.post('/:id/convert', auth, requireManager, [
     param('id').isMongoId()
 ], validation, convertFileToContent);

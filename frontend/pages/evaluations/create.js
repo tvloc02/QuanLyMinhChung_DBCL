@@ -12,7 +12,6 @@ import {
     AlertCircle,
     CheckCircle,
     Plus,
-    Calendar,
     Award,
     MessageSquare,
     Zap,
@@ -46,7 +45,6 @@ export default function EvaluationForm() {
             relevance: '',
             quality: ''
         },
-        criteriaScores: [],
         strengths: [],
         improvementAreas: [],
         recommendations: []
@@ -81,20 +79,6 @@ export default function EvaluationForm() {
             const reportData = reportRes.data?.data
             setReport(reportData)
 
-            if (assignmentData?.evaluationCriteria?.length > 0) {
-                const criteriaScores = assignmentData.evaluationCriteria.map(c => ({
-                    criteriaName: c.name || '',
-                    maxScore: c.maxScore || 10,
-                    score: 0,
-                    weight: c.weight || 1,
-                    comment: ''
-                }))
-                setFormData(prev => ({
-                    ...prev,
-                    criteriaScores
-                }))
-            }
-
             try {
                 const evaluationsRes = await apiMethods.evaluations.getAll({
                     assignmentId,
@@ -102,17 +86,22 @@ export default function EvaluationForm() {
                 })
                 if (evaluationsRes.data?.data?.evaluations?.length > 0) {
                     const existingEval = evaluationsRes.data.data.evaluations[0]
-                    setEvaluation(existingEval)
-                    setFormData(prev => ({
-                        ...prev,
-                        overallComment: existingEval.overallComment || '',
-                        rating: existingEval.rating || '',
-                        evidenceAssessment: existingEval.evidenceAssessment || prev.evidenceAssessment,
-                        criteriaScores: existingEval.criteriaScores || prev.criteriaScores,
-                        strengths: existingEval.strengths || [],
-                        improvementAreas: existingEval.improvementAreas || [],
-                        recommendations: existingEval.recommendations || []
-                    }))
+
+                    // ✅ FIX LỖI: CHUYỂN HƯỚNG nếu tìm thấy bài đánh giá cũ (đã tạo)
+                    if (existingEval._id) {
+                        const statusLabel = existingEval.status === 'final' ? 'Hoàn tất' : existingEval.status === 'submitted' ? 'Đã nộp' : 'Bản nháp';
+                        toast.info(`Đã tìm thấy bài đánh giá (Trạng thái: ${statusLabel}). Chuyển hướng đến trang chỉnh sửa/xem chi tiết.`, { duration: 4000 });
+
+                        // Chuyển hướng đến trang chỉnh sửa nếu là draft, hoặc trang xem chi tiết nếu đã khóa
+                        const targetPath = existingEval.status === 'draft'
+                            ? `/evaluations/${existingEval._id}/edit`
+                            : `/evaluations/${existingEval._id}`;
+
+                        router.replace(targetPath);
+                        return; // Ngăn chặn code tiếp theo chạy
+                    }
+
+                    // Logic cũ bị loại bỏ vì đã chuyển hướng
                 }
             } catch (err) {
                 console.log('No existing evaluation found, creating new one')
@@ -126,27 +115,20 @@ export default function EvaluationForm() {
         }
     }
 
-    const handleCriteriaChange = (index, field, value) => {
-        setFormData(prev => {
-            const updated = { ...prev }
-            updated.criteriaScores[index] = {
-                ...updated.criteriaScores[index],
-                [field]: field === 'score' ? parseFloat(value) || 0 : value
-            }
-            return updated
-        })
-    }
-
-    const handleAutoSave = async () => {
-        if (!evaluation) return
+    // ✅ SỬA LỖI: Nhận ID trực tiếp (Khỏi cần evaluation._id)
+    const handleAutoSave = async (idToSave) => {
+        if (!idToSave) return
 
         try {
             setSaving(true)
-            await apiMethods.evaluations.autoSave(evaluation._id, formData)
-            toast.success('Lưu tự động thành công')
+            // Lưu ý: apiMethods.evaluations.autoSave đã bị loại bỏ theo yêu cầu của user trước đó
+            // Nhưng vì bạn muốn fix lỗi 403 liên tục, tôi sẽ giữ logic này như là cập nhật nháp
+            // Nếu bạn đã loại bỏ hàm này, hãy dùng update thay thế.
+            await apiMethods.evaluations.update(idToSave, formData)
+            toast.success('Lưu nháp thành công')
         } catch (error) {
             console.error('Auto save error:', error)
-            toast.error('Lỗi khi lưu tự động')
+            toast.error(error.response?.data?.message || 'Lỗi khi lưu nháp')
         } finally {
             setSaving(false)
         }
@@ -238,58 +220,72 @@ export default function EvaluationForm() {
             errors.push('Chất lượng minh chứng là bắt buộc và phải hợp lệ')
         }
 
-        if (formData.criteriaScores && formData.criteriaScores.length > 0) {
-            formData.criteriaScores.forEach((c, idx) => {
-                if (!c.criteriaName || c.criteriaName.trim() === '') {
-                    errors.push(`Tiêu chí ${idx + 1}: tên không hợp lệ`)
-                }
-
-                if (c.score === undefined || c.score === null || c.score === '') {
-                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): chưa có điểm`)
-                }
-
-                const maxScore = c.maxScore || 10;
-                if (typeof c.score === 'number' && (c.score < 0 || c.score > maxScore)) {
-                    errors.push(`Tiêu chí ${idx + 1} (${c.criteriaName}): điểm phải từ 0 đến ${maxScore}`)
-                }
-            })
-        }
-
         setValidationErrors(errors)
         return errors.length === 0
     }
 
-    const handleSubmit = async () => {
+    // ✅ FIX LỖI: Hàm tạo/cập nhật đánh giá đồng bộ
+    const createOrUpdateEvaluation = async () => {
         if (!evaluation) {
+            setSaving(true)
             try {
-                setLoading(true)
+                // TẠO MỚI (POST /create)
                 const evalRes = await apiMethods.evaluations.create({ assignmentId })
-                setEvaluation(evalRes.data?.data)
-                toast.success('Tạo đánh giá thành công')
+                const newEval = evalRes.data?.data
+
+                setEvaluation(newEval) // Cập nhật state Evaluation
+                toast.success('Đã tạo bản nháp mới')
+
+                // ✅ Sau khi tạo, chuyển hướng ngay để URL phản ánh ID mới (tránh lỗi 403)
+                router.replace(`/evaluations/${newEval._id}/edit`);
+                return null; // Chặn luồng tiếp theo ở trang này
+
             } catch (error) {
                 console.error('Create evaluation error:', error)
-                toast.error('Lỗi khi tạo đánh giá')
-                setLoading(false)
-                return
-            } finally {
-                setLoading(false)
+                toast.error('Lỗi khi tạo bản nháp')
+                setSaving(false)
+                return null // Thất bại
+            }
+        } else {
+            setSaving(true)
+            try {
+                // CẬP NHẬT (PUT /update)
+                // Đảm bảo cập nhật lần cuối trước khi nộp
+                await apiMethods.evaluations.update(evaluation._id, formData)
+
+                toast.success('Đã cập nhật bản nháp')
+                return evaluation // Trả về đối tượng đánh giá hiện tại
+            } catch (error) {
+                console.error('Update evaluation error:', error)
+                // Lỗi 403 thường xuất hiện ở đây nếu trạng thái không phải draft
+                toast.error(error.response?.data?.message || 'Lỗi khi cập nhật')
+                setSaving(false)
+                return null // Thất bại
             }
         }
+    }
 
+
+    const handleSubmit = async () => {
         if (!validateForm()) {
             toast.error('Vui lòng kiểm tra các lỗi validation')
             return
         }
 
+        setSubmitting(true)
+
+        // 1. Tạo hoặc Cập nhật lần cuối
+        const evalToSubmit = await createOrUpdateEvaluation() // Tự động tạo nếu chưa có
+        if (!evalToSubmit) {
+            setSubmitting(false)
+            return
+        }
+
+        // 2. Nộp đánh giá (Chỉ gọi submit)
         try {
-            setSubmitting(true)
-
-            await apiMethods.evaluations.update(evaluation._id, formData)
-            toast('Đang cập nhật và nộp...', { icon: '🔄' });
-
-            await apiMethods.evaluations.submit(evaluation._id)
+            await apiMethods.evaluations.submit(evalToSubmit._id)
             toast.success('Nộp đánh giá thành công')
-            setTimeout(() => router.push('/reports/my-evaluations'), 1500)
+            setTimeout(() => router.push('/evaluations/my-evaluations'), 1500)
         } catch (error) {
             console.error('Submit error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi khi nộp đánh giá';
@@ -299,6 +295,8 @@ export default function EvaluationForm() {
             } else {
                 toast.error(errorMessage)
             }
+            // Nếu submit lỗi, cần fetch lại dữ liệu để lấy trạng thái mới nhất
+            fetchData()
 
         } finally {
             setSubmitting(false)
@@ -306,21 +304,8 @@ export default function EvaluationForm() {
     }
 
     const handleSaveDraft = async () => {
-        if (!evaluation) {
-            try {
-                setLoading(true)
-                const evalRes = await apiMethods.evaluations.create({ assignmentId })
-                setEvaluation(evalRes.data?.data)
-                toast.success('Tạo bản nháp thành công')
-            } catch (error) {
-                console.error('Create evaluation error:', error)
-                toast.error('Lỗi khi tạo bản nháp')
-            } finally {
-                setLoading(false)
-            }
-        } else {
-            await handleAutoSave()
-        }
+        // ✅ GỌI HÀM CHUNG, nó sẽ tự động tạo/update và nếu thành công thì thông báo
+        await createOrUpdateEvaluation()
     }
 
     const getProgress = () => {
@@ -362,9 +347,21 @@ export default function EvaluationForm() {
         )
     }
 
+    // Nếu fetch data không có evaluation và không có assignment hợp lệ (rất khó xảy ra)
+    if (!report || !assignment) {
+        return (
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
+                    <h3 className="text-red-800 font-bold">Lỗi dữ liệu</h3>
+                    <p className="text-red-600">Không tìm thấy báo cáo hoặc phân công hợp lệ.</p>
+                </div>
+            </Layout>
+        )
+    }
+
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="space-y-6 max-w-6xl mx-auto">
+            <div className="space-y-6 max-w-8xl mx-auto">
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-4">
@@ -542,67 +539,6 @@ export default function EvaluationForm() {
                                     </select>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Điểm theo tiêu chí <span className="text-red-500 ml-1">*</span></h2>
-                        <div className="space-y-6">
-                            {formData.criteriaScores.map((criteria, idx) => (
-                                <div key={idx} className="p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Tiêu chí
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={criteria.criteriaName}
-                                                onChange={(e) => handleCriteriaChange(idx, 'criteriaName', e.target.value)}
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                disabled
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Điểm tối đa
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={criteria.maxScore}
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-100"
-                                                disabled
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                Điểm <span className="text-red-500">*</span> (Max: {criteria.maxScore || 10})
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={criteria.score}
-                                                onChange={(e) => handleCriteriaChange(idx, 'score', e.target.value)}
-                                                min="0"
-                                                max={criteria.maxScore || 10}
-                                                step="0.01"
-                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Bình luận (Tùy chọn)
-                                        </label>
-                                        <textarea
-                                            value={criteria.comment}
-                                            onChange={(e) => handleCriteriaChange(idx, 'comment', e.target.value)}
-                                            placeholder="Bình luận chi tiết về tiêu chí này..."
-                                            rows={2}
-                                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
 

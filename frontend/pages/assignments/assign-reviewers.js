@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
@@ -50,6 +50,17 @@ export default function AssignReviewersPage() {
         { name: 'Phân quyền đánh giá', icon: Users }
     ]
 
+    // ✅ HÀM CHUẨN HÓA ID: Đảm bảo reportIds luôn là một mảng các chuỗi ID
+    const normalizeReportIds = useCallback(() => {
+        if (!reportIds) return []
+        if (Array.isArray(reportIds)) {
+            // Xử lý trường hợp Next.js gửi tham số query nhiều lần
+            return reportIds.flatMap(id => id.split(',')).filter(Boolean)
+        }
+        // Xử lý trường hợp chuỗi đơn lẻ (ID1,ID2,...)
+        return reportIds.split(',').filter(Boolean)
+    }, [reportIds])
+
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
@@ -57,10 +68,19 @@ export default function AssignReviewersPage() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (router.isReady && reportIds && user) {
-            fetchReportsAndExperts()
+        if (router.isReady && user) {
+            const ids = normalizeReportIds()
+
+            if (ids.length === 0) {
+                toast.error('Không có báo cáo nào được chọn để phân quyền.')
+                setLoading(false)
+                setTimeout(() => router.replace('/reports'), 1000)
+                return
+            }
+
+            fetchReportsAndExperts(ids)
         }
-    }, [router.isReady, reportIds, user])
+    }, [router.isReady, user, normalizeReportIds]) // Dùng normalizeReportIds trong dependency
 
     useEffect(() => {
         if (!showExpertSearch) {
@@ -94,17 +114,22 @@ export default function AssignReviewersPage() {
         setFilteredExperts(filtered)
     }, [searchTerm, showExpertSearch, assignments, experts, existingActiveExperts])
 
-    const fetchReportsAndExperts = async () => {
+    // ✅ SỬA: Cập nhật hàm nhận IDs
+    const fetchReportsAndExperts = async (ids) => {
         try {
             setLoading(true)
 
-            const ids = Array.isArray(reportIds) ? reportIds : [reportIds]
+            // Dùng IDs đã chuẩn hóa
             const reportsData = await Promise.all(
-                ids.map(id => apiMethods.reports.getById(id))
+                ids.map(id => apiMethods.reports.getById(id).catch(error => {
+                    // Log lỗi 400 nếu có ID không hợp lệ
+                    console.warn(`Cannot fetch report ${id}:`, error.response?.status, error.message)
+                    return null
+                }))
             )
 
             const validReports = reportsData
-                .map(res => res.data?.data || res.data)
+                .map(res => res?.data?.data || res?.data)
                 .filter(Boolean)
 
             setReports(validReports)
@@ -116,7 +141,7 @@ export default function AssignReviewersPage() {
             setAssignments(initialAssignments)
 
             if (validReports.length === 0) {
-                toast.error('Không tìm thấy báo cáo nào hợp lệ')
+                toast.error('Không tìm thấy báo cáo nào hợp lệ. Vui lòng chọn lại.')
                 setTimeout(() => router.push('/reports'), 1000)
                 return
             }
@@ -132,6 +157,7 @@ export default function AssignReviewersPage() {
             setLoading(false)
         }
     }
+
 
     const fetchExistingAssignments = async (reportsList) => {
         try {
@@ -426,6 +452,17 @@ export default function AssignReviewersPage() {
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded">
                     <h3 className="text-red-800 font-bold">Lỗi truy cập</h3>
                     <p className="text-red-600">Chỉ quản lý viên có thể phân quyền đánh giá</p>
+                </div>
+            </Layout>
+        )
+    }
+
+    if (reports.length === 0 && normalizeReportIds().length > 0) {
+        return (
+            <Layout breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded">
+                    <h3 className="text-red-800 font-bold">Lỗi dữ liệu</h3>
+                    <p className="text-red-600">Không thể tải báo cáo nào với ID đã cung cấp. Vui lòng kiểm tra lại đường dẫn.</p>
                 </div>
             </Layout>
         )

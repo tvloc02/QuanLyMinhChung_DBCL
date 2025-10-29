@@ -54,6 +54,7 @@ const CopyAcademicYearPage = () => {
         evidenceTemplates: false
     })
 
+    // Cập nhật màu sắc cho các tùy chọn sao chép để dùng tông xanh lam/xanh ngọc
     const copyOptions = [
         {
             key: 'programs',
@@ -69,9 +70,9 @@ const CopyAcademicYearPage = () => {
             label: 'Tổ chức đánh giá',
             description: 'Sao chép danh sách tổ chức và thông tin liên hệ',
             icon: Building2,
-            color: 'text-green-600',
-            bgColor: 'bg-green-50',
-            borderColor: 'border-green-200'
+            color: 'text-teal-600',
+            bgColor: 'bg-teal-50',
+            borderColor: 'border-teal-200'
         },
         {
             key: 'standards',
@@ -87,9 +88,9 @@ const CopyAcademicYearPage = () => {
             label: 'Tiêu chí',
             description: 'Sao chép các tiêu chí đánh giá chi tiết',
             icon: CheckSquare,
-            color: 'text-purple-600',
-            bgColor: 'bg-purple-50',
-            borderColor: 'border-purple-200'
+            color: 'text-indigo-600',
+            bgColor: 'bg-indigo-50',
+            borderColor: 'border-indigo-200'
         },
         {
             key: 'evidenceTemplates',
@@ -217,7 +218,7 @@ const CopyAcademicYearPage = () => {
             <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
@@ -232,21 +233,22 @@ const CopyAcademicYearPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header với gradient */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
+                {/* Header - Màu xanh lam đồng bộ */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <Copy className="w-8 h-8" />
+                            <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                                <Copy className="w-9 h-9" />
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold mb-1">Sao chép dữ liệu năm học</h1>
-                                <p className="text-indigo-100">Sao chép cấu trúc và dữ liệu từ năm học khác</p>
+                                <p className="text-blue-100">Sao chép cấu trúc và dữ liệu từ năm học khác</p>
                             </div>
                         </div>
+                        {/* Nút Quay lại - Giữ nguyên kiểu dáng ban đầu */}
                         <button
                             onClick={() => router.push('/academic-years')}
-                            className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all"
+                            className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl hover:bg-opacity-30 transition-all text-white font-medium"
                         >
                             <ArrowLeft className="w-4 h-4" />
                             <span>Quay lại</span>
@@ -267,27 +269,28 @@ const CopyAcademicYearPage = () => {
                                 <h3 className="text-green-900 font-bold text-lg mb-3">Sao chép dữ liệu thành công!</h3>
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                    <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                                    {/* Thay đổi màu nền/border của các box kết quả */}
+                                    <div className="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
                                         <div className="text-xs text-gray-600 mb-1">Chương trình</div>
-                                        <div className="text-2xl font-bold text-green-700">
+                                        <div className="text-2xl font-bold text-blue-700">
                                             {copyResult.results?.programs || 0}
                                         </div>
                                     </div>
-                                    <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                                    <div className="bg-white rounded-xl p-4 border border-teal-200 shadow-sm">
                                         <div className="text-xs text-gray-600 mb-1">Tổ chức</div>
-                                        <div className="text-2xl font-bold text-green-700">
+                                        <div className="text-2xl font-bold text-teal-700">
                                             {copyResult.results?.organizations || 0}
                                         </div>
                                     </div>
-                                    <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                                    <div className="bg-white rounded-xl p-4 border border-orange-200 shadow-sm">
                                         <div className="text-xs text-gray-600 mb-1">Tiêu chuẩn</div>
-                                        <div className="text-2xl font-bold text-green-700">
+                                        <div className="text-2xl font-bold text-orange-700">
                                             {copyResult.results?.standards || 0}
                                         </div>
                                     </div>
-                                    <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                                    <div className="bg-white rounded-xl p-4 border border-indigo-200 shadow-sm">
                                         <div className="text-xs text-gray-600 mb-1">Tiêu chí</div>
-                                        <div className="text-2xl font-bold text-green-700">
+                                        <div className="text-2xl font-bold text-indigo-700">
                                             {copyResult.results?.criteria || 0}
                                         </div>
                                     </div>
@@ -298,7 +301,7 @@ const CopyAcademicYearPage = () => {
                                         Đã sao chép từ <span className="font-semibold">"{copyResult.sourceYear?.name}"</span> sang <span className="font-semibold">"{copyResult.targetYear?.name}"</span>
                                     </p>
                                     <button
-                                        onClick={() => router.push('/academic-years')}
+                                        onClick={() => router.push('/academic-years/academic-years')}
                                         className="text-green-700 hover:text-green-800 text-sm font-semibold flex items-center space-x-1"
                                     >
                                         <span>Quay về danh sách</span>
@@ -341,9 +344,9 @@ const CopyAcademicYearPage = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Year Selection */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Chọn năm học</h2>
+                    {/* Year Selection - Màu xanh lam cho container */}
+                    <div className="bg-white rounded-xl shadow-lg border border-blue-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Chọn năm học</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Source Year */}
@@ -354,7 +357,7 @@ const CopyAcademicYearPage = () => {
                                 <select
                                     value={selectedSource}
                                     onChange={(e) => setSelectedSource(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                     required
                                 >
                                     <option value="">Chọn năm học nguồn</option>
@@ -377,7 +380,7 @@ const CopyAcademicYearPage = () => {
                                 <select
                                     value={selectedTarget}
                                     onChange={(e) => setSelectedTarget(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                     required
                                     disabled={!selectedSource}
                                 >
@@ -398,37 +401,37 @@ const CopyAcademicYearPage = () => {
 
                         {/* Preview */}
                         {selectedSource && selectedTarget && (
-                            <div className="mt-6 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl">
+                            <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-sky-50 border border-blue-200 rounded-xl">
                                 <div className="flex items-center justify-center space-x-6">
+                                    <div className="text-center">
+                                        <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
+                                            <Calendar className="w-8 h-8 text-blue-600" />
+                                        </div>
+                                        <div className="text-sm font-semibold text-gray-900">
+                                            {getSelectedYearInfo(selectedSource, academicYears)?.name}
+                                        </div>
+                                        <div className="text-xs text-blue-600 font-medium mt-1">Nguồn</div>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <ArrowRight className="w-8 h-8 text-blue-600" />
+                                    </div>
                                     <div className="text-center">
                                         <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
                                             <Calendar className="w-8 h-8 text-indigo-600" />
                                         </div>
                                         <div className="text-sm font-semibold text-gray-900">
-                                            {getSelectedYearInfo(selectedSource, academicYears)?.name}
-                                        </div>
-                                        <div className="text-xs text-indigo-600 font-medium mt-1">Nguồn</div>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <ArrowRight className="w-8 h-8 text-indigo-600" />
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
-                                            <Calendar className="w-8 h-8 text-purple-600" />
-                                        </div>
-                                        <div className="text-sm font-semibold text-gray-900">
                                             {getSelectedYearInfo(selectedTarget, targetYears)?.name}
                                         </div>
-                                        <div className="text-xs text-purple-600 font-medium mt-1">Đích</div>
+                                        <div className="text-xs text-indigo-600 font-medium mt-1">Đích</div>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Copy Settings */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-6">Cài đặt sao chép</h2>
+                    {/* Copy Settings - Màu xanh lam cho container */}
+                    <div className="bg-white rounded-xl shadow-lg border border-blue-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Cài đặt sao chép</h2>
 
                         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4 mb-6">
                             <div className="flex items-start">
@@ -452,7 +455,7 @@ const CopyAcademicYearPage = () => {
                                     <div key={option.key} className={`border rounded-xl p-4 transition-all cursor-pointer ${
                                         copySettings[option.key]
                                             ? `${option.bgColor} ${option.borderColor} shadow-sm`
-                                            : 'border-gray-200 hover:border-gray-300'
+                                            : 'border-blue-200 hover:border-blue-300' // Thay đổi màu hover/border
                                     }`}>
                                         <label className="flex items-start cursor-pointer">
                                             <div className="flex items-center h-5 mt-0.5">
@@ -460,7 +463,7 @@ const CopyAcademicYearPage = () => {
                                                     type="checkbox"
                                                     checked={copySettings[option.key]}
                                                     onChange={() => handleCopySettingChange(option.key)}
-                                                    className="w-5 h-5 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500"
+                                                    className="w-5 h-5 text-blue-600 bg-white border-blue-300 rounded focus:ring-blue-500" // Thay đổi màu checkbox
                                                 />
                                             </div>
                                             <div className="ml-3 flex-1">
@@ -480,9 +483,9 @@ const CopyAcademicYearPage = () => {
                             })}
                         </div>
 
-                        <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <div className="mt-6 flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-xl">
                             <div className="text-sm text-gray-700">
-                                Đã chọn <span className="font-semibold text-indigo-600">{Object.values(copySettings).filter(Boolean).length}</span> / {copyOptions.length} mục
+                                Đã chọn <span className="font-semibold text-blue-600">{Object.values(copySettings).filter(Boolean).length}</span> / {copyOptions.length} mục
                             </div>
                             <button
                                 type="button"
@@ -494,7 +497,7 @@ const CopyAcademicYearPage = () => {
                                     })
                                     setCopySettings(newSettings)
                                 }}
-                                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
                                 {Object.values(copySettings).every(Boolean) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                             </button>
@@ -505,8 +508,8 @@ const CopyAcademicYearPage = () => {
                     <div className="flex justify-end space-x-4">
                         <button
                             type="button"
-                            onClick={() => router.push('/academic-years')}
-                            className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all font-medium"
+                            onClick={() => router.back()}
+                            className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 rounded-xl hover:bg-gray-200 transition-all font-medium"
                             disabled={loading}
                         >
                             Hủy
@@ -514,7 +517,7 @@ const CopyAcademicYearPage = () => {
                         <button
                             type="submit"
                             disabled={loading || !selectedSource || !selectedTarget || success}
-                            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                         >
                             {loading ? (
                                 <>

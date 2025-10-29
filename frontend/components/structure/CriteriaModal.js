@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles, FolderOpen, Code, FileText, Globe } from 'lucide-react'
+import { X, Save, Plus, Trash2, Info, CheckSquare, Sparkles, FolderOpen, Code, FileText, Globe, Briefcase } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
-export default function CriteriaModal({ criteria, standards, programs, onClose, onSuccess }) {
+export default function CriteriaModal({ criteria, standards, programs, departments, onClose, onSuccess }) {
     const isViewMode = criteria?.isViewMode || false;
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
         code: '',
         standardId: '',
+        departmentId: '',
         requirements: '',
         guidelines: '',
         indicators: [],
@@ -25,6 +26,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 name: criteria.name || '',
                 code: criteria.code || '',
                 standardId: criteria.standardId?._id || criteria.standardId || '',
+                departmentId: criteria.departmentId?._id || criteria.departmentId || '',
                 requirements: criteria.requirements || '',
                 guidelines: criteria.guidelines || '',
                 indicators: criteria.indicators || [],
@@ -59,11 +61,15 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         setFormData(prev => ({
             ...prev,
             standardId,
+            departmentId: standard?.departmentId || '',
             code: criteria ? prev.code : ''
         }))
 
         if (errors.standardId) {
             setErrors(prev => ({ ...prev, standardId: '' }))
+        }
+        if (errors.departmentId) {
+            setErrors(prev => ({ ...prev, departmentId: '' }))
         }
     }
 
@@ -126,9 +132,18 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
 
+        if (!formData.departmentId) {
+            newErrors.departmentId = 'Phòng ban liên kết là bắt buộc'
+        }
+
         if (!formData.autoGenerateCode && formData.code && !/^\d{1,2}$/.test(formData.code)) {
             newErrors.code = 'Mã phải là số từ 1-99'
         }
+
+        if (!formData.autoGenerateCode && !formData.code) {
+            newErrors.code = 'Mã tiêu chí là bắt buộc nếu không tự động tạo'
+        }
+
 
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0
@@ -147,11 +162,18 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
         try {
             setLoading(true)
 
+            // Dữ liệu gửi đi
+            const submitData = {
+                ...formData,
+                programId: selectedStandard.programId,
+                organizationId: selectedStandard.organizationId,
+            }
+
             if (criteria && !criteria.isViewMode) {
-                await apiMethods.criteria.update(criteria._id, formData)
+                await apiMethods.criteria.update(criteria._id, submitData)
                 toast.success('Cập nhật tiêu chí thành công')
             } else {
-                await apiMethods.criteria.create(formData)
+                await apiMethods.criteria.create(submitData)
                 toast.success('Tạo tiêu chí thành công')
             }
 
@@ -166,7 +188,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                {/* Header với gradient - Xanh Lam */}
                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -192,7 +213,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-220px)]">
-                    {/* Tiêu chuẩn - Gradient Blue/Indigo */}
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center mr-2">
@@ -212,7 +232,7 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                             <option value="">Chọn tiêu chuẩn</option>
                             {standards.map(s => (
                                 <option key={s._id} value={s._id}>
-                                    {s.code} - {s.name}
+                                    {s.code} - {s.name} ({departments.find(d => d._id === s.departmentId)?.name || 'Chưa gán PB'})
                                 </option>
                             ))}
                         </select>
@@ -222,9 +242,39 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                                 {errors.standardId}
                             </p>
                         )}
+
+                        <div className="mt-4 bg-white border border-dashed border-indigo-300 rounded-lg p-3">
+                            <label className="flex items-center text-xs font-semibold text-gray-600 mb-2">
+                                <Briefcase size={14} className="mr-2" />
+                                Phòng ban liên kết (Tự động từ TC) <span className="text-red-500 ml-1">*</span>
+                            </label>
+                            <select
+                                name="departmentId"
+                                value={formData.departmentId}
+                                onChange={handleChange}
+                                disabled={true}
+                                readOnly={true}
+                                className={`w-full px-4 py-2 text-sm border-2 rounded-xl bg-gray-100 cursor-not-allowed ${
+                                    errors.departmentId ? 'border-red-300' : 'border-gray-200'
+                                }`}
+                            >
+                                {formData.departmentId ? (
+                                    <option value={formData.departmentId}>
+                                        {departments.find(d => d._id === formData.departmentId)?.name || 'Đang tải...'}
+                                    </option>
+                                ) : (
+                                    <option value="">Vui lòng chọn Tiêu chuẩn</option>
+                                )}
+                            </select>
+                            {errors.departmentId && (
+                                <p className="mt-2 text-xs text-red-600 flex items-center">
+                                    <Info size={12} className="mr-1" />
+                                    {errors.departmentId}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Mã tiêu chí - Gradient Indigo/Purple */}
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-indigo-500 rounded-lg flex items-center justify-center mr-2">
@@ -279,7 +329,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Tên tiêu chí - Gradient Purple/Pink */}
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center mr-2">
@@ -307,7 +356,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         )}
                     </div>
 
-                    {/* Yêu cầu - Gradient Teal/Cyan */}
                     <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <FileText className="w-5 h-5 text-teal-500 mr-2" />
@@ -325,7 +373,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         />
                     </div>
 
-                    {/* Hướng dẫn - Gradient Amber/Orange */}
                     <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <Globe className="w-5 h-5 text-amber-500 mr-2" />
@@ -343,7 +390,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         />
                     </div>
 
-                    {/* Trạng thái - Gradient Gray */}
                     <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-5">
                         <label className="flex items-center text-sm font-semibold text-gray-800 mb-3">
                             <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center mr-2">
@@ -365,7 +411,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                         </select>
                     </div>
 
-                    {/* Indicators */}
                     <div className="border-t-2 border-dashed border-gray-200 pt-6">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center">
@@ -481,7 +526,6 @@ export default function CriteriaModal({ criteria, standards, programs, onClose, 
                     </div>
                 </form>
 
-                {/* Footer Actions */}
                 <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-slate-50">
                     <button
                         type="button"

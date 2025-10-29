@@ -14,6 +14,13 @@ const auth = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+        // 🔍 DEBUG: In decoded token
+        console.log('🔍 [AUTH] Decoded token:', {
+            userId: decoded.userId,
+            role: decoded.role,
+            email: decoded.email
+        });
+
         const user = await User.findById(decoded.userId)
             .populate({
                 path: 'userGroups',
@@ -42,11 +49,21 @@ const auth = async (req, res, next) => {
             });
         }
 
+        // ✅ FIX: Đảm bảo req.user có đầy đủ thông tin từ token
         req.user = user;
+
+        // 🔍 DEBUG: In user info sau khi set
+        console.log('✅ [AUTH] User info set:', {
+            userId: req.user._id,
+            role: req.user.role,
+            email: req.user.email,
+            fullName: req.user.fullName
+        });
+
         next();
 
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        console.error('❌ Auth middleware error:', error);
 
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({
@@ -198,20 +215,24 @@ const requireModulePermission = (module, action = null) => {
 
 
 const requireAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
+    console.log('🔍 [REQUIRE ADMIN] User role:', req.user?.role);
+
+    if (!['admin', 'supervisor', 'advisor'].includes(req.user.role)) {
         return res.status(403).json({
             success: false,
-            message: 'Chỉ admin mới có quyền thực hiện thao tác này'
+            message: 'Chỉ admin, supervisor hoặc advisor mới có quyền thực hiện thao tác này'
         });
     }
     next();
 };
 
 const requireManager = (req, res, next) => {
-    if (!['admin', 'manager'].includes(req.user.role)) {
+    console.log('🔍 [REQUIRE MANAGER] User role:', req.user?.role);
+
+    if (!['admin', 'manager', 'supervisor', 'advisor'].includes(req.user.role)) { // Dòng này đã đúng
         return res.status(403).json({
             success: false,
-            message: 'Cần quyền manager trở lên để thực hiện thao tác này'
+            message: 'Cần quyền quản lý cấp cao (admin, manager, supervisor, advisor) để thực hiện thao tác này'
         });
     }
     next();

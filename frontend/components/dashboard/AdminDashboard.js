@@ -1,98 +1,15 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/router';
 import {
     Users, FileText, Calendar, Clock, Shield, Settings,
-    Download, Activity, BarChart3, Database, Loader2, BookOpen, CheckCircle, ListTodo, ClipboardCheck
+    Download, Activity, BarChart3, Database, Loader2, BookOpen, CheckCircle, ListTodo, ClipboardCheck, AlertCircle
 } from 'lucide-react';
 import { StatCard, QuickAction, ActivityItem, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
 
-// Giả định cấu trúc dữ liệu trả về từ API tổng hợp /api/dashboard/admin/all-stats
-// Đây là giả định để code client side hoạt động, bạn sẽ cần implement endpoint này ở backend
-/*
-{
-    totalUsers: 150,
-    totalEvidences: 520,
-    activeYears: 3,
-    pendingReports: 5,
-    roleStats: [
-        { role: 'Admin', count: 5, total: 150, color: 'bg-indigo-600' },
-        ...
-    ],
-    recentActivities: [...],
-    programStats: { total: 4, active: 3 },
-    orgStats: { total: 12, active: 10 },
-    standardStats: { active: 45, draft: 5 },
-    criteriaStats: { total: 200, active: 180, totalTypes: [{ _id: 'A', count: 100 }, { _id: 'B', count: 100 }] },
-    evidenceStats: { totalEvidences: 520, approved: 400, inProgress: 80, rejected: 10, totalFiles: 2500, totalFileSizeGB: 15.5 },
-    reportStats: { totalReports: 80, published: 65, totalViews: 12000, totalDownloads: 500 },
-    assignmentStats: { total: 30, pending: 5, completed: 20, overdue: 5 },
-    evaluationStats: { total: 25, draft: 5, submitted: 15, supervised: 5, averageRating: 'Good' }
-}
-*/
-
-const AdminDashboard = () => {
+// Cấu trúc props: { stats: object, recentActivities: array, loading: boolean }
+const AdminDashboard = ({ stats = {}, recentActivities = [], loading }) => {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({});
-    const [activities, setActivities] = useState([]);
-    const [roleStats, setRoleStats] = useState([]);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        try {
-            setLoading(true);
-            const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
-
-            // =============================================================
-            // 1. Fetch TỔNG HỢP Stats
-            // GIẢ ĐỊNH: Có một endpoint API tổng hợp tất cả dữ liệu cần thiết
-            // Bạn cần implement endpoint này để gọi các Controller khác nhau
-            // =============================================================
-            const allStatsResponse = await fetch('/api/dashboard/admin/all-stats', { headers });
-
-            if (allStatsResponse.ok) {
-                const allStatsResult = await allStatsResponse.json();
-                const data = allStatsResult.data;
-
-                setStats(data);
-
-                // Chuẩn bị Role Stats cho biểu đồ
-                const totalUsers = data.totalUsers || 1;
-                setRoleStats([
-                    { role: 'Admin', count: data.roleStats.adminUsers || 0, total: totalUsers, color: 'bg-indigo-600' },
-                    { role: 'Manager', count: data.roleStats.managerUsers || 0, total: totalUsers, color: 'bg-blue-600' },
-                    { role: 'Expert', count: data.roleStats.expertUsers || 0, total: totalUsers, color: 'bg-green-600' },
-                    { role: 'Advisor', count: data.roleStats.advisorUsers || 0, total: totalUsers, color: 'bg-purple-600' }
-                ]);
-            } else {
-                console.error('Failed to fetch all stats');
-            }
-
-
-            // 2. Fetch recent activities
-            // Sử dụng endpoint hiện có trong file authController (giả định)
-            const activitiesResponse = await fetch('/api/activity-logs?limit=10&sortOrder=desc', { headers });
-
-            if (activitiesResponse.ok) {
-                const activitiesResult = await activitiesResponse.json();
-                if (activitiesResult.success) {
-                    setActivities(activitiesResult.data.logs || []);
-                }
-            }
-
-
-        } catch (err) {
-            console.error('Error fetching dashboard data:', err);
-            setError('Không thể tải dữ liệu dashboard. Vui lòng kiểm tra API tổng hợp.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = null; // Error được xử lý ở component cha (DashboardPage)
 
     const formatTimeAgo = (date) => {
         if (!date) return '';
@@ -106,7 +23,7 @@ const AdminDashboard = () => {
         return `${Math.floor(diff / 86400)} ngày trước`;
     };
 
-    // Hàm giả định để lấy dữ liệu thống kê từ state
+    // Hàm tiện ích để lấy giá trị thống kê
     const getStatValue = (path, defaultValue = 0) => {
         const keys = path.split('.');
         let value = stats;
@@ -117,9 +34,17 @@ const AdminDashboard = () => {
                 return defaultValue;
             }
         }
-        return value;
+        return value || defaultValue;
     };
 
+    // Dữ liệu cho Role Stats
+    const totalUsers = getStatValue('totalUsers', 1);
+    const roleStats = [
+        { role: 'Admin', count: getStatValue('roleStats.adminUsers'), total: totalUsers, color: 'bg-indigo-600' },
+        { role: 'Manager', count: getStatValue('roleStats.managerUsers'), total: totalUsers, color: 'bg-blue-600' },
+        { role: 'Expert', count: getStatValue('roleStats.expertUsers'), total: totalUsers, color: 'bg-green-600' },
+        { role: 'Advisor', count: getStatValue('roleStats.advisorUsers'), total: totalUsers, color: 'bg-purple-600' }
+    ];
 
     return (
         <div className="space-y-6">
@@ -136,8 +61,8 @@ const AdminDashboard = () => {
 
             {/* Error Message */}
             {error && (
-                <div className="bg-red-red-500 border border-red-500 text-white rounded-xl p-4">
-                    <p>{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-red-800">{error}</p>
                 </div>
             )}
 
@@ -175,7 +100,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Evidence & Report Focus Stats */}
-            <h2 className="text-xl font-bold text-gray-900 pt-4 border-b pb-2 mb-4">Trọng tâm Minh chứng & Báo cáo</h2>
+            <h2 className="text-xl font-bold text-gray-900 pt-4 border-b pb-2 mb-4">Trọng tâm Minh chứng & Đánh giá</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Minh chứng đã duyệt"
@@ -192,10 +117,10 @@ const AdminDashboard = () => {
                     loading={loading}
                 />
                 <StatCard
-                    title="Phân quyền đang chờ"
-                    value={getStatValue('assignmentStats.pending')}
-                    icon={ListTodo}
-                    color="bg-orange-500"
+                    title="Phân quyền quá hạn"
+                    value={getStatValue('assignmentStats.overdue')}
+                    icon={AlertCircle}
+                    color="bg-red-500"
                     loading={loading}
                 />
                 <StatCard
@@ -217,7 +142,7 @@ const AdminDashboard = () => {
                         description="Thêm, sửa, xóa người dùng"
                         icon={Users}
                         color="bg-blue-500"
-                        href="/users/create"
+                        href="/users"
                     />
                     <QuickAction
                         title="Tiêu chuẩn & Tiêu chí"
@@ -231,7 +156,7 @@ const AdminDashboard = () => {
                         description="Xem và duyệt các file mới"
                         icon={CheckCircle}
                         color="bg-green-500"
-                        href="/evidences/file-approval"
+                        href="/file-approval"
                     />
                     <QuickAction
                         title="Sao lưu dữ liệu"
@@ -285,9 +210,9 @@ const AdminDashboard = () => {
 
                     {loading ? (
                         <LoadingSkeleton count={5} />
-                    ) : activities.length > 0 ? (
+                    ) : recentActivities?.length > 0 ? (
                         <div className="space-y-2">
-                            {activities.map((activity) => (
+                            {recentActivities.map((activity) => (
                                 <ActivityItem
                                     key={activity._id}
                                     action={activity.description}
@@ -317,9 +242,8 @@ const AdminDashboard = () => {
                         <LoadingSkeleton count={3} />
                     ) : (
                         <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            {/* Placeholder for Pie/Donut Chart */}
                             <p className="text-gray-500 text-sm">
-                                Biểu đồ tròn: Đã duyệt ({getStatValue('evidenceStats.approved')} | {(getStatValue('evidenceStats.approved') / getStatValue('evidenceStats.totalEvidences') * 100).toFixed(1)}%) vs Đang làm ({getStatValue('evidenceStats.inProgress')}) vs Từ chối ({getStatValue('evidenceStats.rejected')})
+                                Biểu đồ tròn: Đã duyệt ({getStatValue('evidenceStats.approved')} | {((getStatValue('evidenceStats.approved') / getStatValue('evidenceStats.totalEvidences', 1)) * 100).toFixed(1)}%) vs Đang làm ({getStatValue('evidenceStats.inProgress')}) vs Từ chối ({getStatValue('evidenceStats.rejected')})
                             </p>
                         </div>
                     )}
@@ -332,7 +256,6 @@ const AdminDashboard = () => {
                         <LoadingSkeleton count={3} />
                     ) : (
                         <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            {/* Placeholder for Bar/Line Chart */}
                             <p className="text-gray-500 text-sm">
                                 Biểu đồ cột/đường: Tổng lượt xem báo cáo ({getStatValue('reportStats.totalViews')}) và Tổng lượt tải xuống ({getStatValue('reportStats.totalDownloads')})
                             </p>
@@ -350,7 +273,6 @@ const AdminDashboard = () => {
                         <LoadingSkeleton count={3} />
                     ) : (
                         <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            {/* Placeholder for Pie/Donut Chart */}
                             <p className="text-gray-500 text-sm">
                                 Biểu đồ tròn: Hoàn thành ({getStatValue('assignmentStats.completed')}) vs Đang chờ ({getStatValue('assignmentStats.pending')}) vs Quá hạn ({getStatValue('assignmentStats.overdue')})
                             </p>
@@ -364,7 +286,6 @@ const AdminDashboard = () => {
                         <LoadingSkeleton count={3} />
                     ) : (
                         <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg p-4">
-                            {/* Placeholder for Horizontal Bar Chart */}
                             <p className="text-gray-500 text-sm">
                                 Biểu đồ cột ngang: Tiêu chuẩn hoạt động ({getStatValue('standardStats.active')}) và Tiêu chí hoạt động ({getStatValue('criteriaStats.active')})
                             </p>
