@@ -13,6 +13,10 @@ const {
     deleteReport,
     publishReport,
     unpublishReport,
+    approveReport,
+    rejectReport,
+    assignReporter,
+    makePublic,
     downloadReport,
     getReportStats,
     uploadReportFile,
@@ -28,7 +32,7 @@ const {
 
 router.get('/stats', auth, [
     query('type').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
-    query('status').optional().isIn(['draft', 'published', 'archived']),
+    query('status').optional().isIn(['draft', 'public', 'approved', 'rejected', 'published']),
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId()
 ], validation, getReportStats);
@@ -38,7 +42,7 @@ router.get('/', auth, [
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('search').optional().trim(),
     query('type').optional().isIn(['criteria_analysis', 'standard_analysis', 'comprehensive_report']),
-    query('status').optional().isIn(['draft', 'published', 'archived']),
+    query('status').optional().isIn(['draft', 'public', 'approved', 'rejected', 'published']),
     query('programId').optional().isMongoId(),
     query('organizationId').optional().isMongoId(),
     query('standardId').optional().isMongoId(),
@@ -62,10 +66,6 @@ router.get('/:id', auth, [
     param('id').isMongoId()
 ], validation, getReportById);
 
-router.post('/:id/unpublish', auth, requireReporter, [
-    param('id').isMongoId()
-], validation, unpublishReport);
-
 router.put('/:id', auth, requireReporter, [
     param('id').isMongoId(),
     body('title').optional().isLength({ max: 500 }),
@@ -82,6 +82,29 @@ router.delete('/:id', auth, requireReporter, [
 router.post('/:id/publish', auth, requireReporter, [
     param('id').isMongoId()
 ], validation, publishReport);
+
+router.post('/:id/unpublish', auth, requireReporter, [
+    param('id').isMongoId()
+], validation, unpublishReport);
+
+router.post('/:id/approve', auth, requireManager, [
+    param('id').isMongoId(),
+    body('feedback').optional().isLength({ max: 2000 })
+], validation, approveReport);
+
+router.post('/:id/reject', auth, requireManager, [
+    param('id').isMongoId(),
+    body('feedback').optional().isLength({ max: 2000 })
+], validation, rejectReport);
+
+router.post('/:id/assign-reporters', auth, requireManager, [
+    param('id').isMongoId(),
+    body('reporterIds').isArray({ min: 1 }).withMessage('Danh sách reporter phải có ít nhất 1 phần tử')
+], validation, assignReporter);
+
+router.post('/:id/make-public', auth, requireReporter, [
+    param('id').isMongoId()
+], validation, makePublic);
 
 router.get('/:id/evidences', auth, [
     param('id').isMongoId()

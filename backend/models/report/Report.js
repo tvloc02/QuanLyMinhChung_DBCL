@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Định nghĩa sub-schema cho Versions
 const versionSubSchema = new mongoose.Schema({
     content: { type: String, required: true },
     changeNote: String,
@@ -14,14 +13,13 @@ const versionSubSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-// Định nghĩa sub-schema cho Linked Evidences
 const linkedEvidenceSubSchema = new mongoose.Schema({
     evidenceId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Evidence',
         required: true
     },
-    contextText: { // Ngữ cảnh/Giải thích việc liên kết
+    contextText: {
         type: String,
         maxlength: 500
     },
@@ -31,7 +29,6 @@ const linkedEvidenceSubSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-// Định nghĩa sub-schema cho Reviewer Comments
 const reviewerCommentSubSchema = new mongoose.Schema({
     comment: String,
     section: String,
@@ -52,7 +49,6 @@ const reviewerCommentSubSchema = new mongoose.Schema({
         default: false
     }
 });
-
 
 const reportSchema = new mongoose.Schema({
     academicYearId: {
@@ -128,7 +124,7 @@ const reportSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['draft', 'published', 'archived'],
+        enum: ['draft', 'public', 'approved', 'rejected', 'published'],
         default: 'draft'
     },
 
@@ -155,13 +151,33 @@ const reportSchema = new mongoose.Schema({
         ref: 'User'
     },
 
-    // THÊM CÁC TRƯỜNG MỚI ĐỂ HỖ TRỢ API
+    assignedReporters: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    approvedAt: Date,
+
+    approvalFeedback: String,
+
+    rejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    rejectedAt: Date,
+
+    rejectionFeedback: String,
+
     versions: [versionSubSchema],
     linkedEvidences: [linkedEvidenceSubSchema],
     reviewerComments: [reviewerCommentSubSchema],
 
-
-    // Danh sách đánh giá của báo cáo
     evaluations: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Evaluation'
@@ -199,7 +215,6 @@ const reportSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
 reportSchema.index({ academicYearId: 1, type: 1 });
 reportSchema.index({ academicYearId: 1, programId: 1, organizationId: 1 });
 reportSchema.index({ academicYearId: 1, standardId: 1 });
@@ -209,7 +224,6 @@ reportSchema.index({ status: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
 
-// Pre hooks
 reportSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -217,7 +231,6 @@ reportSchema.pre('save', function(next) {
         if (this.isModified('content')) {
             this.wordCount = this.content ? this.content.split(/\s+/).length : 0;
 
-            // Tự động thêm phiên bản mới (Logic mẫu)
             if (this.versions) {
                 this.versions.push({
                     content: this.content,
@@ -232,7 +245,6 @@ reportSchema.pre('save', function(next) {
     next();
 });
 
-// Virtuals
 reportSchema.virtual('typeText').get(function() {
     const typeMap = {
         'criteria_analysis': 'Phiếu phân tích tiêu chí',
@@ -245,8 +257,10 @@ reportSchema.virtual('typeText').get(function() {
 reportSchema.virtual('statusText').get(function() {
     const statusMap = {
         'draft': 'Bản nháp',
-        'published': 'Đã xuất bản',
-        'archived': 'Lưu trữ'
+        'public': 'Công khai',
+        'approved': 'Chấp thuận',
+        'rejected': 'Từ chối',
+        'published': 'Phát hành'
     };
     return statusMap[this.status] || this.status;
 });
@@ -255,7 +269,6 @@ reportSchema.virtual('url').get(function() {
     return `/reports/${this._id}`;
 });
 
-// Methods
 reportSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -272,23 +285,19 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
 
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin') return true;
-    return this.createdBy.toString() === userId.toString();
+    return this.createdBy.toString() === userId.toString() ||
+        this.assignedReporters.map(r => r.toString()).includes(userId.toString());
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
-    // Admin - xem tất cả
     if (userRole === 'admin') return true;
 
-    // Creator - xem báo cáo của mình
     if (this.createdBy.toString() === userId.toString()) return true;
 
-    // Published - ai cũng xem được
-    if (this.status === 'published') return true;
+    if (['public', 'published'].includes(this.status)) return true;
 
-    // Supervisor - xem tất cả kể cả draft
-    if (userRole === 'supervisor') return true;
+    if (userRole === 'manager') return true;
 
-    // Kiểm tra quyền truy cập theo tiêu chuẩn/tiêu chí
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
     if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
 
@@ -373,8 +382,6 @@ reportSchema.methods.resolveComment = async function(commentId) {
     return this.save();
 };
 
-
-// Static methods
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
     const typePrefix = {
         'criteria_analysis': 'CA',
@@ -407,7 +414,6 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
     return `${baseCode}-${sequence.toString().padStart(3, '0')}`;
 };
 
-// Post hooks
 reportSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {

@@ -27,8 +27,6 @@ const standardSchema = new mongoose.Schema({
         }
     },
 
-
-
     programId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program',
@@ -40,7 +38,6 @@ const standardSchema = new mongoose.Schema({
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
-
 
     objectives: {
         type: String,
@@ -69,6 +66,11 @@ const standardSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+
+    assignedReporters: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
 
     metadata: {
         totalCriteria: {
@@ -169,7 +171,8 @@ standardSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {
             await this.addActivityLog('standard_create', this.createdBy,
-                `Tạo mới tiêu chuẩn: ${this.fullName}`, {
+                {
+                    description: `Tạo mới tiêu chuẩn: ${this.fullName}`,
                     severity: 'medium',
                     result: 'success'
                 });
@@ -184,7 +187,8 @@ standardSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.updatedBy) {
         try {
             await result.addActivityLog('standard_update', result.updatedBy,
-                `Cập nhật tiêu chuẩn: ${result.fullName}`, {
+                {
+                    description: `Cập nhật tiêu chuẩn: ${result.fullName}`,
                     severity: 'medium',
                     result: 'success'
                 });
@@ -199,7 +203,8 @@ standardSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.updatedBy) {
         try {
             await doc.addActivityLog('standard_delete', doc.updatedBy,
-                `Xóa tiêu chuẩn: ${doc.fullName}`, {
+                {
+                    description: `Xóa tiêu chuẩn: ${doc.fullName}`,
                     severity: 'high',
                     result: 'success',
                     isAuditRequired: true

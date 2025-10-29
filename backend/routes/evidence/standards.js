@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
 const { auth, requireAdmin, requireManager } = require('../../middleware/auth');
-//const { setAcademicYearContext } = require('../middleware/academicYear');
 const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
@@ -12,15 +11,12 @@ const {
     createStandard,
     updateStandard,
     deleteStandard,
+    assignReporters,
     getStandardStatistics
 } = require('../../controllers/evidence/standardController');
 
-// Apply academic year context to all routes
-//router.use(auth, setAcademicYearContext);
-
 router.use(auth, attachCurrentAcademicYear);
 
-// Validation rules
 const createStandardValidation = [
     body('name')
         .notEmpty()
@@ -60,7 +56,6 @@ const updateStandardValidation = [
     )
 ];
 
-// Routes
 router.get('/statistics',
     requireManager,
     [
@@ -111,6 +106,16 @@ router.put('/:id',
     updateStandardValidation,
     validation,
     updateStandard
+);
+
+router.post('/:id/assign-reporters',
+    requireManager,
+    [
+        param('id').isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
+        body('reporterIds').isArray({ min: 1 }).withMessage('Danh sách reporter phải có ít nhất 1 phần tử')
+    ],
+    validation,
+    assignReporters
 );
 
 router.delete('/:id',

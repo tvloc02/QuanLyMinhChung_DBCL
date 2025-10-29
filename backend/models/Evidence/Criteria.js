@@ -27,7 +27,6 @@ const criteriaSchema = new mongoose.Schema({
         }
     },
 
-
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
@@ -45,6 +44,7 @@ const criteriaSchema = new mongoose.Schema({
         ref: 'Organization',
         required: [true, 'Tổ chức - cấp đánh giá là bắt buộc']
     },
+
     indicators: [{
         name: {
             type: String,
@@ -79,6 +79,11 @@ const criteriaSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+
+    assignedReporters: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
 
     metadata: {
         totalEvidences: {

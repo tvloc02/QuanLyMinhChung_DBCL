@@ -6,7 +6,7 @@ import { formatDate } from '../../utils/helpers'
 import * as XLSX from 'xlsx'
 import ImportExcelModal from './ImportExcelModal'
 import CriteriaModal from './CriteriaModal'
-import { ActionButton } from '../../components/ActionButtons'
+import { ActionButton } from '../ActionButtons'
 
 export default function CriteriaList() {
     const [criteria, setCriteria] = useState([])

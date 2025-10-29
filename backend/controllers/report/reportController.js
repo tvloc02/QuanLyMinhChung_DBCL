@@ -25,11 +25,13 @@ const getReports = async (req, res) => {
 
         let query = { academicYearId };
 
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const userAccessQuery = {
                 $or: [
                     { createdBy: req.user.id },
-                    { status: 'published' }
+                    { status: 'public' },
+                    { status: 'published' },
+                    { assignedReporters: req.user.id }
                 ]
             };
 
@@ -74,6 +76,12 @@ const getReports = async (req, res) => {
                 .populate('criteriaId', 'name code')
                 .populate('createdBy', 'fullName email')
                 .populate('attachedFile', 'originalName size')
+                .populate('assignedReporters', 'fullName email')
+                .populate({
+                    path: 'evaluations',
+                    select: 'averageScore rating status',
+                    populate: { path: 'evaluatorId', select: 'fullName email' }
+                })
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -118,6 +126,7 @@ const getReportById = async (req, res) => {
             .populate('createdBy', 'fullName email')
             .populate('updatedBy', 'fullName email')
             .populate('attachedFile')
+            .populate('assignedReporters', 'fullName email')
             .populate({
                 path: 'evaluations',
                 select: 'averageScore rating status evaluatorId',
@@ -207,8 +216,10 @@ const createReport = async (req, res) => {
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim() || '',
             keywords: keywords || [],
+            status: 'draft',
             createdBy: req.user.id,
-            updatedBy: req.user.id
+            updatedBy: req.user.id,
+            assignedReporters: [req.user.id]
         };
 
         if (standardId) {
@@ -240,7 +251,8 @@ const createReport = async (req, res) => {
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
-            { path: 'createdBy', select: 'fullName email' }
+            { path: 'createdBy', select: 'fullName email' },
+            { path: 'assignedReporters', select: 'fullName email' }
         ]);
 
         res.status(201).json({
@@ -316,7 +328,8 @@ const updateReport = async (req, res) => {
             { path: 'organizationId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
             { path: 'criteriaId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+            { path: 'updatedBy', select: 'fullName email' },
+            { path: 'assignedReporters', select: 'fullName email' }
         ]);
 
         res.json({
@@ -354,10 +367,10 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        if (report.status === 'published') {
+        if (['public', 'approved', 'published'].includes(report.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa báo cáo đã xuất bản'
+                message: 'Không thể xóa báo cáo đã công khai hoặc được phê duyệt'
             });
         }
 
@@ -481,6 +494,192 @@ const unpublishReport = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi thu hồi báo cáo'
+        });
+    }
+};
+
+const approveReport = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { feedback } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin có quyền phê duyệt báo cáo'
+            });
+        }
+
+        report.status = 'approved';
+        report.approvedBy = req.user.id;
+        report.approvedAt = new Date();
+        if (feedback) {
+            report.approvalFeedback = feedback;
+        }
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        res.json({
+            success: true,
+            message: 'Phê duyệt báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Approve report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phê duyệt báo cáo'
+        });
+    }
+};
+
+const rejectReport = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { feedback } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin có quyền từ chối báo cáo'
+            });
+        }
+
+        report.status = 'rejected';
+        report.rejectedBy = req.user.id;
+        report.rejectedAt = new Date();
+        if (feedback) {
+            report.rejectionFeedback = feedback;
+        }
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        res.json({
+            success: true,
+            message: 'Từ chối báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Reject report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi từ chối báo cáo'
+        });
+    }
+};
+
+const assignReporter = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reporterIds } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin có quyền phân công reporter'
+            });
+        }
+
+        if (!Array.isArray(reporterIds) || reporterIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách reporter không hợp lệ'
+            });
+        }
+
+        report.assignedReporters = reporterIds;
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        await report.populate('assignedReporters', 'fullName email');
+
+        res.json({
+            success: true,
+            message: 'Phân công reporter thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Assign reporter error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phân công reporter'
+        });
+    }
+};
+
+const makePublic = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền công khai báo cáo này'
+            });
+        }
+
+        report.status = 'public';
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        res.json({
+            success: true,
+            message: 'Công khai báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Make public report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi công khai báo cáo'
         });
     }
 };
@@ -673,6 +872,9 @@ const getReportStats = async (req, res) => {
                     _id: null,
                     totalReports: { $sum: 1 },
                     draftReports: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } },
+                    publicReports: { $sum: { $cond: [{ $eq: ['$status', 'public'] }, 1, 0] } },
+                    approvedReports: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } },
+                    rejectedReports: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
                     publishedReports: { $sum: { $cond: [{ $eq: ['$status', 'published'] }, 1, 0] } },
                     totalViews: { $sum: '$metadata.viewCount' },
                     totalDownloads: { $sum: '$metadata.downloadCount' },
@@ -694,6 +896,9 @@ const getReportStats = async (req, res) => {
         const result = stats[0] || {
             totalReports: 0,
             draftReports: 0,
+            publicReports: 0,
+            approvedReports: 0,
+            rejectedReports: 0,
             publishedReports: 0,
             totalViews: 0,
             totalDownloads: 0,
@@ -1205,120 +1410,6 @@ function normalizeExistingLinks(content, baseUrl) {
     return content
 }
 
-function cleanDuplicateLinks(content) {
-    content = content.replace(
-        />"[^<]*"?\s*class="evidence-link"\s+data-code="/g,
-        '>data-code="'
-    );
-
-    content = content.replace(
-        /class="evidence-link"[^>]*class="evidence-link"/g,
-        'class="evidence-link"'
-    );
-
-    content = content.replace(
-        /data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*data-code="[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}"/g,
-        'data-code="$1"'
-    );
-
-    content = content.replace(
-        /target="_blank"[^>]*target="_blank"/g,
-        'target="_blank"'
-    );
-
-    content = content.replace(
-        /([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})>"[^<]*">(?=.*rel="noopener")/g,
-        '$1">'
-    );
-
-    content = content.replace(
-        /(<a[^>]*>)([^<]*?)(?:"[^<]*class="evidence-link"[^<]*)*([^<]*?)<\/a>/g,
-        (match, openTag, textBefore, textAfter) => {
-            const fullText = textBefore + textAfter;
-            const codeMatch = fullText.match(/([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})/);
-            if (codeMatch) {
-                return `${openTag}${codeMatch[1]}</a>`;
-            }
-            return match;
-        }
-    );
-
-    return content;
-}
-
-
-function wrapPlainCodes(content, baseUrl) {
-    const evidenceRegex = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g;
-
-    let processedContent = '';
-    let lastIndex = 0;
-    let match;
-
-    while ((match = evidenceRegex.exec(content)) !== null) {
-        const code = match[1];
-        const startIndex = match.index;
-        const endIndex = startIndex + code.length;
-
-        const lookbackLength = 200;
-        const lookaheadLength = 200;
-
-        const beforeText = content.substring(
-            Math.max(0, startIndex - lookbackLength),
-            startIndex
-        );
-        const afterText = content.substring(
-            endIndex,
-            Math.min(content.length, endIndex + lookaheadLength)
-        );
-
-        const isWrapped =
-            beforeText.includes('<a') &&
-            beforeText.includes('class="evidence-link"') &&
-            beforeText.includes(`data-code="${code}"`) &&
-            afterText.includes('</a>');
-
-        if (isWrapped) {
-            processedContent += content.substring(lastIndex, endIndex);
-            lastIndex = endIndex;
-            continue;
-        }
-
-        processedContent += content.substring(lastIndex, startIndex);
-        const url = `${baseUrl}/public/evidences/${code}`;
-        processedContent += `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`;
-
-        lastIndex = endIndex;
-    }
-
-    processedContent += content.substring(lastIndex);
-    return processedContent;
-}
-
-function validateHTML(html) {
-    const errors = [];
-
-    const openCount = (html.match(/<a/g) || []).length;
-    const closeCount = (html.match(/<\/a>/g) || []).length;
-    if (openCount !== closeCount) {
-        errors.push(`Unclosed <a> tags: ${openCount} open, ${closeCount} closed`);
-    }
-
-    const duplicatePattern = /class="evidence-link"[^>]*class="evidence-link"/g;
-    if (duplicatePattern.test(html)) {
-        errors.push('Found duplicate class="evidence-link" in same tag');
-    }
-
-    const corruptedPattern = /evidence-link"[^>]*"[^>]*class="evidence-link"/g;
-    if (corruptedPattern.test(html)) {
-        errors.push('Found corrupted link structure with mixed attributes');
-    }
-
-    return {
-        valid: errors.length === 0,
-        errors: errors
-    };
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     const map = {
@@ -1339,6 +1430,10 @@ module.exports = {
     deleteReport,
     publishReport,
     unpublishReport,
+    approveReport,
+    rejectReport,
+    assignReporter,
+    makePublic,
     downloadReport,
     getReportStats,
     uploadReportFile,
@@ -1351,8 +1446,5 @@ module.exports = {
     addReportComment,
     resolveReportComment,
     processEvidenceLinksInContent,
-    cleanDuplicateLinks,
-    normalizeExistingLinks,
-    wrapPlainCodes,
-    validateHTML
+    normalizeExistingLinks
 };

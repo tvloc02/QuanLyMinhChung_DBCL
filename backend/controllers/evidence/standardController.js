@@ -44,6 +44,7 @@ const getStandards = async (req, res) => {
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
                 .populate('createdBy', 'fullName email')
+                .populate('assignedReporters', 'fullName email')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -94,6 +95,7 @@ const getStandardsByProgramAndOrg = async (req, res) => {
         })
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
+            .populate('assignedReporters', 'fullName email')
             .sort({ order: 1, code: 1 });
 
         res.json({
@@ -120,7 +122,8 @@ const getStandardById = async (req, res) => {
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
             .populate('createdBy', 'fullName email')
-            .populate('updatedBy', 'fullName email');
+            .populate('updatedBy', 'fullName email')
+            .populate('assignedReporters', 'fullName email');
 
         if (!standard) {
             return res.status(404).json({
@@ -200,7 +203,8 @@ const createStandard = async (req, res) => {
             objectives: objectives?.trim(),
             evaluationCriteria: evaluationCriteria || [],
             createdBy: req.user.id,
-            updatedBy: req.user.id
+            updatedBy: req.user.id,
+            assignedReporters: []
         });
 
         await standard.save();
@@ -267,7 +271,7 @@ const updateStandard = async (req, res) => {
 
         const allowedFields = [
             'name', 'order', 'objectives',
-             'evaluationCriteria', 'status'
+            'evaluationCriteria', 'status'
         ];
 
         allowedFields.forEach(field => {
@@ -287,7 +291,8 @@ const updateStandard = async (req, res) => {
             { path: 'academicYearId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+            { path: 'updatedBy', select: 'fullName email' },
+            { path: 'assignedReporters', select: 'fullName email' }
         ]);
 
         res.json({
@@ -342,6 +347,57 @@ const deleteStandard = async (req, res) => {
     }
 };
 
+const assignReporters = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reporterIds } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const standard = await Standard.findOne({ _id: id, academicYearId });
+
+        if (!standard) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tiêu chuẩn'
+            });
+        }
+
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin có quyền phân công reporter'
+            });
+        }
+
+        if (!Array.isArray(reporterIds) || reporterIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách reporter không hợp lệ'
+            });
+        }
+
+        standard.assignedReporters = reporterIds;
+        standard.updatedBy = req.user.id;
+
+        await standard.save();
+
+        await standard.populate('assignedReporters', 'fullName email');
+
+        res.json({
+            success: true,
+            message: 'Phân công reporter thành công',
+            data: standard
+        });
+
+    } catch (error) {
+        console.error('Assign reporters error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phân công reporter'
+        });
+    }
+};
+
 const getStandardStatistics = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
@@ -385,5 +441,6 @@ module.exports = {
     createStandard,
     updateStandard,
     deleteStandard,
+    assignReporters,
     getStandardStatistics
 };

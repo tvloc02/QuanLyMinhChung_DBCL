@@ -53,6 +53,7 @@ const getCriteria = async (req, res) => {
                 .populate('programId', 'name code')
                 .populate('organizationId', 'name code')
                 .populate('createdBy', 'fullName email')
+                .populate('assignedReporters', 'fullName email')
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limitNum),
@@ -101,6 +102,7 @@ const getCriteriaByStandard = async (req, res) => {
             status: 'active'
         })
             .populate('standardId', 'name code')
+            .populate('assignedReporters', 'fullName email')
             .sort({ code: 1 });
 
         res.json({
@@ -128,7 +130,8 @@ const getCriteriaById = async (req, res) => {
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
             .populate('createdBy', 'fullName email')
-            .populate('updatedBy', 'fullName email');
+            .populate('updatedBy', 'fullName email')
+            .populate('assignedReporters', 'fullName email');
 
         if (!criteria) {
             return res.status(404).json({
@@ -167,7 +170,6 @@ const createCriteria = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Validate academicYearId
         if (!academicYearId) {
             return res.status(400).json({
                 success: false,
@@ -175,7 +177,6 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Validate standardId
         if (!standardId) {
             return res.status(400).json({
                 success: false,
@@ -193,12 +194,9 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Xử lý mã tiêu chí
         let criteriaCode = code;
 
-        // Nếu chọn tự động tạo mã hoặc không nhập mã
         if (autoGenerateCode || !criteriaCode) {
-            // Tìm mã lớn nhất trong tiêu chuẩn này
             const lastCriteria = await Criteria.findOne({
                 academicYearId,
                 standardId
@@ -207,19 +205,15 @@ const createCriteria = async (req, res) => {
                 .select('code');
 
             if (lastCriteria) {
-                // Tăng mã lên 1
                 const lastCode = parseInt(lastCriteria.code);
                 criteriaCode = (lastCode + 1).toString().padStart(2, '0');
             } else {
-                // Mã đầu tiên
                 criteriaCode = '01';
             }
         } else {
-            // Định dạng mã do người dùng nhập
             criteriaCode = criteriaCode.toString().padStart(2, '0');
         }
 
-        // Validate code format
         if (!/^\d{1,2}$/.test(criteriaCode)) {
             return res.status(400).json({
                 success: false,
@@ -227,7 +221,6 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Check duplicate
         const existingCriteria = await Criteria.findOne({
             academicYearId,
             standardId,
@@ -241,7 +234,6 @@ const createCriteria = async (req, res) => {
             });
         }
 
-        // Create criteria
         const criteria = new Criteria({
             academicYearId,
             name: name.trim(),
@@ -255,7 +247,8 @@ const createCriteria = async (req, res) => {
             indicators: Array.isArray(indicators) ? indicators : [],
             status: status || 'draft',
             createdBy: req.user.id,
-            updatedBy: req.user.id
+            updatedBy: req.user.id,
+            assignedReporters: []
         });
 
         await criteria.save();
@@ -277,7 +270,6 @@ const createCriteria = async (req, res) => {
     } catch (error) {
         console.error('Create criteria error:', error);
 
-        // Chi tiết lỗi cho developer
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -319,7 +311,6 @@ const updateCriteria = async (req, res) => {
         }
 
         if (updateData.code && updateData.code !== criteria.code) {
-            // Format mã
             const newCode = updateData.code.toString().padStart(2, '0');
 
             const existingCriteria = await Criteria.findOne({
@@ -370,7 +361,8 @@ const updateCriteria = async (req, res) => {
             { path: 'standardId', select: 'name code' },
             { path: 'programId', select: 'name code' },
             { path: 'organizationId', select: 'name code' },
-            { path: 'updatedBy', select: 'fullName email' }
+            { path: 'updatedBy', select: 'fullName email' },
+            { path: 'assignedReporters', select: 'fullName email' }
         ]);
 
         res.json({
@@ -421,6 +413,57 @@ const deleteCriteria = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi xóa tiêu chí'
+        });
+    }
+};
+
+const assignReporters = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reporterIds } = req.body;
+        const academicYearId = req.academicYearId;
+
+        const criteria = await Criteria.findOne({ _id: id, academicYearId });
+
+        if (!criteria) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tiêu chí'
+            });
+        }
+
+        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ Manager hoặc Admin có quyền phân công reporter'
+            });
+        }
+
+        if (!Array.isArray(reporterIds) || reporterIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Danh sách reporter không hợp lệ'
+            });
+        }
+
+        criteria.assignedReporters = reporterIds;
+        criteria.updatedBy = req.user.id;
+
+        await criteria.save();
+
+        await criteria.populate('assignedReporters', 'fullName email');
+
+        res.json({
+            success: true,
+            message: 'Phân công reporter thành công',
+            data: criteria
+        });
+
+    } catch (error) {
+        console.error('Assign reporters error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi phân công reporter'
         });
     }
 };
@@ -479,5 +522,6 @@ module.exports = {
     createCriteria,
     updateCriteria,
     deleteCriteria,
+    assignReporters,
     getCriteriaStatistics
 };

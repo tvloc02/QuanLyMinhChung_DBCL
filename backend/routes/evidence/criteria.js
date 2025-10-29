@@ -11,12 +11,12 @@ const {
     createCriteria,
     updateCriteria,
     deleteCriteria,
+    assignReporters,
     getCriteriaStatistics
 } = require('../../controllers/evidence/criteriaController');
 
 router.use(auth, attachCurrentAcademicYear);
 
-// Validation rules
 const createCriteriaValidation = [
     body('name')
         .notEmpty()
@@ -53,7 +53,6 @@ const updateCriteriaValidation = [
     )
 ];
 
-// Routes
 router.get('/statistics',
     requireManager,
     [
@@ -101,6 +100,16 @@ router.put('/:id',
     updateCriteriaValidation,
     validation,
     updateCriteria
+);
+
+router.post('/:id/assign-reporters',
+    requireManager,
+    [
+        param('id').isMongoId().withMessage('ID tiêu chí không hợp lệ'),
+        body('reporterIds').isArray({ min: 1 }).withMessage('Danh sách reporter phải có ít nhất 1 phần tử')
+    ],
+    validation,
+    assignReporters
 );
 
 router.delete('/:id',
