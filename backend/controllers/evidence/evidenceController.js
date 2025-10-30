@@ -8,6 +8,7 @@ const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const permissionService = require('../../services/permissionService');
 
 let Standard, Criteria;
 
@@ -46,11 +47,20 @@ const getEvidences = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
         let query = { academicYearId };
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(userId, academicYearId);
+            if (accessibleCriteriaIds.length > 0) {
+                query.criteriaId = { $in: accessibleCriteriaIds };
+            }
+        }
 
         if (search) {
             query.$and = query.$and || [];
@@ -181,6 +191,7 @@ const createEvidence = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         if (!name || !programId || !organizationId || !standardId || !criteriaId) {
             return res.status(400).json({
@@ -189,13 +200,14 @@ const createEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(standardId) &&
-            !req.user.hasCriteriaAccess(criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tạo minh chứng cho tiêu chuẩn/tiêu chí này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canUpload = await permissionService.canUploadEvidence(userId, criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền tạo minh chứng cho tiêu chí này'
+                });
+            }
         }
 
         if (!Standard || !Criteria) {
@@ -268,8 +280,8 @@ const createEvidence = async (req, res) => {
             issuingAgency: issuingAgency?.trim(),
             notes: notes?.trim(),
             tags: tags || [],
-            createdBy: req.user.id,
-            updatedBy: req.user.id
+            createdBy: userId,
+            updatedBy: userId
         });
 
         await evidence.save();
@@ -319,6 +331,7 @@ const updateEvidence = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
@@ -328,13 +341,14 @@ const updateEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền cập nhật minh chứng này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền cập nhật minh chứng này'
+                });
+            }
         }
 
         if (updateData.code && updateData.code !== evidence.code) {
@@ -362,7 +376,7 @@ const updateEvidence = async (req, res) => {
             }
         });
 
-        evidence.updatedBy = req.user.id;
+        evidence.updatedBy = userId;
         await evidence.save();
 
         await evidence.populate([
@@ -393,6 +407,7 @@ const deleteEvidence = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
@@ -402,12 +417,10 @@ const deleteEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xóa minh chứng này'
+                message: 'Chỉ quản lý mới có thể xóa minh chứng'
             });
         }
 
@@ -764,6 +777,7 @@ const moveEvidence = async (req, res) => {
         const { id } = req.params;
         const { targetStandardId, targetCriteriaId, newCode } = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
@@ -773,13 +787,14 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền di chuyển minh chứng này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền di chuyển minh chứng này'
+                });
+            }
         }
 
         const existingEvidence = await Evidence.findOne({
@@ -798,7 +813,7 @@ const moveEvidence = async (req, res) => {
             targetStandardId,
             targetCriteriaId,
             newCode,
-            req.user.id
+            userId
         );
 
         res.json({

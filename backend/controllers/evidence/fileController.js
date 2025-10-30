@@ -3,8 +3,8 @@ const Evidence = require('../../models/Evidence/Evidence');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const permissionService = require('../../services/permissionService');
 
-// Hàm updateFolderMetadata (giữ nguyên)
 const updateFolderMetadata = async (folderId) => {
     try {
         const children = await File.find({ parentFolder: folderId });
@@ -37,6 +37,8 @@ const uploadFiles = async (req, res) => {
         const { evidenceId } = req.params;
         const { parentFolderId } = req.body;
         const files = req.files;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
 
         if (!files || files.length === 0) {
             return res.status(400).json({
@@ -53,7 +55,16 @@ const uploadFiles = async (req, res) => {
             });
         }
 
-        // Validate parent folder if provided
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền upload file cho minh chứng này'
+                });
+            }
+        }
+
         if (parentFolderId) {
             const parentFolder = await File.findOne({
                 _id: parentFolderId,
@@ -72,7 +83,6 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
-            // SỬA LỖI FONT: Mã hóa tên file gốc để sử dụng an toàn trong path
             const encodedFileName = encodeURIComponent(file.originalname);
 
             const storedName = File.generateStoredName(
@@ -96,19 +106,19 @@ const uploadFiles = async (req, res) => {
             }
 
             const fileDoc = new File({
-                originalName: file.originalname, // Lưu tên gốc (có thể chứa ký tự tiếng Việt)
-                storedName, // Lưu tên đã được mã hóa URI (an toàn trong filesystem)
+                originalName: file.originalname,
+                storedName,
                 filePath: permanentPath,
                 size: file.size,
                 mimeType: file.mimetype,
                 extension: path.extname(file.originalname).toLowerCase(),
                 evidenceId,
-                uploadedBy: req.user.id,
+                uploadedBy: userId,
                 url: `/uploads/evidences/${storedName}`,
                 type: 'file',
                 parentFolder: parentFolderId || null,
                 approvalStatus: req.user.role === 'admin' ? 'approved' : 'pending',
-                approvedBy: req.user.role === 'admin' ? req.user.id : null,
+                approvedBy: req.user.role === 'admin' ? userId : null,
                 approvalDate: req.user.role === 'admin' ? new Date() : null
             });
 
@@ -167,7 +177,6 @@ const downloadFile = async (req, res) => {
 
         await file.incrementDownloadCount();
 
-        // SỬA LỖI FONT: Dùng tên gốc (đã được lưu đúng) khi download
         const decodedFileName = file.originalName;
 
         res.download(file.filePath, decodedFileName);
@@ -184,6 +193,8 @@ const downloadFile = async (req, res) => {
 const deleteFile = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
 
         const file = await File.findById(id).populate('evidenceId');
         if (!file) {
@@ -191,6 +202,17 @@ const deleteFile = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file'
             });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const evidence = file.evidenceId;
+            const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
+            if (!canManage) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền xóa file này'
+                });
+            }
         }
 
         if (file.type === 'folder') {
@@ -268,11 +290,12 @@ const getFileInfo = async (req, res) => {
     }
 };
 
-
 const createFolder = async (req, res) => {
     try {
         const { evidenceId } = req.params;
         const { folderName, parentFolderId } = req.body;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
 
         if (!folderName) {
             return res.status(400).json({
@@ -289,13 +312,14 @@ const createFolder = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tạo thư mục cho minh chứng này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
+            if (!canManage) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền tạo thư mục cho minh chứng này'
+                });
+            }
         }
 
         if (parentFolderId) {
@@ -322,7 +346,7 @@ const createFolder = async (req, res) => {
             extension: '',
             type: 'folder',
             evidenceId,
-            uploadedBy: req.user.id,
+            uploadedBy: userId,
             parentFolder: parentFolderId || null,
             folderMetadata: {
                 fileCount: 0,
@@ -359,6 +383,8 @@ const renameFolder = async (req, res) => {
     try {
         const { id } = req.params;
         const { newName } = req.body;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
 
         if (!newName) {
             return res.status(400).json({
@@ -382,13 +408,15 @@ const renameFolder = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(folder.evidenceId.standardId) &&
-            !req.user.hasCriteriaAccess(folder.evidenceId.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền đổi tên thư mục này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const evidence = folder.evidenceId;
+            const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
+            if (!canManage) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền đổi tên thư mục này'
+                });
+            }
         }
 
         folder.originalName = newName.trim();
@@ -437,7 +465,7 @@ const getFolderContents = async (req, res) => {
 
         const items = await File.find(query)
             .populate('uploadedBy', 'fullName email')
-            .sort({ type: -1, originalName: 1 }); // Folders first, then files
+            .sort({ type: -1, originalName: 1 });
 
         res.json({
             success: true,
@@ -457,6 +485,8 @@ const moveFile = async (req, res) => {
     try {
         const { id } = req.params;
         const { targetFolderId } = req.body;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
 
         const file = await File.findById(id).populate('evidenceId');
         if (!file) {
@@ -466,13 +496,15 @@ const moveFile = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(file.evidenceId.standardId) &&
-            !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền di chuyển file/thư mục này'
-            });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const evidence = file.evidenceId;
+            const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
+            if (!canManage) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền di chuyển file/thư mục này'
+                });
+            }
         }
 
         if (targetFolderId && targetFolderId !== 'root') {
@@ -558,7 +590,6 @@ const getFolderTree = async (req, res) => {
     }
 };
 
-
 const searchFiles = async (req, res) => {
     try {
         const {
@@ -632,7 +663,6 @@ const searchFiles = async (req, res) => {
     }
 };
 
-
 const getFileStatistics = async (req, res) => {
     try {
         const { evidenceId } = req.params;
@@ -689,7 +719,6 @@ const getFileStatistics = async (req, res) => {
         });
     }
 };
-
 
 const checkIfDescendant = async (ancestorId, descendantId) => {
     let currentId = ancestorId;

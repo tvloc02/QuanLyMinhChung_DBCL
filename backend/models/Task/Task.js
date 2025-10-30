@@ -53,11 +53,11 @@ const taskSchema = new mongoose.Schema({
         ref: 'Report'
     },
 
-    // Trường reportType để phân loại nhiệm vụ viết báo cáo
     reportType: {
         type: String,
-        enum: ['tdg', 'standard', 'criteria'], // Tự đánh giá, Tiêu chuẩn, Tiêu chí
-        required: true
+        enum: ['overall_tdg', 'standard', 'criteria'],
+        required: true,
+        description: 'overall_tdg: Báo cáo tổng hợp TĐG, standard: Báo cáo tiêu chuẩn, criteria: Báo cáo tiêu chí'
     },
 
     status: {
@@ -131,6 +131,8 @@ taskSchema.index({ academicYearId: 1, taskCode: 1 }, { unique: true });
 taskSchema.index({ academicYearId: 1, criteriaId: 1 });
 taskSchema.index({ assignedTo: 1, academicYearId: 1 });
 taskSchema.index({ status: 1, academicYearId: 1 });
+taskSchema.index({ reportType: 1, academicYearId: 1 });
+taskSchema.index({ standardId: 1, reportType: 1 });
 
 taskSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -155,7 +157,6 @@ taskSchema.methods.canReview = function(userRole) {
     return userRole === 'admin' || userRole === 'manager';
 };
 
-// Logic canSubmitReport: Chỉ Reporter được giao nhiệm vụ mới có quyền nộp báo cáo
 taskSchema.methods.canSubmitReport = function(userId, userRole) {
     return userRole === 'reporter' && this.assignedTo.some(id => id.toString() === userId.toString());
 };

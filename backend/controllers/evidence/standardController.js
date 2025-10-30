@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Standard = require('../../models/Evidence/Standard');
 const Program = require('../../models/Evidence/Program');
 const Organization = require('../../models/Evidence/Organization');
+const permissionService = require('../../services/permissionService');
 
 const getStandards = async (req, res) => {
     try {
@@ -17,12 +18,20 @@ const getStandards = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
         let query = { academicYearId };
+
+        if (req.user.role === 'reporter') {
+            const accessibleStandardIds = await permissionService.getAccessibleStandardIds(userId, academicYearId);
+            if (accessibleStandardIds.length > 0) {
+                query._id = { $in: accessibleStandardIds };
+            }
+        }
 
         if (search) {
             query.$or = [
@@ -79,6 +88,7 @@ const getStandardsByProgramAndOrg = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -87,12 +97,21 @@ const getStandardsByProgramAndOrg = async (req, res) => {
             });
         }
 
-        const standards = await Standard.find({
+        let query = {
             academicYearId,
             programId,
             organizationId,
             status: 'active'
-        })
+        };
+
+        if (req.user.role === 'reporter') {
+            const accessibleStandardIds = await permissionService.getAccessibleStandardIds(userId, academicYearId);
+            if (accessibleStandardIds.length > 0) {
+                query._id = { $in: accessibleStandardIds };
+            }
+        }
+
+        const standards = await Standard.find(query)
             .populate('programId', 'name code')
             .populate('organizationId', 'name code')
             .populate('assignedReporters', 'fullName email')
@@ -159,6 +178,13 @@ const createStandard = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có thể tạo tiêu chuẩn'
+            });
+        }
 
         const [program, organization] = await Promise.all([
             Program.findOne({ _id: programId, academicYearId }),
@@ -236,6 +262,7 @@ const updateStandard = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const standard = await Standard.findOne({ _id: id, academicYearId });
         if (!standard) {
@@ -243,6 +270,16 @@ const updateStandard = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy tiêu chuẩn trong năm học này'
             });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canEdit = await permissionService.canEditStandard(userId, id, academicYearId);
+            if (!canEdit) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền chỉnh sửa tiêu chuẩn này'
+                });
+            }
         }
 
         if (updateData.code && updateData.code !== standard.code) {
@@ -284,7 +321,7 @@ const updateStandard = async (req, res) => {
             standard.code = updateData.code.toString().padStart(2, '0');
         }
 
-        standard.updatedBy = req.user.id;
+        standard.updatedBy = userId;
         await standard.save();
 
         await standard.populate([
@@ -323,6 +360,13 @@ const deleteStandard = async (req, res) => {
             });
         }
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có thể xóa tiêu chuẩn'
+            });
+        }
+
         const isInUse = await standard.isInUse();
         if (isInUse) {
             return res.status(400).json({
@@ -352,6 +396,7 @@ const assignReporters = async (req, res) => {
         const { id } = req.params;
         const { reporterIds } = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const standard = await Standard.findOne({ _id: id, academicYearId });
 
@@ -363,10 +408,13 @@ const assignReporters = async (req, res) => {
         }
 
         if (req.user.role !== 'manager' && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ Manager hoặc Admin có quyền phân công reporter'
-            });
+            const canAssign = await permissionService.canAssignReporters(userId, id, null, academicYearId);
+            if (!canAssign) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền phân công reporter cho tiêu chuẩn này'
+                });
+            }
         }
 
         if (!Array.isArray(reporterIds) || reporterIds.length === 0) {
@@ -377,7 +425,7 @@ const assignReporters = async (req, res) => {
         }
 
         standard.assignedReporters = reporterIds;
-        standard.updatedBy = req.user.id;
+        standard.updatedBy = userId;
 
         await standard.save();
 

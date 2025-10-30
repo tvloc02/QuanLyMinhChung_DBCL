@@ -6,6 +6,13 @@ const { setAcademicYearContext } = require('../../middleware/academicYear');
 const { upload } = require('../../middleware/upload');
 const validation = require('../../middleware/validation');
 const {
+    checkCanEditStandard,
+    checkCanEditCriteria,
+    checkCanAssignReporters,
+    checkCanUploadEvidence,
+    checkCanManageFiles
+} = require('../../middleware/permissionMiddleware');
+const {
     getEvidences,
     getEvidenceById,
     createEvidence,
@@ -126,7 +133,6 @@ router.post('/import', upload.single('file'), [
     body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
 ], validation, importEvidences);
 
-
 router.get('/', [
     query('status').optional().isIn(['active', 'inactive', 'new', 'in_progress', 'completed', 'approved', 'rejected']),
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
@@ -227,23 +233,5 @@ router.post('/:id/copy-to-year', [
         .matches(/^[A-Y]\d+\.\d{2}\.\d{2}\.\d{2}$/)
         .withMessage('Mã minh chứng mới không đúng format')
 ], validation, copyEvidenceToAnotherYear);
-
-
-router.post('/evidences/export', async (req, res) => {
-    const { programId, organizationId, format } = req.body;
-    try {
-        if (!programId || !organizationId || format !== 'xlsx') {
-            return res.status(400).json({ message: 'Thiếu dữ liệu hoặc định dạng không hợp lệ' });
-        }
-        const evidenceData = await getEvidenceData(programId, organizationId);
-        const fileBuffer = await generateExcelFile(evidenceData);
-        res.setHeader('Content-Disposition', 'attachment; filename="evidence.xlsx"');
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.send(fileBuffer);
-    } catch (error) {
-        console.error('Export error:', error);
-        res.status(500).json({ message: 'Lỗi khi xuất dữ liệu' });
-    }
-});
 
 module.exports = router;

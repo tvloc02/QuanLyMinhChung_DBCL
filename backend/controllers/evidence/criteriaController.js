@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
-const XLSX = require('xlsx');
-const multer = require('multer');
 const Criteria = require('../../models/Evidence/Criteria');
 const Standard = require('../../models/Evidence/Standard');
-const Program = require('../../models/Evidence/Program');
-const Organization = require('../../models/Evidence/Organization');
+const permissionService = require('../../services/permissionService');
 
 const getCriteria = async (req, res) => {
     try {
@@ -22,12 +19,20 @@ const getCriteria = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
         let query = { academicYearId };
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(userId, academicYearId);
+            if (accessibleCriteriaIds.length > 0) {
+                query._id = { $in: accessibleCriteriaIds };
+            }
+        }
 
         if (search) {
             query.$or = [
@@ -184,6 +189,16 @@ const createCriteria = async (req, res) => {
             });
         }
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canEdit = await permissionService.canEditCriteria(req.user.id, standardId, academicYearId);
+            if (!canEdit) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền tạo tiêu chí'
+                });
+            }
+        }
+
         const standard = await Standard.findOne({ _id: standardId, academicYearId })
             .populate('programId organizationId');
 
@@ -288,8 +303,7 @@ const createCriteria = async (req, res) => {
 
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi tạo tiêu chí',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Lỗi hệ thống khi tạo tiêu chí'
         });
     }
 };
@@ -299,6 +313,7 @@ const updateCriteria = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const criteria = await Criteria.findOne({ _id: id, academicYearId })
             .populate('standardId', 'code');
@@ -308,6 +323,16 @@ const updateCriteria = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy tiêu chí trong năm học này'
             });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canEdit = await permissionService.canEditCriteria(userId, id, academicYearId);
+            if (!canEdit) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền chỉnh sửa tiêu chí này'
+                });
+            }
         }
 
         if (updateData.code && updateData.code !== criteria.code) {
@@ -353,7 +378,7 @@ const updateCriteria = async (req, res) => {
             criteria.code = updateData.code;
         }
 
-        criteria.updatedBy = req.user.id;
+        criteria.updatedBy = userId;
         await criteria.save();
 
         await criteria.populate([
@@ -393,6 +418,13 @@ const deleteCriteria = async (req, res) => {
             });
         }
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có thể xóa tiêu chí'
+            });
+        }
+
         const isInUse = await criteria.isInUse();
         if (isInUse) {
             return res.status(400).json({
@@ -422,6 +454,7 @@ const assignReporters = async (req, res) => {
         const { id } = req.params;
         const { reporterIds } = req.body;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const criteria = await Criteria.findOne({ _id: id, academicYearId });
 
@@ -433,10 +466,13 @@ const assignReporters = async (req, res) => {
         }
 
         if (req.user.role !== 'manager' && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ Manager hoặc Admin có quyền phân công reporter'
-            });
+            const canAssign = await permissionService.canAssignReporters(userId, null, id, academicYearId);
+            if (!canAssign) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền phân công reporter cho tiêu chí này'
+                });
+            }
         }
 
         if (!Array.isArray(reporterIds) || reporterIds.length === 0) {
@@ -447,7 +483,7 @@ const assignReporters = async (req, res) => {
         }
 
         criteria.assignedReporters = reporterIds;
-        criteria.updatedBy = req.user.id;
+        criteria.updatedBy = userId;
 
         await criteria.save();
 
