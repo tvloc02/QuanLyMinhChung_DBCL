@@ -53,6 +53,13 @@ const taskSchema = new mongoose.Schema({
         ref: 'Report'
     },
 
+    // Trường reportType để phân loại nhiệm vụ viết báo cáo
+    reportType: {
+        type: String,
+        enum: ['tdg', 'standard', 'criteria'], // Tự đánh giá, Tiêu chuẩn, Tiêu chí
+        required: true
+    },
+
     status: {
         type: String,
         enum: ['pending', 'in_progress', 'submitted', 'approved', 'rejected', 'completed'],
@@ -148,6 +155,7 @@ taskSchema.methods.canReview = function(userRole) {
     return userRole === 'admin' || userRole === 'manager';
 };
 
+// Logic canSubmitReport: Chỉ Reporter được giao nhiệm vụ mới có quyền nộp báo cáo
 taskSchema.methods.canSubmitReport = function(userId, userRole) {
     return userRole === 'reporter' && this.assignedTo.some(id => id.toString() === userId.toString());
 };

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
-// Đã import requireManager
 const { auth, requireManager, requireAdmin } = require('../../middleware/auth');
 const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
@@ -42,7 +41,12 @@ const createTaskValidation = [
     body('dueDate')
         .optional()
         .isISO8601()
-        .withMessage('Ngày hết hạn không hợp lệ')
+        .withMessage('Ngày hết hạn không hợp lệ'),
+    body('reportType') // Phân loại nhiệm vụ viết báo cáo
+        .notEmpty()
+        .withMessage('Loại báo cáo là bắt buộc')
+        .isIn(['tdg', 'standard', 'criteria'])
+        .withMessage('Loại báo cáo không hợp lệ')
 ];
 
 const updateTaskValidation = [
@@ -63,7 +67,7 @@ const updateTaskValidation = [
 
 // Routes
 
-// GET /: Lấy danh sách Task (quyền xem thường mở cho nhiều vai trò, lọc trong controller)
+// GET /: Lấy danh sách Task (quyền xem mở)
 router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
@@ -88,31 +92,31 @@ router.get('/:id', [
     param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')
 ], validation, getTaskById);
 
-// POST /: TẠO TASK - Sử dụng requireManager để cấp quyền cho Manager (và Admin)
+// POST /: TẠO TASK - Cấp quyền cho Manager và Admin
 router.post('/',
-    requireManager, // ✅ Cấp quyền cho Manager và Admin
+    requireManager,
     createTaskValidation,
     validation,
     createTask
 );
 
-// PUT /:id: CẬP NHẬT TASK - Sử dụng requireManager
+// PUT /:id: CẬP NHẬT TASK - Cấp quyền cho Manager và Admin
 router.put('/:id',
-    requireManager, // ✅ Cấp quyền cho Manager và Admin
+    requireManager,
     updateTaskValidation,
     validation,
     updateTask
 );
 
-// DELETE /:id: XÓA TASK - Sử dụng requireManager
+// DELETE /:id: XÓA TASK - Cấp quyền cho Manager và Admin
 router.delete('/:id',
-    requireManager, // ✅ Cấp quyền cho Manager và Admin
+    requireManager,
     [param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')],
     validation,
     deleteTask
 );
 
-// POST /:id/submit-report: BÁO CÁO - Thường dành cho Reporter/Evaluator (người được giao)
+// POST /:id/submit-report: BÁO CÁO - Dành cho Reporter
 router.post('/:id/submit-report', [
     param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
     body('reportId')
@@ -122,9 +126,9 @@ router.post('/:id/submit-report', [
         .withMessage('ID báo cáo không hợp lệ')
 ], validation, submitReport);
 
-// POST /:id/review-report: ĐÁNH GIÁ BÁO CÁO - Sử dụng requireManager
+// POST /:id/review-report: ĐÁNH GIÁ BÁO CÁO - Cấp quyền cho Manager và Admin
 router.post('/:id/review-report',
-    requireManager, // ✅ Cấp quyền cho Manager và Admin
+    requireManager,
     [
         param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
         body('approved')

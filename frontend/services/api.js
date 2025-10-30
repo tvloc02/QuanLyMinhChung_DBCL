@@ -96,6 +96,12 @@ export const apiMethods = {
     },
 
     users: {
+        // Gọi lại endpoint /auth/me qua publicApi để sửa lỗi 404 (Nếu route /auth/me nằm ngoài /api)
+        // Tuy nhiên, để tương thích với cấu trúc cũ, tôi sẽ giữ nguyên và giả định backend route /api/users/profile
+        // Nhưng vì AuthContext dùng /api/auth/me, tôi sẽ dùng luôn api.get('/auth/me') nếu backend chấp nhận route này
+        // HOẶC dùng api.get('/api/users/profile') nếu bạn có route này.
+        // GIẢI PHÁP TỐT NHẤT: Trỏ về auth.me
+        getProfile: () => api.get('/auth/me'),
         getAll: (params) => api.get('/api/users', { params }),
         getById: (id) => api.get(`/users/${id}`),
         create: (data) => api.post('/users', data),
@@ -104,7 +110,7 @@ export const apiMethods = {
         changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
         resetPassword: (id) => api.post(`/users/${id}/reset-password`),
         getStats: () => api.get('/users/statistics'),
-        getExperts: (params) => api.get('/users', { params: { ...params, role: 'expert' } }),
+        getExperts: (params) => api.get('/users', { params: { ...params, role: 'evaluator' } }), // Đổi expert -> evaluator
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
@@ -206,8 +212,8 @@ export const apiMethods = {
                 targetStandardId,
                 targetCriteriaId
             }),
-        move: (id, targetStandardId, targetCriteriaId) =>
-            api.post('/api/evidences/${id}/move', { targetStandardId, targetCriteriaId }),
+        move: (id, data) =>
+            api.post(`/api/evidences/${id}/move`, data),
         getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
 
         import: (formData) => {
@@ -309,13 +315,13 @@ export const apiMethods = {
         create: (data) => api.post('/api/assignments', data),
         update: (id, data) => api.put(`/api/assignments/${id}`, data),
         delete: (id) => api.delete(`/api/assignments/${id}`),
-        getExpertWorkload: (expertId) => api.get(`/api/assignments/expert-workload/${expertId}`),
+        getExpertWorkload: (expertId) => api.get(`/api/assignments/evaluator-workload/${expertId}`),
         getStats: () => api.get('/api/assignments/stats'),
         accept: (id) => api.post(`/api/assignments/${id}/accept`),
         reject: (id, responseNote) => api.post(`/api/assignments/${id}/reject`, { responseNote }),
         cancel: (id, responseNote) => api.post(`/api/assignments/${id}/cancel`, { responseNote }),
         getWorkload: (expertId) =>
-            api.get('/api/assignments/expert-workload', { params: { expertId } }),
+            api.get('/api/assignments/evaluator-workload', { params: { expertId } }),
         getUpcomingDeadlines: (academicYearId, days) =>
             api.get('/api/assignments/upcoming-deadlines', { params: { days } }),
 

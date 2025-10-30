@@ -52,43 +52,6 @@ const getEvidences = async (req, res) => {
 
         let query = { academicYearId };
 
-        // =============================================================
-        // === SỬA ĐỔI: LOẠI BỎ KIỂM TRA QUYỀN ĐỂ TẤT CẢ NGƯỜI DÙNG XEM ĐƯỢC
-        // Nếu không có khối này, mọi người dùng đã đăng nhập sẽ thấy tất cả minh chứng
-        // trong năm học hiện tại.
-        /*
-        if (req.user.role !== 'admin') {
-            const accessibleStandards = req.user.standardAccess || [];
-            const accessibleCriteria = req.user.criteriaAccess || [];
-
-            if (accessibleStandards.length > 0 || accessibleCriteria.length > 0) {
-                query.$or = [];
-                if (accessibleStandards.length > 0) {
-                    query.$or.push({ standardId: { $in: accessibleStandards } });
-                }
-                if (accessibleCriteria.length > 0) {
-                    query.$or.push({ criteriaId: { $in: accessibleCriteria } });
-                }
-            } else {
-                return res.json({
-                    success: true,
-                    data: {
-                        evidences: [],
-                        pagination: {
-                            current: pageNum,
-                            pages: 0,
-                            total: 0,
-                            hasNext: false,
-                            hasPrev: false
-                        },
-                        academicYear: req.currentAcademicYear
-                    }
-                });
-            }
-        }
-        */
-        // =============================================================
-
         if (search) {
             query.$and = query.$and || [];
             query.$and.push({
@@ -179,17 +142,6 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
-        /*
-        if (req.user.role !== 'admin' &&
-            !req.user.hasStandardAccess(evidence.standardId._id) &&
-            !req.user.hasCriteriaAccess(evidence.criteriaId._id)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền truy cập minh chứng này'
-            });
-        }
-        */
-
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
             await evidence.save();
@@ -230,8 +182,6 @@ const createEvidence = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        console.log('Creating evidence with data:', { name, standardId, criteriaId, academicYearId });
-
         if (!name || !programId || !organizationId || !standardId || !criteriaId) {
             return res.status(400).json({
                 success: false,
@@ -249,14 +199,12 @@ const createEvidence = async (req, res) => {
         }
 
         if (!Standard || !Criteria) {
-            console.error('Standard or Criteria model not loaded!');
             return res.status(500).json({
                 success: false,
                 message: 'Lỗi cấu hình hệ thống: không load được model Standard/Criteria'
             });
         }
 
-        console.log('Finding standard and criteria...');
         const mongoose = require('mongoose');
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
@@ -265,8 +213,6 @@ const createEvidence = async (req, res) => {
             StandardModel.findOne({ _id: standardId, academicYearId }),
             CriteriaModel.findOne({ _id: criteriaId, academicYearId })
         ]);
-
-        console.log('Found:', { standard: standard?.code, criteria: criteria?.code });
 
         if (!standard || !criteria) {
             return res.status(400).json({
@@ -285,9 +231,7 @@ const createEvidence = async (req, res) => {
                     criteria.code,
                     1
                 );
-                console.log('Generated code:', evidenceCode);
             } catch (genError) {
-                console.error('Code generation error:', genError);
                 return res.status(500).json({
                     success: false,
                     message: 'Lỗi khi tạo mã minh chứng tự động: ' + genError.message
@@ -347,7 +291,6 @@ const createEvidence = async (req, res) => {
 
     } catch (error) {
         console.error('Create evidence error:', error);
-        console.error('Error stack:', error.stack);
 
         if (error.code === 11000) {
             return res.status(400).json({
@@ -579,7 +522,6 @@ const getStatistics = async (req, res) => {
                 $group: {
                     _id: null,
                     totalEvidences: { $sum: 1 },
-
                     newEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] }
                     },
@@ -595,8 +537,7 @@ const getStatistics = async (req, res) => {
                     rejectedEvidences: {
                         $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] }
                     },
-                    totalFiles: { $sum: { $size: '$files' }
-                    },
+                    totalFiles: { $sum: { $size: '$files' } }
                 }
             }
         ]);
@@ -614,7 +555,6 @@ const getStatistics = async (req, res) => {
         let totalFilesSize = 0;
         try {
             const evidenceIds = await Evidence.find(matchStage).distinct('_id');
-
             const fileStats = await File.aggregate([
                 { $match: { evidenceId: { $in: evidenceIds }, type: 'file' } },
                 { $group: { _id: null, totalSize: { $sum: '$size' } } }
@@ -623,7 +563,6 @@ const getStatistics = async (req, res) => {
         } catch (err) {
             console.warn("Could not calculate totalFilesSize, returning 0:", err.message);
         }
-
 
         res.json({
             success: true,
@@ -736,8 +675,6 @@ const importEvidences = async (req, res) => {
             fs.unlinkSync(file.path);
         }
 
-        console.log('Import success/failure summary:', result);
-
         res.json(result);
 
     } catch (error) {
@@ -828,7 +765,6 @@ const moveEvidence = async (req, res) => {
         const { targetStandardId, targetCriteriaId, newCode } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Tìm minh chứng trong năm học hiện tại
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!evidence) {
             return res.status(404).json({
@@ -837,7 +773,6 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền
         if (req.user.role !== 'admin' &&
             !req.user.hasStandardAccess(evidence.standardId) &&
             !req.user.hasCriteriaAccess(evidence.criteriaId)) {
@@ -847,7 +782,6 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // Kiểm tra trùng mã mới
         const existingEvidence = await Evidence.findOne({
             code: newCode,
             academicYearId,
@@ -860,7 +794,6 @@ const moveEvidence = async (req, res) => {
             });
         }
 
-        // Gọi method moveTo từ model
         const movedEvidence = await evidence.moveTo(
             targetStandardId,
             targetCriteriaId,
@@ -883,13 +816,10 @@ const moveEvidence = async (req, res) => {
     }
 };
 
-
 const getFullEvidenceTree = async (req, res) => {
     try {
         const { programId, organizationId } = req.query;
         const academicYearId = req.academicYearId;
-
-        console.log('getFullEvidenceTree called:', { programId, organizationId, academicYearId });
 
         if (!programId || !organizationId) {
             return res.status(400).json({
@@ -920,12 +850,6 @@ const getFullEvidenceTree = async (req, res) => {
                 .lean()
         ]);
 
-        console.log('Query results:', {
-            standards: standards.length,
-            criteria: allCriteria.length,
-            evidences: evidences.length
-        });
-
         const tree = [];
 
         standards.forEach(standard => {
@@ -933,8 +857,6 @@ const getFullEvidenceTree = async (req, res) => {
                 c.standardCode === standard.code ||
                 c.standardId?.toString() === standard._id.toString()
             );
-
-            console.log(`Standard ${standard.code} has ${standardCriteria.length} criteria`);
 
             const standardNode = {
                 id: standard._id,
@@ -953,8 +875,6 @@ const getFullEvidenceTree = async (req, res) => {
 
                     return matchByStandardCode && (matchByCriteriaCode || matchByCriteriaId);
                 });
-
-                console.log(`  Criteria ${criterion.code} has ${criterionEvidences.length} evidences`);
 
                 const criterionNode = {
                     id: criterion._id,
@@ -981,7 +901,6 @@ const getFullEvidenceTree = async (req, res) => {
             tree.push(standardNode);
         });
 
-        // Tính statistics
         const statistics = {
             totalStandards: standards.length,
             totalCriteria: allCriteria.length,
@@ -991,9 +910,6 @@ const getFullEvidenceTree = async (req, res) => {
                 sum + s.criteria.filter(c => c.hasEvidence).length, 0
             )
         };
-
-        console.log('Statistics:', statistics);
-        console.log('Tree structure:', JSON.stringify(tree, null, 2));
 
         res.json({
             success: true,
@@ -1018,8 +934,6 @@ const exportEvidences = async (req, res) => {
         const { programId, organizationId, format = 'xlsx' } = req.query;
         const academicYearId = req.academicYearId;
 
-        console.log('Export request:', { programId, organizationId, academicYearId, format });
-
         if (!programId || !organizationId) {
             return res.status(400).json({
                 success: false,
@@ -1039,8 +953,6 @@ const exportEvidences = async (req, res) => {
             .populate('files')
             .sort({ code: 1 })
             .lean();
-
-        console.log(`Found ${evidences.length} evidences to export`);
 
         const XLSX = require('xlsx');
         const workbook = XLSX.utils.book_new();
@@ -1072,7 +984,6 @@ const exportEvidences = async (req, res) => {
         });
 
         const worksheet = XLSX.utils.aoa_to_sheet(data);
-
         worksheet['!cols'] = [
             { wch: 5 },
             { wch: 15 },
@@ -1083,22 +994,15 @@ const exportEvidences = async (req, res) => {
             { wch: 12 }
         ];
 
-        // Thêm worksheet vào workbook
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách minh chứng');
-
-        // Tạo buffer từ workbook
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-        // Đặt headers cho response
         const filename = `minh-chung_${req.currentAcademicYear?.code || 'export'}_${Date.now()}.xlsx`;
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Length', buffer.length);
 
-        // Gửi buffer
         res.send(buffer);
-
-        console.log('Export completed successfully');
 
     } catch (error) {
         console.error('Export evidences error:', error);

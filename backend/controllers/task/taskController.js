@@ -121,7 +121,7 @@ const getTaskById = async (req, res) => {
             });
         }
 
-        // Giữ lại logic kiểm tra quyền xem chi tiết (để tránh lỗi nếu có Task nhạy cảm)
+        // Giữ lại logic kiểm tra quyền xem chi tiết
         const canView = userRole === 'admin' ||
             userRole === 'manager' ||
             userRole === 'evaluator' ||
@@ -155,7 +155,8 @@ const createTask = async (req, res) => {
             standardId,
             criteriaId,
             assignedTo,
-            dueDate
+            dueDate,
+            reportType // Thêm reportType
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -168,7 +169,7 @@ const createTask = async (req, res) => {
             });
         }
 
-        if (!description || !standardId || !criteriaId || !assignedTo || assignedTo.length === 0) {
+        if (!description || !standardId || !criteriaId || !assignedTo || assignedTo.length === 0 || !reportType) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng điền đầy đủ các trường bắt buộc'
@@ -203,6 +204,7 @@ const createTask = async (req, res) => {
             organizationId: criteria.organizationId,
             assignedTo,
             dueDate: dueDate ? new Date(dueDate) : undefined,
+            reportType, // Lưu reportType
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -342,6 +344,7 @@ const submitReport = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role;
 
+        // Chỉ REPORTER mới có thể nộp báo cáo
         if (userRole !== 'reporter') {
             return res.status(403).json({
                 success: false,
@@ -409,6 +412,7 @@ const reviewReport = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role;
 
+        // Chỉ MANAGER/ADMIN mới có thể duyệt báo cáo
         if (userRole !== 'admin' && userRole !== 'manager') {
             return res.status(403).json({
                 success: false,
