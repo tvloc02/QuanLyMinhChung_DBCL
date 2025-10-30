@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, UserPlus, Users, Search, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import assessmentService from '../../services/assessmentService'
 
 export default function AssignReviewerModal({ report, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false)

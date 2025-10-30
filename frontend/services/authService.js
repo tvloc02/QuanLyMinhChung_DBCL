@@ -8,7 +8,6 @@ class AuthService {
         this.refreshTokenTimer = null
     }
 
-    // Initialize auth service
     init() {
         const token = getLocalStorage('token')
         const user = getLocalStorage('user')
@@ -20,7 +19,6 @@ class AuthService {
         }
     }
 
-    // Login user
     async login(email, password, rememberMe = false) {
         try {
             const response = await apiMethods.login({ email, password })
@@ -31,7 +29,6 @@ class AuthService {
                 this.token = token
                 this.user = user
 
-                // Store in localStorage or sessionStorage based on rememberMe
                 if (rememberMe) {
                     setLocalStorage('token', token)
                     setLocalStorage('user', user)
@@ -67,7 +64,6 @@ class AuthService {
         }
     }
 
-    // Logout user
     async logout() {
         try {
             await apiMethods.logout()
@@ -78,12 +74,10 @@ class AuthService {
         }
     }
 
-    // Clear authentication data
     clearAuth() {
         this.token = null
         this.user = null
 
-        // Clear from both localStorage and sessionStorage
         removeLocalStorage('token')
         removeLocalStorage('user')
         removeLocalStorage('refreshToken')
@@ -120,7 +114,6 @@ class AuthService {
                 this.token = token
                 this.user = user
 
-                // Update stored tokens
                 const isRemembered = getLocalStorage('token')
                 if (isRemembered) {
                     setLocalStorage('token', token)
@@ -149,11 +142,9 @@ class AuthService {
         }
     }
 
-    // Start refresh token timer
     startRefreshTokenTimer() {
         if (!this.token) return
 
-        // Decode token to get expiry time
         try {
             const tokenPayload = JSON.parse(atob(this.token.split('.')[1]))
             const expiryTime = tokenPayload.exp * 1000 // Convert to milliseconds
@@ -174,7 +165,6 @@ class AuthService {
         }
     }
 
-    // Stop refresh token timer
     stopRefreshTokenTimer() {
         if (this.refreshTokenTimer) {
             clearTimeout(this.refreshTokenTimer)
@@ -197,13 +187,11 @@ class AuthService {
         return user && roles.includes(user.role)
     }
 
-    // Check if user has specific permission
     hasPermission(permission) {
         const user = this.getUser()
         return user && user.permissions && user.permissions.includes(permission)
     }
 
-    // Check if user has all specified permissions
     hasAllPermissions(permissions) {
         const user = this.getUser()
         if (!user || !user.permissions) return false
@@ -211,7 +199,6 @@ class AuthService {
         return permissions.every(permission => user.permissions.includes(permission))
     }
 
-    // Check if user has any of the specified permissions
     hasAnyPermission(permissions) {
         const user = this.getUser()
         if (!user || !user.permissions) return false
@@ -221,10 +208,8 @@ class AuthService {
 
 }
 
-// Create singleton instance
 const authService = new AuthService()
 
-// Initialize on import
 if (typeof window !== 'undefined') {
     authService.init()
 }

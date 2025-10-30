@@ -96,21 +96,14 @@ export const apiMethods = {
     },
 
     users: {
-        // Gọi lại endpoint /auth/me qua publicApi để sửa lỗi 404 (Nếu route /auth/me nằm ngoài /api)
-        // Tuy nhiên, để tương thích với cấu trúc cũ, tôi sẽ giữ nguyên và giả định backend route /api/users/profile
-        // Nhưng vì AuthContext dùng /api/auth/me, tôi sẽ dùng luôn api.get('/auth/me') nếu backend chấp nhận route này
-        // HOẶC dùng api.get('/api/users/profile') nếu bạn có route này.
-        // GIẢI PHÁP TỐT NHẤT: Trỏ về auth.me
-        getProfile: () => api.get('/auth/me'),
+        getProfile: () => api.get('/api/auth/me'),
         getAll: (params) => api.get('/api/users', { params }),
-        getById: (id) => api.get(`/users/${id}`),
-        create: (data) => api.post('/users', data),
-        update: (id, data) => api.put(`/users/${id}`, data),
-        delete: (id) => api.delete(`/users/${id}`),
-        changeStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
-        resetPassword: (id) => api.post(`/users/${id}/reset-password`),
-        getStats: () => api.get('/users/statistics'),
-        getExperts: (params) => api.get('/users', { params: { ...params, role: 'evaluator' } }), // Đổi expert -> evaluator
+        getById: (id) => api.get(`/api/users/${id}`),
+        create: (data) => api.post('/api/users', data),
+        update: (id, data) => api.put(`/api/users/${id}`, data),
+        delete: (id) => api.delete(`/api/users/${id}`),
+        changeStatus: (id, status) => api.patch(`/api/users/${id}/status`, { status }),
+        resetPassword: (id) => api.post(`/api/users/${id}/reset-password`),// Đổi expert -> evaluator
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
@@ -118,12 +111,7 @@ export const apiMethods = {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
-        getPermissions: (id) => api.get(`/users/${id}/permissions`),
-        addToGroups: (id, groupIds) => api.post(`/users/${id}/groups`, { groupIds }),
-        removeFromGroups: (id, groupIds) => api.delete(`/users/${id}/groups`, { data: { groupIds } }),
-        grantPermission: (id, permissionId) => api.post(`/users/${id}/permissions/grant`, { permissionId }),
-        denyPermission: (id, permissionId) => api.post(`/users/${id}/permissions/deny`, { permissionId }),
-        removePermission: (id, permissionId) => api.delete(`/users/${id}/permissions`, { data: { permissionId } })
+        removePermission: (id, permissionId) => api.delete(`/api/users/${id}/permissions`, { data: { permissionId } })
     },
 
     programs: {
@@ -184,12 +172,14 @@ export const apiMethods = {
         reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
     },
 
+// Cập nhật apiMethods.evidences - đảm bảo có getFullTree:
+
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
         getById: (id) => api.get(`/api/evidences/${id}`),
         create: (data) => api.post('/api/evidences', data),
-        update: (id, data) => api.put('/api/evidences/${id}', data),
-        delete: (id) => api.delete('/api/evidences/${id}'),
+        update: (id, data) => api.put(`/api/evidences/${id}`, data),
+        delete: (id) => api.delete(`/api/evidences/${id}`),
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
 
@@ -207,14 +197,14 @@ export const apiMethods = {
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
         copy: (id, targetAcademicYearId, targetStandardId, targetCriteriaId) =>
-            api.post('/api/evidences/${id}/copy', {
+            api.post(`/api/evidences/${id}/copy`, {
                 targetAcademicYearId,
                 targetStandardId,
                 targetCriteriaId
             }),
         move: (id, data) =>
             api.post(`/api/evidences/${id}/move`, data),
-        getByAcademicYear: (academicYearId) => api.get('/api/evidences/academic-year/${academicYearId}'),
+        getByAcademicYear: (academicYearId) => api.get(`/api/evidences/academic-year/${academicYearId}`),
 
         import: (formData) => {
             return api.post('/api/evidences/import', formData, {
@@ -238,11 +228,13 @@ export const apiMethods = {
         }),
     },
 
+// Cập nhật apiMethods.files - đảm bảo có uploadMultiple:
+
     files: {
         upload: (file, evidenceId, config = {}) => {
             const formData = new FormData()
             formData.append('files', file)
-            return api.post('/api/files/upload/${evidenceId}', formData, {
+            return api.post(`/api/files/upload/${evidenceId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
@@ -252,20 +244,19 @@ export const apiMethods = {
             files.forEach(file => {
                 formData.append('files', file)
             })
-            return api.post('/api/files/upload/${evidenceId}', formData, {
+            return api.post(`/api/files/upload/${evidenceId}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 ...config
             })
         },
-        getById: (id) => api.get('/api/files/${id}'),
-
-        download: (id) => api.get('/api/files/download/${id}', {
+        getById: (id) => api.get(`/api/files/${id}`),
+        download: (id) => api.get(`/api/files/download/${id}`, {
             responseType: 'blob'
         }),
-        delete: (id) => api.delete('/api/files/${id}'),
-        getByEvidence: (evidenceId) => api.get('/api/files/evidence/${evidenceId}'),
+        delete: (id) => api.delete(`/api/files/${id}`),
+        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`),
         approve: (fileId, data) => {
-            return api.post('/api/evidences/files/${fileId}/approve', data)
+            return api.post(`/api/evidences/files/${fileId}/approve`, data)
         }
     },
 
@@ -395,7 +386,8 @@ export const apiMethods = {
     publicEvidence: {
         getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
         getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)
-    }
+    },
+
 }
 
 export const uploadFile = (file, evidenceId, onProgress) => {

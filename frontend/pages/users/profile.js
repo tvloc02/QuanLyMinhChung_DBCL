@@ -543,64 +543,6 @@ export default function UserProfile() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Access Rights */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                            <div className="px-6 py-4 border-b border-gray-100">
-                                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Shield className="h-5 w-5 mr-2 text-blue-600" />
-                                    Quyền truy cập
-                                </h2>
-                            </div>
-                            <div className="p-6">
-                                <div className="space-y-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-700 mb-2">Năm học</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {user?.academicYearAccess?.length > 0 ? (
-                                                user.academicYearAccess.map(item => (
-                                                    <span key={item._id} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                            {item.name}
-                          </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-sm text-gray-500">Chưa có quyền</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-700 mb-2">Chương trình đào tạo</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {user?.programAccess?.length > 0 ? (
-                                                user.programAccess.map(item => (
-                                                    <span key={item._id} className="px-3 py-1 bg-green-50 text-green-700 rounded-lg text-sm font-medium">
-                            {item.name}
-                          </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-sm text-gray-500">Chưa có quyền</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-700 mb-2">Tiêu chuẩn</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {user?.standardAccess?.length > 0 ? (
-                                                user.standardAccess.map(item => (
-                                                    <span key={item._id} className="px-3 py-1 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium">
-                            {item.name}
-                          </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-sm text-gray-500">Chưa có quyền</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Sidebar */}

@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import { debounce } from '../../utils/debounce'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import EvidenceTree from '../../components/evidence/EvidenceTree'
+import EvidenceTree from '../../components/evidence/EvidenceTree/EvidenceTree'
 import { FolderTree } from 'lucide-react'
 
 export default function EvidenceTreePage() {

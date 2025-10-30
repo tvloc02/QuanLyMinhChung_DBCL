@@ -26,7 +26,6 @@ const {
 // Thống kê người dùng
 router.get('/statistics', auth, requireManager, getUserStatistics);
 
-// Lấy danh sách người dùng (tổng quát)
 router.get('/', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
@@ -39,7 +38,6 @@ router.get('/', auth, requireManager, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers);
 
-// Lấy danh sách "chuyên gia" (evaluators) - Giữ nguyên tên route nhưng áp dụng vai trò mới
 router.get('/experts', auth, requireManager, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
@@ -48,7 +46,6 @@ router.get('/experts', auth, requireManager, [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers); // Có thể thêm logic mặc định role=evaluator trong controller hoặc middleware nếu route này chỉ dành cho evaluator
 
-// Lấy thông tin người dùng theo ID (có 2 route giống nhau, giữ lại 1 và thêm validation)
 router.get('/:id', auth, requireManager, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, getUserById);
