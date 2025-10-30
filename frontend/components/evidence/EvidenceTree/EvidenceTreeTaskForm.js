@@ -8,7 +8,7 @@ export default function EvidenceTreeTaskForm({
                                                  assignTarget,
                                                  assignReportType,
                                                  onClose,
-                                                 onSubmit,
+                                                 onSubmit, // Hàm này gọi apiMethods.tasks.create()
                                                  selectedEvidence,
                                                  onCloseFileManager,
                                                  onFileUpload
@@ -21,8 +21,16 @@ export default function EvidenceTreeTaskForm({
     const [rejectionReason, setRejectionReason] = useState('')
     const [fileInput, setFileInput] = useState(null)
 
+    // ⭐️ BIẾN THIẾU ĐƯỢC THÊM VÀO STATE
+    const [taskDescription, setTaskDescription] = useState('')
+    const [dueDate, setDueDate] = useState('')
+
     useEffect(() => {
         if (showAssignModal && assignTarget) {
+            // Giả định mô tả mặc định là tên của mục được giao
+            setTaskDescription(`Viết báo cáo ${assignReportType.toUpperCase()} cho ${assignTarget.code}: ${assignTarget.name}`)
+            setDueDate('')
+
             const fetchUsers = async () => {
                 setIsLoadingUsers(true)
                 try {
@@ -54,7 +62,7 @@ export default function EvidenceTreeTaskForm({
             }
             fetchUsers()
         }
-    }, [showAssignModal, assignTarget])
+    }, [showAssignModal, assignTarget, assignReportType])
 
     const handleToggleUser = (user) => {
         setSelectedUsers(prev => prev.some(u => u._id === user._id)
@@ -73,20 +81,43 @@ export default function EvidenceTreeTaskForm({
     }
 
     const handleAssignment = async () => {
+        if (!taskDescription.trim()) {
+            toast.error('Mô tả nhiệm vụ là bắt buộc.')
+            return
+        }
         if (selectedUsers.length === 0) {
             toast.error('Vui lòng chọn ít nhất một người được giao.')
             return
         }
+
         setIsSubmitting(true)
 
         try {
             const userIds = selectedUsers.map(u => u._id)
-            await onSubmit({
-                assignees: userIds,
+
+            // ⭐️ Cấu trúc dữ liệu TẠO TASK (Đã sửa để khớp API Backend)
+            const submitData = {
+                // Các trường bắt buộc cho API:
+                description: taskDescription.trim(),
+                assignedTo: userIds,
                 reportType: assignReportType,
-                target: assignTarget,
-                note: rejectionReason
-            })
+
+                // Các trường ID (lấy từ assignTarget)
+                programId: assignTarget.programId,
+                organizationId: assignTarget.organizationId,
+                standardId: assignTarget.standardId,
+                criteriaId: assignTarget.criteriaId, // Bắt buộc cho mọi Task
+
+                // Trường tùy chọn:
+                dueDate: dueDate || undefined,
+                rejectionReason: rejectionReason // Sử dụng rejectionReason cho ghi chú
+            }
+
+            // ⚠️ Cần kiểm tra lại: Backend Task Schema có vẻ không cần programId/organizationId
+            // nếu nó được lấy từ Criteria. Tuy nhiên, gửi đủ ID là cách an toàn nhất.
+
+            await onSubmit(submitData)
+
             toast.success(`Đã giao nhiệm vụ cho ${selectedUsers.length} người.`)
             handleCloseModal()
         } catch (error) {
@@ -98,9 +129,11 @@ export default function EvidenceTreeTaskForm({
 
     const handleCloseModal = () => {
         setSelectedUsers([])
-        setUploadedFiles([])
         setAvailableUsers([])
         setRejectionReason('')
+        setTaskDescription('') // Reset
+        setDueDate('') // Reset
+        // Không reset uploadedFiles/selectedEvidence vì đây là modal GIAO VIỆC
         onClose()
     }
 
@@ -139,12 +172,38 @@ export default function EvidenceTreeTaskForm({
                     </div>
 
                     <div className="space-y-6">
+                        {/* Thông tin mục tiêu */}
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <p className="text-sm text-gray-600">
                                 Phân công Reporter viết báo cáo <span className="font-semibold text-blue-600">{assignReportType.toUpperCase()}</span> cho <span className="font-semibold">{assignTarget.code}</span>
                             </p>
                         </div>
 
+                        {/* ⭐️ Ô Mô tả nhiệm vụ (Bắt buộc) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả nhiệm vụ <span className="text-red-500">*</span></label>
+                            <textarea
+                                value={taskDescription}
+                                onChange={(e) => setTaskDescription(e.target.value)}
+                                placeholder="Nhập mô tả chi tiết nhiệm vụ..."
+                                rows={3}
+                                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${!taskDescription.trim() ? 'border-red-300' : 'border-gray-200'}`}
+                            />
+                            {!taskDescription.trim() && <p className="mt-1 text-xs text-red-600">Mô tả là bắt buộc.</p>}
+                        </div>
+
+                        {/* ⭐️ Ô Ngày hết hạn (dueDate) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Ngày hết hạn (Tùy chọn)</label>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Chọn người dùng */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">Chọn Reporter cần giao nhiệm vụ</label>
                             <div className="border-2 border-gray-200 rounded-xl p-4 space-y-2 max-h-64 overflow-y-auto bg-gray-50">
@@ -178,6 +237,7 @@ export default function EvidenceTreeTaskForm({
                             <p className="text-xs text-gray-600 mt-2">Đã chọn: <span className="font-semibold">{selectedUsers.length}</span> người</p>
                         </div>
 
+                        {/* Ghi chú */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú (tùy chọn)</label>
                             <textarea
@@ -189,6 +249,7 @@ export default function EvidenceTreeTaskForm({
                             />
                         </div>
 
+                        {/* Nút action */}
                         <div className="flex space-x-3 pt-4 border-t border-gray-200">
                             <button
                                 onClick={handleCloseModal}
@@ -199,7 +260,7 @@ export default function EvidenceTreeTaskForm({
                             </button>
                             <button
                                 onClick={handleAssignment}
-                                disabled={isSubmitting || selectedUsers.length === 0}
+                                disabled={isSubmitting || selectedUsers.length === 0 || !taskDescription.trim()}
                                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium inline-flex items-center justify-center"
                             >
                                 {isSubmitting ? (
