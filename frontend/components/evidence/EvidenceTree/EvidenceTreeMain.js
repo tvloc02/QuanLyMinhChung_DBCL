@@ -126,13 +126,12 @@ export default function EvidenceTreeMain({
                                 label="Giao báo cáo tiêu chuẩn"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // ✅ SỬA: Khi giao báo cáo tiêu chuẩn, criteriaId có thể null hoặc dùng standardId
                                     onAssignClick('standard', {
                                         id: standard.id,
                                         code: standard.code,
                                         name: standard.name,
                                         standardId: standard.id,
-                                        criteriaId: null  // ✅ NULL vì không có tiêu chí ở level tiêu chuẩn
+                                        criteriaId: null
                                     }, 'standard');
                                 }}
                                 variant="blue"
@@ -201,7 +200,6 @@ export default function EvidenceTreeMain({
                                 label="Giao báo cáo Tiêu chí"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // ✅ SỬA: Đảm bảo truyền standardId và criteriaId chính xác
                                     onAssignClick('criteria', {
                                         id: criteria.id,
                                         code: criteria.code,

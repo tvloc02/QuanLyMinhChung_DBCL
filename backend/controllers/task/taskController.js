@@ -163,7 +163,6 @@ const createTask = async (req, res) => {
             });
         }
 
-        // ✅ SỬA: Cho phép báo cáo tiêu chuẩn không cần criteriaId
         if (!description || !standardId || !assignedTo || assignedTo.length === 0 || !reportType) {
             return res.status(400).json({
                 success: false,
@@ -171,10 +170,20 @@ const createTask = async (req, res) => {
             });
         }
 
-        // ✅ SỬA: Kiểm tra criteriaId chỉ khi reportType là 'criteria'
         let criteria = null;
         let programId = null;
         let organizationId = null;
+        let standard = null;
+
+        standard = await Standard.findOne({ _id: standardId, academicYearId });
+        if (!standard) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tiêu chuẩn không tồn tại'
+            });
+        }
+        programId = standard.programId;
+        organizationId = standard.organizationId;
 
         if (reportType === 'criteria') {
             if (!criteriaId) {
@@ -184,25 +193,12 @@ const createTask = async (req, res) => {
                 });
             }
             criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
-            if (!criteria) {
+            if (!criteria || criteria.standardId.toString() !== standardId) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Tiêu chí không tồn tại'
+                    message: 'Tiêu chí không hợp lệ hoặc không thuộc tiêu chuẩn này'
                 });
             }
-            programId = criteria.programId;
-            organizationId = criteria.organizationId;
-        } else {
-            // ✅ SỬA: Cho báo cáo tiêu chuẩn, lấy programId/organizationId từ tiêu chuẩn
-            const standard = await Standard.findOne({ _id: standardId, academicYearId });
-            if (!standard) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Tiêu chuẩn không tồn tại'
-                });
-            }
-            programId = standard.programId;
-            organizationId = standard.organizationId;
         }
 
         const taskCode = await generateTaskCode(academicYearId);
@@ -212,7 +208,7 @@ const createTask = async (req, res) => {
             taskCode,
             description: description.trim(),
             standardId,
-            criteriaId: criteriaId || null,  // ✅ Cho phép null cho báo cáo tiêu chuẩn
+            criteriaId: criteriaId || null,
             programId,
             organizationId,
             assignedTo,

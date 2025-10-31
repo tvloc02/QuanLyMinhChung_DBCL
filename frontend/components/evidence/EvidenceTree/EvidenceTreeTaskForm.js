@@ -8,7 +8,7 @@ export default function EvidenceTreeTaskForm({
                                                  assignTarget,
                                                  assignReportType,
                                                  onClose,
-                                                 onSubmit, // Hàm này gọi apiMethods.tasks.create()
+                                                 onSubmit,
                                                  selectedEvidence,
                                                  onCloseFileManager,
                                                  onFileUpload
@@ -21,11 +21,9 @@ export default function EvidenceTreeTaskForm({
     const [rejectionReason, setRejectionReason] = useState('')
     const [fileInput, setFileInput] = useState(null)
 
-    // ⭐️ BIẾN ĐÃ ĐƯỢC THÊM VÀO STATE
     const [taskDescription, setTaskDescription] = useState('')
     const [dueDate, setDueDate] = useState('')
 
-    // ✅ Map reportType từ frontend sang backend enum
     const reportTypeMap = {
         'tdg': 'overall_tdg',
         'standard': 'standard',
@@ -34,7 +32,6 @@ export default function EvidenceTreeTaskForm({
 
     useEffect(() => {
         if (showAssignModal && assignTarget) {
-            // Giả định mô tả mặc định là tên của mục được giao
             setTaskDescription(`Viết báo cáo ${assignReportType.toUpperCase()} cho ${assignTarget.code}: ${assignTarget.name}`)
             setDueDate('')
 
@@ -88,12 +85,6 @@ export default function EvidenceTreeTaskForm({
     }
 
     const handleAssignment = async () => {
-        // ✅ DEBUG: Log assignTarget để kiểm tra
-        console.log('🔍 DEBUG assignTarget:', assignTarget)
-        console.log('📊 standardId:', assignTarget?.standardId)
-        console.log('📊 criteriaId:', assignTarget?.criteriaId)
-
-        // ✅ KIỂM TRA DỮ LIỆU
         if (!taskDescription.trim()) {
             toast.error('Mô tả nhiệm vụ là bắt buộc.')
             return
@@ -103,13 +94,12 @@ export default function EvidenceTreeTaskForm({
             return
         }
         if (!assignTarget.standardId) {
-            toast.error('Tiêu chuẩn không xác định. (standardId bị thiếu)')
-            console.error('❌ assignTarget thiếu standardId:', assignTarget)
+            toast.error('Tiêu chuẩn không xác định. Vui lòng thử lại.')
             return
         }
-        if (!assignTarget.criteriaId) {
-            toast.error('Tiêu chí không xác định. (criteriaId bị thiếu)')
-            console.error('❌ assignTarget thiếu criteriaId:', assignTarget)
+
+        if (assignReportType === 'criteria' && !assignTarget.criteriaId) {
+            toast.error('Tiêu chí là bắt buộc cho báo cáo tiêu chí.')
             return
         }
 
@@ -118,29 +108,27 @@ export default function EvidenceTreeTaskForm({
         try {
             const userIds = selectedUsers.map(u => u._id)
 
-            // ✅ Cấu trúc dữ liệu TẠO TASK (ĐÃ SỬA)
+            let finalDueDate = undefined
+            if (dueDate) {
+                const dateObject = new Date(dueDate + 'T00:00:00')
+                if (!isNaN(dateObject)) {
+                    finalDueDate = dateObject.toISOString()
+                }
+            }
+
             const submitData = {
-                // Các trường bắt buộc
                 description: taskDescription.trim(),
                 assignedTo: userIds,
                 standardId: assignTarget.standardId,
-                criteriaId: assignTarget.criteriaId,
+                criteriaId: assignTarget.criteriaId || null,
 
-                // ✅ SỬA: Map reportType từ 'tdg' -> 'overall_tdg'
                 reportType: reportTypeMap[assignReportType] || assignReportType,
 
-                // Trường tùy chọn
-                dueDate: dueDate ? new Date(dueDate).toISOString() : undefined
+                dueDate: finalDueDate,
+                rejectionReason: rejectionReason
             }
 
-            console.log('📤 BEFORE SUBMIT - Full Data:')
-            console.log('  description:', submitData.description)
-            console.log('  assignedTo:', submitData.assignedTo)
-            console.log('  standardId:', submitData.standardId)
-            console.log('  criteriaId:', submitData.criteriaId)
-            console.log('  reportType:', submitData.reportType)
-            console.log('  dueDate:', submitData.dueDate)
-            console.log('📤 Full submitData:', JSON.stringify(submitData, null, 2))
+            console.log('📤 BEFORE SUBMIT - Full submitData:', JSON.stringify(submitData, null, 2))
 
             await onSubmit(submitData)
 
@@ -148,7 +136,7 @@ export default function EvidenceTreeTaskForm({
             handleCloseModal()
         } catch (error) {
             console.error('❌ Error creating task:', error)
-            const errorMsg = error.response?.data?.message || error.message || 'Lỗi khi giao nhiệm vụ'
+            const errorMsg = error.message || 'Lỗi khi giao nhiệm vụ'
             toast.error(errorMsg)
         } finally {
             setIsSubmitting(false)
@@ -161,7 +149,6 @@ export default function EvidenceTreeTaskForm({
         setRejectionReason('')
         setTaskDescription('')
         setDueDate('')
-        // Không reset uploadedFiles/selectedEvidence vì đây là modal GIAO VIỆC
         onClose()
     }
 
@@ -200,14 +187,15 @@ export default function EvidenceTreeTaskForm({
                     </div>
 
                     <div className="space-y-6">
-                        {/* Thông tin mục tiêu */}
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                             <p className="text-sm text-gray-600">
                                 Phân công Reporter viết báo cáo <span className="font-semibold text-blue-600">{assignReportType.toUpperCase()}</span> cho <span className="font-semibold">{assignTarget.code}</span>
                             </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                S:{assignTarget.standardId?.substring(0, 4) || 'NULL'}... | C:{assignTarget.criteriaId?.substring(0, 4) || 'NULL'}...
+                            </p>
                         </div>
 
-                        {/* ⭐️ Ô Mô tả nhiệm vụ (Bắt buộc) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Mô tả nhiệm vụ <span className="text-red-500">*</span>
@@ -228,7 +216,6 @@ export default function EvidenceTreeTaskForm({
                             )}
                         </div>
 
-                        {/* ⭐️ Ô Ngày hết hạn (dueDate) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Ngày hết hạn <span className="text-gray-400 text-xs">(Tùy chọn)</span>
@@ -242,7 +229,6 @@ export default function EvidenceTreeTaskForm({
                             />
                         </div>
 
-                        {/* Chọn người dùng */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                 Chọn Reporter cần giao nhiệm vụ <span className="text-red-500">*</span>
@@ -280,7 +266,6 @@ export default function EvidenceTreeTaskForm({
                             </p>
                         </div>
 
-                        {/* Ghi chú */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Ghi chú <span className="text-gray-400 text-xs">(Tùy chọn)</span>
@@ -298,7 +283,6 @@ export default function EvidenceTreeTaskForm({
                             </p>
                         </div>
 
-                        {/* Nút action */}
                         <div className="flex space-x-3 pt-4 border-t border-gray-200">
                             <button
                                 onClick={handleCloseModal}
@@ -309,7 +293,7 @@ export default function EvidenceTreeTaskForm({
                             </button>
                             <button
                                 onClick={handleAssignment}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || selectedUsers.length === 0 || !taskDescription.trim()}
                                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center justify-center"
                             >
                                 {isSubmitting ? (
@@ -345,14 +329,12 @@ export default function EvidenceTreeTaskForm({
                 </div>
 
                 <div className="space-y-4">
-                    {/* Thông tin minh chứng */}
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
                         <p className="text-xs text-gray-600 mb-1">Minh chứng:</p>
                         <p className="text-sm font-medium text-gray-900">{selectedEvidence.name}</p>
                         <p className="text-xs text-gray-500 mt-1">Mã: {selectedEvidence.code}</p>
                     </div>
 
-                    {/* Upload files */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Chọn files</label>
                         <div
@@ -377,7 +359,6 @@ export default function EvidenceTreeTaskForm({
                         </div>
                     </div>
 
-                    {/* Danh sách files */}
                     {uploadedFiles.length > 0 && (
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-gray-700">Files được chọn ({uploadedFiles.length})</p>
@@ -405,7 +386,6 @@ export default function EvidenceTreeTaskForm({
                         </div>
                     )}
 
-                    {/* Nút upload */}
                     <button
                         onClick={handleUploadFiles}
                         disabled={uploadedFiles.length === 0 || isSubmitting}

@@ -285,7 +285,6 @@ export default function EvidenceTree() {
     }
 
     const handleAssignClick = (type, node, reportType) => {
-        // ✅ SỬA: Đảm bảo luôn gửi standardId và criteriaId
         const assignData = {
             type: type,
             id: node.id,
@@ -339,13 +338,22 @@ export default function EvidenceTree() {
                 onDownloadTemplate={downloadTemplate}
                 onImport={handleImport}
                 onExport={handleExport}
-                onAssignTDG={() => handleAssignClick('tdg', {
-                    id: selectedProgram,
-                    code: 'TĐG',
-                    name: 'Báo cáo Tự đánh giá',
-                    standardId: selectedProgram,
-                    criteriaId: selectedProgram
-                }, 'tdg')}
+                onAssignTDG={() => {
+                    const firstStandard = treeData[0];
+
+                    if (!firstStandard) {
+                        toast.error('Không tìm thấy Tiêu chuẩn nào trong Chương trình hiện tại. Vui lòng tạo Tiêu chuẩn trước.')
+                        return
+                    }
+
+                    handleAssignClick('tdg', {
+                        id: selectedProgram,
+                        code: 'TĐG',
+                        name: 'Báo cáo Tự đánh giá',
+                        standardId: firstStandard.id,
+                        criteriaId: null
+                    }, 'tdg')
+                }}
                 loading={loading}
                 selectedProgram={selectedProgram}
                 selectedOrganization={selectedOrganization}
