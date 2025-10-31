@@ -1,0 +1,22 @@
+[
+  {
+    "id": "chunk_1",
+    "text": "Để nhập minh chứng vào hệ thống, bạn cần truy cập vào trang Import Evidence (Nhập minh chứng), chọn file Excel đã chuẩn bị và nhấn nút Tải lên để hệ thống xử lý. Quy trình này hỗ trợ việc gán các minh chứng theo cấu trúc tiêu chuẩn đánh giá.",
+    "source": "Chức năng Import Minh chứng"
+  },
+  {
+    "id": "chunk_2",
+    "text": "Chức năng báo cáo của hệ thống, nằm tại Trang Báo cáo, giúp người dùng dễ dàng tạo và xuất các thống kê chi tiết về tình trạng minh chứng, tiến độ thực hiện báo cáo ra các định dạng như Excel hoặc PDF.",
+    "source": "Chức năng Báo cáo & Thống kê"
+  },
+  {
+    "id": "chunk_3",
+    "text": "Việc phân quyền người dùng được quản lý tập trung tại trang Quản lý người dùng, nơi quản trị viên có thể gán các quyền truy cập và chỉnh sửa dữ liệu theo các cấp độ chi tiết: tiêu chí (criteria) hoặc tiêu chuẩn (standard).",
+    "source": "Chức năng Quản lý Phân quyền"
+  },
+  {
+    "id": "chunk_4",
+    "text": "Hệ thống Quản lý Minh chứng và Đảm bảo Chất lượng được xây dựng dựa trên Thông tư 12/2017/TT-BGDĐT. Mục đích chính là hệ thống hóa và tra cứu minh chứng, phục vụ công tác Tự đánh giá và Kiểm định chất lượng giáo dục đại học.",
+    "source": "Thông tư 12/2017/TT-BGDĐT"
+  }
+]

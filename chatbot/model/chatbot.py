@@ -5,30 +5,26 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
+import chromadb # <--- THÊM THƯ VIỆN CHROMA
 
+# Thiết lập đường dẫn biến môi trường
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dotenv_path = os.path.join(parent_dir, '.env')
+dotenv_path = os.path.join(parent_dir, 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 logging.basicConfig(level=logging.INFO)
 
 class ChatBot:
-    def __init__(self, data_file="/training_data.json"):
-        try:
-            with open(data_file, encoding="utf-8") as f:
-                self.data = json.load(f)
-        except Exception as e:
-            self.data = []
-            logging.error(f"Error loading training data: {e}")
-
+    def __init__(self, data_file="UNUSED"):
+        # 1. Khởi tạo Gemini Client và Mô hình
         try:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 raise ValueError("GEMINI_API_KEY environment variable not set.")
 
-            # Khởi tạo Gemini Client
             self.client = genai.Client(api_key=api_key)
             self.model = "gemini-2.5-flash"
+            self.embedding_model = 'text-embedding-004' # Mô hình Embeddings
             self.safety_settings = [
                 types.SafetySetting(
                     category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -45,32 +41,89 @@ class ChatBot:
             self.client = None
             raise
 
-    def _build_system_prompt(self) -> str:
-        prompt = (
+        # 2. Khởi tạo và Tải ChromaDB Vector Store
+        try:
+            CHROMA_PATH = "chroma_db"
+            self.chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+            # Lấy collection đã tạo từ index_data.py
+            self.collection = self.chroma_client.get_collection(name="chatbot_knowledge")
+            logging.info(f"Loaded Vector Store with {self.collection.count()} documents.")
+            if self.collection.count() == 0:
+                logging.warning("Vector Store rỗng. Vui lòng chạy python index_data.py để tạo lại dữ liệu.")
+
+        except Exception as e:
+            logging.error(f"Failed to load ChromaDB collection: {e}. Đảm bảo đã chạy index_data.py.")
+            self.collection = None
+            # Không raise lỗi ở đây để main.py có thể kiểm tra self.client/self.collection
+
+    def _build_system_instruction(self) -> str:
+        """Tạo system instruction cơ bản cho mô hình sinh (Generation model)."""
+        return (
             "Bạn là trợ lý AI thông minh, thân thiện, chuyên tư vấn về **Hệ thống Quản lý Minh chứng (Evidence Management System)** "
-            "tại VNUA. Nhiệm vụ của bạn là trả lời các câu hỏi của người dùng **CHỈ** dựa trên kiến thức được cung cấp dưới đây. "
-            "Nếu câu hỏi nằm ngoài phạm vi, hãy trả lời chính xác và duy nhất bằng câu: 'Xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng.'\n\n"
-            "**DỮ LIỆU HUẤN LUYỆN TÙY CHỈNH (Q&A):**\n"
+            "tại VNUA. Nhiệm vụ của bạn là trả lời các câu hỏi của người dùng **CHỈ** dựa trên kiến thức được cung cấp trong phần **NGỮ CẢNH (CONTEXT)**. "
+            "Không suy luận hay thêm thông tin ngoài ngữ cảnh. "
+            "Nếu câu hỏi nằm ngoài phạm vi, hãy trả lời chính xác và duy nhất bằng câu: 'Xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng.'\n"
         )
 
-        for item in self.data:
-            prompt += f"Q: {item['question']}\nA: {item['answer']}\n"
-
-        return prompt
-
+    # Thay thế hoàn toàn logic RAG cũ bằng Vector Search RAG
     def get_reply(self, message: str) -> str:
-        if not self.client:
-            return "Dịch vụ AI chưa được khởi tạo. Vui lòng kiểm tra API Key."
+        if not self.client or not self.collection:
+            return "Dịch vụ AI hoặc Kho Vector chưa được khởi tạo. Vui lòng kiểm tra API Key và đảm bảo đã chạy index_data.py."
 
-        system_prompt = self._build_system_prompt()
+        # --- BƯỚC 1: TRUY VẤN DỮ LIỆU (RETRIEVAL) ---
+        try:
+            # 1.1 Vector hóa câu hỏi (từ message)
+            query_embedding = self.client.models.embed_content(
+                model=self.embedding_model,
+                contents=message,
+                # task_type đã bị xóa
+            ).embedding
+
+            # 1.2 Truy vấn ChromaDB để tìm các đoạn văn bản liên quan
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=3, # Lấy 3 đoạn văn bản liên quan nhất
+                include=['documents', 'distances', 'metadatas']
+            )
+
+            # Lấy các đoạn văn bản (chunks) và Độ Tương Đồng (distances)
+            retrieved_documents = results['documents'][0]
+            distances = results['distances'][0]
+
+        except Exception as e:
+            logging.error(f"Error during Vector Retrieval: {e}")
+            return "Xin lỗi, tôi gặp lỗi khi tìm kiếm trong kho kiến thức. Vui lòng thử lại."
+
+
+        # --- BƯỚC 2: XÂY DỰNG PROMPT VÀ GENERATION (TẠO CÂU TRẢ LỜI) ---
+
+        # Tạo chuỗi ngữ cảnh từ các documents được tìm thấy
+        context_chunks = []
+        for doc, dist in zip(retrieved_documents, distances):
+            # Tính Similarity Score (Cosine Similarity: 1 - distance)
+            similarity_score = 1 - dist
+            # Thêm Score vào ngữ cảnh cho mục đích đo lường (không bắt buộc)
+            context_chunks.append(f"[Score: {similarity_score:.3f}] - {doc}")
+
+        context = "\n".join(context_chunks)
+
+        # 2.2 Xây dựng Prompt cuối cùng cho mô hình sinh
+        system_prompt = self._build_system_instruction()
+
+        final_prompt = (
+            f"**NGỮ CẢNH (CONTEXT) - Chỉ trả lời dựa trên thông tin này:**\n"
+            f"{context}\n\n"
+            f"**CÂU HỎI NGƯỜI DÙNG (USER QUESTION):** {message}\n"
+            "**TRẢ LỜI:**"
+        )
 
         try:
-            # Gửi system prompt và user message
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=f"{system_prompt}\n\nUser Question: {message}",
+                contents=final_prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_prompt, # Sử dụng system_instruction
+                    # Truyền instruction vào system_instruction để tối ưu hiệu suất
+                    system_instruction=system_prompt,
                     temperature=0.3,
                     max_output_tokens=250,
                     safety_settings=self.safety_settings
@@ -92,6 +145,7 @@ class ChatBot:
             logging.error(f"Error in get_reply: {e}")
             raise RuntimeError("Gemini API call failed due to an unknown error.")
 
+    # Hàm get_contextual_followup giữ nguyên
     def get_contextual_followup(self, last_reply: str) -> list[str]:
         if not self.client:
             return []
