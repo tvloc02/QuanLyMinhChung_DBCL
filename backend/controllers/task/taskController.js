@@ -442,9 +442,27 @@ const reviewReport = async (req, res) => {
             });
         }
 
+        const report = await Report.findById(task.reportId);
+
         if (approved) {
             task.reviewStatus = 'approved';
             task.status = 'approved';
+
+            if (report) {
+                report.status = 'approved';
+                report.approvedBy = userId;
+                report.approvedAt = new Date();
+                await report.save();
+
+                // Auto approve evidence if criteria report
+                if (report.type === 'criteria' && report.criteriaId) {
+                    const Evidence = require('../../models/Evidence/Evidence');
+                    await Evidence.updateMany(
+                        { criteriaId: report.criteriaId, academicYearId },
+                        { status: 'approved' }
+                    );
+                }
+            }
         } else {
             if (!rejectionReason) {
                 return res.status(400).json({
@@ -455,6 +473,19 @@ const reviewReport = async (req, res) => {
             task.reviewStatus = 'rejected';
             task.status = 'rejected';
             task.rejectionReason = rejectionReason.trim();
+
+            if (report) {
+                await report.recordRejection(userId, rejectionReason.trim());
+
+                // Mark evidence as rejected if criteria report
+                if (report.type === 'criteria' && report.criteriaId) {
+                    const Evidence = require('../../models/Evidence/Evidence');
+                    await Evidence.updateMany(
+                        { criteriaId: report.criteriaId, academicYearId },
+                        { status: 'rejected', rejectionReason: rejectionReason.trim() }
+                    );
+                }
+            }
         }
 
         task.reviewedBy = userId;

@@ -504,7 +504,9 @@ const approveReport = async (req, res) => {
         const { feedback } = req.body;
         const academicYearId = req.academicYearId;
 
-        const report = await Report.findOne({ _id: id, academicYearId });
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code');
 
         if (!report) {
             return res.status(404).json({
@@ -530,6 +532,19 @@ const approveReport = async (req, res) => {
 
         await report.save();
 
+        // Update evidence status if reject to approved transition
+        if (report.criteriaId) {
+            try {
+                const Evidence = require('../../models/Evidence/Evidence');
+                await Evidence.updateMany(
+                    { criteriaId: report.criteriaId, academicYearId },
+                    { status: 'approved' }
+                );
+            } catch (err) {
+                console.error('Failed to update evidence status:', err);
+            }
+        }
+
         res.json({
             success: true,
             message: 'Phê duyệt báo cáo thành công',
@@ -551,7 +566,9 @@ const rejectReport = async (req, res) => {
         const { feedback } = req.body;
         const academicYearId = req.academicYearId;
 
-        const report = await Report.findOne({ _id: id, academicYearId });
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code');
 
         if (!report) {
             return res.status(404).json({
@@ -567,15 +584,20 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        report.status = 'rejected';
-        report.rejectedBy = req.user.id;
-        report.rejectedAt = new Date();
-        if (feedback) {
-            report.rejectionFeedback = feedback;
-        }
-        report.updatedBy = req.user.id;
+        await report.recordRejection(req.user.id, feedback);
 
-        await report.save();
+        // Update evidence status to rejected
+        if (report.criteriaId) {
+            try {
+                const Evidence = require('../../models/Evidence/Evidence');
+                await Evidence.updateMany(
+                    { criteriaId: report.criteriaId, academicYearId },
+                    { status: 'rejected', rejectionReason: feedback }
+                );
+            } catch (err) {
+                console.error('Failed to update evidence status:', err);
+            }
+        }
 
         res.json({
             success: true,

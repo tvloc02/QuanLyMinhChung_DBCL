@@ -42,13 +42,26 @@ const reviewerCommentSubSchema = new mongoose.Schema({
     },
     reviewerType: {
         type: String,
-        enum: ['manager', 'expert', 'admin', 'reviewer']
+        enum: ['manager', 'evaluator', 'admin', 'reporter']
     },
     isResolved: {
         type: Boolean,
         default: false
     }
 });
+
+const rejectionHistorySubSchema = new mongoose.Schema({
+    reason: String,
+    rejectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    rejectedAt: {
+        type: Date,
+        default: Date.now
+    },
+    submittedAgainAt: Date
+}, { _id: false });
 
 const reportSchema = new mongoose.Schema({
     academicYearId: {
@@ -73,7 +86,7 @@ const reportSchema = new mongoose.Schema({
 
     type: {
         type: String,
-        enum: ['criteria_analysis', 'standard_analysis', 'comprehensive_report'],
+        enum: ['criteria', 'standard', 'overall_tdg'],
         required: [true, 'Loại báo cáo là bắt buộc']
     },
 
@@ -93,7 +106,7 @@ const reportSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
         required: function() {
-            return this.type !== 'comprehensive_report';
+            return ['standard', 'criteria'].includes(this.type);
         }
     },
 
@@ -101,7 +114,7 @@ const reportSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Criteria',
         required: function() {
-            return this.type === 'criteria_analysis';
+            return this.type === 'criteria';
         }
     },
 
@@ -173,6 +186,8 @@ const reportSchema = new mongoose.Schema({
     rejectedAt: Date,
 
     rejectionFeedback: String,
+
+    rejectionHistory: [rejectionHistorySubSchema],
 
     versions: [versionSubSchema],
     linkedEvidences: [linkedEvidenceSubSchema],
@@ -247,9 +262,9 @@ reportSchema.pre('save', function(next) {
 
 reportSchema.virtual('typeText').get(function() {
     const typeMap = {
-        'criteria_analysis': 'Phiếu phân tích tiêu chí',
-        'standard_analysis': 'Phiếu phân tích tiêu chuẩn',
-        'comprehensive_report': 'Báo cáo tổng hợp'
+        'criteria': 'Báo cáo tiêu chí',
+        'standard': 'Báo cáo tiêu chuẩn',
+        'overall_tdg': 'Báo cáo tổng hợp TĐG'
     };
     return typeMap[this.type] || this.type;
 });
@@ -299,9 +314,8 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
     if (userRole === 'manager') return true;
 
     if (this.standardId && userStandardAccess.includes(this.standardId.toString())) return true;
-    if (this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString())) return true;
 
-    return false;
+    return this.criteriaId && userCriteriaAccess.includes(this.criteriaId.toString());
 };
 
 reportSchema.methods.incrementView = async function(userId) {
@@ -382,11 +396,33 @@ reportSchema.methods.resolveComment = async function(commentId) {
     return this.save();
 };
 
+reportSchema.methods.recordRejection = async function(userId, reason) {
+    this.rejectionHistory.push({
+        reason,
+        rejectedBy: userId,
+        rejectedAt: new Date()
+    });
+    this.status = 'rejected';
+    this.rejectedBy = userId;
+    this.rejectedAt = new Date();
+    this.rejectionFeedback = reason;
+    return this.save();
+};
+
+reportSchema.methods.resubmitAfterRejection = async function(userId) {
+    if (this.rejectionHistory.length > 0) {
+        this.rejectionHistory[this.rejectionHistory.length - 1].submittedAgainAt = new Date();
+    }
+    this.status = 'draft';
+    this.updatedBy = userId;
+    return this.save();
+};
+
 reportSchema.statics.generateCode = async function(type, academicYearId, standardCode = '', criteriaCode = '') {
     const typePrefix = {
-        'criteria_analysis': 'CA',
-        'standard_analysis': 'SA',
-        'comprehensive_report': 'CR'
+        'criteria': 'CA',
+        'standard': 'SA',
+        'overall_tdg': 'CR'
     };
 
     const academicYear = await mongoose.model('AcademicYear').findById(academicYearId);
