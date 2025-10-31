@@ -285,7 +285,8 @@ export default function EvidenceTree() {
     }
 
     const handleAssignClick = (type, node, reportType) => {
-        setAssignTarget({
+        // ✅ SỬA: Đảm bảo luôn gửi standardId và criteriaId
+        const assignData = {
             type: type,
             id: node.id,
             code: node.code,
@@ -294,13 +295,18 @@ export default function EvidenceTree() {
             organizationId: selectedOrganization,
             standardId: node.standardId,
             criteriaId: node.criteriaId
-        })
+        }
+
+        console.log('🔍 DEBUG handleAssignClick - assignData:', assignData)
+
+        setAssignTarget(assignData)
         setAssignReportType(reportType)
         setShowAssignModal(true)
     }
 
     const handleAssignSubmit = async (data) => {
         try {
+            console.log('📤 DEBUG handleAssignSubmit - data:', data)
             await apiMethods.tasks.create(data)
             toast.success('Giao nhiệm vụ thành công')
             setShowAssignModal(false)
@@ -333,7 +339,13 @@ export default function EvidenceTree() {
                 onDownloadTemplate={downloadTemplate}
                 onImport={handleImport}
                 onExport={handleExport}
-                onAssignTDG={() => handleAssignClick('tdg', { id: selectedProgram, code: 'TĐG', name: 'Báo cáo Tự đánh giá' }, 'tdg')}
+                onAssignTDG={() => handleAssignClick('tdg', {
+                    id: selectedProgram,
+                    code: 'TĐG',
+                    name: 'Báo cáo Tự đánh giá',
+                    standardId: selectedProgram,
+                    criteriaId: selectedProgram
+                }, 'tdg')}
                 loading={loading}
                 selectedProgram={selectedProgram}
                 selectedOrganization={selectedOrganization}

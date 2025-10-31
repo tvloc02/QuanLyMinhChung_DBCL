@@ -43,9 +43,6 @@ export const isEmail = (email) => {
     if (!isString(email)) return false
     return VALIDATION_RULES.EMAIL.test(email.trim().toLowerCase())
 }
-
-export const isValidEmail = (email) => isEmail(email)
-
 // Phone validation
 export const isPhone = (phone) => {
     if (!isString(phone)) return false
@@ -59,15 +56,6 @@ export const isValidPhone = (phone) => isPhone(phone)
 export const isNumber = (value) => {
     return typeof value === 'number' && !isNaN(value)
 }
-
-export const isInteger = (value) => {
-    return isNumber(value) && Number.isInteger(value)
-}
-
-export const isPositive = (value) => {
-    return isNumber(value) && value > 0
-}
-
 export const isNegative = (value) => {
     return isNumber(value) && value < 0
 }

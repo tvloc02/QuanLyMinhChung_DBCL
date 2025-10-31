@@ -37,7 +37,6 @@ class ExportService {
             }
         }
     }
-
 }
 
 const exportService = new ExportService()

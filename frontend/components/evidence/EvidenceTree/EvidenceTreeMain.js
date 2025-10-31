@@ -117,14 +117,26 @@ export default function EvidenceTreeMain({
 
                     <div className="flex space-x-2 ml-4 flex-shrink-0">
                         <ActionButton icon={Eye} label="Xem" onClick={(e) => { e.stopPropagation(); toast.success('Xem tiêu chuẩn'); }} />
-                        {/*{canWriteReport('tdg') && (*/}
-                        {/*    <ActionButton icon={FileTextIcon} label="Viết BC TĐG" onClick={(e) => { e.stopPropagation(); toast.success('Viết báo cáo TĐG'); }} variant="primary" />*/}
-                        {/*)}*/}
                         {canWriteReport('standard') && (
                             <ActionButton icon={FileTextIcon} label="Viết báo cáo tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.success('Viết báo cáo tiêu chuẩn'); }} variant="blue" />
                         )}
-                        {(canManageAll || canWriteReport('tdg')) && (
-                            <ActionButton icon={Users} label="Giao báo cáo tiêu chuẩn" onClick={(e) => { e.stopPropagation(); onAssignClick('standard', standard, 'standard'); }} variant="blue" />
+                        {(canManageAll || canWriteReport('standard')) && (
+                            <ActionButton
+                                icon={Users}
+                                label="Giao báo cáo tiêu chuẩn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // ✅ SỬA: Khi giao báo cáo tiêu chuẩn, criteriaId có thể null hoặc dùng standardId
+                                    onAssignClick('standard', {
+                                        id: standard.id,
+                                        code: standard.code,
+                                        name: standard.name,
+                                        standardId: standard.id,
+                                        criteriaId: null  // ✅ NULL vì không có tiêu chí ở level tiêu chuẩn
+                                    }, 'standard');
+                                }}
+                                variant="blue"
+                            />
                         )}
                     </div>
                 </div>
@@ -183,8 +195,23 @@ export default function EvidenceTreeMain({
                         {canWriteReport('criteria') && (
                             <ActionButton icon={FileTextIcon} label="Viết báo cáo Tiêu chí" onClick={(e) => { e.stopPropagation(); toast.success('Viết báo cáo tiêu chí'); }} variant="blue" />
                         )}
-                        {(canManageAll || canWriteReport('standard')) && (
-                            <ActionButton icon={Users} label="Giao ba cáo Tiêu chí" onClick={(e) => { e.stopPropagation(); onAssignClick('criteria', {...criteria, standardId: standard.id}, 'criteria'); }} variant="blue" />
+                        {(canManageAll || canWriteReport('criteria')) && (
+                            <ActionButton
+                                icon={Users}
+                                label="Giao báo cáo Tiêu chí"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // ✅ SỬA: Đảm bảo truyền standardId và criteriaId chính xác
+                                    onAssignClick('criteria', {
+                                        id: criteria.id,
+                                        code: criteria.code,
+                                        name: criteria.name,
+                                        standardId: standard.id,
+                                        criteriaId: criteria.id
+                                    }, 'criteria');
+                                }}
+                                variant="blue"
+                            />
                         )}
                     </div>
                 </div>

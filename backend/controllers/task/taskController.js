@@ -28,8 +28,6 @@ const getTasks = async (req, res) => {
         } = req.query;
 
         const academicYearId = req.academicYearId;
-        // const userRole = req.user.role; // Không dùng nữa
-        // const userId = req.user.id; // Không dùng nữa
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -48,12 +46,9 @@ const getTasks = async (req, res) => {
         if (criteriaId) query.criteriaId = criteriaId;
         if (status) query.status = status;
 
-        // --- LOGIC LỌC QUYỀN ĐÃ BỊ XÓA (CHỈ GIỮ LẠI LỌC QUERY) ---
-        // Bất kỳ người dùng nào đã xác thực đều được xem toàn bộ Task trong năm học.
         if (assignedTo) {
             query.assignedTo = assignedTo;
         }
-        // --- END LOGIC LỌC QUYỀN ---
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -121,7 +116,6 @@ const getTaskById = async (req, res) => {
             });
         }
 
-        // Giữ lại logic kiểm tra quyền xem chi tiết
         const canView = userRole === 'admin' ||
             userRole === 'manager' ||
             userRole === 'evaluator' ||
@@ -156,7 +150,7 @@ const createTask = async (req, res) => {
             criteriaId,
             assignedTo,
             dueDate,
-            reportType // Thêm reportType
+            reportType
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -169,27 +163,46 @@ const createTask = async (req, res) => {
             });
         }
 
-        if (!description || !standardId || !criteriaId || !assignedTo || assignedTo.length === 0 || !reportType) {
+        // ✅ SỬA: Cho phép báo cáo tiêu chuẩn không cần criteriaId
+        if (!description || !standardId || !assignedTo || assignedTo.length === 0 || !reportType) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng điền đầy đủ các trường bắt buộc'
             });
         }
 
-        const criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
-        if (!criteria) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chí không tồn tại'
-            });
-        }
+        // ✅ SỬA: Kiểm tra criteriaId chỉ khi reportType là 'criteria'
+        let criteria = null;
+        let programId = null;
+        let organizationId = null;
 
-        const standard = await Standard.findOne({ _id: standardId, academicYearId });
-        if (!standard) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chuẩn không tồn tại'
-            });
+        if (reportType === 'criteria') {
+            if (!criteriaId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tiêu chí là bắt buộc cho báo cáo tiêu chí'
+                });
+            }
+            criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
+            if (!criteria) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tiêu chí không tồn tại'
+                });
+            }
+            programId = criteria.programId;
+            organizationId = criteria.organizationId;
+        } else {
+            // ✅ SỬA: Cho báo cáo tiêu chuẩn, lấy programId/organizationId từ tiêu chuẩn
+            const standard = await Standard.findOne({ _id: standardId, academicYearId });
+            if (!standard) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tiêu chuẩn không tồn tại'
+                });
+            }
+            programId = standard.programId;
+            organizationId = standard.organizationId;
         }
 
         const taskCode = await generateTaskCode(academicYearId);
@@ -199,12 +212,12 @@ const createTask = async (req, res) => {
             taskCode,
             description: description.trim(),
             standardId,
-            criteriaId,
-            programId: criteria.programId,
-            organizationId: criteria.organizationId,
+            criteriaId: criteriaId || null,  // ✅ Cho phép null cho báo cáo tiêu chuẩn
+            programId,
+            organizationId,
             assignedTo,
             dueDate: dueDate ? new Date(dueDate) : undefined,
-            reportType, // Lưu reportType
+            reportType,
             createdBy: req.user.id,
             updatedBy: req.user.id
         });
@@ -344,7 +357,6 @@ const submitReport = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role;
 
-        // Chỉ REPORTER mới có thể nộp báo cáo
         if (userRole !== 'reporter') {
             return res.status(403).json({
                 success: false,
@@ -412,7 +424,6 @@ const reviewReport = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role;
 
-        // Chỉ MANAGER/ADMIN mới có thể duyệt báo cáo
         if (userRole !== 'admin' && userRole !== 'manager') {
             return res.status(403).json({
                 success: false,
