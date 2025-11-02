@@ -595,74 +595,6 @@ const getStatistics = async (req, res) => {
     }
 };
 
-const copyEvidenceToAnotherYear = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { targetAcademicYearId, targetStandardId, targetCriteriaId, newCode } = req.body;
-
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin và manager mới có quyền sao chép minh chứng giữa các năm học'
-            });
-        }
-
-        const evidence = await Evidence.findOne({
-            _id: id,
-            academicYearId: req.academicYearId
-        });
-
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy minh chứng'
-            });
-        }
-
-        const targetAcademicYear = await AcademicYear.findById(targetAcademicYearId);
-        if (!targetAcademicYear) {
-            return res.status(404).json({
-                success: false,
-                message: 'Năm học đích không tồn tại'
-            });
-        }
-
-        const existingEvidence = await Evidence.findOne({
-            code: newCode,
-            academicYearId: targetAcademicYearId
-        });
-        if (existingEvidence) {
-            return res.status(400).json({
-                success: false,
-                message: `Mã minh chứng ${newCode} đã tồn tại trong năm học đích`
-            });
-        }
-
-        const copiedEvidence = await evidence.copyTo(
-            targetAcademicYearId,
-            targetStandardId,
-            targetCriteriaId,
-            newCode,
-            req.user.id
-        );
-
-        await copiedEvidence.save();
-
-        res.status(201).json({
-            success: true,
-            message: 'Sao chép minh chứng sang năm học khác thành công',
-            data: copiedEvidence
-        });
-
-    } catch (error) {
-        console.error('Copy evidence to another year error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi sao chép minh chứng'
-        });
-    }
-};
-
 const importEvidences = async (req, res) => {
     try {
         const file = req.file;
@@ -1028,63 +960,6 @@ const exportEvidences = async (req, res) => {
     }
 };
 
-const approveFile = async (req, res) => {
-    try {
-        const { fileId } = req.params;
-        const { status, rejectionReason } = req.body;
-
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin mới có quyền duyệt file'
-            });
-        }
-
-        if (!['approved', 'rejected'].includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Trạng thái không hợp lệ'
-            });
-        }
-
-        const file = await File.findById(fileId);
-        if (!file) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy file'
-            });
-        }
-
-        file.approvalStatus = status;
-        file.approvedBy = req.user.id;
-        file.approvalDate = new Date();
-
-        if (status === 'rejected' && rejectionReason) {
-            file.rejectionReason = rejectionReason;
-        }
-
-        await file.save();
-
-        const evidence = await Evidence.findById(file.evidenceId);
-        if (evidence) {
-            await evidence.updateStatus();
-        }
-
-        res.json({
-            success: true,
-            message: status === 'approved' ? 'Duyệt file thành công' : 'Từ chối file thành công',
-            data: file
-        });
-
-    } catch (error) {
-        console.error('Approve file error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi duyệt file'
-        });
-    }
-};
-
 const getEvidenceByCode = async (req, res) => {
     try {
         const { code } = req.params;
@@ -1119,39 +994,6 @@ const getEvidenceByCode = async (req, res) => {
     }
 };
 
-const getPublicEvidence = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const evidence = await Evidence.findById(id)
-            .populate('createdBy', 'fullName email')
-            .populate('standardId', 'name code')
-            .populate('criteriaId', 'name code')
-            .populate({
-                path: 'files',
-                select: 'originalName size mimeType uploadedAt'
-            });
-
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Minh chứng không tồn tại'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: evidence
-        });
-
-    } catch (error) {
-        console.error('Get public evidence error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống'
-        });
-    }
-};
 
 module.exports = {
     getEvidences,
@@ -1163,14 +1005,11 @@ module.exports = {
     getEvidenceTree,
     advancedSearch,
     getStatistics,
-    copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences,
     incrementEvidenceDownload,
     validateEvidenceFileName,
     moveEvidence,
     getFullEvidenceTree,
-    approveFile,
     getEvidenceByCode,
-    getPublicEvidence
 };

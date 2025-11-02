@@ -1467,6 +1467,4 @@ module.exports = {
     getReportComments,
     addReportComment,
     resolveReportComment,
-    processEvidenceLinksInContent,
-    normalizeExistingLinks
 };
