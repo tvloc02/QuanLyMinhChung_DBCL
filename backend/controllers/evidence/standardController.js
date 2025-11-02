@@ -30,6 +30,8 @@ const getStandards = async (req, res) => {
             const accessibleStandardIds = await permissionService.getAccessibleStandardIds(userId, academicYearId);
             if (accessibleStandardIds.length > 0) {
                 query._id = { $in: accessibleStandardIds };
+            } else {
+                query._id = new mongoose.Types.ObjectId();
             }
         }
 
@@ -108,6 +110,8 @@ const getStandardsByProgramAndOrg = async (req, res) => {
             const accessibleStandardIds = await permissionService.getAccessibleStandardIds(userId, academicYearId);
             if (accessibleStandardIds.length > 0) {
                 query._id = { $in: accessibleStandardIds };
+            } else {
+                query._id = new mongoose.Types.ObjectId();
             }
         }
 
@@ -135,6 +139,7 @@ const getStandardById = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const standard = await Standard.findOne({ _id: id, academicYearId })
             .populate('academicYearId', 'name code')
@@ -151,9 +156,14 @@ const getStandardById = async (req, res) => {
             });
         }
 
+        const canWriteReport = await permissionService.canWriteReport(userId, 'standard', academicYearId);
+
         res.json({
             success: true,
-            data: standard
+            data: {
+                ...standard.toObject(),
+                canWriteReport
+            }
         });
 
     } catch (error) {
@@ -451,7 +461,7 @@ const getStandardStatistics = async (req, res) => {
         const academicYearId = req.academicYearId;
 
         const stats = await Standard.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            { $match: { academicYearId: new mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',

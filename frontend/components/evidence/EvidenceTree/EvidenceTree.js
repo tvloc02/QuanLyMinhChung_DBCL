@@ -21,7 +21,17 @@ export default function EvidenceTree() {
     const [statistics, setStatistics] = useState(null)
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [userRole, setUserRole] = useState('')
-    const [userPermissions, setUserPermissions] = useState({})
+    const [userPermissions, setUserPermissions] = useState({
+        // ⭐️ Cập nhật permissions để gọi service middleware
+        canEditStandard: () => false,
+        canEditCriteria: () => false,
+        canUploadEvidence: () => false,
+        canAssignReporters: () => false,
+        canWriteTDGReport: false,
+        canWriteStandardReport: false,
+        canWriteCriteriaReport: false,
+    })
+    const [academicYearId, setAcademicYearId] = useState(''); // Thêm state cho academicYearId
 
     const [showAssignModal, setShowAssignModal] = useState(false)
     const [assignTarget, setAssignTarget] = useState(null)
@@ -47,13 +57,25 @@ export default function EvidenceTree() {
     const fetchUserInfo = async () => {
         try {
             const response = await apiMethods.users.getProfile()
-            setUserRole(response.data.data?.role || '')
-            const permissions = response.data.data?.permissions || {}
+            const userData = response.data.data;
+            setUserRole(userData?.role || '');
+            setAcademicYearId(userData?.currentAcademicYearId);
+
+            // ⭐️ Cập nhật: Tạo các hàm kiểm tra quyền gọi đến service/middleware
+            const canManageAll = userData?.role === 'admin' || userData?.role === 'manager';
+
             setUserPermissions({
-                canWriteTDGReport: permissions['can_write_tdg_report'],
-                canWriteStandardReport: permissions['can_write_standard_report'],
-                canWriteCriteriaReport: permissions['can_write_criteria_report'],
-            })
+                canWriteTDGReport: userData?.accessibleReportTypes?.includes('overall_tdg') || false,
+                canWriteStandardReport: userData?.accessibleReportTypes?.includes('standard') || false,
+                canWriteCriteriaReport: userData?.accessibleReportTypes?.includes('criteria') || false,
+
+                // Các hàm kiểm tra quyền gọi đến service (dựa trên permissionMiddleware.js)
+                canEditStandard: async (standardId) => canManageAll || await apiMethods.permissions.canEditStandard(standardId, userData?.currentAcademicYearId),
+                canEditCriteria: async (criteriaId) => canManageAll || await apiMethods.permissions.canEditCriteria(criteriaId, userData?.currentAcademicYearId),
+                canUploadEvidence: async (criteriaId) => canManageAll || await apiMethods.permissions.canUploadEvidence(criteriaId, userData?.currentAcademicYearId),
+                canAssignReporters: async (standardId, criteriaId) => canManageAll || await apiMethods.permissions.canAssignReporters(standardId, criteriaId, userData?.currentAcademicYearId),
+
+            });
         } catch (error) {
             console.error('Fetch user info error:', error)
         }
@@ -276,13 +298,37 @@ export default function EvidenceTree() {
         return false
     }
 
-    const canEditEvidence = () => {
-        return canManageAll || userRole === 'reporter'
+    // ⭐️ Hàm gọi các quyền từ userPermissions (phải là Promise)
+    const checkCanEditStandard = async (standardId) => {
+        if (canManageAll) return true;
+        try {
+            return await userPermissions.canEditStandard(standardId);
+        } catch (e) { return false; }
     }
 
-    const canDeleteEvidence = () => {
-        return canManageAll
+    const checkCanEditCriteria = async (criteriaId) => {
+        if (canManageAll) return true;
+        try {
+            return await userPermissions.canEditCriteria(criteriaId);
+        } catch (e) { return false; }
     }
+
+    const checkCanUploadEvidence = async (criteriaId) => {
+        if (canManageAll) return true;
+        try {
+            return await userPermissions.canUploadEvidence(criteriaId);
+        } catch (e) { return false; }
+    }
+
+    const checkCanAssignReporters = async (standardId, criteriaId) => {
+        if (canManageAll) return true;
+        try {
+            return await userPermissions.canAssignReporters(standardId, criteriaId);
+        } catch (e) { return false; }
+    }
+
+    // Cần một useEffect để cập nhật quyền khi data thay đổi (ví dụ: sau khi fetchTreeData)
+    // Tuy nhiên, do các hàm quyền đã được định nghĩa là async, chúng ta cần truyền chúng dưới dạng hàm gọi (thay vì giá trị boolean trực tiếp)
 
     const handleAssignClick = (type, node, reportType) => {
         const assignData = {
@@ -322,7 +368,8 @@ export default function EvidenceTree() {
             files.forEach(file => {
                 formData.append('files', file)
             })
-            await apiMethods.files.uploadMultiple(files, selectedEvidence.id)
+            // Giả định selectedEvidence.id là evidenceId cho file upload
+            await apiMethods.files.uploadMultiple(formData, selectedEvidence.id)
             toast.success('Upload file thành công')
             fetchTreeData()
             setSelectedEvidence(null)
@@ -387,8 +434,11 @@ export default function EvidenceTree() {
                         userRole={userRole}
                         canManageAll={canManageAll}
                         canWriteReport={canWriteReport}
-                        canEditEvidence={canEditEvidence}
-                        canDeleteEvidence={canDeleteEvidence}
+                        // ⭐️ Truyền các hàm kiểm tra quyền
+                        canEditStandard={checkCanEditStandard}
+                        canEditCriteria={checkCanEditCriteria}
+                        canUploadEvidence={checkCanUploadEvidence}
+                        canAssignReporters={checkCanAssignReporters}
                         onAssignClick={handleAssignClick}
                         onEditEvidence={(evidence) => {
                             toast.info('Chức năng sửa minh chứng đang phát triển')

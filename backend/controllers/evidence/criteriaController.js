@@ -31,6 +31,8 @@ const getCriteria = async (req, res) => {
             const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(userId, academicYearId);
             if (accessibleCriteriaIds.length > 0) {
                 query._id = { $in: accessibleCriteriaIds };
+            } else {
+                query._id = new mongoose.Types.ObjectId();
             }
         }
 
@@ -93,6 +95,7 @@ const getCriteriaByStandard = async (req, res) => {
     try {
         const { standardId } = req.query;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         if (!standardId) {
             return res.status(400).json({
@@ -101,11 +104,22 @@ const getCriteriaByStandard = async (req, res) => {
             });
         }
 
-        const criteria = await Criteria.find({
+        let query = {
             academicYearId,
             standardId,
             status: 'active'
-        })
+        };
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(userId, academicYearId);
+            if (accessibleCriteriaIds.length > 0) {
+                query._id = { $in: accessibleCriteriaIds };
+            } else {
+                query._id = new mongoose.Types.ObjectId();
+            }
+        }
+
+        const criteria = await Criteria.find(query)
             .populate('standardId', 'name code')
             .populate('assignedReporters', 'fullName email')
             .sort({ code: 1 });
@@ -190,8 +204,8 @@ const createCriteria = async (req, res) => {
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            const canEdit = await permissionService.canEditCriteria(req.user.id, standardId, academicYearId);
-            if (!canEdit) {
+            const canEditStandard = await permissionService.canEditStandard(req.user.id, standardId, academicYearId);
+            if (!canEditStandard) {
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn không có quyền tạo tiêu chí'
@@ -466,7 +480,7 @@ const assignReporters = async (req, res) => {
         }
 
         if (req.user.role !== 'manager' && req.user.role !== 'admin') {
-            const canAssign = await permissionService.canAssignReporters(userId, null, id, academicYearId);
+            const canAssign = await permissionService.canAssignReporters(userId, criteria.standardId, id, academicYearId);
             if (!canAssign) {
                 return res.status(403).json({
                     success: false,
@@ -509,7 +523,7 @@ const getCriteriaStatistics = async (req, res) => {
         const academicYearId = req.academicYearId;
 
         const stats = await Criteria.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            { $match: { academicYearId: new mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',
@@ -524,7 +538,7 @@ const getCriteriaStatistics = async (req, res) => {
         }, {});
 
         const typeStats = await Criteria.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            { $match: { academicYearId: new mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$type',

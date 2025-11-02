@@ -11,7 +11,7 @@ const {
     checkCanAssignReporters,
     checkCanUploadEvidence,
     checkCanManageFiles
-} = require('../../middleware/permissionMiddleware');
+} = require('../../services/permissionService');
 const {
     getEvidences,
     getEvidenceById,

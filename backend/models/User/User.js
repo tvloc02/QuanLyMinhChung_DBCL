@@ -42,16 +42,13 @@ const userSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        // Cập nhật vai trò chính
         enum: ['admin', 'manager', 'reporter', 'evaluator']
     }],
 
-    // Giữ lại để backward compatibility
     role: {
         type: String,
-        // Cập nhật vai trò chính
         enum: ['admin', 'manager', 'reporter', 'evaluator'],
-        default: 'evaluator' // Thay expert thành evaluator
+        default: 'evaluator'
     },
 
     status: {
@@ -173,13 +170,12 @@ userSchema.virtual('isLocked').get(function() {
 });
 
 userSchema.pre('validate', function(next) {
-    // Nếu roles rỗng hoặc không tồn tại, tự động set từ role
     if (!this.roles || this.roles.length === 0) {
         if (this.role) {
             this.roles = [this.role];
         } else {
-            this.roles = ['evaluator']; // Thay expert thành evaluator
-            this.role = 'evaluator'; // Thay expert thành evaluator
+            this.roles = ['evaluator'];
+            this.role = 'evaluator';
         }
     }
 
@@ -191,7 +187,6 @@ userSchema.pre('validate', function(next) {
 });
 
 userSchema.pre('save', async function(next) {
-    // Sync roles và role (ưu tiên roles)
     if (this.isModified('roles') && this.roles.length > 0) {
         this.role = this.roles[0];
     } else if (this.isModified('role') && this.role && this.roles.length === 0) {
@@ -243,8 +238,8 @@ userSchema.methods.removeRole = function(role) {
     if (this.roles.length > 0) {
         this.role = this.roles[0];
     } else {
-        this.role = 'evaluator'; // Thay expert thành evaluator
-        this.roles = ['evaluator']; // Thay expert thành evaluator
+        this.role = 'evaluator';
+        this.roles = ['evaluator'];
     }
 };
 
@@ -326,7 +321,7 @@ userSchema.methods.incFailedLoginAttempts = function() {
     const updates = { $inc: { failedLoginAttempts: 1 } };
 
     if (this.failedLoginAttempts + 1 >= 10 && !this.isLocked) {
-        updates.$set = { lockUntil: Date.now() + 300000 }; // 5 phút
+        updates.$set = { lockUntil: Date.now() + 300000 };
     }
 
     return this.updateOne(updates);

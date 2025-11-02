@@ -59,6 +59,8 @@ const getEvidences = async (req, res) => {
             const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(userId, academicYearId);
             if (accessibleCriteriaIds.length > 0) {
                 query.criteriaId = { $in: accessibleCriteriaIds };
+            } else {
+                query.criteriaId = new mongoose.Types.ObjectId();
             }
         }
 
@@ -82,7 +84,7 @@ const getEvidences = async (req, res) => {
         if (documentType) query.documentType = documentType;
 
         const sortOptions = {};
-        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        sortOptions[sortBy] = sortOptions[sortBy] || (sortOrder === 'asc' ? 1 : -1);
 
         const [evidences, total] = await Promise.all([
             Evidence.find(query)
@@ -152,6 +154,17 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, evidence.academicYearId);
+            if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền truy cập minh chứng này'
+                });
+            }
+        }
+
+
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
             await evidence.save();
@@ -208,13 +221,6 @@ const createEvidence = async (req, res) => {
                     message: 'Bạn không có quyền tạo minh chứng cho tiêu chí này'
                 });
             }
-        }
-
-        if (!Standard || !Criteria) {
-            return res.status(500).json({
-                success: false,
-                message: 'Lỗi cấu hình hệ thống: không load được model Standard/Criteria'
-            });
         }
 
         const mongoose = require('mongoose');
@@ -418,13 +424,19 @@ const deleteEvidence = async (req, res) => {
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ quản lý mới có thể xóa minh chứng'
-            });
+            const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền xóa minh chứng này'
+                });
+            }
         }
 
         const files = await File.find({ evidenceId: id });
+        const fs = require('fs');
+        const path = require('path');
+
         for (const file of files) {
             if (fs.existsSync(file.filePath)) {
                 fs.unlinkSync(file.filePath);
@@ -607,6 +619,14 @@ const importEvidences = async (req, res) => {
             });
         }
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có quyền import minh chứng'
+            });
+        }
+
+
         const result = await importEvidencesFromExcel(
             file.path,
             req.academicYearId,
@@ -615,6 +635,8 @@ const importEvidences = async (req, res) => {
             req.user.id,
             mode
         );
+
+        const fs = require('fs');
 
         if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
@@ -779,14 +801,35 @@ const getFullEvidenceTree = async (req, res) => {
         const StandardModel = mongoose.model('Standard');
         const CriteriaModel = mongoose.model('Criteria');
 
+        let standardQuery = { academicYearId, programId };
+        let criteriaQuery = { academicYearId, programId };
+        let evidenceQuery = { academicYearId, programId, organizationId };
+
+        if (req.user.role === 'reporter') {
+            const [accessibleStandardIds, accessibleCriteriaIds] = await Promise.all([
+                permissionService.getAccessibleStandardIds(req.user.id, academicYearId),
+                permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId)
+            ]);
+
+            if (accessibleStandardIds.length > 0) {
+                standardQuery._id = { $in: accessibleStandardIds };
+                criteriaQuery.standardId = { $in: accessibleStandardIds };
+
+                if (accessibleCriteriaIds.length > 0) {
+                    evidenceQuery.criteriaId = { $in: accessibleCriteriaIds };
+                } else {
+                    evidenceQuery.criteriaId = new mongoose.Types.ObjectId();
+                }
+            } else {
+
+            }
+        }
+
+
         const [standards, allCriteria, evidences] = await Promise.all([
-            StandardModel.find({ academicYearId, programId }).sort({ code: 1 }).lean(),
-            CriteriaModel.find({ academicYearId, programId }).sort({ standardCode: 1, code: 1 }).lean(),
-            Evidence.find({
-                academicYearId,
-                programId,
-                organizationId
-            })
+            StandardModel.find(standardQuery).sort({ code: 1 }).lean(),
+            CriteriaModel.find(criteriaQuery).sort({ standardCode: 1, code: 1 }).lean(),
+            Evidence.find(evidenceQuery)
                 .populate('standardId', 'name code')
                 .populate('criteriaId', 'name code')
                 .populate({
@@ -801,7 +844,6 @@ const getFullEvidenceTree = async (req, res) => {
 
         standards.forEach(standard => {
             const standardCriteria = allCriteria.filter(c =>
-                c.standardCode === standard.code ||
                 c.standardId?.toString() === standard._id.toString()
             );
 
@@ -816,11 +858,7 @@ const getFullEvidenceTree = async (req, res) => {
 
             standardCriteria.forEach(criterion => {
                 const criterionEvidences = evidences.filter(e => {
-                    const matchByStandardCode = e.standardId?.code === standard.code;
-                    const matchByCriteriaCode = e.criteriaId?.code === criterion.code;
-                    const matchByCriteriaId = e.criteriaId?._id?.toString() === criterion._id.toString();
-
-                    return matchByStandardCode && (matchByCriteriaCode || matchByCriteriaId);
+                    return e.criteriaId?._id?.toString() === criterion._id.toString();
                 });
 
                 const criterionNode = {
@@ -845,7 +883,9 @@ const getFullEvidenceTree = async (req, res) => {
                 standardNode.criteria.push(criterionNode);
             });
 
-            tree.push(standardNode);
+            if (standardNode.criteria.length > 0 || req.user.role !== 'reporter') {
+                tree.push(standardNode);
+            }
         });
 
         const statistics = {
@@ -888,11 +928,19 @@ const exportEvidences = async (req, res) => {
             });
         }
 
-        const evidences = await Evidence.find({
-            academicYearId,
-            programId,
-            organizationId
-        })
+        let evidenceQuery = { academicYearId, programId, organizationId };
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
+            if (accessibleCriteriaIds.length > 0) {
+                evidenceQuery.criteriaId = { $in: accessibleCriteriaIds };
+            } else {
+                evidenceQuery.criteriaId = new mongoose.Types.ObjectId();
+            }
+        }
+
+
+        const evidences = await Evidence.find(evidenceQuery)
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
             .populate('programId', 'name code')
@@ -980,6 +1028,17 @@ const getEvidenceByCode = async (req, res) => {
             });
         }
 
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, evidence.academicYearId);
+            if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền truy cập minh chứng này'
+                });
+            }
+        }
+
+
         res.json({
             success: true,
             data: evidence
@@ -991,6 +1050,83 @@ const getEvidenceByCode = async (req, res) => {
             success: false,
             message: 'Lỗi hệ thống'
         });
+    }
+};
+
+const copyEvidenceToAnotherYear = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { targetAcademicYearId, targetStandardId, targetCriteriaId, newCode } = req.body;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        const originalEvidence = await Evidence.findOne({ _id: id, academicYearId });
+        if (!originalEvidence) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng gốc trong năm học này' });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            const canUpload = await permissionService.canUploadEvidence(userId, originalEvidence.criteriaId, academicYearId);
+            if (!canUpload) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền sao chép minh chứng này' });
+            }
+        }
+
+        const existingEvidence = await Evidence.findOne({
+            code: newCode,
+            academicYearId: targetAcademicYearId
+        });
+        if (existingEvidence) {
+            return res.status(400).json({ success: false, message: `Mã minh chứng ${newCode} đã tồn tại trong năm học đích` });
+        }
+
+        const newEvidence = await originalEvidence.copyTo(
+            targetAcademicYearId,
+            targetStandardId,
+            targetCriteriaId,
+            newCode,
+            userId
+        );
+
+        res.json({ success: true, message: 'Sao chép minh chứng thành công', data: newEvidence });
+
+    } catch (error) {
+        console.error('Copy evidence error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi sao chép minh chứng' });
+    }
+};
+
+const approveFile = async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const { status, rejectionReason } = req.body;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({ success: false, message: 'Chỉ quản lý mới có thể duyệt file minh chứng' });
+        }
+
+        const file = await File.findOne({ _id: fileId, academicYearId });
+        if (!file) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy file minh chứng' });
+        }
+
+        if (status === 'rejected' && !rejectionReason) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do từ chối' });
+        }
+
+        file.approvalStatus = status;
+        file.rejectionReason = status === 'rejected' ? rejectionReason.trim() : undefined;
+        file.updatedBy = userId;
+
+        await file.save();
+
+        res.json({ success: true, message: `Duyệt file thành công. Trạng thái: ${status}`, data: file });
+
+    } catch (error) {
+        console.error('Approve file error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi duyệt file' });
     }
 };
 
@@ -1012,4 +1148,6 @@ module.exports = {
     moveEvidence,
     getFullEvidenceTree,
     getEvidenceByCode,
+    copyEvidenceToAnotherYear,
+    approveFile,
 };

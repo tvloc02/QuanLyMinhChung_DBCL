@@ -297,7 +297,7 @@ const getOrganizationStatistics = async (req, res) => {
         const academicYearId = req.academicYearId;
 
         const stats = await Organization.aggregate([
-            { $match: { academicYearId: mongoose.Types.ObjectId(academicYearId) } },
+            { $match: { academicYearId: new mongoose.Types.ObjectId(academicYearId) } },
             {
                 $group: {
                     _id: '$status',

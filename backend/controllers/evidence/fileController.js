@@ -82,6 +82,9 @@ const uploadFiles = async (req, res) => {
 
         const savedFiles = [];
 
+        const fs = require('fs');
+        const path = require('path');
+
         for (const file of files) {
             const encodedFileName = encodeURIComponent(file.originalname);
 
@@ -168,11 +171,24 @@ const downloadFile = async (req, res) => {
             });
         }
 
+        const fs = require('fs');
+        const path = require('path');
+
         if (!fs.existsSync(file.filePath)) {
             return res.status(404).json({
                 success: false,
                 message: 'File không tồn tại trên hệ thống'
             });
+        }
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, file.evidenceId.academicYearId);
+            if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền truy cập file này'
+                });
+            }
         }
 
         await file.incrementDownloadCount();
@@ -227,6 +243,8 @@ const deleteFile = async (req, res) => {
 
         const parentFolderId = file.parentFolder;
 
+        const fs = require('fs');
+
         if (file.type === 'file' && fs.existsSync(file.filePath)) {
             fs.unlinkSync(file.filePath);
         }
@@ -265,7 +283,7 @@ const getFileInfo = async (req, res) => {
         const { id } = req.params;
 
         const file = await File.findById(id)
-            .populate('evidenceId', 'code name')
+            .populate('evidenceId', 'code name academicYearId criteriaId')
             .populate('uploadedBy', 'fullName email')
             .populate('parentFolder', 'originalName type');
 
@@ -274,6 +292,16 @@ const getFileInfo = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file'
             });
+        }
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, file.evidenceId.academicYearId);
+            if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền truy cập file này'
+                });
+            }
         }
 
         res.json({
@@ -330,6 +358,26 @@ const moveFile = async (req, res) => {
                 });
             }
 
+            const checkIfDescendant = async (ancestorId, descendantId) => {
+                let currentId = ancestorId;
+
+                while (currentId) {
+                    if (currentId.toString() === descendantId.toString()) {
+                        return true;
+                    }
+
+                    const folder = await File.findById(currentId);
+                    if (!folder || !folder.parentFolder) {
+                        return false;
+                    }
+
+                    currentId = folder.parentFolder;
+                }
+
+                return false;
+            };
+
+
             if (file.type === 'folder') {
                 const isDescendant = await checkIfDescendant(targetFolderId, id);
                 if (isDescendant || targetFolderId === id) {
@@ -383,6 +431,17 @@ const searchFiles = async (req, res) => {
         } = req.query;
 
         let query = {};
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, req.academicYearId);
+            const accessibleEvidenceIds = await Evidence.find({ criteriaId: { $in: accessibleCriteriaIds } }).distinct('_id');
+
+            if (accessibleEvidenceIds.length === 0) {
+                return res.json({ success: true, data: { files: [], total: 0 } });
+            }
+            query.evidenceId = { $in: accessibleEvidenceIds };
+        }
+
 
         if (evidenceId) {
             query.evidenceId = evidenceId;
@@ -446,8 +505,23 @@ const getFileStatistics = async (req, res) => {
     try {
         const { evidenceId } = req.params;
 
+        const evidence = await Evidence.findById(evidenceId);
+        if (!evidence) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
+        }
+
+        if (req.user.role === 'reporter') {
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, req.academicYearId);
+            if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền truy cập minh chứng này'
+                });
+            }
+        }
+
         const stats = await File.aggregate([
-            { $match: { evidenceId: mongoose.Types.ObjectId(evidenceId) } },
+            { $match: { evidenceId: new mongoose.Types.ObjectId(evidenceId) } },
             {
                 $group: {
                     _id: null,
@@ -462,7 +536,7 @@ const getFileStatistics = async (req, res) => {
         const typeStats = await File.aggregate([
             {
                 $match: {
-                    evidenceId: mongoose.Types.ObjectId(evidenceId),
+                    evidenceId: new mongoose.Types.ObjectId(evidenceId),
                     type: 'file'
                 }
             },
@@ -497,37 +571,6 @@ const getFileStatistics = async (req, res) => {
             message: 'Lỗi hệ thống khi lấy thống kê file'
         });
     }
-};
-
-const checkIfDescendant = async (ancestorId, descendantId) => {
-    let currentId = ancestorId;
-
-    while (currentId) {
-        if (currentId.toString() === descendantId.toString()) {
-            return true;
-        }
-
-        const folder = await File.findById(currentId);
-        if (!folder || !folder.parentFolder) {
-            return false;
-        }
-
-        currentId = folder.parentFolder;
-    }
-
-    return false;
-};
-
-const buildTree = (items, parentId) => {
-    const children = items.filter(item => {
-        const itemParentId = item.parentFolder ? item.parentFolder.toString() : null;
-        return itemParentId === parentId;
-    });
-
-    return children.map(item => ({
-        ...item.toObject(),
-        children: item.type === 'folder' ? buildTree(items, item._id.toString()) : []
-    }));
 };
 
 module.exports = {
