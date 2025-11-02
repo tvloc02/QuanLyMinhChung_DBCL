@@ -4,9 +4,11 @@ import Sidebar from './Sidebar'
 import Footer from './Footer'
 import Breadcrumb from './Breadcrumb'
 import AIChatWidget from "./AIChatWidget";
-
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function Layout({ children, title, breadcrumbItems }) {
+    const { user } = useAuth();
+
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [isDesktop, setIsDesktop] = useState(true)
@@ -25,19 +27,17 @@ export default function Layout({ children, title, breadcrumbItems }) {
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
-            {/* Header - Fixed at top, full width */}
             <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
 
             <div className="flex flex-1" style={{ marginTop: '80px' }}>
-                {/* Sidebar - Fixed, under header */}
                 <Sidebar
                     open={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
                     collapsed={sidebarCollapsed}
                     onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    userRole={user?.role}
                 />
 
-                {/* Main Content - PHÓNG TO THẬT SỰ */}
                 <div
                     className="flex flex-col transition-all duration-300"
                     style={{
@@ -46,7 +46,6 @@ export default function Layout({ children, title, breadcrumbItems }) {
                         minHeight: 'calc(100vh - 80px)'
                     }}
                 >
-                    {/* BỎ max-w-7xl để content tự do kéo dãn toàn màn hình */}
                     <main className="flex-grow p-6 overflow-y-auto w-full">
                         <div className="w-full">
                             {breadcrumbItems && <Breadcrumb items={breadcrumbItems} />}
@@ -57,7 +56,6 @@ export default function Layout({ children, title, breadcrumbItems }) {
                                 </div>
                             )}
 
-                            {/* Children sẽ tự động chiếm toàn bộ width */}
                             {children}
                             <AIChatWidget />
 

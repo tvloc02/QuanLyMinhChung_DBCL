@@ -38,9 +38,9 @@ export default function DashboardPage() {
                 return <AdminDashboard />;
             case 'manager':
                 return <ManagerDashboard />;
-            case 'expert':
+            case 'reporter':
                 return <ExpertDashboard />;
-            case 'advisor':
+            case 'evaluator':
                 return <AdvisorDashboard />;
             default:
                 return <div>Dashboard not found for role: {user.role}</div>;

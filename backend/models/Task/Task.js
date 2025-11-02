@@ -27,8 +27,7 @@ const taskSchema = new mongoose.Schema({
 
     criteriaId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Criteria',
-        required: true
+        ref: 'Criteria'
     },
 
     programId: {

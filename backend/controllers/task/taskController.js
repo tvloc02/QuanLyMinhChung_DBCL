@@ -238,6 +238,15 @@ const createTask = async (req, res) => {
 
     } catch (error) {
         console.error('Create task error:', error);
+
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi tạo nhiệm vụ'
@@ -454,7 +463,6 @@ const reviewReport = async (req, res) => {
                 report.approvedAt = new Date();
                 await report.save();
 
-                // Auto approve evidence if criteria report
                 if (report.type === 'criteria' && report.criteriaId) {
                     const Evidence = require('../../models/Evidence/Evidence');
                     await Evidence.updateMany(
@@ -477,7 +485,6 @@ const reviewReport = async (req, res) => {
             if (report) {
                 await report.recordRejection(userId, rejectionReason.trim());
 
-                // Mark evidence as rejected if criteria report
                 if (report.type === 'criteria' && report.criteriaId) {
                     const Evidence = require('../../models/Evidence/Evidence');
                     await Evidence.updateMany(
@@ -519,10 +526,31 @@ const getTaskByCriteria = async (req, res) => {
         const { criteriaId } = req.query;
         const academicYearId = req.academicYearId;
 
+        if (!criteriaId) {
+            return res.status(400).json({
+                success: false,
+                message: 'criteriaId là bắt buộc'
+            });
+        }
+
+        const criteria = await Criteria.findById(criteriaId).select('standardId');
+        if (!criteria) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy Tiêu chí'
+            });
+        }
+        const standardId = criteria.standardId;
+
         const tasks = await Task.find({
             academicYearId,
-            criteriaId,
-            status: { $in: ['pending', 'in_progress', 'submitted'] }
+            status: { $in: ['pending', 'in_progress', 'submitted'] },
+            $or: [
+                // 1. Task được gán trực tiếp cho Tiêu chí này
+                { criteriaId: criteriaId },
+                // 2. Task được gán cho Tiêu chuẩn cha (Task cấp Standard)
+                { standardId: standardId, criteriaId: null, reportType: 'standard' }
+            ]
         })
             .populate('assignedTo', 'fullName email')
             .populate('createdBy', 'fullName email')
