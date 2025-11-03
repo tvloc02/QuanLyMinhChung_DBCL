@@ -24,11 +24,11 @@ const {
 // Thống kê người dùng
 router.get('/statistics', auth, requireManager, getUserStatistics);
 
-router.get('/', auth, requireManager, [
+// SỬA LỖI 403: Xóa requireManager để cho phép các vai trò khác (như Reporter) lấy danh sách
+router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
     query('search').optional().trim().escape(),
-    // Cập nhật vai trò hợp lệ trong query
     query('role').optional().isIn(['admin', 'manager', 'reporter', 'evaluator']),
     query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
@@ -41,13 +41,13 @@ router.get('/experts', auth, requireManager, [
     query('search').optional().trim().escape(),
     query('sortBy').optional().isIn(['createdAt', 'fullName']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
-], validation, getUsers); // Có thể thêm logic mặc định role=evaluator trong controller hoặc middleware nếu route này chỉ dành cho evaluator
+], validation, getUsers);
 
 router.get('/:id', auth, requireManager, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, getUserById);
 
-// Tạo người dùng mới
+// Các routes sau giữ nguyên requireAdmin/requireManager
 router.post('/',
     auth,
     requireAdmin,
@@ -57,7 +57,6 @@ router.post('/',
             .withMessage('Email là bắt buộc')
             .trim()
             .custom((value) => {
-                // Chấp nhận email đầy đủ hoặc username đơn giản
                 const fullEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
                 const usernameRegex = /^[a-zA-Z0-9]+$/;
 
@@ -79,7 +78,6 @@ router.post('/',
             .optional()
             .matches(/^[0-9]{10,11}$/)
             .withMessage('Số điện thoại không hợp lệ'),
-        // Cập nhật vai trò hợp lệ
         body('role')
             .optional()
             .isIn(['admin', 'manager', 'reporter', 'evaluator'])
@@ -137,7 +135,6 @@ router.post('/',
     createUser
 );
 
-// Cập nhật người dùng
 router.put('/:id',
     auth,
     requireAdmin,
@@ -151,7 +148,6 @@ router.put('/:id',
             .optional()
             .matches(/^[0-9]{10,11}$/)
             .withMessage('Số điện thoại không hợp lệ'),
-        // Cập nhật vai trò hợp lệ
         body('role')
             .optional()
             .isIn(['admin', 'manager', 'reporter', 'evaluator'])
@@ -201,7 +197,6 @@ router.put('/:id',
     updateUser
 );
 
-// Các route khác không thay đổi
 router.delete('/:id', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, deleteUser);

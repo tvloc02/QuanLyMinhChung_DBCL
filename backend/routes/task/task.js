@@ -86,13 +86,14 @@ router.get('/:id', [
     param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')
 ], validation, getTaskById);
 
+// ⭐️ SỬA LỖI: Xóa requireManager. Logic kiểm tra quyền manager/reporter đã được chuyển vào createTask controller.
 router.post('/',
-    requireManager,
     createTaskValidation,
     validation,
     createTask
 );
 
+// Lưu ý: Giữ lại requireManager/auth cho các thao tác quản trị cố định (PUT/DELETE/REVIEW)
 router.put('/:id',
     requireManager,
     updateTaskValidation,

@@ -1,14 +1,23 @@
 const permissionService = require('../../services/permissionService');
 
+const getAcademicYearId = (req) => {
+    // 1. Ưu tiên lấy từ Middleware (đã được thiết lập qua attachCurrentAcademicYear)
+    if (req.academicYearId) {
+        return req.academicYearId;
+    }
+    // 2. Nếu không có, lấy từ Query Parameter (phòng trường hợp Middleware bị bỏ qua)
+    return req.query.academicYearId;
+};
+
+
 const canEditStandard = async (req, res) => {
     try {
         const { standardId } = req.params;
         const userId = req.user.id;
-        // ĐỌC academicYearId TỪ QUERY (vì Frontend gửi qua Query Parameter)
-        const academicYearId = req.query.academicYearId;
+        const academicYearId = getAcademicYearId(req);
 
         if (!academicYearId) {
-            return res.status(400).json({ success: false, message: 'Thiếu ID năm học' });
+            return res.status(400).json({ success: false, message: 'Thiếu ID năm học (academicYearId)' });
         }
 
         const result = await permissionService.canEditStandard(userId, standardId, academicYearId);
@@ -27,11 +36,10 @@ const canEditCriteria = async (req, res) => {
     try {
         const { criteriaId } = req.params;
         const userId = req.user.id;
-        // ĐỌC academicYearId TỪ QUERY
-        const academicYearId = req.query.academicYearId;
+        const academicYearId = getAcademicYearId(req);
 
         if (!academicYearId) {
-            return res.status(400).json({ success: false, message: 'Thiếu ID năm học' });
+            return res.status(400).json({ success: false, message: 'Thiếu ID năm học (academicYearId)' });
         }
 
         const result = await permissionService.canEditCriteria(userId, criteriaId, academicYearId);
@@ -50,11 +58,10 @@ const canUploadEvidence = async (req, res) => {
     try {
         const { criteriaId } = req.params;
         const userId = req.user.id;
-        // ĐỌC academicYearId TỪ QUERY
-        const academicYearId = req.query.academicYearId;
+        const academicYearId = getAcademicYearId(req);
 
         if (!academicYearId) {
-            return res.status(400).json({ success: false, message: 'Thiếu ID năm học' });
+            return res.status(400).json({ success: false, message: 'Thiếu ID năm học (academicYearId)' });
         }
 
         const result = await permissionService.canUploadEvidence(userId, criteriaId, academicYearId);
@@ -73,11 +80,10 @@ const canAssignReporters = async (req, res) => {
     try {
         const { standardId, criteriaId } = req.params;
         const userId = req.user.id;
-        // ĐỌC academicYearId TỪ QUERY
-        const academicYearId = req.query.academicYearId;
+        const academicYearId = getAcademicYearId(req);
 
         if (!academicYearId) {
-            return res.status(400).json({ success: false, message: 'Thiếu ID năm học' });
+            return res.status(400).json({ success: false, message: 'Thiếu ID năm học (academicYearId)' });
         }
 
         const criteriaIdValue = criteriaId === 'null' ? null : criteriaId;

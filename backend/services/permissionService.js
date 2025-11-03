@@ -6,7 +6,6 @@ const REPORT_TYPES = {
     CRITERIA: 'criteria'
 };
 
-// YÊU CẦU CÁC MODEL MỘT LẦN (tránh lazy require liên tục)
 const User = require('../models/User/User');
 const Task = require('../models/Task/Task');
 const Criteria = require('../models/Evidence/Criteria');
@@ -23,12 +22,18 @@ const getUserRole = async (userId) => {
 };
 
 const getTasksForUser = (userId, academicYearId) => {
-    // ⭐️ SỬ DỤNG academicYearId TRONG QUERY
-    return Task.find({
-        academicYearId,
+    let query = {
         assignedTo: userId,
         status: { $in: ['pending', 'in_progress', 'submitted'] }
-    });
+    };
+
+    if (academicYearId && mongoose.Types.ObjectId.isValid(academicYearId)) {
+        query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
+    } else {
+        query.academicYearId = null;
+    }
+
+    return Task.find(query);
 };
 
 const getAccessibleReportTypes = async (userId, academicYearId) => {
@@ -54,12 +59,14 @@ const getPermissionsByUserId = async (userId, academicYearId) => {
         permissions.push({ code: 'STANDARD_EDIT', name: 'Sửa tiêu chuẩn', module: 'STANDARD' });
         permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
         permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
+        permissions.push({ code: 'TASK_ASSIGN', name: 'Phân công nhiệm vụ (TĐG/Tiêu chuẩn)', module: 'TASK' });
     }
 
     if (accessibleReportTypes.includes(REPORT_TYPES.STANDARD)) {
         permissions.push({ code: 'REPORT_STANDARD_WRITE', name: 'Viết báo cáo Tiêu chuẩn', module: 'REPORT' });
         permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
         permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
+        permissions.push({ code: 'TASK_ASSIGN', name: 'Phân công nhiệm vụ (Tiêu chí)', module: 'TASK' });
     }
 
     if (accessibleReportTypes.includes(REPORT_TYPES.CRITERIA)) {
@@ -87,6 +94,7 @@ const canEditStandard = async (userId, standardId, academicYearId) => {
     }
 
     const tasks = await getTasksForUser(userId, academicYearId);
+    const standardIdStr = standardId.toString();
 
     const hasOverallTask = tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
     if (hasOverallTask) {
@@ -94,7 +102,7 @@ const canEditStandard = async (userId, standardId, academicYearId) => {
     }
 
     const hasStandardTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === standardId.toString()
+        t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr
     );
 
     return hasStandardTask;
@@ -111,15 +119,17 @@ const canEditCriteria = async (userId, criteriaId, academicYearId) => {
 
     const tasks = await getTasksForUser(userId, academicYearId);
     const criteriaStandardId = criteria.standardId.toString();
+    const criteriaIdStr = criteriaId.toString();
+
 
     const hasOverallTask = tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
 
     const hasStandardTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === criteriaStandardId
+        t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId
     );
 
     const hasCriteriaTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaId.toString()
+        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr
     );
 
     return hasOverallTask || hasStandardTask || hasCriteriaTask;
@@ -132,20 +142,23 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
     }
 
     const tasks = await getTasksForUser(userId, academicYearId);
+    const standardIdStr = standardId.toString();
 
     if (criteriaId) {
         const criteria = await Criteria.findById(criteriaId);
         if (!criteria) return false;
         const criteriaStandardId = criteria.standardId.toString();
 
+        // Reporter có Task TĐG HOẶC Task Tiêu chuẩn cha (cùng Standard)
         const canAssign = tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG ||
-            (t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === criteriaStandardId)
+            (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId)
         );
         return canAssign;
     }
 
     if (standardId) {
+        // Reporter chỉ có Task TĐG (OVERALL) mới được phân công Task Tiêu chuẩn
         return tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG
         );
@@ -165,14 +178,16 @@ const canUploadEvidence = async (userId, criteriaId, academicYearId) => {
 
     const tasks = await getTasksForUser(userId, academicYearId);
     const criteriaStandardId = criteria.standardId.toString();
+    const criteriaIdStr = criteriaId.toString();
+
 
     const hasOverallOrStandardTask = tasks.some(t =>
         t.reportType === REPORT_TYPES.OVERALL_TDG ||
-        (t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === criteriaStandardId)
+        (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId)
     );
 
     const hasCriteriaTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaId.toString()
+        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr
     );
 
     return hasOverallOrStandardTask || hasCriteriaTask;
@@ -193,8 +208,7 @@ const getAccessibleStandardIds = async (userId, academicYearId) => {
     const tasks = await getTasksForUser(userId, academicYearId);
 
     if (tasks.length === 0) {
-        const standards = await Standard.find({ academicYearId }).select('_id');
-        return standards.map(s => s._id);
+        return [];
     }
 
     const standardIds = new Set();
@@ -225,8 +239,7 @@ const getAccessibleCriteriaIds = async (userId, academicYearId) => {
     const tasks = await getTasksForUser(userId, academicYearId);
 
     if (tasks.length === 0) {
-        const criteria = await Criteria.find({ academicYearId }).select('_id');
-        return criteria.map(c => c._id);
+        return [];
     }
 
     const criteriaIds = new Set();

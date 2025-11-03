@@ -45,7 +45,9 @@ app.use('/api/public/evidences', publicEvidenceRoutes);
 app.use('/api', aiChatRoutes);
 app.use('/api/auth', authRoutes);
 
-app.use('/api/permissions', auth, permissionRoutes);
+// SỬA LỖI: Thêm attachCurrentAcademicYear để cung cấp ngữ cảnh năm học
+app.use('/api/permissions', auth, attachCurrentAcademicYear, permissionRoutes);
+
 app.use('/api/system', systemRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 app.use('/api/users', usersRoutes);
