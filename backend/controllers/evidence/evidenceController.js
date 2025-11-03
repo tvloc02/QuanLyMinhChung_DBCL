@@ -336,7 +336,7 @@ const updateEvidence = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
         const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
@@ -345,6 +345,10 @@ const updateEvidence = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy minh chứng trong năm học này'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = evidence.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -412,7 +416,7 @@ const updateEvidence = async (req, res) => {
 const deleteEvidence = async (req, res) => {
     try {
         const { id } = req.params;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
         const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
@@ -421,6 +425,10 @@ const deleteEvidence = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy minh chứng trong năm học này'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = evidence.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -730,7 +738,7 @@ const moveEvidence = async (req, res) => {
     try {
         const { id } = req.params;
         const { targetStandardId, targetCriteriaId, newCode } = req.body;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
         const userId = req.user.id;
 
         const evidence = await Evidence.findOne({ _id: id, academicYearId });
@@ -739,6 +747,10 @@ const moveEvidence = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy minh chứng trong năm học này'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = evidence.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -1057,12 +1069,16 @@ const copyEvidenceToAnotherYear = async (req, res) => {
     try {
         const { id } = req.params;
         const { targetAcademicYearId, targetStandardId, targetCriteriaId, newCode } = req.body;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
         const userId = req.user.id;
 
         const originalEvidence = await Evidence.findOne({ _id: id, academicYearId });
         if (!originalEvidence) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng gốc trong năm học này' });
+        }
+
+        if (!academicYearId) {
+            academicYearId = originalEvidence.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {

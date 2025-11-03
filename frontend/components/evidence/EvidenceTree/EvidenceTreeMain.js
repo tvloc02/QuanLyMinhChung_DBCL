@@ -4,7 +4,7 @@ import {
     Eye, Edit, Trash2, Upload, Users, FileTextIcon, Maximize2, Minimize2,
     GripVertical, Clock, Check, CheckCircle2, XCircle, Shield
 } from 'lucide-react'
-import { toast } from 'react-hot-toast' // SỬA LỖI: Sử dụng Named Import cho toast
+import { toast } from 'react-hot-toast'
 
 const ActionButton = ({ icon: Icon, label, onClick, variant = 'secondary', size = 'sm', disabled = false, customColor = 'bg-gray-600 hover:bg-gray-700' }) => {
     const baseStyle = "flex items-center justify-center p-2 rounded-xl transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
@@ -96,7 +96,6 @@ export default function EvidenceTreeMain({
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
     const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
-    // Cập nhật quyền cho Tiêu chuẩn và Tiêu chí
     useEffect(() => {
         const updatePermissions = async () => {
             if (treeData.length === 0) {
@@ -156,7 +155,6 @@ export default function EvidenceTreeMain({
         const canAssign = stdPerm.canAssign || false;
         const canWrite = canManageAll || canWriteReport('standard');
 
-        // Màu sắc
         const baseColor = standard.hasEvidence ? 'blue' : 'red';
         const bgColor = standard.hasEvidence ? `bg-blue-50 hover:bg-blue-100 border-blue-300` : `bg-red-50 hover:bg-red-100 border-red-300`;
         const iconColor = standard.hasEvidence ? `text-blue-600` : `text-red-600`;
@@ -239,7 +237,6 @@ export default function EvidenceTreeMain({
         const canWrite = canManageAll || canWriteReport('criteria');
         const canUpload = critPerm.canUpload || false;
 
-        // Màu sắc
         const baseColor = criteria.hasEvidence ? 'indigo' : 'orange';
         const bgColor = criteria.hasEvidence ? `bg-indigo-50 hover:bg-indigo-100 border-indigo-300` : `bg-orange-50 hover:bg-orange-100 border-orange-300`;
         const iconColor = criteria.hasEvidence ? `text-indigo-600` : `text-orange-600`;
@@ -296,7 +293,6 @@ export default function EvidenceTreeMain({
                                 customColor={`bg-purple-600 hover:bg-purple-700`}
                             />
                         )}
-                        {/* Nút Tạo Minh chứng mới: Không còn ở đây */}
                     </div>
                 </div>
 
@@ -336,27 +332,23 @@ export default function EvidenceTreeMain({
                                 </div>
                                 <div className="flex space-x-2 ml-4 flex-shrink-0">
                                     <ActionButton icon={Eye} label="Xem Minh chứng" onClick={(e) => { e.stopPropagation(); toast.success('Xem Minh chứng'); }} variant="secondary" />
-                                    {/* ⭐️ NÚT SỬA METADATA MINH CHỨNG */}
                                     {canUpload && (
                                         <ActionButton
                                             icon={Edit}
                                             label="Sửa Metadata Minh chứng"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // Hành vi: Mở Sidebar chỉnh sửa Metadata
                                                 onEditEvidence(evidence);
                                             }}
                                             customColor={`bg-orange-600 hover:bg-orange-700`}
                                         />
                                     )}
-                                    {/* ⭐️ NÚT UPLOAD/QUẢN LÝ FILES MINH CHỨNG */}
                                     {canUpload && (
                                         <ActionButton
                                             icon={Upload}
                                             label="Upload Files"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                // Hành vi: Mở Sidebar để upload file (onSelectEvidence)
                                                 onSelectEvidence({
                                                     id: evidence.id,
                                                     code: evidence.code,
@@ -371,7 +363,7 @@ export default function EvidenceTreeMain({
                                         />
                                     )}
                                     {canManageAll && (
-                                        <ActionButton icon={Trash2} label="Xóa Minh chứng" onClick={(e) => { e.stopPropagation(); onDeleteEvidence(evidence); }} variant="danger" />
+                                        <ActionButton icon={Trash2} label="Xóa Minh chứng" onClick={(e) => { e.stopPropagation(); onDeleteEvidence(evidence); }} variant="secondary" />
                                     )}
                                 </div>
                             </div>

@@ -38,7 +38,7 @@ const uploadFiles = async (req, res) => {
         const { parentFolderId } = req.body;
         const files = req.files;
         const userId = req.user.id;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
 
         if (!files || files.length === 0) {
             return res.status(400).json({
@@ -53,6 +53,10 @@ const uploadFiles = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy minh chứng'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = evidence.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -182,7 +186,8 @@ const downloadFile = async (req, res) => {
         }
 
         if (req.user.role === 'reporter') {
-            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, file.evidenceId.academicYearId);
+            const academicYearId = file.evidenceId.academicYearId;
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
             if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
                 return res.status(403).json({
                     success: false,
@@ -210,7 +215,7 @@ const deleteFile = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
 
         const file = await File.findById(id).populate('evidenceId');
         if (!file) {
@@ -218,6 +223,10 @@ const deleteFile = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = file.evidenceId.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -295,7 +304,8 @@ const getFileInfo = async (req, res) => {
         }
 
         if (req.user.role === 'reporter') {
-            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, file.evidenceId.academicYearId);
+            const academicYearId = file.evidenceId.academicYearId;
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
             if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
                 return res.status(403).json({
                     success: false,
@@ -323,7 +333,7 @@ const moveFile = async (req, res) => {
         const { id } = req.params;
         const { targetFolderId } = req.body;
         const userId = req.user.id;
-        const academicYearId = req.academicYearId;
+        let academicYearId = req.academicYearId;
 
         const file = await File.findById(id).populate('evidenceId');
         if (!file) {
@@ -331,6 +341,10 @@ const moveFile = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy file/thư mục'
             });
+        }
+
+        if (!academicYearId) {
+            academicYearId = file.evidenceId.academicYearId;
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
@@ -511,7 +525,8 @@ const getFileStatistics = async (req, res) => {
         }
 
         if (req.user.role === 'reporter') {
-            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, req.academicYearId);
+            const academicYearId = evidence.academicYearId;
+            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
             if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
                 return res.status(403).json({
                     success: false,

@@ -6,10 +6,14 @@ const REPORT_TYPES = {
     CRITERIA: 'criteria'
 };
 
+// YÊU CẦU CÁC MODEL MỘT LẦN (tránh lazy require liên tục)
+const User = require('../models/User/User');
+const Task = require('../models/Task/Task');
+const Criteria = require('../models/Evidence/Criteria');
+const Standard = require('../models/Evidence/Standard');
+
 const getUserRole = async (userId) => {
     try {
-        // LAZY REQUIRE Model User
-        const User = require('../models/User/User');
         const user = await User.findById(userId);
         return user ? user.role : null;
     } catch (e) {
@@ -19,8 +23,7 @@ const getUserRole = async (userId) => {
 };
 
 const getTasksForUser = (userId, academicYearId) => {
-    // LAZY REQUIRE Task Model
-    const Task = require('../models/Task/Task');
+    // ⭐️ SỬ DỤNG academicYearId TRONG QUERY
     return Task.find({
         academicYearId,
         assignedTo: userId,
@@ -36,6 +39,37 @@ const getAccessibleReportTypes = async (userId, academicYearId) => {
     const tasks = await getTasksForUser(userId, academicYearId);
     return tasks.map(t => t.reportType) || [];
 };
+
+const getPermissionsByUserId = async (userId, academicYearId) => {
+    const accessibleReportTypes = await getAccessibleReportTypes(userId, academicYearId);
+
+    const permissions = [
+        { code: 'USER_VIEW', name: 'Xem người dùng', module: 'USER' },
+        { code: 'CRITERIA_VIEW', name: 'Xem tiêu chí', module: 'CRITERIA' },
+        { code: 'STANDARD_VIEW', name: 'Xem tiêu chuẩn', module: 'STANDARD' }
+    ];
+
+    if (accessibleReportTypes.includes(REPORT_TYPES.OVERALL_TDG)) {
+        permissions.push({ code: 'REPORT_TDG_WRITE', name: 'Viết báo cáo TĐG', module: 'REPORT' });
+        permissions.push({ code: 'STANDARD_EDIT', name: 'Sửa tiêu chuẩn', module: 'STANDARD' });
+        permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
+        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
+    }
+
+    if (accessibleReportTypes.includes(REPORT_TYPES.STANDARD)) {
+        permissions.push({ code: 'REPORT_STANDARD_WRITE', name: 'Viết báo cáo Tiêu chuẩn', module: 'REPORT' });
+        permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
+        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
+    }
+
+    if (accessibleReportTypes.includes(REPORT_TYPES.CRITERIA)) {
+        permissions.push({ code: 'REPORT_CRITERIA_WRITE', name: 'Viết báo cáo Tiêu chí', module: 'REPORT' });
+        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
+    }
+
+    return permissions;
+};
+
 
 const canWriteReport = async (userId, reportType, academicYearId) => {
     const userRole = await getUserRole(userId);
@@ -67,8 +101,6 @@ const canEditStandard = async (userId, standardId, academicYearId) => {
 };
 
 const canEditCriteria = async (userId, criteriaId, academicYearId) => {
-    const Criteria = require('../models/Evidence/Criteria');
-
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -94,8 +126,6 @@ const canEditCriteria = async (userId, criteriaId, academicYearId) => {
 };
 
 const canAssignReporters = async (userId, standardId, criteriaId, academicYearId) => {
-    const Criteria = require('../models/Evidence/Criteria');
-
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -125,8 +155,6 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
 };
 
 const canUploadEvidence = async (userId, criteriaId, academicYearId) => {
-    const Criteria = require('../models/Evidence/Criteria');
-
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -155,9 +183,6 @@ const canManageFiles = async (userId, criteriaId, academicYearId) => {
 };
 
 const getAccessibleStandardIds = async (userId, academicYearId) => {
-    const Standard = require('../models/Evidence/Standard');
-    const Criteria = require('../models/Evidence/Criteria');
-
     const userRole = await getUserRole(userId);
 
     if (userRole !== 'reporter') {
@@ -190,8 +215,6 @@ const getAccessibleStandardIds = async (userId, academicYearId) => {
 };
 
 const getAccessibleCriteriaIds = async (userId, academicYearId) => {
-    const Criteria = require('../models/Evidence/Criteria');
-
     const userRole = await getUserRole(userId);
 
     if (userRole !== 'reporter') {
@@ -226,6 +249,7 @@ const getAccessibleCriteriaIds = async (userId, academicYearId) => {
 module.exports = {
     REPORT_TYPES,
     getUserRole,
+    getPermissionsByUserId,
     canEditStandard,
     canEditCriteria,
     canWriteReport,

@@ -102,11 +102,14 @@ export const apiMethods = {
     },
 
     permissions: {
-        canEditStandard: (standardId) => api.get(`/permissions/can-edit-standard/${standardId}`),
-        canEditCriteria: (criteriaId) => api.get(`/permissions/can-edit-criteria/${criteriaId}`),
-        canUploadEvidence: (criteriaId) => api.get(`/permissions/can-upload-evidence/${criteriaId}`),
-        canAssignReporters: (standardId, criteriaId) =>
-            api.get(`/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`)
+        canEditStandard: (standardId, academicYearId) =>
+            api.get(`/api/permissions/can-edit-standard/${standardId}`, { params: { academicYearId } }),
+        canEditCriteria: (criteriaId, academicYearId) =>
+            api.get(`/api/permissions/can-edit-criteria/${criteriaId}`, { params: { academicYearId } }),
+        canUploadEvidence: (criteriaId, academicYearId) =>
+            api.get(`/api/permissions/can-upload-evidence/${criteriaId}`, { params: { academicYearId } }),
+        canAssignReporters: (standardId, criteriaId, academicYearId) =>
+            api.get(`/api/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`, { params: { academicYearId } })
     },
 
     programs: {
@@ -172,12 +175,6 @@ export const apiMethods = {
         delete: (id) => api.delete(`/api/evidences/${id}`),
         bulkDelete: (ids) => api.post('/api/evidences/bulk-delete', { ids }),
         search: (params) => api.get('/api/evidences/search', { params }),
-
-        getTree: (programId, organizationId) =>
-            api.get('/api/evidences/tree', {
-                params: { programId, organizationId }
-            }),
-
         getFullTree: (programId, organizationId) =>
             api.get('/api/evidences/full-tree', {
                 params: { programId, organizationId }
@@ -209,7 +206,6 @@ export const apiMethods = {
                 params,
                 responseType: 'blob'
             }),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
         download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
             params: { format },
             responseType: 'arraybuffer'
@@ -339,7 +335,6 @@ export const apiMethods = {
 
     system: {
         getStats: () => api.get('/system/stats'),
-        getDashboard: () => api.get('/system/dashboard'),
         backup: () => api.post('/system/backup'),
         getHealth: () => api.get('/system/health')
     },
@@ -360,37 +355,4 @@ export const apiMethods = {
     },
 
 }
-
-export const uploadFile = (file, evidenceId, onProgress) => {
-    return apiMethods.files.upload(file, evidenceId, {
-        onUploadProgress: (progressEvent) => {
-            const progress = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-            )
-            if (onProgress) onProgress(progress)
-        }
-    })
-}
-
-export const downloadFile = async (fileId, filename) => {
-    try {
-        const response = await apiMethods.files.download(fileId)
-
-        const url = window.URL.createObjectURL(new Blob([response.data]))
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', filename || 'file')
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-
-        return true
-    } catch (error) {
-        console.error('Download failed:', error)
-        toast.error('Tải file thất bại')
-        return false
-    }
-}
-
 export default api

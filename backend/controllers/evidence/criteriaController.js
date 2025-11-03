@@ -188,6 +188,7 @@ const createCriteria = async (req, res) => {
         } = req.body;
 
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         if (!academicYearId) {
             return res.status(400).json({
@@ -204,7 +205,7 @@ const createCriteria = async (req, res) => {
         }
 
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            const canEditStandard = await permissionService.canEditStandard(req.user.id, standardId, academicYearId);
+            const canEditStandard = await permissionService.canEditStandard(userId, standardId, academicYearId);
             if (!canEditStandard) {
                 return res.status(403).json({
                     success: false,
@@ -424,6 +425,13 @@ const deleteCriteria = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có thể xóa tiêu chí'
+            });
+        }
+
         const criteria = await Criteria.findOne({ _id: id, academicYearId });
         if (!criteria) {
             return res.status(404).json({
@@ -432,12 +440,6 @@ const deleteCriteria = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ quản lý mới có thể xóa tiêu chí'
-            });
-        }
 
         const isInUse = await criteria.isInUse();
         if (isInUse) {

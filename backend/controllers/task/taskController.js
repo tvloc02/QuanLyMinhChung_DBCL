@@ -182,6 +182,7 @@ const createTask = async (req, res) => {
                 message: 'Tiêu chuẩn không tồn tại'
             });
         }
+        // Gán ProgramId và OrganizationId từ Standard đã tìm được
         programId = standard.programId;
         organizationId = standard.organizationId;
 
@@ -209,8 +210,8 @@ const createTask = async (req, res) => {
             description: description.trim(),
             standardId,
             criteriaId: criteriaId || null,
-            programId,
-            organizationId,
+            programId, // Đã gán
+            organizationId, // Đã gán
             assignedTo,
             dueDate: dueDate ? new Date(dueDate) : undefined,
             reportType,
@@ -220,6 +221,7 @@ const createTask = async (req, res) => {
 
         await task.save();
 
+        // SỬA LỖI: Đảm bảo các Model đã được require ở đầu file trước khi populate
         await task.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
@@ -546,9 +548,7 @@ const getTaskByCriteria = async (req, res) => {
             academicYearId,
             status: { $in: ['pending', 'in_progress', 'submitted'] },
             $or: [
-                // 1. Task được gán trực tiếp cho Tiêu chí này
                 { criteriaId: criteriaId },
-                // 2. Task được gán cho Tiêu chuẩn cha (Task cấp Standard)
                 { standardId: standardId, criteriaId: null, reportType: 'standard' }
             ]
         })

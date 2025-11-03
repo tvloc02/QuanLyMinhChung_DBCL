@@ -362,6 +362,13 @@ const deleteStandard = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ quản lý mới có thể xóa tiêu chuẩn'
+            });
+        }
+
         const standard = await Standard.findOne({ _id: id, academicYearId });
         if (!standard) {
             return res.status(404).json({
@@ -370,12 +377,6 @@ const deleteStandard = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ quản lý mới có thể xóa tiêu chuẩn'
-            });
-        }
 
         const isInUse = await standard.isInUse();
         if (isInUse) {
