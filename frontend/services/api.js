@@ -74,13 +74,7 @@ publicApi.interceptors.response.use(
 export const apiMethods = {
     auth: {
         login: (credentials) => api.post('/auth/login', credentials),
-        logout: () => api.post('/auth/logout'),
-        me: () => api.get('/auth/me'),
-        updateProfile: (data) => api.put('/auth/profile', data),
-        changePassword: (data) => api.post('/auth/change-password', data),
-        forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-        resetPassword: (token, password) => api.post('/auth/reset-password', { token, password })
-    },
+        },
 
     academicYears: {
         getAll: (params) => api.get('/academic-years', { params }),
@@ -88,11 +82,7 @@ export const apiMethods = {
         getById: (id) => api.get(`/academic-years/${id}`),
         create: (data) => api.post('/academic-years', data),
         update: (id, data) => api.put(`/academic-years/${id}`, data),
-        delete: (id) => api.delete(`/academic-years/${id}`),
-        setCurrent: (id) => api.post(`/academic-years/${id}/set-current`),
-        copyData: (id, sourceYearId, copySettings) =>
-            api.post(`/academic-years/${id}/copy-data`, { sourceYearId, copySettings }),
-        getStatistics: (id) => api.get(`/academic-years/${id}/statistics`)
+        delete: (id) => api.delete(`/academic-years/${id}`)
     },
 
     users: {
@@ -102,16 +92,21 @@ export const apiMethods = {
         create: (data) => api.post('/api/users', data),
         update: (id, data) => api.put(`/api/users/${id}`, data),
         delete: (id) => api.delete(`/api/users/${id}`),
-        changeStatus: (id, status) => api.patch(`/api/users/${id}/status`, { status }),
-        resetPassword: (id) => api.post(`/api/users/${id}/reset-password`),// Đổi expert -> evaluator
         bulkImport: (file) => {
             const formData = new FormData()
             formData.append('file', file)
             return api.post('/users/bulk-import', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
-        },
-        removePermission: (id, permissionId) => api.delete(`/api/users/${id}/permissions`, { data: { permissionId } })
+        }
+    },
+
+    permissions: {
+        canEditStandard: (standardId) => api.get(`/permissions/can-edit-standard/${standardId}`),
+        canEditCriteria: (criteriaId) => api.get(`/permissions/can-edit-criteria/${criteriaId}`),
+        canUploadEvidence: (criteriaId) => api.get(`/permissions/can-upload-evidence/${criteriaId}`),
+        canAssignReporters: (standardId, criteriaId) =>
+            api.get(`/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`)
     },
 
     programs: {
@@ -119,8 +114,7 @@ export const apiMethods = {
         getById: (id) => api.get(`/api/programs/${id}`),
         create: (data) => api.post('/api/programs', data),
         update: (id, data) => api.put(`/api/programs/${id}`, data),
-        delete: (id) => api.delete(`/api/programs/${id}`),
-        getByAcademicYear: (academicYearId) => api.get(`/api/programs/academic-year/${academicYearId}`)
+        delete: (id) => api.delete(`/api/programs/${id}`)
     },
 
     organizations: {
@@ -128,8 +122,7 @@ export const apiMethods = {
         getById: (id) => api.get(`/api/organizations/${id}`),
         create: (data) => api.post('/api/organizations', data),
         update: (id, data) => api.put('/api/organizations/${id}', data),
-        delete: (id) => api.delete('/api/organizations/${id}'),
-        getByAcademicYear: (academicYearId) => api.get('/api/organizations/academic-year/${academicYearId}')
+        delete: (id) => api.delete('/api/organizations/${id}')
     },
 
     standards: {
@@ -139,8 +132,7 @@ export const apiMethods = {
         update: (id, data) => api.put('/api/standards/${id}', data),
         delete: (id) => api.delete('/api/standards/${id}'),
         getByProgram: (programId, organizationId) =>
-            api.get('/api/standards/program/${programId}/organization/${organizationId}'),
-        getByAcademicYear: (academicYearId) => api.get('/api/standards/academic-year/${academicYearId}')
+            api.get('/api/standards/program/${programId}/organization/${organizationId}')
     },
 
     criteria: {
@@ -152,7 +144,6 @@ export const apiMethods = {
         getByStandard: (standardId) => api.get('/api/criteria/standard/${standardId}'),
         getByProgram: (programId, organizationId) =>
             api.get('/api/criteria/program/${programId}/organization/${organizationId}'),
-        getByAcademicYear: (academicYearId) => api.get('/api/criteria/academic-year/${academicYearId}'),
         import: (formData) => api.post('/api/criteria/import', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         }),
@@ -172,7 +163,6 @@ export const apiMethods = {
         reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
     },
 
-// Cập nhật apiMethods.evidences - đảm bảo có getFullTree:
 
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
@@ -204,8 +194,6 @@ export const apiMethods = {
             }),
         move: (id, data) =>
             api.post(`/api/evidences/${id}/move`, data),
-        getByAcademicYear: (academicYearId) => api.get(`/api/evidences/academic-year/${academicYearId}`),
-
         import: (formData) => {
             return api.post('/api/evidences/import', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -228,7 +216,6 @@ export const apiMethods = {
         }),
     },
 
-// Cập nhật apiMethods.files - đảm bảo có uploadMultiple:
 
     files: {
         upload: (file, evidenceId, config = {}) => {
@@ -347,8 +334,7 @@ export const apiMethods = {
         getAll: (params) => api.get('/activity-logs', { params }),
         getUserActivity: (userId, params) => api.get('/activity-logs/user/${userId}', { params }),
         getAuditTrail: (targetType, targetId) =>
-            api.get('/activity-logs/audit/${targetType}/${targetId}'),
-        getStats: (params) => api.get('/activity-logs/stats', { params })
+            api.get('/activity-logs/audit/${targetType}/${targetId}')
     },
 
     system: {
@@ -358,15 +344,6 @@ export const apiMethods = {
         getHealth: () => api.get('/system/health')
     },
 
-    permissions: {
-        getAll: (params) => api.get('/api/permissions', { params }),
-        getByModule: () => api.get('/api/permissions/by-module'),
-        getById: (id) => api.get('/api/permissions/${id}'),
-        create: (data) => api.post('/api/permissions', data),
-        update: (id, data) => api.put('/api/permissions/${id}', data),
-        delete: (id) => api.delete('/api/permissions/${id}'),
-        seed: () => api.post('/api/permissions/seed')
-    },
 
     userGroups: {
         getAll: (params) => api.get('/api/user-groups', { params }),
@@ -374,13 +351,7 @@ export const apiMethods = {
         create: (data) => api.post('/api/user-groups', data),
         update: (id, data) => api.put('/api/user-groups/${id}', data),
         delete: (id) => api.delete('/api/user-groups/${id}'),
-        seed: () => api.post('/api/user-groups/seed'),
-
-        addPermissions: (id, permissionIds) => api.post('/api/user-groups/${id}/permissions', { permissionIds }),
-        removePermissions: (id, permissionIds) => api.delete('/api/user-groups/${id}/permissions', { data: { permissionIds } }),
-
-        addMembers: (id, userIds) => api.post('/api/user-groups/${id}/members', { userIds }),
-        removeMembers: (id, userIds) => api.delete('/api/user-groups/${id}/members', { data: { userIds } })
+        seed: () => api.post('/api/user-groups/seed')
     },
 
     publicEvidence: {

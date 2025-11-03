@@ -18,6 +18,9 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+require('./models/User/User');
+require('./models/User/Permission');
+
 const publicEvidenceRoutes = require('./routes/public/publicEvidenceRoutes');
 
 const authRoutes = require('./routes/user/auth');
@@ -40,11 +43,11 @@ const aiChatRoutes = require('./routes/aiChat/aiChat');
 
 app.use('/api/public/evidences', publicEvidenceRoutes);
 
-// Protected routes (cần authentication)
 app.use('/api', aiChatRoutes);
-app.use('/api/permissions', permissionRoutes);
-app.use('/api/system', systemRoutes);
 app.use('/api/auth', authRoutes);
+
+app.use('/api/permissions', auth, permissionRoutes);
+app.use('/api/system', auth, systemRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', auth, notificationRoutes);

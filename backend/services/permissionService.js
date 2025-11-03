@@ -1,8 +1,3 @@
-const Task = require('../models/Task/Task');
-const Standard = require('../models/Evidence/Standard');
-const Criteria = require('../models/Evidence/Criteria');
-const User = require('../models/User/User');
-const Evidence = require('../models/Evidence/Evidence');
 const mongoose = require('mongoose');
 
 const REPORT_TYPES = {
@@ -13,6 +8,7 @@ const REPORT_TYPES = {
 
 const getUserRole = async (userId) => {
     try {
+        // LAZY REQUIRE Model User
         const User = require('../models/User/User');
         const user = await User.findById(userId);
         return user ? user.role : null;
@@ -23,6 +19,8 @@ const getUserRole = async (userId) => {
 };
 
 const getTasksForUser = (userId, academicYearId) => {
+    // LAZY REQUIRE Task Model
+    const Task = require('../models/Task/Task');
     return Task.find({
         academicYearId,
         assignedTo: userId,
@@ -32,24 +30,19 @@ const getTasksForUser = (userId, academicYearId) => {
 
 const getAccessibleReportTypes = async (userId, academicYearId) => {
     const userRole = await getUserRole(userId);
-
     if (userRole === 'admin' || userRole === 'manager') {
         return [REPORT_TYPES.OVERALL_TDG, REPORT_TYPES.STANDARD, REPORT_TYPES.CRITERIA];
     }
-
     const tasks = await getTasksForUser(userId, academicYearId);
     return tasks.map(t => t.reportType) || [];
 };
 
 const canWriteReport = async (userId, reportType, academicYearId) => {
     const userRole = await getUserRole(userId);
-
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
     }
-
     const tasks = await getTasksForUser(userId, academicYearId);
-
     return tasks.some(t => t.reportType === reportType);
 };
 
@@ -74,6 +67,8 @@ const canEditStandard = async (userId, standardId, academicYearId) => {
 };
 
 const canEditCriteria = async (userId, criteriaId, academicYearId) => {
+    const Criteria = require('../models/Evidence/Criteria');
+
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -86,21 +81,21 @@ const canEditCriteria = async (userId, criteriaId, academicYearId) => {
     const criteriaStandardId = criteria.standardId.toString();
 
     const hasOverallTask = tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
-    if (hasOverallTask) return true;
 
     const hasStandardTask = tasks.some(t =>
         t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === criteriaStandardId
     );
-    if (hasStandardTask) return true;
 
     const hasCriteriaTask = tasks.some(t =>
         t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaId.toString()
     );
 
-    return hasStandardTask || hasCriteriaTask;
+    return hasOverallTask || hasStandardTask || hasCriteriaTask;
 };
 
 const canAssignReporters = async (userId, standardId, criteriaId, academicYearId) => {
+    const Criteria = require('../models/Evidence/Criteria');
+
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -113,10 +108,11 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
         if (!criteria) return false;
         const criteriaStandardId = criteria.standardId.toString();
 
-        return tasks.some(t =>
+        const canAssign = tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG ||
             (t.reportType === REPORT_TYPES.STANDARD && t.standardId.toString() === criteriaStandardId)
         );
+        return canAssign;
     }
 
     if (standardId) {
@@ -129,6 +125,8 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
 };
 
 const canUploadEvidence = async (userId, criteriaId, academicYearId) => {
+    const Criteria = require('../models/Evidence/Criteria');
+
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
@@ -157,6 +155,9 @@ const canManageFiles = async (userId, criteriaId, academicYearId) => {
 };
 
 const getAccessibleStandardIds = async (userId, academicYearId) => {
+    const Standard = require('../models/Evidence/Standard');
+    const Criteria = require('../models/Evidence/Criteria');
+
     const userRole = await getUserRole(userId);
 
     if (userRole !== 'reporter') {
@@ -189,6 +190,8 @@ const getAccessibleStandardIds = async (userId, academicYearId) => {
 };
 
 const getAccessibleCriteriaIds = async (userId, academicYearId) => {
+    const Criteria = require('../models/Evidence/Criteria');
+
     const userRole = await getUserRole(userId);
 
     if (userRole !== 'reporter') {

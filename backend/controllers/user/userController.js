@@ -1,6 +1,5 @@
 const User = require('../../models/User/User');
 const Organization = require('../../models/Evidence/Organization');
-const UserGroup = require('../../models/User/UserGroup');
 const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
 const emailService = require('../../services/emailService');
@@ -13,7 +12,6 @@ const getUsers = async (req, res) => {
             search,
             role,
             status,
-            groupId,
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
@@ -33,14 +31,12 @@ const getUsers = async (req, res) => {
 
         if (role) query.role = role;
         if (status) query.status = status;
-        if (groupId) query.userGroups = groupId;
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
         const [users, total] = await Promise.all([
             User.find(query)
-                .populate('userGroups', 'code name type priority')
                 .populate('academicYearAccess', 'name code')
                 .populate('programAccess', 'name code')
                 .populate('organizationAccess', 'name code')
@@ -82,7 +78,6 @@ const getUserById = async (req, res) => {
         const { id } = req.params;
 
         const user = await User.findById(id)
-            .populate('userGroups', 'code name type priority')
             .populate('academicYearAccess', 'name code')
             .populate('programAccess', 'name code')
             .populate('organizationAccess', 'name code')
@@ -133,13 +128,12 @@ const createUser = async (req, res) => {
             organizationDepartmentId
         } = req.body;
 
-        // Cập nhật giá trị mặc định và kiểm tra vai trò hợp lệ
-        let userRoles = roles || ['evaluator']; // Thay expert thành evaluator
+        let userRoles = roles || ['evaluator'];
         if (!Array.isArray(userRoles)) {
             userRoles = [userRoles];
         }
 
-        const validRoles = ['admin', 'manager', 'reporter', 'evaluator']; // Cập nhật vai trò
+        const validRoles = ['admin', 'manager', 'reporter', 'evaluator'];
         const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
         if (invalidRoles.length > 0) {
@@ -286,7 +280,7 @@ const updateUser = async (req, res) => {
                 userRoles = [userRoles];
             }
 
-            const validRoles = ['admin', 'manager', 'reporter', 'evaluator']; // Cập nhật vai trò
+            const validRoles = ['admin', 'manager', 'reporter', 'evaluator'];
             const invalidRoles = userRoles.filter(r => !validRoles.includes(r));
 
             if (invalidRoles.length > 0) {
@@ -518,11 +512,6 @@ const deleteUser = async (req, res) => {
                 message: 'Không tìm thấy người dùng'
             });
         }
-
-        await UserGroup.updateMany(
-            { members: user._id },
-            { $pull: { members: user._id } }
-        );
 
         await User.findByIdAndDelete(id);
 
@@ -780,7 +769,6 @@ const getUserStatistics = async (req, res) => {
                     managerUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'manager'] }, 1, 0] }
                     },
-                    // Cập nhật thống kê vai trò
                     reporterUsers: {
                         $sum: { $cond: [{ $eq: ['$role', 'reporter'] }, 1, 0] }
                     },
@@ -796,8 +784,8 @@ const getUserStatistics = async (req, res) => {
             activeUsers: 0,
             adminUsers: 0,
             managerUsers: 0,
-            reporterUsers: 0, // Cập nhật thống kê vai trò
-            evaluatorUsers: 0 // Cập nhật thống kê vai trò
+            reporterUsers: 0,
+            evaluatorUsers: 0
         };
 
         await ActivityLog.logUserAction(req.user?.id, 'user_statistics',
@@ -825,14 +813,6 @@ const getUserPermissions = async (req, res) => {
         const { id } = req.params;
 
         const user = await User.findById(id)
-            .populate({
-                path: 'userGroups',
-                match: { status: 'active' },
-                populate: {
-                    path: 'permissions',
-                    match: { status: 'active' }
-                }
-            })
             .populate('individualPermissions.permission');
 
         if (!user) {
@@ -850,7 +830,6 @@ const getUserPermissions = async (req, res) => {
                 userId: user._id,
                 fullName: user.fullName,
                 email: user.email,
-                userGroups: user.userGroups,
                 individualPermissions: user.individualPermissions,
                 allPermissions
             }
@@ -862,132 +841,6 @@ const getUserPermissions = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi khi lấy quyền người dùng'
-        });
-    }
-};
-
-const addUserToGroups = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { groupIds } = req.body;
-
-        if (!Array.isArray(groupIds) || groupIds.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Danh sách nhóm không hợp lệ'
-            });
-        }
-
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        const addedGroups = [];
-        for (const groupId of groupIds) {
-            const group = await UserGroup.findById(groupId);
-            if (group && group.status === 'active') {
-                if (!user.userGroups.includes(groupId)) {
-                    user.userGroups.push(groupId);
-                }
-
-                if (!group.members.includes(user._id)) {
-                    group.members.push(user._id);
-                    await group.save();
-                }
-
-                addedGroups.push(group.name);
-            }
-        }
-
-        await user.save();
-
-        await ActivityLog.logUserAction(req.user.id, 'user_groups_add',
-            `Thêm người dùng ${user.fullName} vào ${addedGroups.length} nhóm`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName,
-                metadata: { addedGroups, totalGroups: user.userGroups.length }
-            });
-
-        res.json({
-            success: true,
-            message: `Đã thêm người dùng vào ${addedGroups.length} nhóm`,
-            data: { addedCount: addedGroups.length, addedGroups }
-        });
-
-    } catch (error) {
-        console.error('Add user to groups error:', error);
-        await ActivityLog.logError(req.user?.id, 'user_groups_add', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi thêm người dùng vào nhóm'
-        });
-    }
-};
-
-const removeUserFromGroups = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { groupIds } = req.body;
-
-        if (!Array.isArray(groupIds) || groupIds.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Danh sách nhóm không hợp lệ'
-            });
-        }
-
-        const user = await User.findById(id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
-            });
-        }
-
-        const removedGroups = [];
-        for (const groupId of groupIds) {
-            const group = await UserGroup.findById(groupId);
-            if (group) {
-                user.userGroups = user.userGroups.filter(
-                    gId => gId.toString() !== groupId.toString()
-                );
-
-                group.members = group.members.filter(
-                    uId => uId.toString() !== user._id.toString()
-                );
-                await group.save();
-
-                removedGroups.push(group.name);
-            }
-        }
-
-        await user.save();
-
-        await ActivityLog.logUserAction(req.user.id, 'user_groups_remove',
-            `Xóa người dùng ${user.fullName} khỏi ${removedGroups.length} nhóm`, {
-                targetType: 'User',
-                targetId: id,
-                targetName: user.fullName,
-                metadata: { removedGroups, remainingGroups: user.userGroups.length }
-            });
-
-        res.json({
-            success: true,
-            message: `Đã xóa người dùng khỏi ${removedGroups.length} nhóm`,
-            data: { removedCount: removedGroups.length, removedGroups }
-        });
-
-    } catch (error) {
-        console.error('Remove user from groups error:', error);
-        await ActivityLog.logError(req.user?.id, 'user_groups_remove', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xóa người dùng khỏi nhóm'
         });
     }
 };
@@ -1181,8 +1034,6 @@ module.exports = {
     updateUserPermissions,
     getUserStatistics,
     getUserPermissions,
-    addUserToGroups,
-    removeUserFromGroups,
     grantUserPermission,
     denyUserPermission,
     removeUserPermission,

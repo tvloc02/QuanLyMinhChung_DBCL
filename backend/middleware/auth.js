@@ -16,14 +16,7 @@ const auth = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.userId)
-            .populate({
-                path: 'userGroups',
-                match: { status: 'active' },
-                populate: {
-                    path: 'permissions',
-                    match: { status: 'active' }
-                }
-            })
+            // Đã xóa khối .populate({ path: 'userGroups', ... }) gây lỗi MissingSchemaError
             .populate('individualPermissions.permission')
             .populate('standardAccess', 'name code')
             .populate('criteriaAccess', 'name code')

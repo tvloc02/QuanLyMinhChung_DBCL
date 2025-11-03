@@ -14,8 +14,6 @@ const {
     updateUserPermissions,
     getUserStatistics,
     getUserPermissions,
-    addUserToGroups,
-    removeUserFromGroups,
     grantUserPermission,
     denyUserPermission,
     removeUserPermission,
@@ -33,7 +31,6 @@ router.get('/', auth, requireManager, [
     // Cập nhật vai trò hợp lệ trong query
     query('role').optional().isIn(['admin', 'manager', 'reporter', 'evaluator']),
     query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']),
-    query('groupId').optional().isMongoId(),
     query('sortBy').optional().isIn(['createdAt', 'updatedAt', 'fullName', 'lastLogin']),
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getUsers);
@@ -107,10 +104,6 @@ router.post('/',
             .optional()
             .isArray()
             .withMessage('Lĩnh vực chuyên môn phải là mảng'),
-        body('userGroups')
-            .optional()
-            .isArray()
-            .withMessage('Nhóm người dùng phải là mảng'),
         body('mustChangePassword')
             .optional()
             .isBoolean()
@@ -179,10 +172,6 @@ router.put('/:id',
             .optional()
             .isArray()
             .withMessage('Lĩnh vực chuyên môn phải là mảng'),
-        body('userGroups')
-            .optional()
-            .isArray()
-            .withMessage('Nhóm người dùng phải là mảng'),
         body('academicYearAccess')
             .optional()
             .isArray()
@@ -264,24 +253,6 @@ router.put('/:id/permissions', auth, requireAdmin, [
 router.get('/:id/permissions', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ')
 ], validation, getUserPermissions);
-
-router.post('/:id/groups', auth, requireAdmin, [
-    param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
-    body('groupIds')
-        .isArray()
-        .withMessage('groupIds phải là mảng')
-        .notEmpty()
-        .withMessage('groupIds không được rỗng')
-], validation, addUserToGroups);
-
-router.delete('/:id/groups', auth, requireAdmin, [
-    param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),
-    body('groupIds')
-        .isArray()
-        .withMessage('groupIds phải là mảng')
-        .notEmpty()
-        .withMessage('groupIds không được rỗng')
-], validation, removeUserFromGroups);
 
 router.post('/:id/permissions/grant', auth, requireAdmin, [
     param('id').isMongoId().withMessage('ID người dùng không hợp lệ'),

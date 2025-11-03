@@ -67,11 +67,6 @@ const userSchema = new mongoose.Schema({
         maxlength: [100, 'Chức vụ không được quá 100 ký tự']
     },
 
-    userGroups: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'UserGroup'
-    }],
-
     individualPermissions: [{
         permission: {
             type: mongoose.Schema.Types.ObjectId,
@@ -159,7 +154,6 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ roles: 1, status: 1 });
 userSchema.index({ fullName: 'text' });
-userSchema.index({ userGroups: 1 });
 userSchema.index({ status: 1 });
 
 userSchema.virtual('isLocked').get(function() {
@@ -244,29 +238,7 @@ userSchema.methods.removeRole = function(role) {
 };
 
 userSchema.methods.getAllPermissions = async function() {
-    const UserGroup = mongoose.model('UserGroup');
-
-    await this.populate({
-        path: 'userGroups',
-        match: { status: 'active' },
-        populate: {
-            path: 'permissions',
-            match: { status: 'active' }
-        }
-    });
-
-    const groupPermissions = new Map();
-    if (this.userGroups) {
-        for (const group of this.userGroups) {
-            if (group.permissions) {
-                for (const perm of group.permissions) {
-                    if (perm && perm.code) {
-                        groupPermissions.set(perm.code, perm);
-                    }
-                }
-            }
-        }
-    }
+    const finalPermissions = new Map();
 
     await this.populate({
         path: 'individualPermissions.permission',
@@ -277,15 +249,15 @@ userSchema.methods.getAllPermissions = async function() {
         for (const item of this.individualPermissions) {
             if (item.permission && item.permission.code) {
                 if (item.type === 'granted') {
-                    groupPermissions.set(item.permission.code, item.permission);
+                    finalPermissions.set(item.permission.code, item.permission);
                 } else if (item.type === 'denied') {
-                    groupPermissions.delete(item.permission.code);
+                    finalPermissions.delete(item.permission.code);
                 }
             }
         }
     }
 
-    return Array.from(groupPermissions.values());
+    return Array.from(finalPermissions.values());
 };
 
 userSchema.methods.hasPermission = async function(permissionCode) {
