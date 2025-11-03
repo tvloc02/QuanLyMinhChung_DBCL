@@ -3,13 +3,10 @@ const mongoose = require('mongoose');
 const Evidence = require('../models/Evidence/Evidence');
 const { Program, Organization, Standard, Criteria } = require('../models/Evidence/Program');
 
-// Export evidences to Excel
 const exportEvidences = async (filters, format = 'xlsx') => {
     try {
-        // Build query with academicYearId as required filter
         let query = {};
 
-        // academicYearId is required
         if (!filters.academicYearId) {
             throw new Error('Academic Year ID is required for export');
         }
@@ -28,7 +25,6 @@ const exportEvidences = async (filters, format = 'xlsx') => {
             if (filters.dateTo) query.createdAt.$lte = new Date(filters.dateTo);
         }
 
-        // Get evidences with populated fields
         const evidences = await Evidence.find(query)
             .populate('academicYearId', 'name code')
             .populate('programId', 'name code')
@@ -39,7 +35,6 @@ const exportEvidences = async (filters, format = 'xlsx') => {
             .populate('files', 'originalName size')
             .sort({ createdAt: -1 });
 
-        // Prepare data for export
         const exportData = evidences.map(evidence => ({
             'Năm học': evidence.academicYearId?.name || '',
             'Mã minh chứng': evidence.code,
@@ -73,14 +68,12 @@ const exportEvidences = async (filters, format = 'xlsx') => {
     }
 };
 
-// Export evidence statistics
 const exportStatistics = async (filters) => {
     try {
         if (!filters.academicYearId) {
             throw new Error('Academic Year ID is required for export');
         }
 
-        // Get overall statistics
         const totalStats = await Evidence.aggregate([
             { $match: buildMatchQuery(filters) },
             {
@@ -93,7 +86,6 @@ const exportStatistics = async (filters) => {
             }
         ]);
 
-        // Get statistics by standard
         const standardStats = await Evidence.aggregate([
             { $match: buildMatchQuery(filters) },
             {
@@ -117,7 +109,6 @@ const exportStatistics = async (filters) => {
             { $sort: { standardCode: 1 } }
         ]);
 
-        // Get statistics by criteria
         const criteriaStats = await Evidence.aggregate([
             { $match: buildMatchQuery(filters) },
             {
@@ -141,10 +132,8 @@ const exportStatistics = async (filters) => {
             { $sort: { criteriaCode: 1 } }
         ]);
 
-        // Prepare workbook with multiple sheets
         const workbook = XLSX.utils.book_new();
 
-        // Overview sheet
         const overviewData = totalStats.length > 0 ? [
             ['Chỉ số', 'Giá trị'],
             ['Tổng số minh chứng', totalStats[0].totalEvidences],
@@ -155,7 +144,6 @@ const exportStatistics = async (filters) => {
         const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
         XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Tổng quan');
 
-        // Standards statistics sheet
         const standardData = [
             ['Mã tiêu chuẩn', 'Tên tiêu chuẩn', 'Tổng minh chứng', 'Đang hoạt động'],
             ...standardStats.map(item => [
@@ -169,7 +157,6 @@ const exportStatistics = async (filters) => {
         const standardSheet = XLSX.utils.aoa_to_sheet(standardData);
         XLSX.utils.book_append_sheet(workbook, standardSheet, 'Thống kê theo tiêu chuẩn');
 
-        // Criteria statistics sheet
         const criteriaData = [
             ['Mã tiêu chí', 'Tên tiêu chí', 'Tổng minh chứng', 'Đang hoạt động'],
             ...criteriaStats.map(item => [
@@ -191,14 +178,12 @@ const exportStatistics = async (filters) => {
     }
 };
 
-// Export evidence template for import
 const exportImportTemplate = async (programId, organizationId, academicYearId) => {
     try {
         if (!academicYearId) {
             throw new Error('Academic Year ID is required for template generation');
         }
 
-        // Get standards and criteria for the program, organization and academic year
         const standards = await Standard.find({
             academicYearId: mongoose.Types.ObjectId(academicYearId),
             programId: mongoose.Types.ObjectId(programId),
@@ -213,10 +198,8 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
             status: 'active'
         }).populate('standardId', 'name code').sort({ 'standardId.code': 1, code: 1 });
 
-        // Create workbook
         const workbook = XLSX.utils.book_new();
 
-        // Main template sheet
         const templateData = [
             [
                 'Tên minh chứng (*)',
@@ -246,7 +229,6 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
 
         const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
 
-        // Set column widths
         templateSheet['!cols'] = [
             { width: 30 }, { width: 15 }, { width: 15 }, { width: 40 },
             { width: 20 }, { width: 15 }, { width: 18 }, { width: 18 },
@@ -255,7 +237,6 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
 
         XLSX.utils.book_append_sheet(workbook, templateSheet, 'Template');
 
-        // Standards reference sheet
         const standardsData = [
             ['Mã tiêu chuẩn', 'Tên tiêu chuẩn'],
             ...standards.map(std => [std.code, std.name])
@@ -264,7 +245,6 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
         const standardsSheet = XLSX.utils.aoa_to_sheet(standardsData);
         XLSX.utils.book_append_sheet(workbook, standardsSheet, 'Danh sách tiêu chuẩn');
 
-        // Criteria reference sheet
         const criteriaData = [
             ['Mã tiêu chuẩn', 'Tên tiêu chuẩn', 'Mã tiêu chí', 'Tên tiêu chí'],
             ...criteria.map(crit => [
@@ -278,7 +258,6 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
         const criteriaSheet = XLSX.utils.aoa_to_sheet(criteriaData);
         XLSX.utils.book_append_sheet(workbook, criteriaSheet, 'Danh sách tiêu chí');
 
-        // Instructions sheet
         const instructionsData = [
             ['HƯỚNG DẪN SỬ DỤNG TEMPLATE IMPORT MINH CHỨNG'],
             [''],
@@ -305,12 +284,145 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
     }
 };
 
-// Helper functions
+const exportEvidenceTree = async (programId, organizationId, academicYearId) => {
+    try {
+        if (!programId || !organizationId || !academicYearId) {
+            throw new Error('programId, organizationId, academicYearId là bắt buộc');
+        }
+
+        const evidences = await Evidence.find({
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
+            programId: mongoose.Types.ObjectId(programId),
+            organizationId: mongoose.Types.ObjectId(organizationId)
+        })
+            .populate('standardId', 'name code')
+            .populate('criteriaId', 'name code')
+            .populate('programId', 'name code')
+            .populate('organizationId', 'name code')
+            .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 })
+            .lean();
+
+        const standards = await Standard.find({
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
+            programId: mongoose.Types.ObjectId(programId)
+        }).lean();
+
+        const criteria = await Criteria.find({
+            academicYearId: mongoose.Types.ObjectId(academicYearId),
+            programId: mongoose.Types.ObjectId(programId)
+        }).lean();
+
+        const treeStructure = {};
+        standards.forEach(std => {
+            treeStructure[std._id.toString()] = {
+                standard: std,
+                criteria: {}
+            };
+        });
+
+        criteria.forEach(crit => {
+            const stdId = crit.standardId.toString();
+            if (treeStructure[stdId]) {
+                treeStructure[stdId].criteria[crit._id.toString()] = {
+                    criteria: crit,
+                    evidences: []
+                };
+            }
+        });
+
+        evidences.forEach(ev => {
+            const stdId = ev.standardId._id.toString();
+            const critId = ev.criteriaId._id.toString();
+            if (treeStructure[stdId] && treeStructure[stdId].criteria[critId]) {
+                treeStructure[stdId].criteria[critId].evidences.push(ev);
+            }
+        });
+
+        const wb = XLSX.utils.book_new();
+        const data = [
+            [
+                `Chương trình: ${evidences[0]?.programId?.name || ''}`,
+                `Tổ chức: ${evidences[0]?.organizationId?.name || ''}`
+            ],
+            [],
+            ['STT', 'Tiêu chuẩn', 'Tiêu chí', 'Mã Minh chứng', 'Tên Minh chứng', 'Số File', 'Trạng thái']
+        ];
+
+        let stt = 1;
+        const statusMap = {
+            'new': 'Mới',
+            'in_progress': 'Đang thực hiện',
+            'completed': 'Hoàn thành',
+            'approved': 'Đã duyệt',
+            'rejected': 'Từ chối'
+        };
+
+        Object.values(treeStructure).forEach(stdNode => {
+            const stdName = `${stdNode.standard.code} - ${stdNode.standard.name}`;
+            const criteriaList = Object.values(stdNode.criteria);
+
+            criteriaList.forEach((critNode, critIdx) => {
+                const critName = `${critNode.criteria.code} - ${critNode.criteria.name}`;
+                const evidenceList = critNode.evidences;
+
+                if (evidenceList.length === 0) {
+                    data.push([
+                        stt,
+                        critIdx === 0 ? stdName : '',
+                        critName,
+                        '',
+                        '',
+                        0,
+                        ''
+                    ]);
+                    stt++;
+                } else {
+                    evidenceList.forEach((ev, evIdx) => {
+                        data.push([
+                            stt,
+                            (critIdx === 0 && evIdx === 0) ? stdName : '',
+                            evIdx === 0 ? critName : '',
+                            ev.code || '',
+                            ev.name || '',
+                            ev.files?.length || 0,
+                            statusMap[ev.status] || 'Mới'
+                        ]);
+                        stt++;
+                    });
+                }
+            });
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [
+            { wch: 5 },
+            { wch: 35 },
+            { wch: 35 },
+            { wch: 18 },
+            { wch: 40 },
+            { wch: 10 },
+            { wch: 12 }
+        ];
+
+        ws['!rows'] = [
+            { hpx: 20 },
+            undefined,
+            { hpx: 25 }
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Cây Minh chứng');
+        return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    } catch (error) {
+        console.error('Export tree error:', error);
+        throw error;
+    }
+};
+
 const exportToExcel = (data, sheetName = 'Data') => {
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(data);
 
-    // Auto-size columns
     const colWidths = [];
     if (data.length > 0) {
         Object.keys(data[0]).forEach(key => {
@@ -336,7 +448,6 @@ const exportToCSV = (data) => {
         ...data.map(row =>
             headers.map(header => {
                 const value = row[header];
-                // Escape commas and quotes in values
                 if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
                     return `"${value.replace(/"/g, '""')}"`;
                 }
@@ -345,13 +456,12 @@ const exportToCSV = (data) => {
         )
     ].join('\n');
 
-    return Buffer.from('\ufeff' + csvContent, 'utf8'); // Add BOM for UTF-8
+    return Buffer.from('\ufeff' + csvContent, 'utf8');
 };
 
 const buildMatchQuery = (filters) => {
     let query = {};
 
-    // academicYearId is required
     if (filters.academicYearId) {
         query.academicYearId = mongoose.Types.ObjectId(filters.academicYearId);
     }
@@ -384,5 +494,6 @@ const getStatusText = (status) => {
 module.exports = {
     exportEvidences,
     exportStatistics,
-    exportImportTemplate
+    exportImportTemplate,
+    exportEvidenceTree
 };

@@ -2,7 +2,7 @@ const Evidence = require('../../models/Evidence/Evidence');
 const File = require('../../models/Evidence/File');
 const AcademicYear = require('../../models/system/AcademicYear');
 const exportService = require('../../services/exportService');
-const { importEvidencesFromExcel } = require('../../services/importService');
+const { importEvidencesFromExcel, importEvidencesFromTask } = require('../../services/importService');
 const searchService = require('../../services/searchService');
 const archiver = require('archiver');
 const path = require('path');
@@ -163,7 +163,6 @@ const getEvidenceById = async (req, res) => {
                 });
             }
         }
-
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
@@ -634,7 +633,6 @@ const importEvidences = async (req, res) => {
             });
         }
 
-
         const result = await importEvidencesFromExcel(
             file.path,
             req.academicYearId,
@@ -664,6 +662,81 @@ const importEvidences = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi import minh chứng: ' + error.message
+        });
+    }
+};
+
+const importEvidencesFromTaskFile = async (req, res) => {
+    try {
+        const file = req.file;
+        const { taskId, reportType } = req.body;
+        const userId = req.user.id;
+        const academicYearId = req.academicYearId;
+
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không có file được upload'
+            });
+        }
+
+        if (!taskId || !reportType) {
+            return res.status(400).json({
+                success: false,
+                message: 'taskId và reportType là bắt buộc'
+            });
+        }
+
+        const result = await importEvidencesFromTask(
+            file.path,
+            taskId,
+            reportType,
+            userId,
+            academicYearId
+        );
+
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json(result);
+
+    } catch (error) {
+        console.error('Import from task error:', error);
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi import: ' + error.message
+        });
+    }
+};
+
+const exportEvidenceTreeFile = async (req, res) => {
+    try {
+        const { programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
+
+        if (!programId || !organizationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'programId và organizationId là bắt buộc'
+            });
+        }
+
+        const buffer = await exportService.exportEvidenceTree(programId, organizationId, academicYearId);
+
+        const filename = `cay-minh-chung_${Date.now()}.xlsx`;
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Export tree error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi export: ' + error.message
         });
     }
 };
@@ -832,11 +905,8 @@ const getFullEvidenceTree = async (req, res) => {
                 } else {
                     evidenceQuery.criteriaId = new mongoose.Types.ObjectId();
                 }
-            } else {
-
             }
         }
-
 
         const [standards, allCriteria, evidences] = await Promise.all([
             StandardModel.find(standardQuery).sort({ code: 1 }).lean(),
@@ -951,7 +1021,6 @@ const exportEvidences = async (req, res) => {
             }
         }
 
-
         const evidences = await Evidence.find(evidenceQuery)
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
@@ -1050,7 +1119,6 @@ const getEvidenceByCode = async (req, res) => {
             }
         }
 
-
         res.json({
             success: true,
             data: evidence
@@ -1146,7 +1214,6 @@ const approveFile = async (req, res) => {
     }
 };
 
-
 module.exports = {
     getEvidences,
     getEvidenceById,
@@ -1159,6 +1226,8 @@ module.exports = {
     getStatistics,
     exportEvidences,
     importEvidences,
+    importEvidencesFromTaskFile,
+    exportEvidenceTreeFile,
     incrementEvidenceDownload,
     validateEvidenceFileName,
     moveEvidence,

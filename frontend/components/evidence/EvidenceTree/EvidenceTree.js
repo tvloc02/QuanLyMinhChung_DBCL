@@ -276,11 +276,12 @@ export default function EvidenceTree() {
                 return
             }
             toast.loading('Đang xuất dữ liệu...')
-            const response = await apiMethods.evidences.exportData({
+
+            const response = await apiMethods.evidences.exportTree({
                 programId: selectedProgram,
-                organizationId: selectedOrganization,
-                format: 'xlsx'
+                organizationId: selectedOrganization
             })
+
             const blob = new Blob([response.data], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             })

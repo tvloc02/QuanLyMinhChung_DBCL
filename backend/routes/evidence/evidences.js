@@ -25,6 +25,8 @@ const {
     copyEvidenceToAnotherYear,
     exportEvidences,
     importEvidences,
+    importEvidencesFromTaskFile,
+    exportEvidenceTreeFile,
     getFullEvidenceTree,
     moveEvidence,
     approveFile
@@ -89,6 +91,19 @@ router.get('/tree', [
     query('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc')
 ], validation, getEvidenceTree);
 
+router.get('/tree/export', [
+    query('programId')
+        .notEmpty()
+        .withMessage('ID chương trình là bắt buộc')
+        .isMongoId()
+        .withMessage('ID chương trình không hợp lệ'),
+    query('organizationId')
+        .notEmpty()
+        .withMessage('ID tổ chức là bắt buộc')
+        .isMongoId()
+        .withMessage('ID tổ chức không hợp lệ')
+], validation, exportEvidenceTreeFile);
+
 router.post('/advanced-search', [
     body('status').optional().isIn(['active', 'inactive', 'new', 'in_progress', 'completed', 'approved', 'rejected']),
     body('keyword').optional().trim().escape(),
@@ -132,6 +147,19 @@ router.post('/import', upload.single('file'), [
     body('organizationId').notEmpty().isMongoId().withMessage('ID tổ chức là bắt buộc'),
     body('mode').optional().isIn(['create', 'update']).withMessage('Mode phải là "create" hoặc "update"')
 ], validation, importEvidences);
+
+router.post('/import-from-task', upload.single('file'), [
+    body('taskId')
+        .notEmpty()
+        .withMessage('taskId là bắt buộc')
+        .isMongoId()
+        .withMessage('taskId không hợp lệ'),
+    body('reportType')
+        .notEmpty()
+        .withMessage('reportType là bắt buộc')
+        .isIn(['overall_tdg', 'standard', 'criteria'])
+        .withMessage('reportType không hợp lệ')
+], validation, importEvidencesFromTaskFile);
 
 router.get('/', [
     query('status').optional().isIn(['active', 'inactive', 'new', 'in_progress', 'completed', 'approved', 'rejected']),

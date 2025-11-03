@@ -179,7 +179,6 @@ export const apiMethods = {
             api.get('/api/evidences/full-tree', {
                 params: { programId, organizationId }
             }),
-
         getStatistics: () => api.get('/api/evidences/statistics'),
         generateCode: (standardCode, criteriaCode) =>
             api.post('/api/evidences/generate-code', { standardCode, criteriaCode }),
@@ -200,9 +199,13 @@ export const apiMethods = {
             params,
             responseType: 'blob'
         }),
-
         exportData: (params) =>
             api.get('/api/evidences/export', {
+                params,
+                responseType: 'blob'
+            }),
+        exportTree: (params) =>
+            api.get('/api/evidences/tree/export', {
                 params,
                 responseType: 'blob'
             }),

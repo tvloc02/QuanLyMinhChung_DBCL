@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
-    FolderOpen, ArrowLeft, Download, Upload, FileDown, Shield,
-    RefreshCw
+    FolderOpen, ArrowLeft, Download, Upload, FileDown, Shield
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -30,13 +29,8 @@ export default function EvidenceTreeHeader({
         }
     }
 
-    const handleRefresh = () => {
-        toast.info('Đang làm mới dữ liệu...')
-    }
-
     return (
         <div className="space-y-4">
-            {/* Header chính */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -59,9 +53,7 @@ export default function EvidenceTreeHeader({
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-end">
-
                 <div className="flex items-center space-x-2">
-
                     <button
                         onClick={onDownloadTemplate}
                         className="inline-flex items-center px-3 py-2.5 md:px-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm"
