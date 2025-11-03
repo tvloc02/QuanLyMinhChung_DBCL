@@ -30,7 +30,9 @@ export default function TaskList() {
     }, [])
 
     useEffect(() => {
-        loadTasks()
+        if (pagination && pagination.current !== undefined) {
+            loadTasks(pagination.current)
+        }
     }, [pagination.current, search, status, standardId, criteriaId])
 
     useEffect(() => {
@@ -51,11 +53,11 @@ export default function TaskList() {
         }
     }
 
-    const loadTasks = async () => {
+    const loadTasks = async (page = 1) => {
         try {
             setLoading(true)
             const params = {
-                page: pagination.current,
+                page: page,
                 limit: 10,
                 sortBy: 'createdAt',
                 sortOrder: 'desc'
@@ -69,11 +71,19 @@ export default function TaskList() {
             const response = await apiMethods.tasks.getAll(params)
 
             if (response.data.success) {
-                setTasks(response.data.data.tasks)
-                setPagination(response.data.data.pagination)
+                // ⭐️ SỬA LỖI: Đảm bảo tasks luôn là mảng, dùng optional chaining an toàn
+                const loadedTasks = response.data.data?.tasks || []
+                const newPagination = response.data.data?.pagination || { current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false }
+
+                setTasks(loadedTasks)
+                setPagination(newPagination)
+            } else {
+                // Đảm bảo setTasks về mảng rỗng nếu phản hồi thành công nhưng không có dữ liệu
+                setTasks([])
             }
         } catch (error) {
             toast.error('Không thể tải danh sách nhiệm vụ')
+            setTasks([]) // ⭐️ SỬA LỖI: Luôn đặt tasks về mảng rỗng khi thất bại
         } finally {
             setLoading(false)
         }
@@ -85,14 +95,13 @@ export default function TaskList() {
         try {
             await apiMethods.tasks.delete(id)
             toast.success('Xóa thành công')
-            loadTasks()
+            loadTasks(pagination.current)
         } catch (error) {
             toast.error(error.response?.data?.message || 'Xóa thất bại')
         }
     }
 
     const handleWriteReport = (task) => {
-        // Chuyển hướng đến trang tạo báo cáo với criteriaId cố định
         router.push({
             pathname: '/reports/create',
             query: {
@@ -103,7 +112,6 @@ export default function TaskList() {
         })
     }
 
-    // Hàm trả về icon cho trạng thái (đã được di chuyển vào getStatusLabel)
     const getStatusIconComponent = (status) => {
         const icons = {
             pending: <Clock className="w-4 h-4 mr-2" />,
@@ -252,7 +260,7 @@ export default function TaskList() {
                     </button>
 
                     <button
-                        onClick={loadTasks}
+                        onClick={() => loadTasks(1)}
                         className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                     >
                         <RefreshCw size={18} />
@@ -340,8 +348,8 @@ export default function TaskList() {
                                             />
                                             {isReporter && (
                                                 <ActionButton
-                                                    icon={FileText} // Dùng FileText cho Viết báo cáo
-                                                    variant="primary" // Dùng variant có sẵn
+                                                    icon={FileText}
+                                                    variant="primary"
                                                     size="sm"
                                                     onClick={() => handleWriteReport(item)}
                                                     title="Viết báo cáo"
@@ -411,7 +419,7 @@ export default function TaskList() {
                         setSelectedTask(null)
                     }}
                     onSuccess={() => {
-                        loadTasks()
+                        loadTasks(pagination.current)
                         setShowTaskModal(false)
                         setSelectedTask(null)
                     }}
@@ -426,7 +434,7 @@ export default function TaskList() {
                         setSelectedTask(null)
                     }}
                     onSuccess={() => {
-                        loadTasks()
+                        loadTasks(pagination.current)
                         setShowTaskDetail(false)
                         setSelectedTask(null)
                     }}

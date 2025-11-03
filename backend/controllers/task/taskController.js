@@ -1,11 +1,10 @@
 const mongoose = require('mongoose');
-const Task = require('../../models/Task/Task');
-const Criteria = require('../../models/Evidence/Criteria');
-const Standard = require('../../models/Evidence/Standard');
-const Program = require('../../models/Evidence/Program');
-const Organization = require('../../models/Evidence/Organization');
-const User = require('../../models/User/User');
-const Report = require('../../models/Report/Report');
+const Task = mongoose.model('Task');
+const Criteria = mongoose.model('Criteria');
+const Standard = mongoose.model('Standard');
+const Program = mongoose.model('Program');
+const Organization = mongoose.model('Organization');
+
 const permissionService = require('../../services/permissionService');
 
 const generateTaskCode = async (academicYearId) => {
@@ -14,7 +13,8 @@ const generateTaskCode = async (academicYearId) => {
     return `T${year}-${String(count + 1).padStart(5, '0')}`;
 };
 
-const getTasks = async (req, res) => {
+// Hàm chung để lấy Task với bộ lọc cơ bản
+const getTasksByFilter = async (req, res, customQuery = {}) => {
     try {
         const {
             page = 1,
@@ -23,7 +23,6 @@ const getTasks = async (req, res) => {
             standardId,
             criteriaId,
             status,
-            assignedTo,
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
@@ -35,17 +34,7 @@ const getTasks = async (req, res) => {
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { academicYearId };
-
-        if (req.user.role === 'reporter') {
-            const accessibleTasks = await permissionService.getTasksForUser(userId, academicYearId);
-            const accessibleTaskIds = accessibleTasks.map(t => t._id);
-            if (accessibleTaskIds.length > 0) {
-                query._id = { $in: accessibleTaskIds };
-            } else {
-                query._id = new mongoose.Types.ObjectId();
-            }
-        }
+        let query = { academicYearId, ...customQuery };
 
         if (search) {
             query.$or = [
@@ -57,7 +46,6 @@ const getTasks = async (req, res) => {
         if (standardId) query.standardId = standardId;
         if (criteriaId) query.criteriaId = criteriaId;
         if (status) query.status = status;
-        if (assignedTo) query.assignedTo = assignedTo;
 
         const sortOptions = {};
         sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -86,12 +74,33 @@ const getTasks = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Get tasks error:', error);
+        console.error(`Get tasks error (Filter: ${JSON.stringify(customQuery)}):`, error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách nhiệm vụ'
         });
     }
+};
+
+// 1. Endpoint: Nhiệm vụ được giao cho bản thân (Assigned To Me)
+const getAssignedTasks = async (req, res) => {
+    const userId = req.user.id;
+    return getTasksByFilter(req, res, { assignedTo: userId });
+};
+
+// 2. Endpoint: Nhiệm vụ đã giao (Created By Me)
+const getCreatedTasks = async (req, res) => {
+    const userId = req.user.id;
+    return getTasksByFilter(req, res, { createdBy: userId });
+};
+
+const getTasks = async (req, res) => {
+    // ⭐️ ADMIN/MANAGER: Mặc định trả về Tasks đã tạo
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+        return getCreatedTasks(req, res);
+    }
+    // REPORTER/EVALUATOR: Mặc định trả về Tasks được giao
+    return getAssignedTasks(req, res);
 };
 
 const getTaskById = async (req, res) => {
@@ -144,32 +153,16 @@ const createTask = async (req, res) => {
         const userId = req.user.id;
         const userRole = req.user.role;
 
-        // ⭐️ LOGIC KIỂM TRA QUYỀN GIAO TASK TỐI ƯU
         if (userRole !== 'admin' && userRole !== 'manager') {
-
-            if (!mongoose.Types.ObjectId.isValid(standardId)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID Tiêu chuẩn không hợp lệ'
-                });
-            }
-
-            // Chuyển đổi ID sang ObjectId trước khi kiểm tra trong Service
-            const currentStandardId = mongoose.Types.ObjectId(standardId);
-            let currentCriteriaId = null;
-            if (criteriaId && mongoose.Types.ObjectId.isValid(criteriaId)) {
-                currentCriteriaId = mongoose.Types.ObjectId(criteriaId);
-            }
 
             const canAssign = await permissionService.canAssignReporters(
                 userId,
-                currentStandardId,
-                currentCriteriaId,
+                standardId,
+                criteriaId,
                 academicYearId
             );
 
             if (!canAssign) {
-                // TRẢ VỀ LỖI DUY NHẤT VÀ RÕ RÀNG
                 return res.status(403).json({
                     success: false,
                     message: 'Bạn không có quyền thực hiện hành động này'
@@ -184,7 +177,6 @@ const createTask = async (req, res) => {
             });
         }
 
-        let criteria = null;
         let programId = null;
         let organizationId = null;
         let standard = null;
@@ -206,7 +198,7 @@ const createTask = async (req, res) => {
                     message: 'Tiêu chí là bắt buộc cho báo cáo tiêu chí'
                 });
             }
-            criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
+            const criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
             if (!criteria || criteria.standardId.toString() !== standardId) {
                 return res.status(400).json({
                     success: false,
@@ -251,7 +243,7 @@ const createTask = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Create task error:', error);
+        console.error('Create task error (CRASH):', error);
 
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
@@ -523,6 +515,8 @@ const getTaskByCriteria = async (req, res) => {
 
 module.exports = {
     getTasks,
+    getAssignedTasks,
+    getCreatedTasks,
     getTaskById,
     createTask,
     updateTask,

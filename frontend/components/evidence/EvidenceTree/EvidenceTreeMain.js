@@ -5,6 +5,7 @@ import {
     GripVertical, Clock, Check, CheckCircle2, XCircle, Shield
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { useRouter } from 'next/router' // ⭐️ Thêm useRouter
 
 const ActionButton = ({ icon: Icon, label, onClick, variant = 'secondary', size = 'sm', disabled = false, customColor = 'bg-gray-600 hover:bg-gray-700' }) => {
     const baseStyle = "flex items-center justify-center p-2 rounded-xl transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
@@ -83,6 +84,8 @@ export default function EvidenceTreeMain({
                                              onEditEvidence,
                                              onDeleteEvidence
                                          }) {
+    const router = useRouter() // ⭐️ Khai báo Router
+
     const truncateName = (name) => {
         if (!name) return ''
         const maxChars = 80
@@ -96,6 +99,19 @@ export default function EvidenceTreeMain({
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
     const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
+    // ⭐️ Hàm chuyển hướng đến trang tạo báo cáo
+    const navigateToCreateReport = (standardId, criteriaId, reportType) => {
+        router.push({
+            pathname: '/reports/create',
+            query: {
+                standardId,
+                criteriaId,
+                reportType // Có thể dùng để pre-select loại báo cáo
+            }
+        })
+    }
+
+    // Cập nhật quyền cho Tiêu chuẩn và Tiêu chí
     useEffect(() => {
         const updatePermissions = async () => {
             if (treeData.length === 0) {
@@ -115,7 +131,9 @@ export default function EvidenceTreeMain({
                 standardPromises.push((async () => {
                     const canEdit = await canEditStandard(stdId);
                     const canAssign = await canAssignReporters(stdId, null);
-                    return { stdId, canEdit, canAssign };
+                    // ⭐️ Kiểm tra quyền viết báo cáo Tiêu chuẩn
+                    const canWriteStd = await canWriteReport('standard');
+                    return { stdId, canEdit, canAssign, canWriteStd };
                 })());
 
                 for (const criteria of standard.criteria) {
@@ -124,19 +142,21 @@ export default function EvidenceTreeMain({
                         const canEdit = await canEditCriteria(critId);
                         const canAssign = await canAssignReporters(standard.id, critId);
                         const canUpload = await canUploadEvidence(critId);
-                        return { critId, canEdit, canAssign, canUpload };
+                        // ⭐️ Kiểm tra quyền viết báo cáo Tiêu chí
+                        const canWriteCrit = await canWriteReport('criteria');
+                        return { critId, canEdit, canAssign, canUpload, canWriteCrit };
                     })());
                 }
             }
 
             const standardResults = await Promise.all(standardPromises);
             standardResults.forEach(res => {
-                newStandardPermissions[res.stdId] = { canEdit: res.canEdit, canAssign: res.canAssign };
+                newStandardPermissions[res.stdId] = { canEdit: res.canEdit, canAssign: res.canAssign, canWriteStd: res.canWriteStd };
             });
 
             const criteriaResults = await Promise.all(criteriaPromises);
             criteriaResults.forEach(res => {
-                newCriteriaPermissions[res.critId] = { canEdit: res.canEdit, canAssign: res.canAssign, canUpload: res.canUpload };
+                newCriteriaPermissions[res.critId] = { canEdit: res.canEdit, canAssign: res.canAssign, canUpload: res.canUpload, canWriteCrit: res.canWriteCrit };
             });
 
             setStandardPermissions(newStandardPermissions);
@@ -144,7 +164,7 @@ export default function EvidenceTreeMain({
             setIsPermissionLoading(false);
         };
         updatePermissions();
-    }, [treeData, canEditStandard, canAssignReporters, canEditCriteria, canUploadEvidence]);
+    }, [treeData, canEditStandard, canAssignReporters, canEditCriteria, canUploadEvidence, canWriteReport]);
 
 
     const StandardNode = ({ standard, stdIdx }) => {
@@ -153,8 +173,9 @@ export default function EvidenceTreeMain({
         const stdPerm = standardPermissions[standard.id] || {};
         const canEdit = stdPerm.canEdit || false;
         const canAssign = stdPerm.canAssign || false;
-        const canWrite = canManageAll || canWriteReport('standard');
+        const canWrite = canManageAll || stdPerm.canWriteStd || false;
 
+        // Màu sắc
         const baseColor = standard.hasEvidence ? 'blue' : 'red';
         const bgColor = standard.hasEvidence ? `bg-blue-50 hover:bg-blue-100 border-blue-300` : `bg-red-50 hover:bg-red-100 border-red-300`;
         const iconColor = standard.hasEvidence ? `text-blue-600` : `text-red-600`;
@@ -188,7 +209,16 @@ export default function EvidenceTreeMain({
                             <ActionButton icon={Edit} label="Sửa tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.info('Sửa tiêu chuẩn'); }} customColor={`bg-blue-600 hover:bg-blue-700`} />
                         )}
                         {canWrite && (
-                            <ActionButton icon={FileTextIcon} label="Viết báo cáo tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.success('Viết báo cáo tiêu chuẩn'); }} customColor={`bg-blue-600 hover:bg-blue-700`} />
+                            // ⭐️ Nút Viết Báo cáo Tiêu chuẩn
+                            <ActionButton
+                                icon={FileTextIcon}
+                                label="Viết báo cáo tiêu chuẩn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigateToCreateReport(standard.id, null, 'standard');
+                                }}
+                                customColor={`bg-blue-600 hover:bg-blue-700`}
+                            />
                         )}
                         {canAssign && (
                             <ActionButton
@@ -234,9 +264,11 @@ export default function EvidenceTreeMain({
         const critPerm = criteriaPermissions[criteria.id] || {};
         const canEdit = critPerm.canEdit || false;
         const canAssign = critPerm.canAssign || false;
-        const canWrite = canManageAll || canWriteReport('criteria');
+        // ⭐️ Lấy quyền viết báo cáo Tiêu chí từ state
+        const canWrite = canManageAll || critPerm.canWriteCrit || false;
         const canUpload = critPerm.canUpload || false;
 
+        // Màu sắc
         const baseColor = criteria.hasEvidence ? 'indigo' : 'orange';
         const bgColor = criteria.hasEvidence ? `bg-indigo-50 hover:bg-indigo-100 border-indigo-300` : `bg-orange-50 hover:bg-orange-100 border-orange-300`;
         const iconColor = criteria.hasEvidence ? `text-indigo-600` : `text-orange-600`;
@@ -274,7 +306,16 @@ export default function EvidenceTreeMain({
                             <ActionButton icon={Edit} label="Sửa tiêu chí" onClick={(e) => { e.stopPropagation(); toast.info('Sửa tiêu chí'); }} customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`} />
                         )}
                         {canWrite && (
-                            <ActionButton icon={FileTextIcon} label="Viết báo cáo Tiêu chí" onClick={(e) => { e.stopPropagation(); toast.success('Viết báo cáo tiêu chí'); }} customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`} />
+                            // ⭐️ Nút Viết Báo cáo Tiêu chí
+                            <ActionButton
+                                icon={FileTextIcon}
+                                label="Viết báo cáo Tiêu chí"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigateToCreateReport(standard.id, criteria.id, 'criteria_analysis'); // criteria_analysis là loại báo cáo cho tiêu chí
+                                }}
+                                customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`}
+                            />
                         )}
                         {canAssign && (
                             <ActionButton
@@ -332,23 +373,27 @@ export default function EvidenceTreeMain({
                                 </div>
                                 <div className="flex space-x-2 ml-4 flex-shrink-0">
                                     <ActionButton icon={Eye} label="Xem Minh chứng" onClick={(e) => { e.stopPropagation(); toast.success('Xem Minh chứng'); }} variant="secondary" />
+                                    {/* ⭐️ NÚT SỬA METADATA MINH CHỨNG */}
                                     {canUpload && (
                                         <ActionButton
                                             icon={Edit}
                                             label="Sửa Metadata Minh chứng"
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                // Hành vi: Mở Sidebar chỉnh sửa Metadata
                                                 onEditEvidence(evidence);
                                             }}
                                             customColor={`bg-orange-600 hover:bg-orange-700`}
                                         />
                                     )}
+                                    {/* ⭐️ NÚT UPLOAD/QUẢN LÝ FILES MINH CHỨNG */}
                                     {canUpload && (
                                         <ActionButton
                                             icon={Upload}
                                             label="Upload Files"
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                // Hành vi: Mở Sidebar để upload file (onSelectEvidence)
                                                 onSelectEvidence({
                                                     id: evidence.id,
                                                     code: evidence.code,

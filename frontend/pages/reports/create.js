@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
@@ -9,10 +9,13 @@ import toast from 'react-hot-toast'
 import {
     FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
     Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
-    RefreshCw, Plus
+    RefreshCw, Plus, FilePlus
 } from 'lucide-react'
 import reportService from '../../services/reportService'
 import { apiMethods } from '../../services/api'
+import { default as BaseLayout } from '../../components/common/Layout'
+// Import component Modal tạo minh chứng mới
+import NewEvidenceModal from '../../components/reports/NewEvidenceModal'
 
 export default function CreateReportPage() {
     const { user, isLoading } = useAuth()
@@ -28,6 +31,8 @@ export default function CreateReportPage() {
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
     const [isFromTask, setIsFromTask] = useState(false)
+    const [isContentDirty, setIsContentDirty] = useState(false) // Theo dõi nội dung đã thay đổi chưa
+    const [isDataLoaded, setIsDataLoaded] = useState(false) // Theo dõi dữ liệu ban đầu đã tải chưa
 
     const [formData, setFormData] = useState({
         title: '',
@@ -47,6 +52,7 @@ export default function CreateReportPage() {
     const [selectedFile, setSelectedFile] = useState(null)
     const [selectedEvidenceCode, setSelectedEvidenceCode] = useState(null)
     const [showEvidenceViewer, setShowEvidenceViewer] = useState(false)
+    const [showNewEvidenceModal, setShowNewEvidenceModal] = useState(false) // State cho modal tạo minh chứng
 
     const breadcrumbItems = [
         { name: 'Báo cáo', icon: FileText, path: '/reports/reports' },
@@ -57,18 +63,18 @@ export default function CreateReportPage() {
     useEffect(() => {
         if (!isLoading && !user) {
             router.replace('/login')
-        } else if (user && router.isReady) {
+        } else if (user && router.isReady && !isDataLoaded) {
             fetchInitialData()
 
-            // Nếu có criteriaId từ URL, tức là từ task
-            if (router.query.criteriaId) {
+            if (router.query.standardId && router.query.criteriaId) {
                 setIsFromTask(true)
                 preloadTaskData()
             }
+            setIsDataLoaded(true)
         }
-    }, [user, isLoading, router.isReady])
+    }, [user, isLoading, router.isReady, isDataLoaded])
 
-    // Fetch dữ liệu ban đầu
+    // Fetch dữ liệu ban đầu (chương trình, tổ chức)
     const fetchInitialData = async () => {
         try {
             setLoading(true)
@@ -86,80 +92,56 @@ export default function CreateReportPage() {
         }
     }
 
-    // Pre-load dữ liệu từ task
+    // Pre-load dữ liệu từ task (khi có standardId và criteriaId trong URL)
     const preloadTaskData = async () => {
         try {
             const criteriaId = router.query.criteriaId
             const standardId = router.query.standardId
+            const reportType = router.query.reportType || 'criteria_analysis'
 
-            // Fetch criteria để lấy programId và organizationId
-            const criteriaRes = await apiMethods.criteria.getById(criteriaId)
-            const criteriaData = criteriaRes.data.data
+            // 1. Fetch criteria/standard để lấy programId và organizationId
+            const itemToFetch = criteriaId ? apiMethods.criteria.getById(criteriaId) : apiMethods.standards.getById(standardId)
+            const itemRes = await itemToFetch
+            const itemData = itemRes.data.data
 
-            // Set programId, organizationId dựa vào criteria
-            const programId = criteriaData.programId?._id || criteriaData.programId
-            const organizationId = criteriaData.organizationId?._id || criteriaData.organizationId
+            const programId = itemData.programId?._id || itemData.programId
+            const organizationId = itemData.organizationId?._id || itemData.organizationId
 
-            // Update form data với toàn bộ thông tin từ task
+            // 2. Cập nhật form data với toàn bộ thông tin từ task
             setFormData(prev => ({
                 ...prev,
-                criteriaId,
-                standardId,
+                criteriaId: criteriaId || '',
+                standardId: standardId || '',
                 programId,
                 organizationId,
-                type: 'criteria_analysis'
+                type: reportType === 'tdg' ? 'comprehensive_report' : (reportType === 'standard' ? 'standard_analysis' : 'criteria_analysis'),
+                title: `Báo cáo ${itemData.code} - ${itemData.name}` // Tiêu đề mặc định
             }))
 
-            // Fetch standards
-            if (programId && organizationId) {
-                const standardsRes = await apiMethods.standards.getAll({
-                    programId,
-                    organizationId,
-                    status: 'active'
-                })
-                setStandards(standardsRes.data.data.standards || standardsRes.data.data || [])
-            }
-
-            // Fetch criteria
-            if (standardId) {
-                const criteriasRes = await apiMethods.criteria.getAll({
-                    standardId,
-                    status: 'active'
-                })
-                let criteriaData = []
-                if (criteriasRes.data.data) {
-                    if (Array.isArray(criteriasRes.data.data.criterias)) {
-                        criteriaData = criteriasRes.data.data.criterias
-                    } else if (Array.isArray(criteriasRes.data.data.criteria)) {
-                        criteriaData = criteriasRes.data.data.criteria
-                    } else if (Array.isArray(criteriasRes.data.data)) {
-                        criteriaData = criteriasRes.data.data
-                    }
-                }
-                setCriteria(criteriaData)
-            }
         } catch (error) {
             console.error('Preload task data error:', error)
-            console.log('Query params:', router.query)
             setMessage({ type: 'error', text: 'Lỗi tải dữ liệu từ nhiệm vụ' })
         }
     }
 
+    // Fetch standards khi program/org thay đổi
     useEffect(() => {
         if (formData.programId && formData.organizationId) {
             fetchStandards()
         }
     }, [formData.programId, formData.organizationId])
 
+    // Fetch criteria khi standard thay đổi
     useEffect(() => {
         if (formData.standardId) {
             fetchCriteria()
         }
     }, [formData.standardId])
 
+    // Lắng nghe click cho Evidence Code trong Editor
     useEffect(() => {
         const handleEvidenceClick = (e) => {
-            if (e.target.classList.contains('evidence-code')) {
+            if (e.target.classList.contains('evidence-link')) {
                 const code = e.target.getAttribute('data-code')
                 if (code) {
                     setSelectedEvidenceCode(code)
@@ -349,23 +331,59 @@ export default function CreateReportPage() {
         }
     }
 
+    const handleContentChange = useCallback((content) => {
+        setFormData(prev => ({ ...prev, content }))
+        if (content.trim() && !isContentDirty) {
+            setIsContentDirty(true)
+        } else if (!content.trim() && isContentDirty) {
+            setIsContentDirty(false)
+        }
+        if (formErrors.content) {
+            setFormErrors(prev => ({ ...prev, content: '' }))
+        }
+    }, [isContentDirty, formErrors])
+
+
     const handleChange = (field, value) => {
+        if (isContentDirty) {
+            const confirmChange = window.confirm(
+                'Nội dung báo cáo đã thay đổi. Thay đổi Tiêu chuẩn/Tiêu chí/Chương trình sẽ xóa nội dung hiện tại. Bạn có chắc chắn muốn tiếp tục?'
+            )
+            if (!confirmChange) return
+
+            // Nếu đồng ý, xóa nội dung
+            setFormData(prev => ({ ...prev, content: '' }))
+            setIsContentDirty(false)
+            if (editorRef.current) {
+                editorRef.current.getContent = () => '' // Reset nội dung editor
+            }
+        }
+
         setFormData(prev => ({ ...prev, [field]: value }))
         if (formErrors[field]) {
             setFormErrors(prev => ({ ...prev, [field]: '' }))
         }
     }
 
+    const handleOpenNewEvidenceModal = () => {
+        if (!formData.criteriaId) {
+            toast.error('Vui lòng chọn Tiêu chí trước khi tạo minh chứng mới.')
+            return
+        }
+        setShowNewEvidenceModal(true)
+    }
+
+
     if (isLoading || loading) {
         return (
-            <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
+            <BaseLayout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
                         <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
-            </Layout>
+            </BaseLayout>
         )
     }
 
@@ -420,7 +438,7 @@ export default function CreateReportPage() {
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-bold mb-1">
-                                        {isFromTask ? 'Viết báo cáo tiêu chí' : 'Tạo báo cáo mới'}
+                                        {isFromTask ? 'Viết báo cáo từ nhiệm vụ' : 'Tạo báo cáo mới'}
                                     </h1>
                                     <p className="text-indigo-100">
                                         {isFromTask ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí'}
@@ -460,6 +478,7 @@ export default function CreateReportPage() {
                                         }`}
                                         placeholder="Nhập tiêu đề báo cáo"
                                         maxLength={500}
+                                        readOnly={isFromTask} // Chỉ cho phép sửa nếu không phải từ task
                                     />
                                     {formErrors.title && (
                                         <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>
@@ -477,6 +496,7 @@ export default function CreateReportPage() {
                                             value={formData.type}
                                             onChange={(e) => handleChange('type', e.target.value)}
                                             className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                            disabled={isFromTask}
                                         >
                                             <option value="criteria_analysis">Phiếu phân tích tiêu chí</option>
                                             <option value="standard_analysis">Phiếu phân tích tiêu chuẩn</option>
@@ -514,6 +534,7 @@ export default function CreateReportPage() {
                                             className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                 formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
+                                            disabled={isFromTask}
                                         >
                                             <option value="">Chọn chương trình</option>
                                             {programs.map(program => (
@@ -527,7 +548,7 @@ export default function CreateReportPage() {
                                         )}
                                         {isFromTask && formData.programId && (
                                             <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                                                ✓ Được tự động chọn từ tiêu chí
+                                                ✓ Được tự động chọn từ nhiệm vụ
                                             </p>
                                         )}
                                     </div>
@@ -544,6 +565,7 @@ export default function CreateReportPage() {
                                             className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                 formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
+                                            disabled={isFromTask}
                                         >
                                             <option value="">Chọn tổ chức</option>
                                             {organizations.map(org => (
@@ -557,7 +579,7 @@ export default function CreateReportPage() {
                                         )}
                                         {isFromTask && formData.organizationId && (
                                             <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
-                                                ✓ Được tự động chọn từ tiêu chí
+                                                ✓ Được tự động chọn từ nhiệm vụ
                                             </p>
                                         )}
                                     </div>
@@ -578,7 +600,7 @@ export default function CreateReportPage() {
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                     formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.programId || !formData.organizationId}
+                                                disabled={!formData.programId || !formData.organizationId || isFromTask}
                                             >
                                                 <option value="">Chọn tiêu chuẩn</option>
                                                 {standards.map(standard => (
@@ -611,7 +633,7 @@ export default function CreateReportPage() {
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                     formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.standardId}
+                                                disabled={!formData.standardId || isFromTask}
                                             >
                                                 <option value="">Chọn tiêu chí</option>
                                                 {criteria.map(criterion => (
@@ -646,7 +668,7 @@ export default function CreateReportPage() {
                                     <RichTextEditor
                                         ref={editorRef}
                                         value={formData.content}
-                                        onChange={(content) => handleChange('content', content)}
+                                        onChange={handleContentChange}
                                         placeholder="Nhập nội dung báo cáo..."
                                     />
                                     {formErrors.content && (
@@ -819,7 +841,18 @@ export default function CreateReportPage() {
                 {formData.contentMethod === 'online_editor' && (formData.standardId || formData.criteriaId) && (
                     <div className="w-96 flex-shrink-0">
                         <div className="sticky top-6">
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+
+                                {formData.criteriaId && (
+                                    <button
+                                        onClick={handleOpenNewEvidenceModal}
+                                        className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
+                                    >
+                                        <FilePlus className="h-5 w-5" />
+                                        Tạo Minh chứng Mới
+                                    </button>
+                                )}
+
                                 <EvidencePicker
                                     standardId={formData.standardId}
                                     criteriaId={formData.criteriaId}
@@ -845,6 +878,17 @@ export default function CreateReportPage() {
                         setSelectedEvidenceCode(null)
                     }}
                     onInsert={handleInsertEvidence}
+                />
+            )}
+
+            {showNewEvidenceModal && (
+                <NewEvidenceModal
+                    criteriaId={formData.criteriaId}
+                    standardId={formData.standardId}
+                    programId={formData.programId}
+                    organizationId={formData.organizationId}
+                    onClose={() => setShowNewEvidenceModal(false)}
+                    // onEvidenceCreated (Optional: làm mới EvidencePicker sau khi tạo thành công)
                 />
             )}
         </Layout>
