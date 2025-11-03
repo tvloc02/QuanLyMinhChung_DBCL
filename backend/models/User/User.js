@@ -67,26 +67,6 @@ const userSchema = new mongoose.Schema({
         maxlength: [100, 'Chức vụ không được quá 100 ký tự']
     },
 
-    individualPermissions: [{
-        permission: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Permission'
-        },
-        type: {
-            type: String,
-            enum: ['granted', 'denied'],
-            default: 'granted'
-        },
-        grantedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        grantedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }],
-
     academicYearAccess: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AcademicYear'
@@ -238,26 +218,16 @@ userSchema.methods.removeRole = function(role) {
 };
 
 userSchema.methods.getAllPermissions = async function() {
-    const finalPermissions = new Map();
 
-    await this.populate({
-        path: 'individualPermissions.permission',
-        match: { status: 'active' }
-    });
+    const permissionService = require('../../services/permissionService');
 
-    if (this.individualPermissions) {
-        for (const item of this.individualPermissions) {
-            if (item.permission && item.permission.code) {
-                if (item.type === 'granted') {
-                    finalPermissions.set(item.permission.code, item.permission);
-                } else if (item.type === 'denied') {
-                    finalPermissions.delete(item.permission.code);
-                }
-            }
-        }
+    if (this.isNew || !this._id) {
+        return [];
     }
 
-    return Array.from(finalPermissions.values());
+    const permissions = await permissionService.getPermissionsByUserId(this._id);
+
+    return permissions;
 };
 
 userSchema.methods.hasPermission = async function(permissionCode) {

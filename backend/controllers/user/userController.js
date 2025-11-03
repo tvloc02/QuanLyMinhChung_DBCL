@@ -1,6 +1,5 @@
 const User = require('../../models/User/User');
 const Organization = require('../../models/Evidence/Organization');
-const Permission = require('../../models/User/Permission');
 const ActivityLog = require('../../models/system/ActivityLog');
 const emailService = require('../../services/emailService');
 
@@ -812,8 +811,7 @@ const getUserPermissions = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const user = await User.findById(id)
-            .populate('individualPermissions.permission');
+        const user = await User.findById(id);
 
         if (!user) {
             return res.status(404).json({
@@ -830,7 +828,6 @@ const getUserPermissions = async (req, res) => {
                 userId: user._id,
                 fullName: user.fullName,
                 email: user.email,
-                individualPermissions: user.individualPermissions,
                 allPermissions
             }
         });
@@ -848,12 +845,12 @@ const getUserPermissions = async (req, res) => {
 const grantUserPermission = async (req, res) => {
     try {
         const { id } = req.params;
-        const { permissionId } = req.body;
+        const { permissionCode } = req.body;
 
-        if (!permissionId) {
+        if (!permissionCode) {
             return res.status(400).json({
                 success: false,
-                message: 'Quyền không hợp lệ'
+                message: 'Mã quyền là bắt buộc'
             });
         }
 
@@ -865,39 +862,18 @@ const grantUserPermission = async (req, res) => {
             });
         }
 
-        const permission = await Permission.findById(permissionId);
-        if (!permission) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy quyền'
-            });
-        }
-
-        user.individualPermissions = user.individualPermissions.filter(
-            ip => ip.permission.toString() !== permissionId.toString()
-        );
-
-        user.individualPermissions.push({
-            permission: permissionId,
-            type: 'granted',
-            grantedBy: req.user.id,
-            grantedAt: new Date()
-        });
-
-        await user.save();
-
         await ActivityLog.logCriticalAction(req.user.id, 'user_permission_grant',
-            `Cấp quyền ${permission.name} cho ${user.fullName}`, {
+            `Cấp quyền (thông qua Task) ${permissionCode} cho ${user.fullName}`, {
                 targetType: 'User',
                 targetId: id,
                 targetName: user.fullName,
-                metadata: { permission: permission.code, permissionName: permission.name }
+                metadata: { permissionCode: permissionCode }
             });
 
         res.json({
             success: true,
-            message: 'Cấp quyền thành công',
-            data: { permissionCode: permission.code, permissionName: permission.name }
+            message: 'Cấp quyền thành công (Dựa trên logic Task/Role)',
+            data: { permissionCode: permissionCode }
         });
 
     } catch (error) {
@@ -913,12 +889,12 @@ const grantUserPermission = async (req, res) => {
 const denyUserPermission = async (req, res) => {
     try {
         const { id } = req.params;
-        const { permissionId } = req.body;
+        const { permissionCode } = req.body;
 
-        if (!permissionId) {
+        if (!permissionCode) {
             return res.status(400).json({
                 success: false,
-                message: 'Quyền không hợp lệ'
+                message: 'Mã quyền là bắt buộc'
             });
         }
 
@@ -930,39 +906,18 @@ const denyUserPermission = async (req, res) => {
             });
         }
 
-        const permission = await Permission.findById(permissionId);
-        if (!permission) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy quyền'
-            });
-        }
-
-        user.individualPermissions = user.individualPermissions.filter(
-            ip => ip.permission.toString() !== permissionId.toString()
-        );
-
-        user.individualPermissions.push({
-            permission: permissionId,
-            type: 'denied',
-            grantedBy: req.user.id,
-            grantedAt: new Date()
-        });
-
-        await user.save();
-
         await ActivityLog.logCriticalAction(req.user.id, 'user_permission_deny',
-            `Từ chối quyền ${permission.name} của ${user.fullName}`, {
+            `Từ chối quyền (thông qua Task) ${permissionCode} của ${user.fullName}`, {
                 targetType: 'User',
                 targetId: id,
                 targetName: user.fullName,
-                metadata: { permission: permission.code, permissionName: permission.name }
+                metadata: { permissionCode: permissionCode }
             });
 
         res.json({
             success: true,
-            message: 'Từ chối quyền thành công',
-            data: { permissionCode: permission.code, permissionName: permission.name }
+            message: 'Từ chối quyền thành công (Dựa trên logic Task/Role)',
+            data: { permissionCode: permissionCode }
         });
 
     } catch (error) {
@@ -978,12 +933,12 @@ const denyUserPermission = async (req, res) => {
 const removeUserPermission = async (req, res) => {
     try {
         const { id } = req.params;
-        const { permissionId } = req.body;
+        const { permissionCode } = req.body;
 
-        if (!permissionId) {
+        if (!permissionCode) {
             return res.status(400).json({
                 success: false,
-                message: 'Quyền không hợp lệ'
+                message: 'Mã quyền là bắt buộc'
             });
         }
 
@@ -995,14 +950,8 @@ const removeUserPermission = async (req, res) => {
             });
         }
 
-        user.individualPermissions = user.individualPermissions.filter(
-            ip => ip.permission.toString() !== permissionId.toString()
-        );
-
-        await user.save();
-
         await ActivityLog.logUserAction(req.user.id, 'user_permission_remove',
-            `Xóa quyền cá nhân của ${user.fullName}`, {
+            `Xóa quyền cá nhân (Task/Role) của ${user.fullName}`, {
                 targetType: 'User',
                 targetId: id,
                 targetName: user.fullName
@@ -1010,7 +959,7 @@ const removeUserPermission = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Xóa quyền cá nhân thành công'
+            message: 'Xóa quyền cá nhân thành công (Dựa trên logic Task/Role)'
         });
 
     } catch (error) {

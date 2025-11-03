@@ -19,7 +19,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 require('./models/User/User');
-require('./models/User/Permission');
 
 const publicEvidenceRoutes = require('./routes/public/publicEvidenceRoutes');
 
@@ -47,7 +46,7 @@ app.use('/api', aiChatRoutes);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/permissions', auth, permissionRoutes);
-app.use('/api/system', auth, systemRoutes);
+app.use('/api/system', systemRoutes);
 app.use('/api/academic-years', auth, academicYearRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', auth, notificationRoutes);
