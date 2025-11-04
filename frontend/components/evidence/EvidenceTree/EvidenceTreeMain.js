@@ -199,9 +199,22 @@ export default function EvidenceTreeMain({
                     </div>
 
                     <div className="flex space-x-2 ml-4 flex-shrink-0">
-                        <ActionButton icon={Eye} label="Xem" onClick={(e) => { e.stopPropagation(); toast.success('Xem tiêu chuẩn'); }} variant="secondary" />
+                        <ActionButton
+                            icon={Eye}
+                            label="Xem"
+                            onClick={(e) =>
+                            { e.stopPropagation();
+                                toast.success('Xem tiêu chuẩn');
+                            }}
+                            variant="secondary" />
                         {canEdit && (
-                            <ActionButton icon={Edit} label="Sửa tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.info('Sửa tiêu chuẩn'); }} customColor={`bg-blue-600 hover:bg-blue-700`} />
+                            <ActionButton
+                                icon={Edit}
+                                label="Sửa tiêu chuẩn"
+                                onClick={(e) => { e.stopPropagation();
+                                    toast.info('Sửa tiêu chuẩn');
+                                }}
+                                customColor={`bg-blue-600 hover:bg-blue-700`} />
                         )}
                         {canWrite && (
                             <ActionButton

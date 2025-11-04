@@ -1034,7 +1034,7 @@ const exportEvidences = async (req, res) => {
         const workbook = XLSX.utils.book_new();
 
         const data = [
-            ['STT', 'Mã minh chứng', 'Tên minh chứng', 'Tiêu chuẩn', 'Tiêu chí', 'Số file', 'Trạng thái']
+            ['STT', 'Tiêu chuẩn', 'Tiêu chí','Mã minh chứng', 'Tên minh chứng', 'Số file', 'Trạng thái']
         ];
 
         const statusMap = {
@@ -1050,10 +1050,10 @@ const exportEvidences = async (req, res) => {
         evidences.forEach((evidence, index) => {
             data.push([
                 index + 1,
-                evidence.code || '',
-                evidence.name || '',
                 evidence.standardId ? `${evidence.standardId.code} - ${evidence.standardId.name}` : '',
                 evidence.criteriaId ? `${evidence.criteriaId.code} - ${evidence.criteriaId.name}` : '',
+                evidence.code || '',
+                evidence.name || '',
                 evidence.files?.length || 0,
                 statusMap[evidence.status] || 'Mới'
             ]);

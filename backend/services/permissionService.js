@@ -101,11 +101,9 @@ const canEditStandard = async (userId, standardId, academicYearId) => {
         return true;
     }
 
-    const hasStandardTask = tasks.some(t =>
+    return tasks.some(t =>
         t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr
     );
-
-    return hasStandardTask;
 };
 
 const canEditCriteria = async (userId, criteriaId, academicYearId) => {
@@ -142,19 +140,17 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
     }
 
     const tasks = await getTasksForUser(userId, academicYearId);
-    const standardIdStr = standardId.toString();
-
+    standardId.toString();
     if (criteriaId) {
         const criteria = await Criteria.findById(criteriaId);
         if (!criteria) return false;
         const criteriaStandardId = criteria.standardId.toString();
 
         // Reporter có Task TĐG HOẶC Task Tiêu chuẩn cha (cùng Standard)
-        const canAssign = tasks.some(t =>
+        return tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG ||
             (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId)
         );
-        return canAssign;
     }
 
     if (standardId) {

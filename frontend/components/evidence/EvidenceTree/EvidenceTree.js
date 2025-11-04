@@ -213,7 +213,7 @@ export default function EvidenceTree() {
                 newCode
             })
             toast.success('Di chuyển minh chứng thành công')
-            fetchTreeData()
+            await fetchTreeData()
             setSelectedEvidence(null)
         } catch (error) {
             console.error('Move evidence error:', error)
@@ -308,35 +308,34 @@ export default function EvidenceTree() {
         if (canManageAll) return true
         if (reportType === 'tdg' && userPermissions.canWriteTDGReport) return true
         if (reportType === 'standard' && userPermissions.canWriteStandardReport) return true
-        if (reportType === 'criteria' && userPermissions.canWriteCriteriaReport) return true
-        return false
+        return reportType === 'criteria' && userPermissions.canWriteCriteriaReport;
     }
 
     const checkCanEditStandard = async (standardId) => {
         if (canManageAll) return true
         try {
-            return await userPermissions.canEditStandard(standardId)
+            return userPermissions.canEditStandard(standardId);
         } catch (e) { return false }
     }
 
     const checkCanEditCriteria = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return await userPermissions.canEditCriteria(criteriaId)
+            return userPermissions.canEditCriteria(criteriaId);
         } catch (e) { return false }
     }
 
     const checkCanUploadEvidence = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return await userPermissions.canUploadEvidence(criteriaId)
+            return userPermissions.canUploadEvidence(criteriaId);
         } catch (e) { return false }
     }
 
     const checkCanAssignReporters = async (standardId, criteriaId) => {
         if (canManageAll) return true
         try {
-            return await userPermissions.canAssignReporters(standardId, criteriaId)
+            return userPermissions.canAssignReporters(standardId, criteriaId);
         } catch (e) { return false }
     }
 
