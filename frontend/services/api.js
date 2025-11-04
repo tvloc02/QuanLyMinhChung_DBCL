@@ -163,7 +163,8 @@ export const apiMethods = {
         delete: (id) => api.delete(`/api/tasks/${id}`),
         getByCriteria: (criteriaId) => api.get('/api/tasks/by-criteria', { params: { criteriaId } }),
         submitReport: (id, reportId) => api.post(`/api/tasks/${id}/submit-report`, { reportId }),
-        reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
+        reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data),
+        getAssignedTasks: (params) => api.get('/api/tasks/assigned', { params }),
     },
 
 

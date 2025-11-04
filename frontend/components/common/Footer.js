@@ -9,18 +9,27 @@ export default function Footer({ collapsed, isDesktop }) {
         >
             <div className="py-6 px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col md:flex-row justify-between items-center">
+                    {/* Logo + Text */}
                     <div className="flex items-center space-x-4">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md"
-                             style={{ background: 'linear-gradient(135deg, #496cef 0%, #486aee 100%)' }}>
-                            <span className="text-white font-bold text-sm">TĐG</span>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-white">
+                            <img
+                                src="/images/CMC_logo_ver01.png"
+                                alt="CMC University Logo"
+                                className="w-7 h-7 object-contain"
+                            />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-900">CMC University</p>
-                            <p className="text-xs text-gray-600">Hệ thống quản lý minh chứng</p>
+                            <p className="text-sm font-semibold" style={{ color: '#0066CC' }}>
+                                CMC University
+                            </p>
+                            <p className="text-xs text-gray-600">
+                                SAEM – Hệ thống đánh giá chất lượng giáo dục
+                            </p>
                         </div>
                     </div>
 
-                    <div className="mt-4 md:mt-0">
+                    {/* Copyright */}
+                    <div className="mt-4 md:mt-0 text-center md:text-right">
                         <p className="text-sm text-gray-600">
                             © 2025 CMC University. Made by Digital University PMU.
                         </p>
@@ -28,5 +37,5 @@ export default function Footer({ collapsed, isDesktop }) {
                 </div>
             </div>
         </footer>
-    )
+    );
 }

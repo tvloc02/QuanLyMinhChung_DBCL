@@ -373,13 +373,23 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     </button>
 
                     <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-                             style={{ background: 'linear-gradient(135deg, #496cef 0%, #486aee 100%)' }}>
-                            <span className="text-white font-bold text-lg">TĐG</span>
+                        {/* Logo */}
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-white">
+                            <img
+                                src="/images/CMC_logo_ver01.png"
+                                alt="CMC University Logo"
+                                className="w-10 h-10 object-contain"
+                            />
                         </div>
+
+                        {/* Text */}
                         <div className="hidden sm:block">
-                            <h1 className="text-xl font-bold text-gray-900">CMC University</h1>
-                            <p className="text-sm text-gray-500">Hệ thống đánh giá chất lượng</p>
+                            <h1 className="text-xl font-bold" style={{ color: '#0066CC' }}>
+                                CMC University
+                            </h1>
+                            <p className="text-sm text-gray-600">
+                                SAEM – Hệ thống đánh giá chất lượng giáo dục
+                            </p>
                         </div>
                     </div>
                 </div>
