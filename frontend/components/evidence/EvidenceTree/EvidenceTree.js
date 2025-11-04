@@ -378,7 +378,7 @@ export default function EvidenceTree() {
             })
             await apiMethods.files.uploadMultiple(formData, selectedEvidence.id)
             toast.success('Upload file thành công')
-            fetchTreeData()
+            await fetchTreeData()
             setSelectedEvidence(null)
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Lỗi khi upload file')

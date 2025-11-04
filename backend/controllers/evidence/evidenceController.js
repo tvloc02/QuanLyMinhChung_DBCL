@@ -891,23 +891,9 @@ const getFullEvidenceTree = async (req, res) => {
         let criteriaQuery = { academicYearId, programId };
         let evidenceQuery = { academicYearId, programId, organizationId };
 
-        if (req.user.role === 'reporter') {
-            const [accessibleStandardIds, accessibleCriteriaIds] = await Promise.all([
-                permissionService.getAccessibleStandardIds(req.user.id, academicYearId),
-                permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId)
-            ]);
-
-            if (accessibleStandardIds.length > 0) {
-                standardQuery._id = { $in: accessibleStandardIds };
-                criteriaQuery.standardId = { $in: accessibleStandardIds };
-
-                if (accessibleCriteriaIds.length > 0) {
-                    evidenceQuery.criteriaId = { $in: accessibleCriteriaIds };
-                } else {
-                    evidenceQuery.criteriaId = new mongoose.Types.ObjectId();
-                }
-            }
-        }
+        // ⭐️ LOẠI BỎ CÁC BỘ LỌC DỰA TRÊN QUYỀN TRUY CẬP TRƯỚC ĐÓ CỦA REPORTER.
+        // MỤC ĐÍCH: HIỂN THỊ TOÀN BỘ CÂY MINH CHỨNG CHO TẤT CẢ NGƯỜI DÙNG.
+        // CÁC HÀNH ĐỘNG (NÚT BẤM) SẼ ĐƯỢC ẨN/HIỆN Ở PHÍA CLIENT DỰA TRÊN QUYỀN.
 
         const [standards, allCriteria, evidences] = await Promise.all([
             StandardModel.find(standardQuery).sort({ code: 1 }).lean(),
@@ -966,9 +952,8 @@ const getFullEvidenceTree = async (req, res) => {
                 standardNode.criteria.push(criterionNode);
             });
 
-            if (standardNode.criteria.length > 0 || req.user.role !== 'reporter') {
-                tree.push(standardNode);
-            }
+            // ⭐️ ĐẨY TẤT CẢ TIÊU CHUẨN RA FRONTEND (Không lọc)
+            tree.push(standardNode);
         });
 
         const statistics = {
