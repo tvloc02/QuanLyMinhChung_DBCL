@@ -106,7 +106,6 @@ const canAssignReporters = async (req, res) => {
 const checkCanWriteReport = async (req, res) => {
     try {
         const { reportType } = req.params;
-        // ⭐️ THÊM: Lấy standardId và criteriaId từ query
         const { standardId, criteriaId } = req.query;
         const userId = req.user.id;
         const academicYearId = getAcademicYearId(req);
@@ -119,7 +118,6 @@ const checkCanWriteReport = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Thiếu loại báo cáo (reportType)' });
         }
 
-        // ⭐️ TRUYỀN THÊM ID VÀO HÀM KIỂM TRA QUYỀN CỤC BỘ
         const canWrite = await permissionService.canWriteReport(
             userId,
             reportType,

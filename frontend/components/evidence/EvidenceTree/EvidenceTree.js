@@ -1,4 +1,3 @@
-// ... (các imports giữ nguyên)
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../../services/api'
@@ -52,12 +51,12 @@ export default function EvidenceTree() {
         }
     }, [selectedProgram, selectedOrganization])
 
-    const canWriteReportAPI = async (reportType, academicYearId) => {
+    const canWriteReportAPI = async (reportType, academicYearId, standardId, criteriaId = null) => {
         const canManageAll = userRole === 'admin' || userRole === 'manager'
         if (canManageAll) return true
 
         try {
-            const response = await apiMethods.permissions.canWriteReport(reportType, academicYearId)
+            const response = await apiMethods.permissions.canWriteReport(reportType, academicYearId, standardId, criteriaId)
             return response.data?.data?.canWrite || false
         } catch (error) {
             console.error(`Check canWriteReport for ${reportType} error:`, error)
@@ -78,11 +77,9 @@ export default function EvidenceTree() {
 
             const canManageAll = userRole === 'admin' || userRole === 'manager'
 
-            // ⭐️ Gọi API một lần để kiểm tra quyền Viết Báo cáo Standard, dùng làm quyền Import chung
-            const overallWriteCheck = await canWriteReportAPI('standard', currentAcademicYearId);
-            setHasWritePermission(overallWriteCheck);
+            const overallWriteCheck = await canWriteReportAPI('standard', currentAcademicYearId, null)
+            setHasWritePermission(overallWriteCheck)
 
-            // Gán các hàm kiểm tra quyền chi tiết (sẽ gọi API)
             setUserPermissions({
                 canEditStandard: async (standardId) => {
                     if (canManageAll) return true
@@ -258,8 +255,6 @@ export default function EvidenceTree() {
             return
         }
 
-        // Logic thông báo đã có ở Header.
-
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -319,38 +314,35 @@ export default function EvidenceTree() {
 
     const canManageAll = userRole === 'admin' || userRole === 'manager'
 
-    // Hàm này gọi API kiểm tra quyền cho từng StandardNode/CriteriaNode
-    const canWriteReport = async (reportType) => {
-        // Gọi API canWriteReportAPI đã được định nghĩa ở trên (dùng hàm async)
-        return await canWriteReportAPI(reportType, academicYearId);
+    const canWriteReport = async (reportType, standardId, criteriaId = null) => {
+        return await canWriteReportAPI(reportType, academicYearId, standardId, criteriaId)
     }
 
-    // Các hàm kiểm tra quyền chi tiết (sẽ truyền vào EvidenceTreeMain)
     const checkCanEditStandard = async (standardId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canEditStandard(standardId, academicYearId);
+            return await userPermissions.canEditStandard(standardId)
         } catch (e) { return false }
     }
 
     const checkCanEditCriteria = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canEditCriteria(criteriaId, academicYearId);
+            return await userPermissions.canEditCriteria(criteriaId)
         } catch (e) { return false }
     }
 
     const checkCanUploadEvidence = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canUploadEvidence(criteriaId, academicYearId);
+            return await userPermissions.canUploadEvidence(criteriaId)
         } catch (e) { return false }
     }
 
     const checkCanAssignReporters = async (standardId, criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canAssignReporters(standardId, criteriaId, academicYearId);
+            return await userPermissions.canAssignReporters(standardId, criteriaId)
         } catch (e) { return false }
     }
 
@@ -418,7 +410,7 @@ export default function EvidenceTree() {
                         name: 'Báo cáo Tự đánh giá',
                         standardId: firstStandard.id,
                         criteriaId: null
-                    }, 'tdg')
+                    }, 'overall_tdg')
                 }}
                 loading={loading}
                 selectedProgram={selectedProgram}
@@ -453,7 +445,7 @@ export default function EvidenceTree() {
                         onDrop={handleDrop}
                         userRole={userRole}
                         canManageAll={canManageAll}
-                        canWriteReport={canWriteReport} // TRUYỀN HÀM MỚI (GỌI API)
+                        canWriteReport={canWriteReport}
                         canEditStandard={checkCanEditStandard}
                         canEditCriteria={checkCanEditCriteria}
                         canUploadEvidence={checkCanUploadEvidence}
