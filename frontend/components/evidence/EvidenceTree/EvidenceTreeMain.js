@@ -99,14 +99,17 @@ export default function EvidenceTreeMain({
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
     const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
-    const navigateToCreateReport = (standardId, criteriaId, reportType) => {
+    const navigateToCreateReport = (reportType, standardId, criteriaId) => {
+        const query = {
+            reportType,
+            standardId
+        }
+        if (criteriaId) {
+            query.criteriaId = criteriaId
+        }
         router.push({
             pathname: '/reports/create',
-            query: {
-                standardId,
-                criteriaId,
-                reportType
-            }
+            query
         })
     }
 
@@ -222,7 +225,7 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo tiêu chuẩn"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigateToCreateReport(standard.id, null, 'standard');
+                                    navigateToCreateReport('standard', standard.id, null);
                                 }}
                                 customColor={`bg-cyan-600 hover:bg-cyan-700`}
                             />
@@ -316,7 +319,7 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo Tiêu chí"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigateToCreateReport(standard.id, criteria.id, 'criteria_analysis');
+                                    navigateToCreateReport('criteria', standard.id, criteria.id);
                                 }}
                                 customColor={`bg-teal-600 hover:bg-teal-700`}
                             />

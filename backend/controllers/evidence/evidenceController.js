@@ -730,13 +730,14 @@ const exportEvidenceTreeFile = async (req, res) => {
         const filename = `cay-minh-chung_${Date.now()}.xlsx`;
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Length', buffer.length);
         res.send(buffer);
 
     } catch (error) {
         console.error('Export tree error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi khi export: ' + error.message
+            message: error.message || 'Lỗi khi export: ' + error.message
         });
     }
 };

@@ -15,6 +15,7 @@ export default function EvidenceTreeHeader({
                                                selectedOrganization,
                                                userRole,
                                                canManageAll,
+                                               hasWritePermission = false,
                                            }) {
 
     const handleFileSelect = (e) => {
@@ -28,6 +29,8 @@ export default function EvidenceTreeHeader({
             onImport(file)
         }
     }
+
+    const showImportButton = canManageAll || (userRole === 'reporter' && hasWritePermission)
 
     return (
         <div className="space-y-4">
@@ -62,7 +65,7 @@ export default function EvidenceTreeHeader({
                         <span className="hidden md:inline-flex">File mẫu</span>
                     </button>
 
-                    {canManageAll && (
+                    {showImportButton && (
                         <label className={`inline-flex items-center px-3 py-2.5 md:px-4 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm cursor-pointer ${
                             !selectedProgram || !selectedOrganization ? 'opacity-50 cursor-not-allowed' : ''
                         }`}>

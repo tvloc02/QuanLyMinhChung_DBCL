@@ -972,6 +972,66 @@ const removeUserPermission = async (req, res) => {
     }
 };
 
+const getProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const currentAcademicYearId = req.currentAcademicYearId;
+
+        const user = await User.findById(userId)
+            .populate('currentAcademicYearId', 'name code')
+            .lean();
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
+        let accessibleReportTypes = [];
+
+        if (user.role === 'reporter' && currentAcademicYearId) {
+            const Task = require('../../models/Task');
+            const assignedTasks = await Task.find({
+                assignedTo: userId,
+                academicYearId: currentAcademicYearId,
+                status: { $ne: 'cancelled' }
+            }).distinct('reportType');
+
+            accessibleReportTypes = assignedTasks || [];
+        }
+
+        const profileData = {
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            status: user.status,
+            phone: user.phone,
+            department: user.department,
+            avatar: user.avatar,
+            currentAcademicYearId: user.currentAcademicYearId?._id,
+            accessibleReportTypes: accessibleReportTypes
+        };
+
+        res.json({
+            success: true,
+            data: profileData
+        });
+
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy thông tin người dùng'
+        });
+    }
+};
+
+module.exports = {
+    getProfile
+};
+
 module.exports = {
     getUsers,
     getUserById,
@@ -988,4 +1048,5 @@ module.exports = {
     removeUserPermission,
     unlockUser,
     lockUser,
+    getProfile
 };

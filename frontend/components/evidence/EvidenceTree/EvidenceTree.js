@@ -21,6 +21,7 @@ export default function EvidenceTree() {
     const [statistics, setStatistics] = useState(null)
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [userRole, setUserRole] = useState('')
+    const [accessibleReportTypes, setAccessibleReportTypes] = useState([])
     const [userPermissions, setUserPermissions] = useState({
         canEditStandard: () => false,
         canEditCriteria: () => false,
@@ -61,12 +62,15 @@ export default function EvidenceTree() {
             const currentAcademicYearId = userData?.currentAcademicYearId
             setAcademicYearId(currentAcademicYearId)
 
+            const reportTypes = userData?.accessibleReportTypes || []
+            setAccessibleReportTypes(reportTypes)
+
             const canManageAll = userData?.role === 'admin' || userData?.role === 'manager'
 
             setUserPermissions({
-                canWriteTDGReport: userData?.accessibleReportTypes?.includes('overall_tdg') || false,
-                canWriteStandardReport: userData?.accessibleReportTypes?.includes('standard') || false,
-                canWriteCriteriaReport: userData?.accessibleReportTypes?.includes('criteria') || false,
+                canWriteTDGReport: reportTypes.includes('overall_tdg') || canManageAll,
+                canWriteStandardReport: reportTypes.includes('standard') || canManageAll,
+                canWriteCriteriaReport: reportTypes.includes('criteria') || canManageAll,
 
                 canEditStandard: async (standardId) => {
                     if (canManageAll) return true
@@ -277,10 +281,7 @@ export default function EvidenceTree() {
             }
             toast.loading('Đang xuất dữ liệu...')
 
-            const response = await apiMethods.evidences.exportTree({
-                programId: selectedProgram,
-                organizationId: selectedOrganization
-            })
+            const response = await apiMethods.evidences.exportTree(selectedProgram, selectedOrganization)
 
             const blob = new Blob([response.data], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -298,7 +299,7 @@ export default function EvidenceTree() {
         } catch (error) {
             console.error('Export error:', error)
             toast.dismiss()
-            toast.error('Lỗi khi export')
+            toast.error(error.response?.data?.message || 'Lỗi khi export')
         }
     }
 
@@ -306,10 +307,12 @@ export default function EvidenceTree() {
 
     const canWriteReport = (reportType) => {
         if (canManageAll) return true
-        if (reportType === 'tdg' && userPermissions.canWriteTDGReport) return true
-        if (reportType === 'standard' && userPermissions.canWriteStandardReport) return true
-        return reportType === 'criteria' && userPermissions.canWriteCriteriaReport;
+        if (reportType === 'tdg' && accessibleReportTypes.includes('overall_tdg')) return true
+        if (reportType === 'standard' && accessibleReportTypes.includes('standard')) return true
+        return reportType === 'criteria' && accessibleReportTypes.includes('criteria');
     }
+
+    const hasWritePermission = accessibleReportTypes.length > 0
 
     const checkCanEditStandard = async (standardId) => {
         if (canManageAll) return true
@@ -410,6 +413,7 @@ export default function EvidenceTree() {
                 selectedOrganization={selectedOrganization}
                 userRole={userRole}
                 canManageAll={canManageAll}
+                hasWritePermission={hasWritePermission}
             />
 
             <EvidenceTreeStatistics
