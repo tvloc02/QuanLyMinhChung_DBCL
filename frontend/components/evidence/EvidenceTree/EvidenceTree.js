@@ -1,3 +1,4 @@
+// ... (các imports giữ nguyên)
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { apiMethods } from '../../../services/api'
@@ -21,17 +22,14 @@ export default function EvidenceTree() {
     const [statistics, setStatistics] = useState(null)
     const [selectedEvidence, setSelectedEvidence] = useState(null)
     const [userRole, setUserRole] = useState('')
-    const [accessibleReportTypes, setAccessibleReportTypes] = useState([])
     const [userPermissions, setUserPermissions] = useState({
         canEditStandard: () => false,
         canEditCriteria: () => false,
         canUploadEvidence: () => false,
         canAssignReporters: () => false,
-        canWriteTDGReport: false,
-        canWriteStandardReport: false,
-        canWriteCriteriaReport: false,
     })
     const [academicYearId, setAcademicYearId] = useState('')
+    const [hasWritePermission, setHasWritePermission] = useState(false)
 
     const [showAssignModal, setShowAssignModal] = useState(false)
     const [assignTarget, setAssignTarget] = useState(null)
@@ -54,24 +52,38 @@ export default function EvidenceTree() {
         }
     }, [selectedProgram, selectedOrganization])
 
+    const canWriteReportAPI = async (reportType, academicYearId) => {
+        const canManageAll = userRole === 'admin' || userRole === 'manager'
+        if (canManageAll) return true
+
+        try {
+            const response = await apiMethods.permissions.canWriteReport(reportType, academicYearId)
+            return response.data?.data?.canWrite || false
+        } catch (error) {
+            console.error(`Check canWriteReport for ${reportType} error:`, error)
+            return false
+        }
+    }
+
     const fetchUserInfo = async () => {
         try {
             const response = await apiMethods.users.getProfile()
             const userData = response.data.data
-            setUserRole(userData?.role || '')
+
+            const userRole = userData?.role || ''
             const currentAcademicYearId = userData?.currentAcademicYearId
+
+            setUserRole(userRole)
             setAcademicYearId(currentAcademicYearId)
 
-            const reportTypes = userData?.accessibleReportTypes || []
-            setAccessibleReportTypes(reportTypes)
+            const canManageAll = userRole === 'admin' || userRole === 'manager'
 
-            const canManageAll = userData?.role === 'admin' || userData?.role === 'manager'
+            // ⭐️ Gọi API một lần để kiểm tra quyền Viết Báo cáo Standard, dùng làm quyền Import chung
+            const overallWriteCheck = await canWriteReportAPI('standard', currentAcademicYearId);
+            setHasWritePermission(overallWriteCheck);
 
+            // Gán các hàm kiểm tra quyền chi tiết (sẽ gọi API)
             setUserPermissions({
-                canWriteTDGReport: reportTypes.includes('overall_tdg') || canManageAll,
-                canWriteStandardReport: reportTypes.includes('standard') || canManageAll,
-                canWriteCriteriaReport: reportTypes.includes('criteria') || canManageAll,
-
                 canEditStandard: async (standardId) => {
                     if (canManageAll) return true
                     const res = await apiMethods.permissions.canEditStandard(standardId, currentAcademicYearId)
@@ -246,6 +258,8 @@ export default function EvidenceTree() {
             return
         }
 
+        // Logic thông báo đã có ở Header.
+
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -305,40 +319,38 @@ export default function EvidenceTree() {
 
     const canManageAll = userRole === 'admin' || userRole === 'manager'
 
-    const canWriteReport = (reportType) => {
-        if (canManageAll) return true
-        if (reportType === 'tdg' && accessibleReportTypes.includes('overall_tdg')) return true
-        if (reportType === 'standard' && accessibleReportTypes.includes('standard')) return true
-        return reportType === 'criteria' && accessibleReportTypes.includes('criteria');
+    // Hàm này gọi API kiểm tra quyền cho từng StandardNode/CriteriaNode
+    const canWriteReport = async (reportType) => {
+        // Gọi API canWriteReportAPI đã được định nghĩa ở trên (dùng hàm async)
+        return await canWriteReportAPI(reportType, academicYearId);
     }
 
-    const hasWritePermission = accessibleReportTypes.length > 0
-
+    // Các hàm kiểm tra quyền chi tiết (sẽ truyền vào EvidenceTreeMain)
     const checkCanEditStandard = async (standardId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canEditStandard(standardId);
+            return userPermissions.canEditStandard(standardId, academicYearId);
         } catch (e) { return false }
     }
 
     const checkCanEditCriteria = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canEditCriteria(criteriaId);
+            return userPermissions.canEditCriteria(criteriaId, academicYearId);
         } catch (e) { return false }
     }
 
     const checkCanUploadEvidence = async (criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canUploadEvidence(criteriaId);
+            return userPermissions.canUploadEvidence(criteriaId, academicYearId);
         } catch (e) { return false }
     }
 
     const checkCanAssignReporters = async (standardId, criteriaId) => {
         if (canManageAll) return true
         try {
-            return userPermissions.canAssignReporters(standardId, criteriaId);
+            return userPermissions.canAssignReporters(standardId, criteriaId, academicYearId);
         } catch (e) { return false }
     }
 
@@ -378,7 +390,7 @@ export default function EvidenceTree() {
             })
             await apiMethods.files.uploadMultiple(formData, selectedEvidence.id)
             toast.success('Upload file thành công')
-            await fetchTreeData()
+            fetchTreeData()
             setSelectedEvidence(null)
         } catch (error) {
             throw new Error(error.response?.data?.message || 'Lỗi khi upload file')
@@ -441,7 +453,7 @@ export default function EvidenceTree() {
                         onDrop={handleDrop}
                         userRole={userRole}
                         canManageAll={canManageAll}
-                        canWriteReport={canWriteReport}
+                        canWriteReport={canWriteReport} // TRUYỀN HÀM MỚI (GỌI API)
                         canEditStandard={checkCanEditStandard}
                         canEditCriteria={checkCanEditCriteria}
                         canUploadEvidence={checkCanUploadEvidence}

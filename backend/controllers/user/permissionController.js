@@ -1,11 +1,9 @@
 const permissionService = require('../../services/permissionService');
 
 const getAcademicYearId = (req) => {
-    // 1. Ưu tiên lấy từ Middleware (đã được thiết lập qua attachCurrentAcademicYear)
     if (req.academicYearId) {
         return req.academicYearId;
     }
-    // 2. Nếu không có, lấy từ Query Parameter (phòng trường hợp Middleware bị bỏ qua)
     return req.query.academicYearId;
 };
 
@@ -105,9 +103,45 @@ const canAssignReporters = async (req, res) => {
     }
 };
 
+const checkCanWriteReport = async (req, res) => {
+    try {
+        const { reportType } = req.params;
+        // ⭐️ THÊM: Lấy standardId và criteriaId từ query
+        const { standardId, criteriaId } = req.query;
+        const userId = req.user.id;
+        const academicYearId = getAcademicYearId(req);
+
+        if (!academicYearId) {
+            return res.status(400).json({ success: false, message: 'Thiếu ID năm học (academicYearId)' });
+        }
+
+        if (!reportType) {
+            return res.status(400).json({ success: false, message: 'Thiếu loại báo cáo (reportType)' });
+        }
+
+        // ⭐️ TRUYỀN THÊM ID VÀO HÀM KIỂM TRA QUYỀN CỤC BỘ
+        const canWrite = await permissionService.canWriteReport(
+            userId,
+            reportType,
+            academicYearId,
+            standardId,
+            criteriaId === 'null' ? null : criteriaId
+        );
+
+        res.json({
+            success: true,
+            data: { canWrite: canWrite }
+        });
+    } catch (error) {
+        console.error('Check can write report error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi kiểm tra quyền viết báo cáo' });
+    }
+};
+
 module.exports = {
     canEditStandard,
     canEditCriteria,
     canUploadEvidence,
-    canAssignReporters
+    canAssignReporters,
+    checkCanWriteReport
 };

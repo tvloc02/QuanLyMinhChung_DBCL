@@ -75,7 +75,7 @@ export default function EvidenceTreeMain({
                                              onDrop,
                                              userRole,
                                              canManageAll,
-                                             canWriteReport,
+                                             canWriteReport, // HÀM NÀY BÂY GIỜ LÀ ASYNC (GỌI API)
                                              canEditStandard,
                                              canEditCriteria,
                                              canUploadEvidence,
@@ -126,13 +126,15 @@ export default function EvidenceTreeMain({
             const standardPromises = [];
             const criteriaPromises = [];
 
+
             for (const standard of treeData) {
                 const stdId = standard.id;
 
                 standardPromises.push((async () => {
                     const canEdit = await canEditStandard(stdId);
                     const canAssign = await canAssignReporters(stdId, null);
-                    const canWriteStd = await canWriteReport('standard');
+                    // ⭐️ GỌI HÀM canWriteReport ASYNC TRỰC TIẾP VÀ TRUYỀN ID CỤC BỘ
+                    const canWriteStd = await canWriteReport('standard', stdId, null);
                     return { stdId, canEdit, canAssign, canWriteStd };
                 })());
 
@@ -142,7 +144,8 @@ export default function EvidenceTreeMain({
                         const canEdit = await canEditCriteria(critId);
                         const canAssign = await canAssignReporters(standard.id, critId);
                         const canUpload = await canUploadEvidence(critId);
-                        const canWriteCrit = await canWriteReport('criteria');
+                        // ⭐️ GỌI HÀM canWriteReport ASYNC TRỰC TIẾP VÀ TRUYỀN ID CỤC BỘ
+                        const canWriteCrit = await canWriteReport('criteria', standard.id, critId);
                         return { critId, canEdit, canAssign, canUpload, canWriteCrit };
                     })());
                 }
@@ -162,7 +165,9 @@ export default function EvidenceTreeMain({
             setCriteriaPermissions(newCriteriaPermissions);
             setIsPermissionLoading(false);
         };
+        // Lệnh gọi này phải được đặt ngay sau khi các hàm quyền chi tiết được định nghĩa
         updatePermissions();
+        // ⭐️ Gắn tất cả các hàm quyền chi tiết vào dependency để đảm bảo tính toán lại khi chúng được định nghĩa (sau fetchUserInfo)
     }, [treeData, canEditStandard, canAssignReporters, canEditCriteria, canUploadEvidence, canWriteReport]);
 
 
@@ -170,8 +175,9 @@ export default function EvidenceTreeMain({
         const isExpanded = expandedNodes[`std-${stdIdx}`]
 
         const stdPerm = standardPermissions[standard.id] || {};
-        const canEdit = stdPerm.canEdit || false;
-        const canAssign = stdPerm.canAssign || false;
+        // Quyền edit/assign/write theo quyền cục bộ hoặc Admin/Manager
+        const canEdit = canManageAll || stdPerm.canEdit || false;
+        const canAssign = canManageAll || stdPerm.canAssign || false;
         const canWrite = canManageAll || stdPerm.canWriteStd || false;
 
         const baseColor = standard.hasEvidence ? 'blue' : 'red';
@@ -202,6 +208,7 @@ export default function EvidenceTreeMain({
                     </div>
 
                     <div className="flex space-x-2 ml-4 flex-shrink-0">
+                        {/* ⭐️ LUÔN HIỂN THỊ NÚT XEM */}
                         <ActionButton
                             icon={Eye}
                             label="Xem"
@@ -247,6 +254,9 @@ export default function EvidenceTreeMain({
                                 customColor={`bg-purple-600 hover:bg-purple-700`}
                             />
                         )}
+                        {canManageAll && !canEdit && !canWrite && !canAssign && (
+                            <ActionButton icon={Trash2} label="Xóa tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.info('Xóa tiêu chuẩn'); }} variant="secondary" />
+                        )}
                     </div>
                 </div>
 
@@ -272,10 +282,11 @@ export default function EvidenceTreeMain({
         const isCriteriaExpanded = expandedNodes[criteriaNodeKey]
 
         const critPerm = criteriaPermissions[criteria.id] || {};
-        const canEdit = critPerm.canEdit || false;
-        const canAssign = critPerm.canAssign || false;
+        // Quyền edit/assign/write/upload theo quyền cục bộ hoặc Admin/Manager
+        const canEdit = canManageAll || critPerm.canEdit || false;
+        const canAssign = canManageAll || critPerm.canAssign || false;
         const canWrite = canManageAll || critPerm.canWriteCrit || false;
-        const canUpload = critPerm.canUpload || false;
+        const canUpload = canManageAll || critPerm.canUpload || false; // Admin/Manager luôn có quyền Upload
 
         const baseColor = criteria.hasEvidence ? 'indigo' : 'orange';
         const bgColor = criteria.hasEvidence ? `bg-indigo-50 hover:bg-indigo-100 border-indigo-300` : `bg-orange-50 hover:bg-orange-100 border-orange-300`;
@@ -309,6 +320,7 @@ export default function EvidenceTreeMain({
                     </div>
 
                     <div className="flex space-x-2 ml-4 flex-shrink-0">
+                        {/* ⭐️ LUÔN HIỂN THỊ NÚT XEM */}
                         <ActionButton icon={Eye} label="Xem" onClick={(e) => { e.stopPropagation(); toast.success('Xem tiêu chí'); }} variant="secondary" />
                         {canEdit && (
                             <ActionButton icon={Edit} label="Sửa tiêu chí" onClick={(e) => { e.stopPropagation(); toast.info('Sửa tiêu chí'); }} customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`} />
@@ -340,6 +352,9 @@ export default function EvidenceTreeMain({
                                 }}
                                 customColor={`bg-purple-600 hover:bg-purple-700`}
                             />
+                        )}
+                        {canManageAll && !canEdit && !canWrite && !canAssign && (
+                            <ActionButton icon={Trash2} label="Xóa tiêu chí" onClick={(e) => { e.stopPropagation(); toast.info('Xóa tiêu chí'); }} variant="secondary" />
                         )}
                     </div>
                 </div>
@@ -379,6 +394,7 @@ export default function EvidenceTreeMain({
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 ml-4 flex-shrink-0">
+                                    {/* ⭐️ LUÔN HIỂN THỊ NÚT XEM */}
                                     <ActionButton icon={Eye} label="Xem Minh chứng" onClick={(e) => { e.stopPropagation(); toast.success('Xem Minh chứng'); }} variant="secondary" />
                                     {canUpload && (
                                         <ActionButton

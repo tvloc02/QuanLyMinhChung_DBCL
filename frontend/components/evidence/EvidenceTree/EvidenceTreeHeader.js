@@ -27,7 +27,7 @@ export default function EvidenceTreeHeader({
                 return
             }
 
-            // ⭐️ LOGIC THÔNG BÁO CHO REPORTER KHI CỐ GẮNG IMPORT TỔNG THỂ
+            // LOGIC THÔNG BÁO CHO REPORTER KHI CỐ GẮNG IMPORT TỔNG THỂ
             if (!canManageAll && userRole === 'reporter') {
                 toast.error('Reporter chỉ có thể Upload file cho Minh chứng đã được phân công qua nút Upload trên cây. Chức năng Import danh sách tổng thể chỉ dành cho Quản lý hoặc Admin.')
                 e.target.value = ''
@@ -38,7 +38,7 @@ export default function EvidenceTreeHeader({
         }
     }
 
-    // ⭐️ HIỂN THỊ NÚT IMPORT CHO CẢ REPORTER NẾU CÓ QUYỀN GHI
+    // HIỂN THỊ NÚT IMPORT CHO CẢ REPORTER NẾU CÓ QUYỀN GHI
     const showImportButton = canManageAll || (userRole === 'reporter' && hasWritePermission)
 
     return (

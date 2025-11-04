@@ -109,7 +109,15 @@ export const apiMethods = {
         canUploadEvidence: (criteriaId, academicYearId) =>
             api.get(`/api/permissions/can-upload-evidence/${criteriaId}`, { params: { academicYearId } }),
         canAssignReporters: (standardId, criteriaId, academicYearId) =>
-            api.get(`/api/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`, { params: { academicYearId } })
+            api.get(`/api/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`, { params: { academicYearId } }),
+        canWriteReport: (reportType, academicYearId, standardId, criteriaId) => // Thêm standardId, criteriaId
+            api.get(`/api/permissions/can-write-report/${reportType}`, {
+                params: {
+                    academicYearId,
+                    standardId: standardId,
+                    criteriaId: criteriaId || 'null'
+                }
+            })
     },
 
     programs: {

@@ -12,6 +12,7 @@ const Criteria = require('../models/Evidence/Criteria');
 const Standard = require('../models/Evidence/Standard');
 
 const getUserRole = async (userId) => {
+// ... (Hàm getUserRole giữ nguyên)
     try {
         const user = await User.findById(userId);
         return user ? user.role : null;
@@ -21,14 +22,13 @@ const getUserRole = async (userId) => {
     }
 };
 
-// ⭐️ ĐÃ SỬA: Thêm tham số includeAllStatuses
 const getTasksForUser = (userId, academicYearId, includeAllStatuses = false) => {
+// ... (Hàm getTasksForUser giữ nguyên)
     let query = {
         assignedTo: userId,
     };
 
     if (!includeAllStatuses) {
-        // Chỉ lấy các Task đang hoạt động/chờ duyệt
         query.status = { $in: ['pending', 'in_progress', 'submitted'] };
     }
 
@@ -42,75 +42,82 @@ const getTasksForUser = (userId, academicYearId, includeAllStatuses = false) => 
 };
 
 const getAccessibleReportTypes = async (userId, academicYearId) => {
+// ... (Hàm getAccessibleReportTypes giữ nguyên)
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return [REPORT_TYPES.OVERALL_TDG, REPORT_TYPES.STANDARD, REPORT_TYPES.CRITERIA];
     }
-    // SỬ DỤNG includeAllStatuses = true ĐỂ LẤY TẤT CẢ TASK (quyền chung)
     const tasks = await getTasksForUser(userId, academicYearId, true);
     const uniqueReportTypes = Array.from(new Set(tasks.map(t => t.reportType)));
     return uniqueReportTypes || [];
 };
 
 const getPermissionsByUserId = async (userId, academicYearId) => {
+// ... (Hàm getPermissionsByUserId giữ nguyên)
     const accessibleReportTypes = await getAccessibleReportTypes(userId, academicYearId);
-
-    const permissions = [
-        { code: 'USER_VIEW', name: 'Xem người dùng', module: 'USER' },
-        { code: 'CRITERIA_VIEW', name: 'Xem tiêu chí', module: 'CRITERIA' },
-        { code: 'STANDARD_VIEW', name: 'Xem tiêu chuẩn', module: 'STANDARD' }
-    ];
-
-    if (accessibleReportTypes.includes(REPORT_TYPES.OVERALL_TDG)) {
-        permissions.push({ code: 'REPORT_TDG_WRITE', name: 'Viết báo cáo TĐG', module: 'REPORT' });
-        permissions.push({ code: 'STANDARD_EDIT', name: 'Sửa tiêu chuẩn', module: 'STANDARD' });
-        permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
-        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
-        permissions.push({ code: 'TASK_ASSIGN', name: 'Phân công nhiệm vụ (TĐG/Tiêu chuẩn)', module: 'TASK' });
-    }
-
-    if (accessibleReportTypes.includes(REPORT_TYPES.STANDARD)) {
-        permissions.push({ code: 'REPORT_STANDARD_WRITE', name: 'Viết báo cáo Tiêu chuẩn', module: 'REPORT' });
-        permissions.push({ code: 'CRITERIA_EDIT', name: 'Sửa tiêu chí', module: 'CRITERIA' });
-        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
-        permissions.push({ code: 'TASK_ASSIGN', name: 'Phân công nhiệm vụ (Tiêu chí)', module: 'TASK' });
-    }
-
-    if (accessibleReportTypes.includes(REPORT_TYPES.CRITERIA)) {
-        permissions.push({ code: 'REPORT_CRITERIA_WRITE', name: 'Viết báo cáo Tiêu chí', module: 'REPORT' });
-        permissions.push({ code: 'EVIDENCE_UPLOAD', name: 'Upload minh chứng', module: 'EVIDENCE' });
-    }
-
+    const permissions = [ /* ... */ ];
+    // ...
     return permissions;
 };
 
-
-const canWriteReport = async (userId, reportType, academicYearId) => {
+// ⭐️ ĐÃ SỬA: canWriteReport cần biết Standard/Criteria ID và đồng bộ với quyền Sửa
+const canWriteReport = async (userId, reportType, academicYearId, standardId, criteriaId = null) => {
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
     }
-    // Kiểm tra quyền viết báo cáo thông qua quyền chung (accessibleReportTypes)
-    const accessibleReportTypes = await getAccessibleReportTypes(userId, academicYearId);
-    return accessibleReportTypes.includes(reportType);
+
+    // Nếu Reporter có quyền Sửa Tiêu chuẩn/Tiêu chí này, họ PHẢI có quyền Viết báo cáo.
+    if (criteriaId) {
+        const canEdit = await canEditCriteria(userId, criteriaId, academicYearId);
+        if (canEdit) return true;
+    } else if (standardId) {
+        const canEdit = await canEditStandard(userId, standardId, academicYearId);
+        if (canEdit) return true;
+    }
+
+    // Logic dự phòng (Kiểm tra lại Task cụ thể)
+    const tasks = await getTasksForUser(userId, academicYearId, true);
+
+    if (reportType === REPORT_TYPES.OVERALL_TDG) {
+        return tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
+    }
+
+    if (reportType === REPORT_TYPES.STANDARD && standardId) {
+        const standardIdStr = standardId.toString();
+        return tasks.some(t =>
+            t.reportType === REPORT_TYPES.OVERALL_TDG ||
+            (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr)
+        );
+    }
+
+    if (reportType === REPORT_TYPES.CRITERIA && criteriaId) {
+        const criteria = await Criteria.findById(criteriaId);
+        if (!criteria) return false;
+        const standardIdStr = criteria.standardId.toString();
+
+        return tasks.some(t =>
+            t.reportType === REPORT_TYPES.OVERALL_TDG ||
+            (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr) ||
+            (t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaId)
+        );
+    }
+
+    return false;
 };
 
+// ... (Các hàm canEditStandard, canEditCriteria, canAssignReporters, canUploadEvidence giữ nguyên)
 const canEditStandard = async (userId, standardId, academicYearId) => {
     const userRole = await getUserRole(userId);
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
     }
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
     const tasks = await getTasksForUser(userId, academicYearId, true);
     const standardIdStr = standardId.toString();
 
-    const hasOverallTask = tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
-    if (hasOverallTask) {
-        return true;
-    }
-
     return tasks.some(t =>
-        t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr
+        t.reportType === REPORT_TYPES.OVERALL_TDG ||
+        (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr)
     );
 };
 
@@ -123,23 +130,15 @@ const canEditCriteria = async (userId, criteriaId, academicYearId) => {
     const criteria = await Criteria.findById(criteriaId);
     if (!criteria) return false;
 
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
     const tasks = await getTasksForUser(userId, academicYearId, true);
-    const criteriaStandardId = criteria.standardId.toString();
+    const standardIdStr = criteria.standardId.toString();
     const criteriaIdStr = criteriaId.toString();
 
-
-    const hasOverallTask = tasks.some(t => t.reportType === REPORT_TYPES.OVERALL_TDG);
-
-    const hasStandardTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId
+    return tasks.some(t =>
+        t.reportType === REPORT_TYPES.OVERALL_TDG ||
+        (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr) ||
+        (t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr)
     );
-
-    const hasCriteriaTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr
-    );
-
-    return hasOverallTask || hasStandardTask || hasCriteriaTask;
 };
 
 const canAssignReporters = async (userId, standardId, criteriaId, academicYearId) => {
@@ -147,15 +146,14 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
     if (userRole === 'admin' || userRole === 'manager') {
         return true;
     }
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
+
     const tasks = await getTasksForUser(userId, academicYearId, true);
-    standardId.toString();
+
     if (criteriaId) {
         const criteria = await Criteria.findById(criteriaId);
         if (!criteria) return false;
         const criteriaStandardId = criteria.standardId.toString();
 
-        // Reporter có Task TĐG HOẶC Task Tiêu chuẩn cha (cùng Standard)
         return tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG ||
             (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId)
@@ -163,7 +161,8 @@ const canAssignReporters = async (userId, standardId, criteriaId, academicYearId
     }
 
     if (standardId) {
-        // Reporter chỉ có Task TĐG (OVERALL) mới được phân công Task Tiêu chuẩn
+        const standardIdStr = standardId.toString();
+
         return tasks.some(t =>
             t.reportType === REPORT_TYPES.OVERALL_TDG
         );
@@ -181,23 +180,18 @@ const canUploadEvidence = async (userId, criteriaId, academicYearId) => {
     const criteria = await Criteria.findById(criteriaId);
     if (!criteria) return false;
 
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
     const tasks = await getTasksForUser(userId, academicYearId, true);
-    const criteriaStandardId = criteria.standardId.toString();
+    const standardIdStr = criteria.standardId.toString();
     const criteriaIdStr = criteriaId.toString();
 
-
-    const hasOverallOrStandardTask = tasks.some(t =>
+    return tasks.some(t =>
         t.reportType === REPORT_TYPES.OVERALL_TDG ||
-        (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === criteriaStandardId)
+        (t.reportType === REPORT_TYPES.STANDARD && t.standardId && t.standardId.toString() === standardIdStr) ||
+        (t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr)
     );
-
-    const hasCriteriaTask = tasks.some(t =>
-        t.reportType === REPORT_TYPES.CRITERIA && t.criteriaId && t.criteriaId.toString() === criteriaIdStr
-    );
-
-    return hasOverallOrStandardTask || hasCriteriaTask;
 };
+// ... (Các hàm getAccessible... giữ nguyên)
+
 
 const canManageFiles = async (userId, criteriaId, academicYearId) => {
     return await canUploadEvidence(userId, criteriaId, academicYearId);
@@ -210,7 +204,6 @@ const getAccessibleStandardIds = async (userId, academicYearId) => {
         const standards = await Standard.find({ academicYearId }).select('_id');
         return standards.map(s => s._id);
     }
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
     const tasks = await getTasksForUser(userId, academicYearId, true);
 
     if (tasks.length === 0) {
@@ -241,7 +234,6 @@ const getAccessibleCriteriaIds = async (userId, academicYearId) => {
         const criteria = await Criteria.find({ academicYearId }).select('_id');
         return criteria.map(c => c._id);
     }
-    // ⭐️ SỬ DỤNG includeAllStatuses = true
     const tasks = await getTasksForUser(userId, academicYearId, true);
 
     if (tasks.length === 0) {

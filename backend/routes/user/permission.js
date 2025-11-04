@@ -12,4 +12,8 @@ router.get('/can-upload-evidence/:criteriaId', auth, permissionController.canUpl
 
 router.get('/can-assign-reporters/:standardId/:criteriaId?', auth, permissionController.canAssignReporters);
 
+// ⭐️ ĐÃ SỬA: Định nghĩa route cho canWriteReport
+// route này nhận reportType qua param và standardId/criteriaId qua query
+router.get('/can-write-report/:reportType', auth, permissionController.checkCanWriteReport);
+
 module.exports = router;
