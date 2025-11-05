@@ -70,6 +70,11 @@ const reportSchema = new mongoose.Schema({
         required: [true, 'Năm học là bắt buộc']
     },
 
+    taskId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Task'
+    },
+
     title: {
         type: String,
         required: [true, 'Tiêu đề báo cáo là bắt buộc'],
@@ -236,6 +241,7 @@ reportSchema.index({ academicYearId: 1, standardId: 1 });
 reportSchema.index({ academicYearId: 1, criteriaId: 1 });
 reportSchema.index({ createdBy: 1 });
 reportSchema.index({ status: 1 });
+reportSchema.index({ taskId: 1 });
 reportSchema.index({ title: 'text', content: 'text', summary: 'text' });
 reportSchema.index({ code: 1 }, { unique: true });
 

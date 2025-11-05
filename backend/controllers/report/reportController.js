@@ -1444,6 +1444,129 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
+const getReportsByTask = async (req, res) => {
+    try {
+        const { taskId } = req.query;
+        const { reportType, standardId, criteriaId } = req.query;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        if (!taskId) {
+            return res.status(400).json({
+                success: false,
+                message: 'TaskId là bắt buộc'
+            });
+        }
+
+        if (!reportType) {
+            return res.status(400).json({
+                success: false,
+                message: 'ReportType là bắt buộc'
+            });
+        }
+
+        const Task = require('../../models/Task/Task');
+        const task = await Task.findById(taskId);
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy nhiệm vụ'
+            });
+        }
+
+        let query = {
+            academicYearId,
+            taskId,
+            type: reportType
+        };
+
+        if (standardId) query.standardId = standardId;
+        if (criteriaId) query.criteriaId = criteriaId;
+
+        const reports = await Report.find(query)
+            .populate('createdBy', 'fullName email')
+            .populate('assignedReporters', 'fullName email')
+            .sort({ createdAt: -1 });
+
+        const canCreateNew = task.assignedTo.map(id => id.toString()).includes(userId.toString());
+
+        const canEditOther = reports.map(r => ({
+            id: r._id,
+            canEdit: r.canEdit(userId, req.user.role),
+            createdBy: r.createdBy,
+            assignedReporters: r.assignedReporters
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                reports,
+                canCreateNew,
+                canEditOther,
+                task
+            }
+        });
+
+    } catch (error) {
+        console.error('Get reports by task error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
+        });
+    }
+};
+
+const requestEditPermission = async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        const report = await Report.findOne({ _id: reportId, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        if (report.assignedReporters.map(r => r.toString()).includes(userId.toString())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn đã có quyền chỉnh sửa báo cáo này'
+            });
+        }
+
+        if (!report.assignedReporters.includes(report.createdBy)) {
+            report.assignedReporters.push(report.createdBy);
+        }
+
+        if (!report.assignedReporters.map(r => r.toString()).includes(userId.toString())) {
+            report.assignedReporters.push(userId);
+        }
+
+        report.updatedBy = userId;
+        await report.save();
+
+        await report.populate('assignedReporters', 'fullName email');
+
+        res.json({
+            success: true,
+            message: 'Yêu cầu cấp quyền đã được gửi',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Request edit permission error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi yêu cầu quyền'
+        });
+    }
+};
+
 module.exports = {
     getReports,
     getReportById,
@@ -1467,4 +1590,6 @@ module.exports = {
     getReportComments,
     addReportComment,
     resolveReportComment,
+    getReportsByTask,
+    requestEditPermission
 };
