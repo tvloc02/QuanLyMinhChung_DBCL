@@ -74,7 +74,7 @@ publicApi.interceptors.response.use(
 export const apiMethods = {
     auth: {
         login: (credentials) => api.post('/auth/login', credentials),
-        },
+    },
 
     academicYears: {
         getAll: (params) => api.get('/academic-years', { params }),
@@ -110,7 +110,7 @@ export const apiMethods = {
             api.get(`/api/permissions/can-upload-evidence/${criteriaId}`, { params: { academicYearId } }),
         canAssignReporters: (standardId, criteriaId, academicYearId) =>
             api.get(`/api/permissions/can-assign-reporters/${standardId}/${criteriaId || 'null'}`, { params: { academicYearId } }),
-        canWriteReport: (reportType, academicYearId, standardId, criteriaId) => // Thêm standardId, criteriaId
+        canWriteReport: (reportType, academicYearId, standardId, criteriaId) =>
             api.get(`/api/permissions/can-write-report/${reportType}`, {
                 params: {
                     academicYearId,
@@ -165,16 +165,16 @@ export const apiMethods = {
 
     tasks: {
         getAll: (params) => api.get('/api/tasks', { params }),
+        getCreatedTasks: (params) => api.get('/api/tasks/created', { params }),
+        getAssignedTasks: (params) => api.get('/api/tasks/assigned', { params }),
         getById: (id) => api.get(`/api/tasks/${id}`),
         create: (data) => api.post('/api/tasks', data),
         update: (id, data) => api.put(`/api/tasks/${id}`, data),
         delete: (id) => api.delete(`/api/tasks/${id}`),
         getByCriteria: (criteriaId) => api.get('/api/tasks/by-criteria', { params: { criteriaId } }),
         submitReport: (id, reportId) => api.post(`/api/tasks/${id}/submit-report`, { reportId }),
-        reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data),
-        getAssignedTasks: (params) => api.get('/api/tasks/assigned', { params }),
+        reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
     },
-
 
     evidences: {
         getAll: (params) => api.get('/api/evidences', { params }),
@@ -224,7 +224,6 @@ export const apiMethods = {
         }),
     },
 
-
     files: {
         upload: (file, evidenceId, config = {}) => {
             const formData = new FormData()
@@ -262,39 +261,32 @@ export const apiMethods = {
         update: (id, data) => api.put(`/api/reports/${id}`, data),
         delete: (id) => api.delete(`/api/reports/${id}`),
         publish: (id) => api.post(`/api/reports/${id}/publish`),
-
-        addVersion: (id, content, changeNote) =>
-            api.post(`/api/reports/${id}/versions`, { content, changeNote }),
-        getVersions: (id) => api.get(`/api/reports/${id}/versions`),
-
-        linkEvidences: (id) => api.post(`/api/reports/${id}/link-evidences`),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
-        validateEvidenceLinks: (id) => api.post(`/api/reports/${id}/validate-evidence-links`),
-
-        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, {
-            params: { format },
-            responseType: 'blob'
-        }),
-
-        addComment: (id, comment, section) =>
-            api.post(`/api/reports/${id}/comments`, { comment, section }),
-        getComments: (id) => api.get(`/api/reports/${id}/comments`),
-        resolveComment: (id, commentId) =>
-            api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
-
-        getStats: (params) => api.get('/api/reports/stats', { params }),
-        generateCode: (type, standardCode, criteriaCode) =>
-            api.post('/api/reports/generate-code', { type, standardCode, criteriaCode }),
-
-        bulkDelete: (reportIds) =>
-            api.post('/api/reports/bulk/delete', { reportIds }),
-        bulkPublish: (reportIds) =>
-            api.post('/api/reports/bulk/publish', { reportIds }),
-        bulkArchive: (reportIds) =>
-            api.post('/api/reports/bulk/archive', { reportIds }),
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
+        approve: (id, feedback) => api.post(`/api/reports/${id}/approve`, { feedback }),
+        reject: (id, feedback) => api.post(`/api/reports/${id}/reject`, { feedback }),
+        makePublic: (id) => api.post(`/api/reports/${id}/make-public`),
+        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format }, responseType: 'blob' }),
+        downloadFile: (id) => api.get(`/api/reports/${id}/download-file`, { responseType: 'blob' }),
+        uploadFile: (id, file) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            return api.post(`/api/reports/${id}/upload-file`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+        },
+        convertFileToContent: (id) => api.post(`/api/reports/${id}/convert-file-to-content`),
+        getByTask: (params) => api.get('/api/reports/by-task', { params }),
+        requestEditPermission: (id) => api.post(`/api/reports/${id}/request-edit-permission`),
+        getStats: (params) => api.get('/api/reports/stats', { params }),
+        getVersions: (id) => api.get(`/api/reports/${id}/versions`),
+        addVersion: (id, content, changeNote) => api.post(`/api/reports/${id}/versions`, { content, changeNote }),
+        getComments: (id) => api.get(`/api/reports/${id}/comments`),
+        addComment: (id, comment, section) => api.post(`/api/reports/${id}/comments`, { comment, section }),
+        resolveComment: (id, commentId) => api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
+        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
+        assignReporter: (id, reporterIds) => api.post(`/api/reports/${id}/assign-reporter`, { reporterIds })
     },
-
+    
     assignments: {
         getAll: (params) => api.get('/api/assignments', { params }),
         getById: (id) => api.get(`/api/assignments/${id}`),
@@ -351,7 +343,6 @@ export const apiMethods = {
         getHealth: () => api.get('/system/health')
     },
 
-
     userGroups: {
         getAll: (params) => api.get('/api/user-groups', { params }),
         getById: (id) => api.get('/api/user-groups/${id}'),
@@ -365,6 +356,6 @@ export const apiMethods = {
         getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
         getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)
     },
-
 }
+
 export default api

@@ -6,6 +6,8 @@ const { attachCurrentAcademicYear } = require('../../middleware/academicYear');
 const validation = require('../../middleware/validation');
 const {
     getTasks,
+    getAssignedTasks,
+    getCreatedTasks,
     getTaskById,
     createTask,
     updateTask,
@@ -62,6 +64,28 @@ const updateTaskValidation = [
         .withMessage('Ngày hết hạn không hợp lệ')
 ];
 
+router.get('/created', [
+    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('search').optional().trim().escape(),
+    query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
+    query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
+    query('status').optional().isIn(['pending', 'in_progress', 'submitted', 'approved', 'rejected', 'completed']),
+    query('sortBy').optional().isIn(['taskCode', 'createdAt', 'dueDate']),
+    query('sortOrder').optional().isIn(['asc', 'desc'])
+], validation, getCreatedTasks);
+
+router.get('/assigned', [
+    query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
+    query('search').optional().trim().escape(),
+    query('standardId').optional().isMongoId().withMessage('ID tiêu chuẩn không hợp lệ'),
+    query('criteriaId').optional().isMongoId().withMessage('ID tiêu chí không hợp lệ'),
+    query('status').optional().isIn(['pending', 'in_progress', 'submitted', 'approved', 'rejected', 'completed']),
+    query('sortBy').optional().isIn(['taskCode', 'createdAt', 'dueDate']),
+    query('sortOrder').optional().isIn(['asc', 'desc'])
+], validation, getAssignedTasks);
+
 router.get('/', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
@@ -86,14 +110,12 @@ router.get('/:id', [
     param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')
 ], validation, getTaskById);
 
-// ⭐️ SỬA LỖI: Xóa requireManager. Logic kiểm tra quyền manager/reporter đã được chuyển vào createTask controller.
 router.post('/',
     createTaskValidation,
     validation,
     createTask
 );
 
-// Lưu ý: Giữ lại requireManager/auth cho các thao tác quản trị cố định (PUT/DELETE/REVIEW)
 router.put('/:id',
     requireManager,
     updateTaskValidation,
@@ -121,11 +143,13 @@ router.post('/:id/review-report',
     requireManager,
     [
         param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
-        body('approved')
-            .isBoolean()
-            .withMessage('approved phải là boolean'),
+        body('status')
+            .notEmpty()
+            .withMessage('Trạng thái là bắt buộc')
+            .isIn(['completed', 'rejected'])
+            .withMessage('Trạng thái không hợp lệ'),
         body('rejectionReason')
-            .if(body('approved').equals('false'))
+            .if(body('status').equals('rejected'))
             .notEmpty()
             .withMessage('Lý do từ chối là bắt buộc khi từ chối'),
         body('rejectionReason')

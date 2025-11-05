@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check } from 'lucide-react'
+import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Send, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -17,6 +17,8 @@ export default function ReportSelectionModal({
     const [reports, setReports] = useState([])
     const [canCreateNew, setCanCreateNew] = useState(false)
     const [task, setTask] = useState(null)
+    const [requestingEdit, setRequestingEdit] = useState({})
+    const [requestedReports, setRequestedReports] = useState(new Set())
 
     useEffect(() => {
         if (isOpen && taskId) {
@@ -55,6 +57,27 @@ export default function ReportSelectionModal({
         onClose()
     }
 
+    const handleRequestEditPermission = async (reportId) => {
+        try {
+            setRequestingEdit(prev => ({ ...prev, [reportId]: true }))
+
+            const response = await apiMethods.reports.requestEditPermission(reportId)
+
+            if (response.data.success) {
+                toast.success('Yêu cầu cấp quyền đã được gửi')
+                setRequestedReports(prev => new Set([...prev, reportId]))
+
+                // Refresh reports list
+                await fetchReports()
+            }
+        } catch (error) {
+            console.error('Request edit permission error:', error)
+            toast.error(error.response?.data?.message || 'Lỗi gửi yêu cầu')
+        } finally {
+            setRequestingEdit(prev => ({ ...prev, [reportId]: false }))
+        }
+    }
+
     const getReportTypeText = () => {
         const typeMap = {
             'criteria': 'Báo cáo tiêu chí',
@@ -86,11 +109,14 @@ export default function ReportSelectionModal({
         return labels[status] || status
     }
 
+    const draftReports = reports.filter(r => r.status === 'draft')
+    const publishedReports = reports.filter(r => r.status !== 'draft')
+
     if (!isOpen) return null
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-white flex items-center justify-between">
                     <div>
@@ -134,58 +160,146 @@ export default function ReportSelectionModal({
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <div className="flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-medium text-blue-900">
-                                            Các báo cáo dưới đây là từ cùng nhiệm vụ
-                                        </p>
-                                        <p className="text-xs text-blue-700 mt-1">
-                                            Bạn có thể tiếp tục sửa báo cáo đang viết hoặc tạo báo cáo mới
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {reports.map(report => (
-                                <div
-                                    key={report._id}
-                                    className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                                    {report.title}
-                                                </h3>
-                                                <span className={`text-xs px-2 py-1 rounded-full border font-medium whitespace-nowrap ${getStatusColor(report.status)}`}>
-                                                    {getStatusLabel(report.status)}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-gray-500">
-                                                Mã: <span className="font-mono font-semibold">{report.code}</span>
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                Tác giả: {report.createdBy?.fullName}
-                                            </p>
-                                            {report.assignedReporters && report.assignedReporters.length > 1 && (
-                                                <p className="text-xs text-gray-500">
-                                                    Người có quyền sửa: {report.assignedReporters.map(r => r.fullName).join(', ')}
+                        <div className="space-y-6">
+                            {/* Báo cáo nháp */}
+                            {draftReports.length > 0 && (
+                                <div>
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium text-amber-900">
+                                                    Báo cáo nháp - Chưa hoàn thành
                                                 </p>
-                                            )}
+                                                <p className="text-xs text-amber-700 mt-1">
+                                                    Bạn có thể tiếp tục sửa hoặc gửi yêu cầu chỉnh sửa cho tác giả
+                                                </p>
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleSelectReport(report._id)}
-                                            className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2"
-                                        >
-                                            <Edit className="w-4 h-4" />
-                                            Sửa
-                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {draftReports.map(report => (
+                                            <div
+                                                key={report._id}
+                                                className="border border-amber-200 bg-amber-50 rounded-xl p-4"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                                {report.title}
+                                                            </h3>
+                                                            <span className={`text-xs px-2 py-1 rounded-full border font-medium whitespace-nowrap ${getStatusColor(report.status)}`}>
+                                                                {getStatusLabel(report.status)}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">
+                                                            Mã: <span className="font-mono font-semibold">{report.code}</span>
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Tác giả: {report.createdBy?.fullName}
+                                                        </p>
+                                                        {report.assignedReporters && report.assignedReporters.length > 1 && (
+                                                            <p className="text-xs text-gray-500">
+                                                                Người có quyền: {report.assignedReporters.map(r => r.fullName).join(', ')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-4 flex gap-2">
+                                                        <button
+                                                            onClick={() => handleSelectReport(report._id)}
+                                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                            Tiếp tục
+                                                        </button>
+                                                        {report.createdBy?.fullName !== 'Bạn' && (
+                                                            <button
+                                                                onClick={() => handleRequestEditPermission(report._id)}
+                                                                disabled={requestingEdit[report._id] || requestedReports.has(report._id)}
+                                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                            >
+                                                                {requestingEdit[report._id] ? (
+                                                                    <>
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                        Đang gửi...
+                                                                    </>
+                                                                ) : requestedReports.has(report._id) ? (
+                                                                    <>
+                                                                        <Check className="w-4 h-4" />
+                                                                        Đã yêu cầu
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Send className="w-4 h-4" />
+                                                                        Yêu cầu sửa
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
+                            )}
+
+                            {/* Báo cáo đã công khai */}
+                            {publishedReports.length > 0 && (
+                                <div>
+                                    {draftReports.length > 0 && <div className="border-t border-gray-200 my-6"></div>}
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium text-blue-900">
+                                                    Báo cáo đã hoàn thành
+                                                </p>
+                                                <p className="text-xs text-blue-700 mt-1">
+                                                    Xem hoặc tạo báo cáo mới
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {publishedReports.map(report => (
+                                            <div
+                                                key={report._id}
+                                                className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                                {report.title}
+                                                            </h3>
+                                                            <span className={`text-xs px-2 py-1 rounded-full border font-medium whitespace-nowrap ${getStatusColor(report.status)}`}>
+                                                                {getStatusLabel(report.status)}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">
+                                                            Mã: <span className="font-mono font-semibold">{report.code}</span>
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            Tác giả: {report.createdBy?.fullName}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleSelectReport(report._id)}
+                                                        className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                        Xem
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

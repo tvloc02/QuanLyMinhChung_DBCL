@@ -10,12 +10,22 @@ import toast from 'react-hot-toast'
 import {
     FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
     Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
-    RefreshCw, Plus, FilePlus
+    RefreshCw, Plus, FilePlus, Lock // 1️⃣ THÊM IMPORT: Lock
 } from 'lucide-react'
 import reportService from '../../services/reportService'
 import { apiMethods } from '../../services/api'
 import { default as BaseLayout } from '../../components/common/Layout'
 import NewEvidenceModal from '../../components/reports/NewEvidenceModal'
+
+// 2️⃣ THÊM HELPER FUNCTION:
+const getReportTypeLabel = (type) => {
+    const typeMap = {
+        'criteria': 'Báo cáo tiêu chí',
+        'standard': 'Báo cáo tiêu chuẩn',
+        'overall_tdg': 'Báo cáo tổng hợp TĐG'
+    }
+    return typeMap[type] || type
+}
 
 export default function CreateReportPage() {
     const { user, isLoading } = useAuth()
@@ -319,7 +329,13 @@ export default function CreateReportPage() {
         }
     }, [isContentDirty, formErrors])
 
+    // 6️⃣ SỬA handleChange FUNCTION
     const handleChange = (field, value) => {
+        // ⭐️ NẾU LOCK FIELD TỪ TASK THÌ KHÔNG THAY ĐỔI
+        if (isFromTask && ['type', 'standardId', 'criteriaId', 'programId', 'organizationId'].includes(field)) {
+            return
+        }
+
         if (isContentDirty) {
             const confirmChange = window.confirm(
                 'Nội dung báo cáo đã thay đổi. Thay đổi Tiêu chuẩn/Tiêu chí/Chương trình sẽ xóa nội dung hiện tại. Bạn có chắc chắn muốn tiếp tục?'
@@ -490,23 +506,40 @@ export default function CreateReportPage() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Loại báo cáo */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <FileType className="w-4 h-4 inline mr-1" />
-                                            Loại báo cáo <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            value={formData.type}
-                                            onChange={(e) => handleChange('type', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                            disabled={isFromTask}
-                                        >
-                                            <option value="criteria">Báo cáo tiêu chí</option>
-                                            <option value="standard">Báo cáo tiêu chuẩn</option>
-                                            <option value="overall_tdg">Báo cáo tổng hợp TĐG</option>
-                                        </select>
-                                    </div>
+                                    {/* Loại báo cáo - 3️⃣ SỬA PHẦN SELECT LOẠI BÁO CÁO */}
+                                    {formData.type !== 'overall_tdg' && (
+                                        <>
+                                            {isFromTask && (
+                                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-start gap-3">
+                                                    <Lock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-blue-900">
+                                                            Loại báo cáo: {getReportTypeLabel(formData.type)}
+                                                        </p>
+                                                        <p className="text-xs text-blue-700 mt-1">
+                                                            Được cố định từ nhiệm vụ
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <FileType className="w-4 h-4 inline mr-1" />
+                                                    Loại báo cáo <span className="text-red-500">*</span>
+                                                </label>
+                                                <select
+                                                    value={formData.type}
+                                                    onChange={(e) => handleChange('type', e.target.value)}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                    disabled={isFromTask}
+                                                >
+                                                    <option value="criteria">Báo cáo tiêu chí</option>
+                                                    <option value="standard">Báo cáo tiêu chuẩn</option>
+                                                    <option value="overall_tdg">Báo cáo tổng hợp TĐG</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
 
                                     {/* Phương thức nhập */}
                                     <div>
@@ -523,7 +556,7 @@ export default function CreateReportPage() {
                                         </select>
                                     </div>
 
-                                    {/* Chương trình */}
+                                    {/* Chương trình - 7️⃣ SỬA PHẦN DISABLE CHƯƠNG TRÌNH */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <BookOpen className="w-4 h-4 inline mr-1" />
@@ -552,7 +585,7 @@ export default function CreateReportPage() {
                                         )}
                                     </div>
 
-                                    {/* Tổ chức */}
+                                    {/* Tổ chức - 7️⃣ SỬA PHẦN DISABLE TỔ CHỨC */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <Building className="w-4 h-4 inline mr-1" />
@@ -578,7 +611,7 @@ export default function CreateReportPage() {
                                         )}
                                     </div>
 
-                                    {/* Tiêu chuẩn */}
+                                    {/* Tiêu chuẩn - 4️⃣ SỬA PHẦN SELECT TIÊU CHUẨN */}
                                     {formData.type !== 'overall_tdg' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -609,7 +642,7 @@ export default function CreateReportPage() {
                                         </div>
                                     )}
 
-                                    {/* Tiêu chí */}
+                                    {/* Tiêu chí - 5️⃣ SỬA PHẦN SELECT TIÊU CHÍ */}
                                     {formData.type === 'criteria' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">

@@ -10,6 +10,7 @@ import { ActionButton } from '../ActionButtons'
 
 export default function TaskList() {
     const router = useRouter()
+    const [activeTab, setActiveTab] = useState('created')
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(false)
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
@@ -33,7 +34,7 @@ export default function TaskList() {
         if (pagination && pagination.current !== undefined) {
             loadTasks(pagination.current)
         }
-    }, [pagination.current, search, status, standardId, criteriaId])
+    }, [activeTab, pagination.current, search, status, standardId, criteriaId])
 
     useEffect(() => {
         fetchStandardsAndCriteria()
@@ -68,22 +69,31 @@ export default function TaskList() {
             if (standardId) params.standardId = standardId
             if (criteriaId) params.criteriaId = criteriaId
 
-            const response = await apiMethods.tasks.getAll(params)
+            let response
+            if (activeTab === 'created') {
+                response = await apiMethods.tasks.getCreatedTasks(params)
+            } else {
+                response = await apiMethods.tasks.getAssignedTasks(params)
+            }
 
             if (response.data.success) {
-                // ⭐️ SỬA LỖI: Đảm bảo tasks luôn là mảng, dùng optional chaining an toàn
-                const loadedTasks = response.data.data?.tasks || []
-                const newPagination = response.data.data?.pagination || { current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false }
+                const loadedTasks = response.data.data || []
+                const newPagination = {
+                    current: response.data.page || 1,
+                    pages: Math.ceil(response.data.total / (response.data.limit || 10)),
+                    total: response.data.total || 0,
+                    hasPrev: response.data.page > 1,
+                    hasNext: response.data.page < Math.ceil(response.data.total / (response.data.limit || 10))
+                }
 
                 setTasks(loadedTasks)
                 setPagination(newPagination)
             } else {
-                // Đảm bảo setTasks về mảng rỗng nếu phản hồi thành công nhưng không có dữ liệu
                 setTasks([])
             }
         } catch (error) {
             toast.error('Không thể tải danh sách nhiệm vụ')
-            setTasks([]) // ⭐️ SỬA LỖI: Luôn đặt tasks về mảng rỗng khi thất bại
+            setTasks([])
         } finally {
             setLoading(false)
         }
@@ -112,7 +122,7 @@ export default function TaskList() {
         })
     }
 
-    const getStatusIconComponent = (status) => {
+    const getStatusLabel = (status) => {
         const icons = {
             pending: <Clock className="w-4 h-4 mr-2" />,
             in_progress: <Clock className="w-4 h-4 mr-2" />,
@@ -121,10 +131,6 @@ export default function TaskList() {
             rejected: <AlertCircle className="w-4 h-4 mr-2" />,
             completed: <CheckCircle className="w-4 h-4 mr-2" />
         }
-        return icons[status] || null
-    }
-
-    const getStatusLabel = (status) => {
         const statuses = {
             pending: 'Chờ xử lý',
             in_progress: 'Đang thực hiện',
@@ -133,20 +139,6 @@ export default function TaskList() {
             rejected: 'Bị từ chối',
             completed: 'Hoàn thành'
         }
-        return (
-            <div className={`
-                flex items-center justify-center 
-                px-3 py-1.5 text-xs font-bold rounded-lg border 
-                ${getStatusColor(status)}
-                whitespace-nowrap
-            `}>
-                {getStatusIconComponent(status)}
-                {statuses[status] || status}
-            </div>
-        )
-    }
-
-    const getStatusColor = (status) => {
         const colors = {
             pending: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
             in_progress: 'bg-blue-100 text-blue-700 border border-blue-300',
@@ -155,14 +147,20 @@ export default function TaskList() {
             rejected: 'bg-red-100 text-red-700 border border-red-300',
             completed: 'bg-emerald-100 text-emerald-700 border border-emerald-300'
         }
-        return colors[status] || 'bg-gray-100 text-gray-700'
+        return (
+            <div className={`flex items-center justify-center px-3 py-1.5 text-xs font-bold rounded-lg border whitespace-nowrap ${colors[status] || 'bg-gray-100 text-gray-700'}`}>
+                {icons[status]}
+                {statuses[status] || status}
+            </div>
+        )
     }
 
     const canManage = userRole === 'admin' || userRole === 'manager'
     const isReporter = userRole === 'reporter'
+    const isCreatedTab = activeTab === 'created'
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -171,10 +169,12 @@ export default function TaskList() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-white mb-1">Quản lý Nhiệm vụ</h1>
-                            <p className="text-blue-100">Giao việc báo cáo minh chứng cho báo cáo viên</p>
+                            <p className="text-blue-100">
+                                {isCreatedTab ? 'Những nhiệm vụ bạn đã giao cho người khác' : 'Những nhiệm vụ được giao cho bạn để thực hiện'}
+                            </p>
                         </div>
                     </div>
-                    {canManage && (
+                    {isCreatedTab && canManage && (
                         <button
                             onClick={() => {
                                 setSelectedTask(null)
@@ -189,83 +189,114 @@ export default function TaskList() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Filter className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm nhiệm vụ..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        />
-                    </div>
-
-                    <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="pending">Chờ xử lý</option>
-                        <option value="in_progress">Đang thực hiện</option>
-                        <option value="submitted">Đã nộp</option>
-                        <option value="approved">Được phê duyệt</option>
-                        <option value="rejected">Bị từ chối</option>
-                        <option value="completed">Hoàn thành</option>
-                    </select>
-
-                    <select
-                        value={standardId}
-                        onChange={(e) => setStandardId(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        <option value="">Tất cả tiêu chuẩn</option>
-                        {standards.map(std => (
-                            <option key={std._id} value={std._id}>
-                                {std.code} - {std.name}
-                            </option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={criteriaId}
-                        onChange={(e) => setCriteriaId(e.target.value)}
-                        className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                        <option value="">Tất cả tiêu chí</option>
-                        {criterias.map(crit => (
-                            <option key={crit._id} value={crit._id}>
-                                {crit.code} - {crit.name}
-                            </option>
-                        ))}
-                    </select>
-
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="flex border-b border-gray-100">
                     <button
                         onClick={() => {
-                            setSearch('')
-                            setStatus('')
-                            setStandardId('')
-                            setCriteriaId('')
+                            setActiveTab('created')
+                            setPagination({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
                         }}
-                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        className={`flex-1 px-6 py-4 font-semibold transition-all ${
+                            isCreatedTab
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-900'
+                        }`}
                     >
-                        <RefreshCw size={18} />
-                        Reset
+                        Nhiệm vụ tôi giao
                     </button>
-
                     <button
-                        onClick={() => loadTasks(1)}
-                        className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        onClick={() => {
+                            setActiveTab('assigned')
+                            setPagination({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
+                        }}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all ${
+                            !isCreatedTab
+                                ? 'text-blue-600 border-b-2 border-blue-600'
+                                : 'text-gray-600 hover:text-gray-900'
+                        }`}
                     >
-                        <RefreshCw size={18} />
-                        Làm mới
+                        Nhiệm vụ của tôi
                     </button>
+                </div>
+
+                <div className="p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Filter className="w-5 h-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            />
+                        </div>
+
+                        <select
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="pending">Chờ xử lý</option>
+                            <option value="in_progress">Đang thực hiện</option>
+                            <option value="submitted">Đã nộp</option>
+                            <option value="approved">Được phê duyệt</option>
+                            <option value="rejected">Bị từ chối</option>
+                            <option value="completed">Hoàn thành</option>
+                        </select>
+
+                        <select
+                            value={standardId}
+                            onChange={(e) => setStandardId(e.target.value)}
+                            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            <option value="">Tất cả tiêu chuẩn</option>
+                            {standards.map(std => (
+                                <option key={std._id} value={std._id}>
+                                    {std.code} - {std.name}
+                                </option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={criteriaId}
+                            onChange={(e) => setCriteriaId(e.target.value)}
+                            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                            <option value="">Tất cả tiêu chí</option>
+                            {criterias.map(crit => (
+                                <option key={crit._id} value={crit._id}>
+                                    {crit.code} - {crit.name}
+                                </option>
+                            ))}
+                        </select>
+
+                        <button
+                            onClick={() => {
+                                setSearch('')
+                                setStatus('')
+                                setStandardId('')
+                                setCriteriaId('')
+                            }}
+                            className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                            <RefreshCw size={18} />
+                            Reset
+                        </button>
+
+                        <button
+                            onClick={() => loadTasks(1)}
+                            className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                            <RefreshCw size={18} />
+                            Làm mới
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -276,18 +307,19 @@ export default function TaskList() {
                         <tr>
                             <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[50px]">STT</th>
                             <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[80px]">Mã</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 min-w-[180px] max-w-[250px]">Mô tả</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Tiêu chuẩn</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Tiêu chí</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Loại báo cáo</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Người giao</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Thời gian giao</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Hạn</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[120px]">Người được giao</th>
                             <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[130px]">Trạng thái</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[90px]">Hạn</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[200px]">Thao tác</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[180px]">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="8" className="px-6 py-16 text-center">
+                                <td colSpan="9" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-500 font-medium">Đang tải dữ liệu...</p>
@@ -296,11 +328,10 @@ export default function TaskList() {
                             </tr>
                         ) : tasks.length === 0 ? (
                             <tr>
-                                <td colSpan="8" className="px-6 py-16 text-center">
+                                <td colSpan="9" className="px-6 py-16 text-center">
                                     <div className="flex flex-col items-center justify-center">
                                         <CheckCircle className="w-16 h-16 text-gray-300 mb-4" />
                                         <p className="text-gray-500 font-medium text-lg">Không có dữ liệu</p>
-                                        <p className="text-gray-400 text-sm mt-1">Thử thay đổi bộ lọc hoặc tạo nhiệm vụ mới</p>
                                     </div>
                                 </td>
                             </tr>
@@ -315,24 +346,29 @@ export default function TaskList() {
                                                 {item.taskCode}
                                             </span>
                                     </td>
-                                    <td className="px-6 py-4 border-r border-gray-200">
-                                        <div className="text-sm font-semibold text-gray-900 line-clamp-2">{item.description}</div>
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                        {item.reportType === 'overall_tdg' ? 'Tổng hợp TĐG' : item.reportType === 'standard' ? 'Tiêu chuẩn' : 'Tiêu chí'}
                                     </td>
-                                    <td className="px-3 py-4 border-r border-gray-200 text-center">
-                                        <div className="text-sm text-gray-900">
-                                            <span className="font-bold text-purple-600">{item.standardId?.code || '-'}</span>
-                                        </div>
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                        {item.createdBy?.fullName || '-'}
                                     </td>
-                                    <td className="px-3 py-4 border-r border-gray-200 text-center">
-                                        <div className="text-sm text-gray-900">
-                                            <span className="font-bold text-blue-600">{item.criteriaId?.code || '-'}</span>
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                        {formatDate(item.createdAt)}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                        {item.dueDate ? formatDate(item.dueDate) : '-'}
+                                    </td>
+                                    <td className="px-3 py-4 border-r border-gray-200 text-center text-sm">
+                                        <div className="flex flex-wrap gap-1 justify-center">
+                                            {item.assignedTo?.map(user => (
+                                                <span key={user._id} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded border border-purple-200">
+                                                        {user.fullName?.split(' ').pop()}
+                                                    </span>
+                                            ))}
                                         </div>
                                     </td>
                                     <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
                                         {getStatusLabel(item.status)}
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-sm text-gray-600 text-center">
-                                        {item.dueDate ? formatDate(item.dueDate) : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <div className="flex items-center justify-center gap-2">
@@ -346,7 +382,7 @@ export default function TaskList() {
                                                 }}
                                                 title="Xem chi tiết"
                                             />
-                                            {isReporter && (
+                                            {!isCreatedTab && isReporter && (
                                                 <ActionButton
                                                     icon={FileText}
                                                     variant="primary"
@@ -355,7 +391,7 @@ export default function TaskList() {
                                                     title="Viết báo cáo"
                                                 />
                                             )}
-                                            {canManage && (
+                                            {isCreatedTab && canManage && (
                                                 <>
                                                     <ActionButton
                                                         icon={Edit2}
@@ -389,7 +425,7 @@ export default function TaskList() {
                     <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
                             Hiển thị <span className="font-bold text-blue-600">{tasks.length}</span> trong tổng số{' '}
-                            <span className="font-bold text-blue-600">{pagination.total}</span> nhiệm vụ
+                            <span className="font-bold text-blue-600">{pagination.total}</span>
                         </div>
                         <div className="flex gap-2">
                             <button

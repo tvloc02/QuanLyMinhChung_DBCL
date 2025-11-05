@@ -13,7 +13,6 @@ const generateTaskCode = async (academicYearId) => {
     return `T${year}-${String(count + 1).padStart(5, '0')}`;
 };
 
-// Hàm chung để lấy Task với bộ lọc cơ bản
 const getTasksByFilter = async (req, res, customQuery = {}) => {
     try {
         const {
@@ -82,24 +81,20 @@ const getTasksByFilter = async (req, res, customQuery = {}) => {
     }
 };
 
-// 1. Endpoint: Nhiệm vụ được giao cho bản thân (Assigned To Me)
 const getAssignedTasks = async (req, res) => {
     const userId = req.user.id;
     return getTasksByFilter(req, res, { assignedTo: userId });
 };
 
-// 2. Endpoint: Nhiệm vụ đã giao (Created By Me)
 const getCreatedTasks = async (req, res) => {
     const userId = req.user.id;
     return getTasksByFilter(req, res, { createdBy: userId });
 };
 
 const getTasks = async (req, res) => {
-    // ⭐️ ADMIN/MANAGER: Mặc định trả về Tasks đã tạo
     if (req.user.role === 'admin' || req.user.role === 'manager') {
         return getCreatedTasks(req, res);
     }
-    // REPORTER/EVALUATOR: Mặc định trả về Tasks được giao
     return getAssignedTasks(req, res);
 };
 
@@ -154,7 +149,6 @@ const createTask = async (req, res) => {
         const userRole = req.user.role;
 
         if (userRole !== 'admin' && userRole !== 'manager') {
-
             const canAssign = await permissionService.canAssignReporters(
                 userId,
                 standardId,
@@ -380,7 +374,6 @@ const deleteTask = async (req, res) => {
     }
 };
 
-
 const submitReport = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -417,7 +410,6 @@ const submitReport = async (req, res) => {
     }
 };
 
-
 const reviewReport = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -447,8 +439,8 @@ const reviewReport = async (req, res) => {
         }
 
         task.status = status;
-        task.reviewdBy = userId;
-        task.reviewdAt = new Date();
+        task.reviewedBy = userId;
+        task.reviewedAt = new Date();
         task.rejectionReason = status === 'rejected' ? rejectionReason.trim() : undefined;
         task.updatedBy = userId;
         task.updatedAt = new Date();
@@ -468,7 +460,7 @@ const reviewReport = async (req, res) => {
 
 const getTaskByCriteria = async (req, res) => {
     try {
-        const { criteriaId } = req.params;
+        const { criteriaId } = req.query;
         const academicYearId = req.academicYearId;
 
         if (!criteriaId) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, CheckSquare } from 'lucide-react'
+import { X, Save, CheckSquare, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { apiMethods } from '../../services/api'
@@ -9,12 +9,15 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
     const [users, setUsers] = useState([])
+    const [displayUsers, setDisplayUsers] = useState([])
+    const [userSearch, setUserSearch] = useState('')
     const [formData, setFormData] = useState({
         description: '',
         standardId: '',
         criteriaId: criteriaId || '',
         assignedTo: [],
-        dueDate: ''
+        dueDate: '',
+        reportType: 'criteria'
     })
     const [errors, setErrors] = useState({})
 
@@ -28,7 +31,8 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                 standardId: task.standardId?._id || task.standardId || '',
                 criteriaId: task.criteriaId?._id || task.criteriaId || '',
                 assignedTo: task.assignedTo?.map(u => u._id || u) || [],
-                dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
+                dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+                reportType: task.reportType || 'criteria'
             })
         }
     }, [task, criteriaId])
@@ -38,6 +42,18 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
             loadCriteria(formData.standardId)
         }
     }, [formData.standardId])
+
+    useEffect(() => {
+        if (userSearch.trim()) {
+            const filtered = users.filter(u =>
+                u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
+                u.email.toLowerCase().includes(userSearch.toLowerCase())
+            )
+            setDisplayUsers(filtered.slice(0, 5))
+        } else {
+            setDisplayUsers(users.slice(0, 5))
+        }
+    }, [userSearch, users])
 
     const loadStandards = async () => {
         try {
@@ -81,6 +97,7 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
 
             userList = userList.filter(u => u.role === 'reporter' && u.status === 'active')
             setUsers(userList)
+            setDisplayUsers(userList.slice(0, 5))
         } catch (error) {
             console.error('Load users error:', error)
             setUsers([])
@@ -118,7 +135,7 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
             newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
         }
 
-        if (!formData.criteriaId) {
+        if (formData.reportType === 'criteria' && !formData.criteriaId) {
             newErrors.criteriaId = 'Tiêu chí là bắt buộc'
         }
 
@@ -139,7 +156,11 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
             setLoading(true)
 
             const submitData = {
-                ...formData,
+                description: formData.description,
+                standardId: formData.standardId,
+                criteriaId: formData.reportType === 'criteria' ? formData.criteriaId : null,
+                assignedTo: formData.assignedTo,
+                reportType: formData.reportType,
                 dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
             }
 
@@ -158,6 +179,10 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
             setLoading(false)
         }
     }
+
+    const selectedUserNames = users
+        .filter(u => formData.assignedTo.includes(u._id))
+        .map(u => u.fullName)
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -212,26 +237,45 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
 
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
-                            Tiêu chí <span className="text-red-500">*</span>
+                            Loại báo cáo <span className="text-red-500">*</span>
                         </label>
                         <select
-                            name="criteriaId"
-                            value={formData.criteriaId}
+                            name="reportType"
+                            value={formData.reportType}
                             onChange={handleChange}
-                            disabled={!!task || !formData.standardId}
-                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
-                                errors.criteriaId ? 'border-red-300 bg-red-50' : 'border-purple-200 bg-white'
-                            } ${task || !formData.standardId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={!!task}
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all border-purple-200 ${task ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
-                            <option value="">Chọn tiêu chí</option>
-                            {criteria.map(c => (
-                                <option key={c._id} value={c._id}>
-                                    {c.code} - {c.name}
-                                </option>
-                            ))}
+                            <option value="criteria">Tiêu chí</option>
+                            <option value="standard">Tiêu chuẩn</option>
+                            <option value="overall_tdg">Tổng hợp TĐG</option>
                         </select>
-                        {errors.criteriaId && <p className="mt-1 text-sm text-red-600">{errors.criteriaId}</p>}
                     </div>
+
+                    {formData.reportType === 'criteria' && (
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-800 mb-2">
+                                Tiêu chí <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="criteriaId"
+                                value={formData.criteriaId}
+                                onChange={handleChange}
+                                disabled={!!task || !formData.standardId}
+                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all ${
+                                    errors.criteriaId ? 'border-red-300 bg-red-50' : 'border-purple-200 bg-white'
+                                } ${task || !formData.standardId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            >
+                                <option value="">Chọn tiêu chí</option>
+                                {criteria.map(c => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.code} - {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.criteriaId && <p className="mt-1 text-sm text-red-600">{errors.criteriaId}</p>}
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -254,24 +298,53 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null 
                         <label className="block text-sm font-semibold text-gray-800 mb-3">
                             Phân công cho <span className="text-red-500">*</span>
                         </label>
-                        <div className="space-y-2 max-h-48 overflow-y-auto border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
-                            {users.length === 0 ? (
-                                <p className="text-sm text-gray-500">Không có báo cáo viên nào</p>
-                            ) : (
-                                users.map(user => (
-                                    <label key={user._id} className="flex items-center gap-3 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.assignedTo.includes(user._id)}
-                                            onChange={() => handleAssignedToChange(user._id)}
-                                            className="w-4 h-4 text-purple-600 border-purple-300 rounded focus:ring-purple-500"
-                                        />
-                                        <span className="text-sm text-gray-700">{user.fullName} ({user.email})</span>
-                                    </label>
-                                ))
+                        <div className="space-y-3">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm người được giao..."
+                                    value={userSearch}
+                                    onChange={(e) => setUserSearch(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+
+                            <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50 space-y-2 max-h-40 overflow-y-auto">
+                                {displayUsers.length === 0 ? (
+                                    <p className="text-sm text-gray-500">Không có báo cáo viên nào</p>
+                                ) : (
+                                    displayUsers.map(user => (
+                                        <label key={user._id} className="flex items-center gap-3 cursor-pointer hover:bg-white p-2 rounded-lg transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.assignedTo.includes(user._id)}
+                                                onChange={() => handleAssignedToChange(user._id)}
+                                                className="w-4 h-4 text-purple-600 border-purple-300 rounded focus:ring-purple-500"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{user.fullName}</p>
+                                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                            </div>
+                                        </label>
+                                    ))
+                                )}
+                            </div>
+
+                            {selectedUserNames.length > 0 && (
+                                <div className="bg-white p-3 rounded-lg border border-purple-200">
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">Đã chọn ({selectedUserNames.length}):</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedUserNames.map(name => (
+                                            <span key={name} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded border border-purple-200">
+                                                {name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                        {errors.assignedTo && <p className="mt-1 text-sm text-red-600">{errors.assignedTo}</p>}
+                        {errors.assignedTo && <p className="mt-2 text-sm text-red-600">{errors.assignedTo}</p>}
                     </div>
 
                     <div>
