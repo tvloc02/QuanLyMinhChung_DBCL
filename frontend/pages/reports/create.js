@@ -10,14 +10,13 @@ import toast from 'react-hot-toast'
 import {
     FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
     Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
-    RefreshCw, Plus, FilePlus, Lock // 1️⃣ THÊM IMPORT: Lock
+    RefreshCw, Plus, FilePlus, Lock
 } from 'lucide-react'
 import reportService from '../../services/reportService'
 import { apiMethods } from '../../services/api'
 import { default as BaseLayout } from '../../components/common/Layout'
 import NewEvidenceModal from '../../components/reports/NewEvidenceModal'
 
-// 2️⃣ THÊM HELPER FUNCTION:
 const getReportTypeLabel = (type) => {
     const typeMap = {
         'criteria': 'Báo cáo tiêu chí',
@@ -40,10 +39,22 @@ export default function CreateReportPage() {
     const [organizations, setOrganizations] = useState([])
     const [standards, setStandards] = useState([])
     const [criteria, setCriteria] = useState([])
-    const [isFromTask, setIsFromTask] = useState(false)
+    const [isFromContext, setIsFromContext] = useState(false)
     const [showReportSelectionModal, setShowReportSelectionModal] = useState(false)
     const [isContentDirty, setIsContentDirty] = useState(false)
     const [isDataLoaded, setIsDataLoaded] = useState(false)
+    const [isLocked, setIsLocked] = useState({})
+    const [linkedCriteriaReports, setLinkedCriteriaReports] = useState([])
+
+    // State để lưu context data
+    const [contextData, setContextData] = useState({
+        programId: null,
+        organizationId: null,
+        standardId: null,
+        criteriaId: null,
+        type: 'criteria',
+        taskId: null
+    })
 
     const [formData, setFormData] = useState({
         title: '',
@@ -65,6 +76,10 @@ export default function CreateReportPage() {
     const [selectedEvidenceCode, setSelectedEvidenceCode] = useState(null)
     const [showEvidenceViewer, setShowEvidenceViewer] = useState(false)
     const [showNewEvidenceModal, setShowNewEvidenceModal] = useState(false)
+    const [showCriteriaReportPicker, setShowCriteriaReportPicker] = useState(false)
+
+    // Cờ kiểm soát việc đã xử lý modal lần đầu chưa
+    const [hasHandledInitialModal, setHasHandledInitialModal] = useState(false)
 
     const breadcrumbItems = [
         { name: 'Báo cáo', icon: FileText, path: '/reports/reports' },
@@ -77,21 +92,52 @@ export default function CreateReportPage() {
         } else if (user && router.isReady && !isDataLoaded) {
             fetchInitialData()
 
-            if (router.query.taskId && router.query.reportType) {
-                setIsFromTask(true)
+            const { taskId, reportType, standardId, criteriaId, programId, organizationId, forceModal } = router.query
+
+            if (taskId || (reportType && standardId)) {
+                setIsFromContext(true)
+
+                const newContextData = {
+                    taskId: taskId || null,
+                    type: reportType || 'criteria',
+                    standardId: standardId || '',
+                    criteriaId: criteriaId || '',
+                    programId: programId || '',
+                    organizationId: organizationId || ''
+                }
+                setContextData(newContextData)
+
                 setFormData(prev => ({
                     ...prev,
-                    taskId: router.query.taskId,
-                    type: router.query.reportType === 'overall_tdg' ? 'overall_tdg' :
-                        router.query.reportType === 'standard' ? 'standard' : 'criteria',
-                    standardId: router.query.standardId || '',
-                    criteriaId: router.query.criteriaId || ''
+                    taskId: newContextData.taskId,
+                    type: newContextData.type,
+                    standardId: newContextData.standardId,
+                    criteriaId: newContextData.criteriaId,
+                    programId: newContextData.programId,
+                    organizationId: newContextData.organizationId,
                 }))
-                setShowReportSelectionModal(true)
+
+                const newIsLocked = {}
+                if (newContextData.type !== 'overall_tdg') {
+                    newIsLocked.programId = true
+                    newIsLocked.organizationId = true
+                    newIsLocked.standardId = true
+                    newIsLocked.reportType = true
+
+                    if (newContextData.type === 'criteria') {
+                        newIsLocked.criteriaId = true
+                    }
+                }
+                setIsLocked(newIsLocked)
+
+                // Chỉ hiển thị modal nếu chưa xử lý lần đầu
+                if (!hasHandledInitialModal) {
+                    setShowReportSelectionModal(true)
+                }
             }
             setIsDataLoaded(true)
         }
-    }, [user, isLoading, router.isReady, isDataLoaded])
+    }, [user, isLoading, router.isReady, isDataLoaded, hasHandledInitialModal])
 
     useEffect(() => {
         if (formData.programId && formData.organizationId) {
@@ -215,7 +261,7 @@ export default function CreateReportPage() {
                 organizationId: formData.organizationId,
                 contentMethod: formData.contentMethod,
                 summary: formData.summary,
-                keywords: formData.keywords
+                keywords: formData.keywords,
             }
 
             if (formData.type !== 'overall_tdg') {
@@ -329,14 +375,12 @@ export default function CreateReportPage() {
         }
     }, [isContentDirty, formErrors])
 
-    // 6️⃣ SỬA handleChange FUNCTION
     const handleChange = (field, value) => {
-        // ⭐️ NẾU LOCK FIELD TỪ TASK THÌ KHÔNG THAY ĐỔI
-        if (isFromTask && ['type', 'standardId', 'criteriaId', 'programId', 'organizationId'].includes(field)) {
+        if (isLocked[field]) {
             return
         }
 
-        if (isContentDirty) {
+        if (isContentDirty && ['programId', 'organizationId', 'standardId', 'criteriaId'].includes(field)) {
             const confirmChange = window.confirm(
                 'Nội dung báo cáo đã thay đổi. Thay đổi Tiêu chuẩn/Tiêu chí/Chương trình sẽ xóa nội dung hiện tại. Bạn có chắc chắn muốn tiếp tục?'
             )
@@ -364,17 +408,62 @@ export default function CreateReportPage() {
     }
 
     const handleSelectExistingReport = (reportId) => {
+        // Sau khi chọn báo cáo đã có, chuyển hướng đến trang chỉnh sửa
         router.push(`/reports/${reportId}`)
+        setHasHandledInitialModal(true)
     }
 
     const handleCreateNewReport = () => {
+        // Sau khi chọn tạo báo cáo mới, đóng modal và đánh dấu đã xử lý
         setShowReportSelectionModal(false)
+        setHasHandledInitialModal(true)
+
+        // Giữ lại các thông tin đã được ghim từ context
         setFormData(prev => ({
             ...prev,
             title: '',
-            content: ''
+            content: '',
+            type: contextData.type,
+            standardId: contextData.standardId,
+            criteriaId: contextData.criteriaId,
+            programId: contextData.programId,
+            organizationId: contextData.organizationId,
+            taskId: contextData.taskId,
         }))
+        setIsFromContext(false);
     }
+
+    // Logic chèn nội dung báo cáo tiêu chí đã chọn
+    const handleInsertCriteriaReports = (selectedReports) => {
+        if (!editorRef.current || !editorRef.current.insertHTML) {
+            toast.error('Lỗi: Trình soạn thảo chưa sẵn sàng.');
+            return;
+        }
+
+        let htmlToInsert = '';
+        selectedReports.forEach(report => {
+            const authorText = report.displayAuthor ? ` (Tác giả: ${report.authorName || report.createdBy?.fullName || 'N/A'})` : '';
+
+            // Tạo đoạn HTML mô tả và nội dung
+            htmlToInsert += `
+                <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-left: 5px solid #6366f1; border-radius: 8px; background: #f9f9f9;">
+                    <h4 style="color: #6366f1; border-bottom: 1px solid #eef2ff; padding-bottom: 5px; margin-top: 0; font-size: 1.1em; font-weight: bold;">
+                        Báo cáo Tiêu chí ${report.code}: ${report.name}
+                        ${authorText}
+                    </h4>
+                    <div style="margin-top: 10px;">
+                        ${report.content}
+                    </div>
+                </div>
+            `;
+        });
+
+        // Thêm nội dung vào cuối trình soạn thảo
+        editorRef.current.insertHTML(htmlToInsert);
+        setLinkedCriteriaReports(selectedReports); // Cập nhật state để theo dõi
+        toast.success(`Đã chèn nội dung ${selectedReports.length} báo cáo tiêu chí.`);
+    }
+
 
     if (isLoading || loading) {
         return (
@@ -391,24 +480,37 @@ export default function CreateReportPage() {
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            {/* Report Selection Modal */}
-            {isFromTask && formData.taskId && (
-                <ReportSelectionModal
-                    isOpen={showReportSelectionModal}
-                    taskId={formData.taskId}
-                    reportType={formData.type}
+            {/* Criteria Report Picker Modal (Giả định) */}
+            {showCriteriaReportPicker && (
+                <CriteriaReportPickerModal
+                    isOpen={showCriteriaReportPicker}
                     standardId={formData.standardId}
-                    criteriaId={formData.criteriaId}
-                    onCreateNew={handleCreateNewReport}
-                    onSelectExisting={handleSelectExistingReport}
-                    onClose={() => {
-                        setShowReportSelectionModal(false)
-                        if (isFromTask && !formData.content) {
-                            router.push('/reports/reports')
-                        }
+                    programId={formData.programId}
+                    organizationId={formData.organizationId}
+                    initialReports={linkedCriteriaReports}
+                    onClose={() => setShowCriteriaReportPicker(false)}
+                    onSelectReports={(selected) => {
+                        handleInsertCriteriaReports(selected);
+                        setShowCriteriaReportPicker(false);
                     }}
                 />
             )}
+
+            {/* New Evidence Modal */}
+            {showNewEvidenceModal && (
+                <NewEvidenceModal
+                    criteriaId={formData.criteriaId}
+                    standardId={formData.standardId}
+                    programId={formData.programId}
+                    organizationId={formData.organizationId}
+                    onClose={() => setShowNewEvidenceModal(false)}
+                    onSuccess={() => {
+                        setShowNewEvidenceModal(false)
+                        toast.success('Minh chứng mới đã được tạo thành công và sẵn sàng để chèn.')
+                    }}
+                />
+            )}
+
 
             <div className="flex gap-6">
                 {/* Main Form */}
@@ -459,10 +561,10 @@ export default function CreateReportPage() {
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-bold mb-1">
-                                        {isFromTask ? 'Viết báo cáo từ nhiệm vụ' : 'Tạo báo cáo mới'}
+                                        {formData.taskId ? 'Viết báo cáo từ nhiệm vụ' : 'Tạo báo cáo mới'}
                                     </h1>
                                     <p className="text-indigo-100">
-                                        {isFromTask ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí'}
+                                        {formData.taskId ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí'}
                                     </p>
                                 </div>
                             </div>
@@ -506,39 +608,24 @@ export default function CreateReportPage() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Loại báo cáo - 3️⃣ SỬA PHẦN SELECT LOẠI BÁO CÁO */}
+                                    {/* Loại báo cáo */}
                                     {formData.type !== 'overall_tdg' && (
-                                        <>
-                                            {isFromTask && (
-                                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-start gap-3">
-                                                    <Lock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-blue-900">
-                                                            Loại báo cáo: {getReportTypeLabel(formData.type)}
-                                                        </p>
-                                                        <p className="text-xs text-blue-700 mt-1">
-                                                            Được cố định từ nhiệm vụ
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                    <FileType className="w-4 h-4 inline mr-1" />
-                                                    Loại báo cáo <span className="text-red-500">*</span>
-                                                </label>
-                                                <select
-                                                    value={formData.type}
-                                                    onChange={(e) => handleChange('type', e.target.value)}
-                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                                                    disabled={isFromTask}
-                                                >
-                                                    <option value="criteria">Báo cáo tiêu chí</option>
-                                                    <option value="standard">Báo cáo tiêu chuẩn</option>
-                                                    <option value="overall_tdg">Báo cáo tổng hợp TĐG</option>
-                                                </select>
-                                            </div>
-                                        </>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <FileType className="w-4 h-4 inline mr-1" />
+                                                Loại báo cáo <span className="text-red-500">*</span>
+                                                {isLocked.reportType && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
+                                            </label>
+                                            <select
+                                                value={formData.type}
+                                                onChange={(e) => handleChange('type', e.target.value)}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                disabled={isLocked.reportType}
+                                            >
+                                                <option value="criteria">Báo cáo tiêu chí</option>
+                                                <option value="standard">Báo cáo tiêu chuẩn</option>
+                                            </select>
+                                        </div>
                                     )}
 
                                     {/* Phương thức nhập */}
@@ -556,11 +643,12 @@ export default function CreateReportPage() {
                                         </select>
                                     </div>
 
-                                    {/* Chương trình - 7️⃣ SỬA PHẦN DISABLE CHƯƠNG TRÌNH */}
+                                    {/* Chương trình */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <BookOpen className="w-4 h-4 inline mr-1" />
                                             Chương trình <span className="text-red-500">*</span>
+                                            {isLocked.programId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
                                         </label>
                                         <select
                                             value={formData.programId}
@@ -571,7 +659,7 @@ export default function CreateReportPage() {
                                             className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                 formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
-                                            disabled={isFromTask}
+                                            disabled={isLocked.programId}
                                         >
                                             <option value="">Chọn chương trình</option>
                                             {programs.map(program => (
@@ -585,11 +673,12 @@ export default function CreateReportPage() {
                                         )}
                                     </div>
 
-                                    {/* Tổ chức - 7️⃣ SỬA PHẦN DISABLE TỔ CHỨC */}
+                                    {/* Tổ chức */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <Building className="w-4 h-4 inline mr-1" />
                                             Tổ chức <span className="text-red-500">*</span>
+                                            {isLocked.organizationId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
                                         </label>
                                         <select
                                             value={formData.organizationId}
@@ -597,7 +686,7 @@ export default function CreateReportPage() {
                                             className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                 formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                             }`}
-                                            disabled={isFromTask}
+                                            disabled={isLocked.organizationId}
                                         >
                                             <option value="">Chọn tổ chức</option>
                                             {organizations.map(org => (
@@ -611,12 +700,13 @@ export default function CreateReportPage() {
                                         )}
                                     </div>
 
-                                    {/* Tiêu chuẩn - 4️⃣ SỬA PHẦN SELECT TIÊU CHUẨN */}
+                                    {/* Tiêu chuẩn */}
                                     {formData.type !== 'overall_tdg' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
                                                 <Layers className="w-4 h-4 inline mr-1" />
                                                 Tiêu chuẩn <span className="text-red-500">*</span>
+                                                {isLocked.standardId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
                                             </label>
                                             <select
                                                 value={formData.standardId}
@@ -627,7 +717,7 @@ export default function CreateReportPage() {
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                     formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.programId || !formData.organizationId || isFromTask}
+                                                disabled={!formData.programId || !formData.organizationId || isLocked.standardId}
                                             >
                                                 <option value="">Chọn tiêu chuẩn</option>
                                                 {standards.map(standard => (
@@ -642,12 +732,13 @@ export default function CreateReportPage() {
                                         </div>
                                     )}
 
-                                    {/* Tiêu chí - 5️⃣ SỬA PHẦN SELECT TIÊU CHÍ */}
+                                    {/* Tiêu chí */}
                                     {formData.type === 'criteria' && (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
                                                 <Hash className="w-4 h-4 inline mr-1" />
                                                 Tiêu chí <span className="text-red-500">*</span>
+                                                {isLocked.criteriaId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
                                             </label>
                                             <select
                                                 value={formData.criteriaId}
@@ -655,7 +746,7 @@ export default function CreateReportPage() {
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${
                                                     formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.standardId || isFromTask}
+                                                disabled={!formData.standardId || isLocked.criteriaId}
                                             >
                                                 <option value="">Chọn tiêu chí</option>
                                                 {criteria.map(criterion => (
@@ -753,6 +844,70 @@ export default function CreateReportPage() {
                                     )}
                                 </div>
                             )}
+
+                            {/* Gắn Báo cáo Tiêu chí Công Khai */}
+                            {formData.type === 'standard' && (
+                                <div className="mt-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
+                                    <h4 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                        <BookOpen className="w-5 h-5 text-indigo-600" />
+                                        Chèn Nội Dung Báo Cáo Tiêu Chí
+                                    </h4>
+
+                                    {/* Danh sách các báo cáo đã chọn */}
+                                    <div className="space-y-2">
+                                        {linkedCriteriaReports.map(report => (
+                                            <div key={report._id} className="flex items-center justify-between p-3 border border-indigo-200 bg-white rounded-lg shadow-sm">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-indigo-800 truncate">
+                                                        {report.name} ({report.code})
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 flex items-center mt-1">
+                                                        Hiển thị tên người viết:
+                                                        <select
+                                                            value={report.displayAuthor ? 'true' : 'false'}
+                                                            onChange={(e) => {
+                                                                setLinkedCriteriaReports(prev => prev.map(r => r._id === report._id ? { ...r, displayAuthor: e.target.value === 'true' } : r))
+                                                            }}
+                                                            className="ml-2 text-xs border border-gray-300 rounded-md p-1 focus:ring-indigo-500"
+                                                        >
+                                                            <option value={'true'}>Có</option>
+                                                            <option value={'false'}>Không</option>
+                                                        </select>
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setLinkedCriteriaReports(prev => prev.filter(r => r._id !== report._id))}
+                                                    className="p-2 text-red-500 hover:text-red-700 ml-4 rounded-lg hover:bg-red-50 transition-all"
+                                                    title="Bỏ chèn"
+                                                >
+                                                    <X className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {!linkedCriteriaReports.length && (
+                                            <p className="text-sm text-gray-500 italic py-2">Chưa có báo cáo tiêu chí nào được chèn.</p>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!formData.standardId) {
+                                                toast.error('Vui lòng chọn Tiêu chuẩn trước khi chèn báo cáo tiêu chí.')
+                                                return
+                                            }
+                                            setShowCriteriaReportPicker(true)
+                                        }}
+                                        className="flex items-center mt-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:shadow-lg hover:bg-indigo-700 transition-colors"
+                                        disabled={!formData.standardId}
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Chọn & Chèn Nội Dung
+                                    </button>
+                                </div>
+                            )}
+
                         </div>
 
                         {/* Thông tin bổ sung */}
@@ -854,21 +1009,22 @@ export default function CreateReportPage() {
                     </form>
                 </div>
 
-                {/* Sidebar - Evidence Picker */}
-                {formData.contentMethod === 'online_editor' && (formData.standardId || formData.criteriaId) && (
+                {/* Sidebar - Evidence Picker (Luôn hiển thị) */}
+                {formData.contentMethod === 'online_editor' && (
                     <div className="w-96 flex-shrink-0">
                         <div className="sticky top-6">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
 
-                                {formData.criteriaId && (
-                                    <button
-                                        onClick={handleOpenNewEvidenceModal}
-                                        className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
-                                    >
-                                        <FilePlus className="h-5 w-5" />
-                                        Tạo Minh chứng Mới
-                                    </button>
-                                )}
+                                {/* Nút Tạo Minh Chứng Mới */}
+                                <button
+                                    onClick={handleOpenNewEvidenceModal}
+                                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
+                                    // Vô hiệu hóa nếu chưa chọn tiêu chí
+                                    disabled={!formData.criteriaId}
+                                >
+                                    <FilePlus className="h-5 w-5" />
+                                    Tạo Minh chứng Mới
+                                </button>
 
                                 <EvidencePicker
                                     standardId={formData.standardId}
@@ -897,16 +1053,86 @@ export default function CreateReportPage() {
                     onInsert={handleInsertEvidence}
                 />
             )}
-
-            {showNewEvidenceModal && (
-                <NewEvidenceModal
-                    criteriaId={formData.criteriaId}
-                    standardId={formData.standardId}
-                    programId={formData.programId}
-                    organizationId={formData.organizationId}
-                    onClose={() => setShowNewEvidenceModal(false)}
-                />
-            )}
         </Layout>
     )
+}
+
+// Giả định Modal chọn báo cáo tiêu chí
+function CriteriaReportPickerModal({ isOpen, standardId, programId, organizationId, initialReports, onClose, onSelectReports }) {
+    if (!isOpen) return null;
+
+    // Dummy data (Cần thay bằng fetch API từ reports/by-standard-criteria với status public/published)
+    const rawReports = [
+        // Nội dung giả lập, cần có nội dung HTML thực tế từ API
+        { _id: 'r1', code: 'TC.01.01', name: 'Mục tiêu chương trình', content: '<h2>1.1. Mục tiêu</h2><p>Chương trình đáp ứng tốt nhu cầu xã hội theo đánh giá.</p>', authorName: 'Nguyễn Văn A' },
+        { _id: 'r2', code: 'TC.01.02', name: 'Triết lý và sứ mệnh', content: '<h3>1.2. Triết lý</h3><p>Triết lý giáo dục đặt người học làm trung tâm, nhấn mạnh vào năng lực thực hành.</p>', authorName: 'Trần Thị B' },
+        { _id: 'r3', code: 'TC.02.01', name: 'Chương trình đào tạo', content: '<h2>2.1. Cấu trúc CTĐT</h2><p>Cấu trúc chương trình đào tạo đã được cập nhật năm 2024.</p>', authorName: 'Lê Văn C' },
+    ];
+
+    const [reports, setReports] = useState(() => {
+        return rawReports.map(dr => {
+            const initial = initialReports.find(ir => ir._id === dr._id);
+            return initial ? { ...dr, isSelected: true, displayAuthor: initial.displayAuthor } : { ...dr, isSelected: false, displayAuthor: true };
+        });
+    });
+
+    const handleToggle = (reportId) => {
+        setReports(prev => prev.map(r => r._id === reportId ? { ...r, isSelected: !r.isSelected } : r));
+    };
+
+    const handleAuthorToggle = (reportId, value) => {
+        setReports(prev => prev.map(r => r._id === reportId ? { ...r, displayAuthor: value === 'true' } : r));
+    };
+
+    const handleSave = () => {
+        const finalSelected = reports.filter(r => r.isSelected);
+        onSelectReports(finalSelected);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="p-6 border-b flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Chọn Báo Cáo Tiêu Chí Gắn Kèm</h3>
+                    <button onClick={onClose}><X className="w-5 h-5" /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                    <p className="text-sm text-gray-600 mb-4 italic">
+                        Chọn các báo cáo tiêu chí đã hoàn thành để chèn nội dung vào báo cáo hiện tại.
+                    </p>
+                    {reports.map(report => (
+                        <div key={report._id} className="flex items-start p-3 border rounded-lg bg-gray-50">
+                            <div className="flex-1 min-w-0 mr-4">
+                                <span className="text-sm font-medium block">{report.code}: {report.name}</span>
+                                <div className="text-xs text-gray-500 mt-1 flex items-center">
+                                    Hiển thị tên người viết:
+                                    <select
+                                        value={report.displayAuthor ? 'true' : 'false'}
+                                        onChange={(e) => handleAuthorToggle(report._id, e.target.value)}
+                                        className="ml-2 text-xs border border-gray-300 rounded-md p-1 focus:ring-indigo-500"
+                                        disabled={!report.isSelected}
+                                    >
+                                        <option value={'true'}>Có</option>
+                                        <option value={'false'}>Không</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={report.isSelected}
+                                onChange={() => handleToggle(report._id)}
+                                className="w-5 h-5 text-indigo-600 rounded mt-1"
+                            />
+                        </div>
+                    ))}
+                </div>
+                <div className="p-6 border-t flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-lg">Hủy</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
+                        Chèn ({reports.filter(r => r.isSelected).length})
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }

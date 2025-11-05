@@ -82,7 +82,8 @@ export default function EvidenceTreeMain({
                                              canAssignReporters,
                                              onAssignClick,
                                              onEditEvidence,
-                                             onDeleteEvidence
+                                             onDeleteEvidence,
+                                             onWriteReportClick // Thêm prop mới
                                          }) {
     const router = useRouter()
 
@@ -99,18 +100,17 @@ export default function EvidenceTreeMain({
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
     const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
-    const navigateToCreateReport = (reportType, standardId, criteriaId) => {
-        const query = {
-            reportType,
-            standardId
+    // Thêm hàm này để gọi modal lựa chọn báo cáo từ bên ngoài
+    const handleWriteReportFromTree = (reportType, standardId, criteriaId, programId, organizationId) => {
+        if (onWriteReportClick) {
+            onWriteReportClick({
+                reportType,
+                standardId,
+                criteriaId,
+                programId,
+                organizationId
+            });
         }
-        if (criteriaId) {
-            query.criteriaId = criteriaId
-        }
-        router.push({
-            pathname: '/reports/create',
-            query
-        })
     }
 
     useEffect(() => {
@@ -225,7 +225,8 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo tiêu chuẩn"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigateToCreateReport('standard', standard.id, null);
+                                    // Mở modal lựa chọn báo cáo
+                                    handleWriteReportFromTree('standard', standard.id, null, standard.programId, standard.organizationId);
                                 }}
                                 customColor={`bg-cyan-600 hover:bg-cyan-700`}
                             />
@@ -321,7 +322,8 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo Tiêu chí"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigateToCreateReport('criteria', standard.id, criteria.id);
+                                    // Mở modal lựa chọn báo cáo
+                                    handleWriteReportFromTree('criteria', standard.id, criteria.id, standard.programId, standard.organizationId);
                                 }}
                                 customColor={`bg-teal-600 hover:bg-teal-700`}
                             />

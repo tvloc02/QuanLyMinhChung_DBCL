@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Report = require('../../models/report/Report');
+const Task = require("../../models/Task/Task");
 
 const getReports = async (req, res) => {
     try {
@@ -171,7 +172,8 @@ const createReport = async (req, res) => {
             content,
             contentMethod,
             summary,
-            keywords
+            keywords,
+            linkedCriteriaReports // Thêm trường mới
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -219,7 +221,9 @@ const createReport = async (req, res) => {
             status: 'draft',
             createdBy: req.user.id,
             updatedBy: req.user.id,
-            assignedReporters: [req.user.id]
+            assignedReporters: [req.user.id],
+            // Lưu thông tin báo cáo tiêu chí gắn kèm
+            linkedCriteriaReports: linkedCriteriaReports || []
         };
 
         if (standardId) {
@@ -289,8 +293,9 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, ...updateData } = req.body;
+        const { content, linkedCriteriaReports, ...updateData } = req.body; // Lấy linkedCriteriaReports
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
 
         const report = await Report.findOne({ _id: id, academicYearId });
         if (!report) {
@@ -307,6 +312,11 @@ const updateReport = async (req, res) => {
             });
         }
 
+        // ⭐️ LOGIC GHI LẠI PHIÊN BẢN CHỈNH SỬA
+        // 1. Lấy nội dung cũ trước khi thay đổi
+        const oldContent = report.content;
+        const oldTitle = report.title;
+
         const allowedFields = ['title', 'summary', 'keywords', 'contentMethod'];
 
         allowedFields.forEach(field => {
@@ -315,9 +325,31 @@ const updateReport = async (req, res) => {
             }
         });
 
+        if (linkedCriteriaReports !== undefined) {
+            report.linkedCriteriaReports = linkedCriteriaReports;
+        }
+
         if (content !== undefined) {
             report.content = processEvidenceLinksInContent(content);
         }
+
+        // 2. So sánh và thêm phiên bản (giả định bạn có phương thức addVersion trên model)
+        if (report.content !== oldContent || report.title !== oldTitle) {
+            const changeNote = `Cập nhật nội dung/tiêu đề từ phiên bản trước.`;
+            // Cần lưu nội dung cũ vào versions/history
+            if (report.addVersion && typeof report.addVersion === 'function') {
+                // Lưu snapshot của nội dung cũ
+                await report.addVersion({
+                    content: oldContent,
+                    title: oldTitle,
+                    changeNote: changeNote,
+                    changedBy: userId
+                });
+            } else {
+                console.warn("Report model does not have addVersion method. History tracking skipped.");
+            }
+        }
+
 
         report.updatedBy = req.user.id;
         await report.save();
@@ -343,6 +375,68 @@ const updateReport = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi cập nhật báo cáo'
+        });
+    }
+};
+
+const getReportsByStandardCriteria = async (req, res) => {
+    try {
+        const { reportType, standardId, criteriaId, programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        if (!standardId || !reportType) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin Tiêu chuẩn và Loại báo cáo'
+            });
+        }
+
+        let query = {
+            academicYearId,
+            type: reportType,
+            standardId,
+            status: { $in: ['draft', 'public', 'published'] }
+        };
+
+        if (criteriaId && reportType === 'criteria') {
+            query.criteriaId = criteriaId;
+        }
+
+        // Dùng permissionService để xác định quyền tạo mới
+        const permissionService = require('../../services/permissionService');
+        const canWriteReport = await permissionService.canWriteReport(userId, reportType, academicYearId);
+
+        const reports = await Report.find(query)
+            .populate('createdBy', 'fullName email')
+            .populate('assignedReporters', 'fullName email')
+            .sort({ createdAt: -1 });
+
+        const reportsWithCanEdit = reports.map(r => {
+            const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
+            const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
+            return {
+                ...r.toObject(),
+                createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
+                assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                reports: reportsWithCanEdit,
+                canCreateNew: canWriteReport, // Người dùng có quyền viết báo cáo thì có quyền tạo mới
+                canWriteReport: canWriteReport,
+                task: null
+            }
+        });
+
+    } catch (error) {
+        console.error('Get reports by standard/criteria error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
         });
     }
 };
@@ -1452,17 +1546,8 @@ const getReportsByTask = async (req, res) => {
         const userId = req.user.id;
 
         if (!taskId) {
-            return res.status(400).json({
-                success: false,
-                message: 'TaskId là bắt buộc'
-            });
-        }
-
-        if (!reportType) {
-            return res.status(400).json({
-                success: false,
-                message: 'ReportType là bắt buộc'
-            });
+            // Chuyển sang luồng tìm kiếm theo Tiêu chuẩn/Tiêu chí nếu không có TaskId
+            return getReportsByStandardCriteria(req, res);
         }
 
         const Task = require('../../models/Task/Task');
@@ -1491,19 +1576,21 @@ const getReportsByTask = async (req, res) => {
 
         const canCreateNew = task.assignedTo.map(id => id.toString()).includes(userId.toString());
 
-        const canEditOther = reports.map(r => ({
-            id: r._id,
-            canEdit: r.canEdit(userId, req.user.role),
-            createdBy: r.createdBy,
-            assignedReporters: r.assignedReporters
-        }));
+        const reportsWithCanEdit = reports.map(r => {
+            const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
+            const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
+            return {
+                ...r.toObject(),
+                createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
+                assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
+            };
+        });
 
         res.json({
             success: true,
             data: {
-                reports,
+                reports: reportsWithCanEdit,
                 canCreateNew,
-                canEditOther,
                 task
             }
         });
@@ -1591,5 +1678,6 @@ module.exports = {
     addReportComment,
     resolveReportComment,
     getReportsByTask,
-    requestEditPermission
+    requestEditPermission,
+    getReportsByStandardCriteria,
 };

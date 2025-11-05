@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Search, Plus, FileText, Filter } from 'lucide-react'
 import evidenceService from '../../services/evidenceService'
 import toast from 'react-hot-toast'
+import { getLocalStorage } from '../../utils/helpers' // Thêm import này
 
 export default function EvidencePicker({
                                            standardId,
@@ -17,31 +18,42 @@ export default function EvidencePicker({
     const [filter, setFilter] = useState('all') // all, standard, criteria
 
     useEffect(() => {
-        if (standardId || criteriaId) {
-            fetchEvidences()
-        }
+        // Tải lại dữ liệu khi context thay đổi
+        fetchEvidences()
     }, [standardId, criteriaId, filter, programId, organizationId])
 
     const fetchEvidences = async () => {
         try {
             setLoading(true)
 
+            // Lấy academicYearId từ localStorage (nơi client lưu trữ năm học hiện tại)
+            const academicYearId = getLocalStorage('selected_academic_year')?.id;
+
             const allowedStatuses = ['new', 'in_progress', 'completed', 'approved'];
             const params = {
                 limit: 100,
-                statuses: allowedStatuses.join(',')
+                statuses: allowedStatuses.join(','),
+                // Thêm academicYearId vào params để rõ ràng
+                academicYearId: academicYearId
             }
 
             if (programId) params.programId = programId;
             if (organizationId) params.organizationId = organizationId;
 
+            // Áp dụng bộ lọc ngữ cảnh chính:
             if (filter === 'criteria' && criteriaId) {
                 params.criteriaId = criteriaId
             } else if (filter === 'standard' && standardId) {
                 params.standardId = standardId
             } else if (standardId) {
-                // Get all evidences from this standard
+                // Mặc định: Lấy tất cả minh chứng trong Standard hiện tại
                 params.standardId = standardId
+            }
+
+            // Nếu không có cả standardId và criteriaId, ta vẫn tải nếu có program/org, nhưng sẽ là toàn bộ
+            if (!params.standardId && !params.criteriaId && !params.programId) {
+                setEvidences([]);
+                return;
             }
 
             const response = await evidenceService.getEvidences(params)
@@ -78,7 +90,7 @@ export default function EvidencePicker({
             <div className="flex items-center justify-between">
                 <h4 className="font-medium text-gray-900 flex items-center">
                     <FileText className="h-4 w-4 mr-2" />
-                    Minh chứng tham chiếu
+                    Minh chứng tham chiếu (Năm học hiện tại)
                 </h4>
                 <span className="text-xs text-gray-500">
                     {filteredEvidences.length} minh chứng

@@ -7,6 +7,7 @@ import { formatDate } from '../../utils/helpers'
 import TaskModal from './TaskModal'
 import TaskDetail from './TaskDetail'
 import { ActionButton } from '../ActionButtons'
+import ReportSelectionModal from '../reports/ReportSelectionModal' // Import Modal
 
 export default function TaskList() {
     const router = useRouter()
@@ -24,6 +25,11 @@ export default function TaskList() {
     const [userRole, setUserRole] = useState('')
     const [standards, setStandards] = useState([])
     const [criterias, setCriterias] = useState([])
+
+    // State mới cho Modal
+    const [showReportSelection, setShowReportSelection] = useState(false)
+    const [reportContext, setReportContext] = useState(null)
+
 
     useEffect(() => {
         const role = localStorage.getItem('userRole') || ''
@@ -112,15 +118,42 @@ export default function TaskList() {
     }
 
     const handleWriteReport = (task) => {
+        // Mở Modal lựa chọn báo cáo thay vì chuyển hướng trực tiếp
+        setReportContext({
+            taskId: task._id,
+            reportType: task.reportType,
+            standardId: task.standardId?._id || task.standardId,
+            criteriaId: task.criteriaId?._id || task.criteriaId,
+            programId: task.programId?._id || task.programId, // Thêm program/orgId để tối ưu create.js
+            organizationId: task.organizationId?._id || task.organizationId
+        })
+        setShowReportSelection(true)
+    }
+
+    const handleCreateNewReport = () => {
+        // Chuyển hướng đến trang tạo báo cáo với context từ Task
         router.push({
             pathname: '/reports/create',
             query: {
-                criteriaId: task.criteriaId?._id || task.criteriaId,
-                standardId: task.standardId?._id || task.standardId,
-                taskId: task._id
+                taskId: reportContext.taskId,
+                reportType: reportContext.reportType,
+                standardId: reportContext.standardId,
+                criteriaId: reportContext.criteriaId,
+                programId: reportContext.programId,
+                organizationId: reportContext.organizationId,
+                forceModal: true // Giữ modal logic trong create.js
             }
         })
+        setShowReportSelection(false)
+        setReportContext(null)
     }
+
+    const handleSelectExistingReport = (reportId) => {
+        router.push(`/reports/${reportId}`)
+        setShowReportSelection(false)
+        setReportContext(null)
+    }
+
 
     const getStatusLabel = (status) => {
         const icons = {
@@ -161,6 +194,25 @@ export default function TaskList() {
 
     return (
         <div className="space-y-6">
+            {/* Report Selection Modal */}
+            {showReportSelection && reportContext && (
+                <ReportSelectionModal
+                    isOpen={showReportSelection}
+                    taskId={reportContext.taskId}
+                    reportType={reportContext.reportType}
+                    standardId={reportContext.standardId}
+                    criteriaId={reportContext.criteriaId}
+                    programId={reportContext.programId}
+                    organizationId={reportContext.organizationId}
+                    onCreateNew={handleCreateNewReport}
+                    onSelectExisting={handleSelectExistingReport}
+                    onClose={() => {
+                        setShowReportSelection(false)
+                        setReportContext(null)
+                    }}
+                />
+            )}
+
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -189,6 +241,7 @@ export default function TaskList() {
                 </div>
             </div>
 
+            {/* Filter Section (unchanged) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="flex border-b border-gray-100">
                     <button
@@ -300,6 +353,7 @@ export default function TaskList() {
                 </div>
             </div>
 
+            {/* Task Table (unchanged except for action button) */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
@@ -383,6 +437,7 @@ export default function TaskList() {
                                                 title="Xem chi tiết"
                                             />
                                             {!isCreatedTab && isReporter && (
+                                                // Thay đổi hành vi nút viết báo cáo
                                                 <ActionButton
                                                     icon={FileText}
                                                     variant="primary"

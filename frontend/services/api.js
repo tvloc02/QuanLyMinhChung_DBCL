@@ -276,6 +276,8 @@ export const apiMethods = {
         },
         convertFileToContent: (id) => api.post(`/api/reports/${id}/convert-file-to-content`),
         getByTask: (params) => api.get('/api/reports/by-task', { params }),
+        // THÊM API MỚI cho luồng Cây Minh chứng
+        getReportsByStandardCriteria: (params) => api.get('/api/reports/by-standard-criteria', { params }),
         requestEditPermission: (id) => api.post(`/api/reports/${id}/request-edit-permission`),
         getStats: (params) => api.get('/api/reports/stats', { params }),
         getVersions: (id) => api.get(`/api/reports/${id}/versions`),
@@ -286,7 +288,7 @@ export const apiMethods = {
         getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
         assignReporter: (id, reporterIds) => api.post(`/api/reports/${id}/assign-reporter`, { reporterIds })
     },
-    
+
     assignments: {
         getAll: (params) => api.get('/api/assignments', { params }),
         getById: (id) => api.get(`/api/assignments/${id}`),

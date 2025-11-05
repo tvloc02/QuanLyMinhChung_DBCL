@@ -3,12 +3,19 @@ import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Send, Lock }
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
+// Hàm tiện ích để chuẩn hóa giá trị rỗng/null/undefined thành null
+const normalizeParam = (value) => {
+    return (value === '' || value === undefined) ? null : value;
+};
+
 export default function ReportSelectionModal({
                                                  isOpen,
                                                  taskId,
                                                  reportType,
                                                  standardId,
                                                  criteriaId,
+                                                 programId,
+                                                 organizationId,
                                                  onCreateNew,
                                                  onSelectExisting,
                                                  onClose
@@ -21,27 +28,75 @@ export default function ReportSelectionModal({
     const [requestedReports, setRequestedReports] = useState(new Set())
 
     useEffect(() => {
-        if (isOpen && taskId) {
+        const normalizedTaskId = normalizeParam(taskId);
+        const normalizedStandardId = normalizeParam(standardId);
+
+        if (isOpen && (normalizedTaskId || (normalizedStandardId && reportType))) {
             fetchReports()
         }
-    }, [isOpen, taskId])
+    }, [isOpen, taskId, standardId, criteriaId, reportType, programId, organizationId])
 
     const fetchReports = async () => {
         try {
             setLoading(true)
-            const response = await apiMethods.reports.getByTask({
-                taskId,
-                reportType,
-                standardId,
-                criteriaId
-            })
 
-            setReports(response.data.data.reports || [])
-            setCanCreateNew(response.data.data.canCreateNew)
-            setTask(response.data.data.task)
+            let response;
+            let reportsData = [];
+            let canCreate = false;
+            let currentTask = null;
+
+            const params = {
+                reportType: normalizeParam(reportType),
+                standardId: normalizeParam(standardId),
+                criteriaId: normalizeParam(criteriaId),
+                programId: normalizeParam(programId),
+                organizationId: normalizeParam(organizationId)
+            };
+
+            const normalizedTaskId = normalizeParam(taskId);
+
+            if (normalizedTaskId) {
+                // Luồng 1: Từ Task (Gọi API getByTask)
+                response = await apiMethods.reports.getByTask({
+                    taskId: normalizedTaskId,
+                    ...params
+                })
+                reportsData = response.data.data.reports || []
+                canCreate = response.data.data.canCreateNew;
+                currentTask = response.data.data.task;
+
+            } else if (params.standardId && params.reportType) {
+                // Luồng 2: Từ Cây Minh chứng (Chủ động gọi API mới)
+                response = await apiMethods.reports.getReportsByStandardCriteria(params)
+                reportsData = response.data.data.reports || []
+                canCreate = response.data.data.canWriteReport || false;
+                currentTask = null;
+            } else {
+                // Trường hợp không đủ tham số
+                return;
+            }
+
+            const newReports = reportsData.map(report => {
+                const assignedReporters = report.assignedReporters || [];
+                // Giả định backend đã đánh dấu 'Bạn' (You) cho người dùng hiện tại
+                const isAssignedToMe = assignedReporters.some(r => r.fullName === 'Bạn');
+                const isCreatedByMe = report.createdBy?.fullName === 'Bạn';
+
+                return {
+                    ...report,
+                    canEdit: isAssignedToMe || isCreatedByMe
+                };
+            });
+
+
+            setReports(newReports)
+            setCanCreateNew(canCreate)
+            setTask(currentTask)
+
         } catch (error) {
             console.error('Fetch reports error:', error)
-            toast.error('Lỗi khi tải danh sách báo cáo')
+            const errorMessage = error.response?.data?.message || 'Lỗi khi tải danh sách báo cáo'
+            toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
@@ -64,10 +119,9 @@ export default function ReportSelectionModal({
             const response = await apiMethods.reports.requestEditPermission(reportId)
 
             if (response.data.success) {
-                toast.success('Yêu cầu cấp quyền đã được gửi')
+                toast.success('Yêu cầu cấp quyền đã được gửi và đã được cấp')
                 setRequestedReports(prev => new Set([...prev, reportId]))
 
-                // Refresh reports list
                 await fetchReports()
             }
         } catch (error) {
@@ -120,7 +174,7 @@ export default function ReportSelectionModal({
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-white flex items-center justify-between">
                     <div>
-                        <h2 className="text-2xl font-bold">Báo cáo từ nhiệm vụ</h2>
+                        <h2 className="text-2xl font-bold">Báo cáo từ {taskId ? 'nhiệm vụ' : 'yêu cầu'}</h2>
                         <p className="text-indigo-100 text-sm mt-1">{getReportTypeText()}</p>
                     </div>
                     <button
@@ -147,7 +201,7 @@ export default function ReportSelectionModal({
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có báo cáo nào</h3>
                             <p className="text-gray-500 mb-6">
-                                Tạo báo cáo mới cho nhiệm vụ này
+                                Tạo báo cáo mới cho yêu cầu này
                             </p>
                             {canCreateNew && (
                                 <button
@@ -169,10 +223,7 @@ export default function ReportSelectionModal({
                                             <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                             <div>
                                                 <p className="text-sm font-medium text-amber-900">
-                                                    Báo cáo nháp - Chưa hoàn thành
-                                                </p>
-                                                <p className="text-xs text-amber-700 mt-1">
-                                                    Bạn có thể tiếp tục sửa hoặc gửi yêu cầu chỉnh sửa cho tác giả
+                                                    Báo cáo nháp - Có thể tiếp tục sửa hoặc yêu cầu quyền sửa
                                                 </p>
                                             </div>
                                         </div>
@@ -200,21 +251,22 @@ export default function ReportSelectionModal({
                                                         <p className="text-xs text-gray-500 mt-1">
                                                             Tác giả: {report.createdBy?.fullName}
                                                         </p>
-                                                        {report.assignedReporters && report.assignedReporters.length > 1 && (
+                                                        {report.assignedReporters && report.assignedReporters.length > 0 && (
                                                             <p className="text-xs text-gray-500">
                                                                 Người có quyền: {report.assignedReporters.map(r => r.fullName).join(', ')}
                                                             </p>
                                                         )}
                                                     </div>
                                                     <div className="ml-4 flex gap-2">
-                                                        <button
-                                                            onClick={() => handleSelectReport(report._id)}
-                                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                            Tiếp tục
-                                                        </button>
-                                                        {report.createdBy?.fullName !== 'Bạn' && (
+                                                        {report.canEdit ? (
+                                                            <button
+                                                                onClick={() => handleSelectReport(report._id)}
+                                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                                Tiếp tục sửa
+                                                            </button>
+                                                        ) : (
                                                             <button
                                                                 onClick={() => handleRequestEditPermission(report._id)}
                                                                 disabled={requestingEdit[report._id] || requestedReports.has(report._id)}

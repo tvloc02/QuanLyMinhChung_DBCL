@@ -199,7 +199,8 @@ const createEvidence = async (req, res) => {
             effectiveDate,
             issuingAgency,
             notes,
-            tags
+            tags,
+            autoGenerateCode // Thêm trường này từ frontend (NewEvidenceModal)
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -240,14 +241,45 @@ const createEvidence = async (req, res) => {
 
         let evidenceCode = code;
 
-        if (!evidenceCode) {
+        // ⭐️ LOGIC TẠO MÃ TỰ ĐỘNG
+        if (autoGenerateCode || !evidenceCode) {
             try {
-                evidenceCode = await Evidence.generateCode(
+                // Giả định Evidence model có phương thức findLastCode/generateCode
+                const lastEvidence = await Evidence.findOne({
                     academicYearId,
-                    standard.code,
-                    criteria.code,
-                    1
-                );
+                    standardId,
+                    criteriaId
+                })
+                    .sort({ code: -1 })
+                    .select('code');
+
+                let nextNumber = 1;
+                if (lastEvidence && lastEvidence.code) {
+                    const parts = lastEvidence.code.split('.'); // Giả định format là XXX.XX.XX.YY
+                    const lastNum = parseInt(parts[parts.length - 1]);
+                    if (!isNaN(lastNum)) {
+                        nextNumber = lastNum + 1;
+                    }
+                }
+
+                // Cần đảm bảo Evidence model có phương thức generateCode hoặc logic này đủ
+                evidenceCode = `${standard.code}.${criteria.code}.${String(nextNumber).padStart(2, '0')}`;
+                // Giả định: Format mã minh chứng là TC.TT.MM.SS (Standard.Criteria.Box.Sequence)
+                // Cần điều chỉnh logic generateCode ở đây hoặc trong model cho phù hợp với format của bạn
+                // Hiện tại tôi sẽ dùng logic đơn giản dựa trên hàm generateCode giả định có trong Evidence model
+
+                // Vì không có file Evidence model, tôi sẽ dùng logic có sẵn trong Evidence Controller (getEvidences.js)
+                if (Evidence.generateCode) {
+                    evidenceCode = await Evidence.generateCode(
+                        academicYearId,
+                        standard.code,
+                        criteria.code,
+                        nextNumber // Sử dụng số thứ tự tiếp theo
+                    );
+                } else {
+                    evidenceCode = `${standard.code}.${criteria.code}.${String(nextNumber).padStart(2, '0')}`;
+                }
+
             } catch (genError) {
                 return res.status(500).json({
                     success: false,
