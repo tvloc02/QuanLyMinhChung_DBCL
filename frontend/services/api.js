@@ -225,33 +225,38 @@ export const apiMethods = {
     },
 
     files: {
-        upload: (file, evidenceId, config = {}) => {
+        upload: (file, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
             formData.append('files', file)
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                ...config
+            if (parentFolderId) {
+                formData.append('parentFolderId', parentFolderId)
+            }
+            return api.post(`/files/upload/${evidenceId}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
-        uploadMultiple: (files, evidenceId, config = {}) => {
+        uploadMultiple: (files, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
             files.forEach(file => {
                 formData.append('files', file)
             })
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                ...config
+            if (parentFolderId) {
+                formData.append('parentFolderId', parentFolderId)
+            }
+            return api.post(`/files/upload/${evidenceId}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             })
         },
-        getById: (id) => api.get(`/api/files/${id}`),
-        download: (id) => api.get(`/api/files/download/${id}`, {
-            responseType: 'blob'
-        }),
-        delete: (id) => api.delete(`/api/files/${id}`),
-        getByEvidence: (evidenceId) => api.get(`/api/files/evidence/${evidenceId}`),
-        approve: (fileId, data) => {
-            return api.post(`/api/evidences/files/${fileId}/approve`, data)
-        }
+        download: (fileId) => api.get(`/files/download/${fileId}`, { responseType: 'blob' }),
+        stream: (fileId) => api.get(`/files/stream/${fileId}`, { responseType: 'blob' }),
+        getInfo: (fileId) => api.get(`/files/${fileId}/info`),
+        delete: (fileId) => api.delete(`/files/${fileId}`),
+        move: (fileId, data) => api.post(`/files/${fileId}/move`, data),
+        search: (params) => api.get('/files/search', { params }),
+        getByEvidence: (evidenceId, params) => api.get(`/files/evidence/${evidenceId}`, { params }),
+        getStatistics: (evidenceId) => api.get(`/files/${evidenceId}/statistics`),
+        approve: (fileId, data) => api.post(`/files/${fileId}/approve`, data),
+        incrementDownload: (fileId) => api.post(`/files/${fileId}/increment-download`)
     },
 
     reports: {

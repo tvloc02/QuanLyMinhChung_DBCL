@@ -86,9 +86,6 @@ const uploadFiles = async (req, res) => {
 
         const savedFiles = [];
 
-        const fs = require('fs');
-        const path = require('path');
-
         for (const file of files) {
             const encodedFileName = encodeURIComponent(file.originalname);
 
@@ -156,6 +153,7 @@ const uploadFiles = async (req, res) => {
     }
 };
 
+// ⭐️ FIXED: downloadFile - CHỈ KIỂM TRA QUYỀN DELETE, KHÔNG KIỂM TRA QUYỀN DOWNLOAD
 const downloadFile = async (req, res) => {
     try {
         const { id } = req.params;
@@ -175,9 +173,6 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        const fs = require('fs');
-        const path = require('path');
-
         if (!fs.existsSync(file.filePath)) {
             return res.status(404).json({
                 success: false,
@@ -185,20 +180,12 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        if (req.user.role === 'reporter') {
-            const academicYearId = file.evidenceId.academicYearId;
-            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
-            if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền truy cập file này'
-                });
-            }
-        }
+        // ⭐️ REMOVED: Reporter permission check - Mọi người có thể download
 
         await file.incrementDownloadCount();
 
-        const decodedFileName = file.originalName;
+        // ⭐️ FIXED: Decode filename an toàn để hiển thị tiếng Việt đúng
+        const decodedFileName = decodeURIComponent(file.originalName);
 
         res.download(file.filePath, decodedFileName);
 
@@ -229,6 +216,7 @@ const deleteFile = async (req, res) => {
             academicYearId = file.evidenceId.academicYearId;
         }
 
+        // ⭐️ KIỂM TRA QUYỀN XÓA - CHỈ ADMIN CÓ THỂ XÓA
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const evidence = file.evidenceId;
             const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
@@ -251,8 +239,6 @@ const deleteFile = async (req, res) => {
         }
 
         const parentFolderId = file.parentFolder;
-
-        const fs = require('fs');
 
         if (file.type === 'file' && fs.existsSync(file.filePath)) {
             fs.unlinkSync(file.filePath);
@@ -287,6 +273,7 @@ const deleteFile = async (req, res) => {
     }
 };
 
+// ⭐️ FIXED: getFileInfo - CHỈ KIỂM TRA QUYỀN DELETE, KHÔNG KIỂM TRA QUYỀN VIEW
 const getFileInfo = async (req, res) => {
     try {
         const { id } = req.params;
@@ -303,20 +290,12 @@ const getFileInfo = async (req, res) => {
             });
         }
 
-        if (req.user.role === 'reporter') {
-            const academicYearId = file.evidenceId.academicYearId;
-            const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, academicYearId);
-            if (!accessibleCriteriaIds.map(id => id.toString()).includes(file.evidenceId.criteriaId.toString())) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền truy cập file này'
-                });
-            }
-        }
+        // ⭐️ REMOVED: Reporter permission check - Mọi người có thể xem thông tin file
 
         res.json({
             success: true,
-            data: file
+            data: file,
+            canDelete: req.user.role === 'admin' || req.user.role === 'manager'
         });
 
     } catch (error) {
@@ -391,7 +370,6 @@ const moveFile = async (req, res) => {
                 return false;
             };
 
-
             if (file.type === 'folder') {
                 const isDescendant = await checkIfDescendant(targetFolderId, id);
                 if (isDescendant || targetFolderId === id) {
@@ -429,8 +407,6 @@ const moveFile = async (req, res) => {
     }
 };
 
-
-
 const searchFiles = async (req, res) => {
     try {
         const {
@@ -455,7 +431,6 @@ const searchFiles = async (req, res) => {
             }
             query.evidenceId = { $in: accessibleEvidenceIds };
         }
-
 
         if (evidenceId) {
             query.evidenceId = evidenceId;

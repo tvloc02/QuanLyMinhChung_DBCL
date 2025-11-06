@@ -1,3 +1,7 @@
+// ============================================
+// backend/routes/evidence/files.js - FULL CODE
+// ============================================
+
 const express = require('express');
 const router = express.Router();
 const { param, query } = require('express-validator');
@@ -73,15 +77,6 @@ router.get('/evidence/:evidenceId',
                 });
             }
 
-            if (req.user.role !== 'admin' &&
-                !req.user.hasStandardAccess(evidence.standardId) &&
-                !req.user.hasCriteriaAccess(evidence.criteriaId)) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Không có quyền truy cập minh chứng này'
-                });
-            }
-
             const pageNum = parseInt(page);
             const limitNum = parseInt(limit);
             const skip = (pageNum - 1) * limitNum;
@@ -119,6 +114,7 @@ router.get('/evidence/:evidenceId',
     }
 );
 
+// ⭐️ THÊM ROUTE STREAM - CHO PREVIEW FILE
 router.get('/stream/:id',
     auth,
     [
@@ -140,14 +136,8 @@ router.get('/stream/:id',
                 });
             }
 
-            if (req.user.role !== 'admin' &&
-                !req.user.hasStandardAccess(file.evidenceId.standardId) &&
-                !req.user.hasCriteriaAccess(file.evidenceId.criteriaId)) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Không có quyền truy cập file này'
-                });
-            }
+            // ⭐️ CHỈ KIỂM TRA QUYỀN XÓA, KHÔNG KIỂM TRA QUYỀN XEM
+            // Mọi người đều có thể stream/preview file
 
             if (!fs.existsSync(file.filePath)) {
                 return res.status(404).json({
@@ -160,25 +150,34 @@ router.get('/stream/:id',
             const fileSize = stat.size;
             const range = req.headers.range;
 
+            // ⭐️ Set content-type chính xác để trình duyệt hiển thị đúng
+            res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Disposition', 'inline'); // Hiển thị inline thay vì download
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            res.setHeader('Accept-Ranges', 'bytes');
+
+            // Hỗ trợ range requests cho video/audio
             if (range) {
                 const parts = range.replace(/bytes=/, "").split("-");
                 const start = parseInt(parts[0], 10);
                 const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
                 const chunksize = (end - start) + 1;
-                const fileStream = fs.createReadStream(file.filePath, { start, end });
 
                 res.writeHead(206, {
                     'Content-Range': `bytes ${start}-${end}/${fileSize}`,
                     'Accept-Ranges': 'bytes',
                     'Content-Length': chunksize,
-                    'Content-Type': file.mimeType,
+                    'Content-Type': file.mimeType || 'application/octet-stream'
                 });
-                fileStream.pipe(res);
+
+                fs.createReadStream(file.filePath, { start, end }).pipe(res);
             } else {
                 res.writeHead(200, {
                     'Content-Length': fileSize,
-                    'Content-Type': file.mimeType,
+                    'Content-Type': file.mimeType || 'application/octet-stream',
+                    'Accept-Ranges': 'bytes'
                 });
+
                 fs.createReadStream(file.filePath).pipe(res);
             }
 
