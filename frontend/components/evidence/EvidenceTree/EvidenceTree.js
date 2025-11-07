@@ -84,33 +84,73 @@ export default function EvidenceTree() {
 
             const canManageAll = userRole === 'admin' || userRole === 'manager'
 
-            const overallWriteCheck = await canWriteReportAPI('standard', currentAcademicYearId, null)
-            setHasWritePermission(overallWriteCheck)
+            // ⭐️ THAY ĐỔI: Gọi API hasWritePermission để check quyền
+            let hasWrite = false
+            try {
+                const permResponse = await apiMethods.permissions.hasWritePermission()
+                hasWrite = permResponse.data?.data?.hasWritePermission || false
+                console.log('✅ hasWritePermission:', hasWrite)
+            } catch (error) {
+                console.error('❌ Check hasWritePermission error:', error)
+                hasWrite = false
+            }
 
+            setHasWritePermission(hasWrite)
+
+            // ⭐️ LOGIC HIỂN THỊ NÚT IMPORT:
+            // Admin/Manager: Luôn hiển thị
+            // Reporter: Chỉ hiển thị nếu hasWritePermission = true (được giao nhiệm vụ)
+            const showImportButton = canManageAll || (userRole === 'reporter' && hasWrite)
+            console.log('📊 showImportButton:', {
+                canManageAll,
+                userRole,
+                hasWrite,
+                result: showImportButton
+            })
+
+            // Set permissions
             setUserPermissions({
                 canEditStandard: async (standardId) => {
                     if (canManageAll) return true
-                    const res = await apiMethods.permissions.canEditStandard(standardId, currentAcademicYearId)
-                    return res.data?.data?.canEdit || false
+                    try {
+                        const res = await apiMethods.permissions.canEditStandard(standardId, currentAcademicYearId)
+                        return res.data?.data?.canEdit || false
+                    } catch (e) {
+                        return false
+                    }
                 },
                 canEditCriteria: async (criteriaId) => {
                     if (canManageAll) return true
-                    const res = await apiMethods.permissions.canEditCriteria(criteriaId, currentAcademicYearId)
-                    return res.data?.data?.canEdit || false
+                    try {
+                        const res = await apiMethods.permissions.canEditCriteria(criteriaId, currentAcademicYearId)
+                        return res.data?.data?.canEdit || false
+                    } catch (e) {
+                        return false
+                    }
                 },
                 canUploadEvidence: async (criteriaId) => {
                     if (canManageAll) return true
-                    const res = await apiMethods.permissions.canUploadEvidence(criteriaId, currentAcademicYearId)
-                    return res.data?.data?.canUpload || false
+                    try {
+                        const res = await apiMethods.permissions.canUploadEvidence(criteriaId, currentAcademicYearId)
+                        return res.data?.data?.canUpload || false
+                    } catch (e) {
+                        return false
+                    }
                 },
                 canAssignReporters: async (standardId, criteriaId) => {
                     if (canManageAll) return true
-                    const res = await apiMethods.permissions.canAssignReporters(standardId, criteriaId, currentAcademicYearId)
-                    return res.data?.data?.canAssign || false
+                    try {
+                        const res = await apiMethods.permissions.canAssignReporters(standardId, criteriaId, currentAcademicYearId)
+                        return res.data?.data?.canAssign || false
+                    } catch (e) {
+                        return false
+                    }
                 },
             })
+
         } catch (error) {
-            console.error('Fetch user info error:', error)
+            console.error('❌ Fetch user info error:', error)
+            setHasWritePermission(false)
         }
     }
 

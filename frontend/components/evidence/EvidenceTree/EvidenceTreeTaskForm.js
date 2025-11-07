@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { X, Send, Loader2, Upload, AlertCircle } from 'lucide-react'
+import {useEffect, useState} from 'react'
+import {AlertCircle, Loader2, Send, Upload, X} from 'lucide-react'
 import toast from 'react-hot-toast'
-import { apiMethods } from '../../../services/api'
+import {apiMethods} from '../../../services/api'
 
 export default function EvidenceTreeTaskForm({
                                                  showAssignModal,
@@ -20,9 +20,13 @@ export default function EvidenceTreeTaskForm({
     const [uploadedFiles, setUploadedFiles] = useState([])
     const [rejectionReason, setRejectionReason] = useState('')
     const [fileInput, setFileInput] = useState(null)
-
     const [taskDescription, setTaskDescription] = useState('')
     const [dueDate, setDueDate] = useState('')
+
+    // Trạng thái cho popup xác nhận
+    const [showConfirmModal, setShowConfirmModal] = useState(false)
+    const [duplicateUsers, setDuplicateUsers] = useState([])
+    const [pendingSubmitData, setPendingSubmitData] = useState(null)
 
     const reportTypeMap = {
         'tdg': 'overall_tdg',
@@ -45,17 +49,14 @@ export default function EvidenceTreeTaskForm({
                     })
 
                     let userList = response.data.data || []
-
                     if (userList && userList.users) {
                         userList = userList.users
                     }
-
                     if (Array.isArray(userList)) {
                         setAvailableUsers(userList)
                     } else {
                         setAvailableUsers([])
                     }
-
                 } catch (error) {
                     toast.error('Lỗi khi tải danh sách báo cáo viên.')
                     console.error('Fetch reporters error:', error)
@@ -84,6 +85,47 @@ export default function EvidenceTreeTaskForm({
         setUploadedFiles(uploadedFiles.filter((_, i) => i !== index))
     }
 
+    // ⭐️ Kiểm tra xem người dùng đã từng được giao nhiệm vụ này chưa
+    const checkDuplicateAssignments = async (userIds) => {
+        try {
+            const standardId = assignTarget.standardId
+            const criteriaId = assignTarget.criteriaId || null
+            const reportType = reportTypeMap[assignReportType] || assignReportType
+
+            // Tìm các task đã tồn tại với cùng standardId/criteriaId
+            const response = await apiMethods.tasks.getAll({})
+
+            const existingTasks = response.data.data || []
+            const taskArray = Array.isArray(existingTasks) ? existingTasks : (existingTasks.tasks || [])
+
+            return userIds.filter(userId => {
+                return taskArray.some(task => {
+                    const taskStandardMatch = task.standardId?._id?.toString() === standardId?.toString() ||
+                        task.standardId?.toString() === standardId?.toString()
+                    const taskCriteriaMatch = reportType === 'criteria'
+                        ? (task.criteriaId?._id?.toString() === criteriaId?.toString() ||
+                            task.criteriaId?.toString() === criteriaId?.toString())
+                        : true
+
+                    const taskReportTypeMatch = task.reportType === reportType
+
+                    return taskArray.some(t => {
+                        const assignedToIds = Array.isArray(t.assignedTo)
+                            ? t.assignedTo.map(a => a._id || a)
+                            : []
+                        return assignedToIds.includes(userId)
+                            && task.standardId?.toString() === standardId?.toString()
+                            && taskReportTypeMatch
+                            && (reportType !== 'criteria' || task.criteriaId?.toString() === criteriaId?.toString())
+                    })
+                })
+            })
+        } catch (error) {
+            console.error('Error checking duplicates:', error)
+            return []
+        }
+    }
+
     const handleAssignment = async () => {
         if (!taskDescription.trim()) {
             toast.error('Mô tả nhiệm vụ là bắt buộc.')
@@ -97,43 +139,54 @@ export default function EvidenceTreeTaskForm({
             toast.error('Tiêu chuẩn không xác định. Vui lòng thử lại.')
             return
         }
-
         if (assignReportType === 'criteria' && !assignTarget.criteriaId) {
             toast.error('Tiêu chí là bắt buộc cho báo cáo tiêu chí.')
             return
         }
 
-        setIsSubmitting(true)
+        // ⭐️ Kiểm tra xem có người dùng nào đã từng được giao trước đó
+        const userIds = selectedUsers.map(u => u._id)
+        const duplicates = await checkDuplicateAssignments(userIds)
 
-        try {
-            const userIds = selectedUsers.map(u => u._id)
+        if (duplicates.length > 0) {
+            // Lấy tên của các người bị trùng
+            const duplicateNames = selectedUsers
+                .filter(u => duplicates.includes(u._id))
+                .map(u => u.fullName)
+                .join(', ')
 
-            let finalDueDate = undefined
-            if (dueDate) {
-                const dateObject = new Date(dueDate + 'T00:00:00')
-                if (!isNaN(dateObject)) {
-                    finalDueDate = dateObject.toISOString()
-                }
-            }
-
-            const submitData = {
+            setDuplicateUsers(duplicateNames)
+            setPendingSubmitData({
                 description: taskDescription.trim(),
                 assignedTo: userIds,
                 standardId: assignTarget.standardId,
                 criteriaId: assignTarget.criteriaId || null,
-
                 reportType: reportTypeMap[assignReportType] || assignReportType,
-
-                dueDate: finalDueDate,
+                dueDate: dueDate ? new Date(dueDate + 'T00:00:00').toISOString() : undefined,
                 rejectionReason: rejectionReason
-            }
+            })
+            setShowConfirmModal(true)
+            return
+        }
 
-            console.log('📤 BEFORE SUBMIT - Full submitData:', JSON.stringify(submitData, null, 2))
+        await submitAssignment({
+            description: taskDescription.trim(),
+            assignedTo: userIds,
+            standardId: assignTarget.standardId,
+            criteriaId: assignTarget.criteriaId || null,
+            reportType: reportTypeMap[assignReportType] || assignReportType,
+            dueDate: dueDate ? new Date(dueDate + 'T00:00:00').toISOString() : undefined,
+            rejectionReason: rejectionReason
+        })
+    }
 
+    const submitAssignment = async (submitData) => {
+        setIsSubmitting(true)
+        try {
             await onSubmit(submitData)
-
             toast.success(`Đã giao nhiệm vụ cho ${selectedUsers.length} người.`)
             handleCloseModal()
+            setShowConfirmModal(false)
         } catch (error) {
             console.error('❌ Error creating task:', error)
             const errorMsg = error.message || 'Lỗi khi giao nhiệm vụ'
@@ -149,6 +202,8 @@ export default function EvidenceTreeTaskForm({
         setRejectionReason('')
         setTaskDescription('')
         setDueDate('')
+        setPendingSubmitData(null)
+        setDuplicateUsers([])
         onClose()
     }
 
@@ -170,6 +225,43 @@ export default function EvidenceTreeTaskForm({
         }
     }
 
+    // ⭐️ POPUP XÁC NHẬN
+    if (showConfirmModal && pendingSubmitData) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                    <div className="flex items-center justify-center mb-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <AlertCircle className="w-6 h-6 text-blue-600" />
+                        </div>
+                    </div>
+                    <h3 className="text-lg font-bold text-center text-gray-900 mb-2">
+                        Xác nhận giao nhiệm vụ
+                    </h3>
+                    <p className="text-center text-gray-600 mb-4">
+                        Bạn đã từng giao nhiệm vụ viết báo cáo cho <span className="font-semibold text-blue-600">{duplicateUsers}</span>, bạn vẫn muốn giao tiếp nhiệm vụ viết báo cáo này chứ?
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setShowConfirmModal(false)}
+                            className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={() => submitAssignment(pendingSubmitData)}
+                            disabled={isSubmitting}
+                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium"
+                        >
+                            {isSubmitting ? 'Đang giao...' : 'Tiếp tục'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // FORM GIAO NHIỆM VỤ
     if (showAssignModal && assignTarget) {
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -294,7 +386,7 @@ export default function EvidenceTreeTaskForm({
                             <button
                                 onClick={handleAssignment}
                                 disabled={isSubmitting || selectedUsers.length === 0 || !taskDescription.trim()}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center justify-center"
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center justify-center"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -315,11 +407,12 @@ export default function EvidenceTreeTaskForm({
         )
     }
 
+    // ⭐️ FORM UPLOAD FILES (hiện nút upload thay vì xem/sửa)
     if (selectedEvidence) {
         return (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-fit sticky top-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">Upload Files</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Upload Minh Chứng</h3>
                     <button
                         onClick={onCloseFileManager}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-all"
@@ -338,7 +431,7 @@ export default function EvidenceTreeTaskForm({
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Chọn files</label>
                         <div
-                            className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer"
+                            className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
                             onClick={() => fileInput?.click()}
                         >
                             <input
@@ -348,7 +441,7 @@ export default function EvidenceTreeTaskForm({
                                 onChange={handleFileSelect}
                                 className="hidden"
                             />
-                            <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <Upload className="h-8 w-8 text-blue-400 mx-auto mb-2" />
                             <p className="text-sm text-gray-600 mb-1">Kéo files hoặc</p>
                             <button
                                 type="button"
@@ -389,7 +482,7 @@ export default function EvidenceTreeTaskForm({
                     <button
                         onClick={handleUploadFiles}
                         disabled={uploadedFiles.length === 0 || isSubmitting}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center justify-center"
+                        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium inline-flex items-center justify-center"
                     >
                         {isSubmitting ? (
                             <>
