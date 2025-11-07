@@ -7,6 +7,8 @@ import EvidenceTreeHeader from './EvidenceTreeHeader'
 import EvidenceTreeStatistics from './EvidenceTreeStatistics'
 import EvidenceTreeMain from './EvidenceTreeMain'
 import EvidenceTreeTaskForm from './EvidenceTreeTaskForm'
+import StandardModal from '../../structure/StandardModal'
+import CriteriaModal from '../../structure/CriteriaModal'
 
 export default function EvidenceTree() {
     const router = useRouter()
@@ -16,6 +18,7 @@ export default function EvidenceTree() {
     const [expandedNodes, setExpandedNodes] = useState({})
     const [programs, setPrograms] = useState([])
     const [organizations, setOrganizations] = useState([])
+    const [standards, setStandards] = useState([])
     const [selectedProgram, setSelectedProgram] = useState('')
     const [selectedOrganization, setSelectedOrganization] = useState('')
     const [statistics, setStatistics] = useState(null)
@@ -36,10 +39,14 @@ export default function EvidenceTree() {
 
     const [draggedEvidence, setDraggedEvidence] = useState(null)
 
+    const [currentStandard, setCurrentStandard] = useState(null)
+    const [currentCriteria, setCurrentCriteria] = useState(null)
+
     useEffect(() => {
         fetchUserInfo()
         fetchPrograms()
         fetchOrganizations()
+        fetchFullStandardList()
     }, [])
 
     useEffect(() => {
@@ -132,6 +139,15 @@ export default function EvidenceTree() {
         } catch (error) {
             console.error('Fetch organizations error:', error)
             toast.error('Lỗi khi tải danh sách tổ chức')
+        }
+    }
+
+    const fetchFullStandardList = async () => {
+        try {
+            const stdRes = await apiMethods.standards.getAll()
+            setStandards(stdRes.data.data.standards || stdRes.data.data || [])
+        } catch (e) {
+            console.error('Fetch Standards list error:', e)
         }
     }
 
@@ -290,7 +306,10 @@ export default function EvidenceTree() {
             }
             toast.loading('Đang xuất dữ liệu...')
 
-            const response = await apiMethods.evidences.exportTree(selectedProgram, selectedOrganization)
+            const response = await apiMethods.evidences.exportTree({
+                programId: selectedProgram,
+                organizationId: selectedOrganization
+            })
 
             const blob = new Blob([response.data], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -389,6 +408,29 @@ export default function EvidenceTree() {
         }
     }
 
+    const handleOpenStandardModal = (standard, isView) => {
+        setCurrentStandard({
+            ...standard,
+            isViewMode: isView
+        })
+    }
+
+    const handleOpenCriteriaModal = (criteria, standard, isView) => {
+        setCurrentCriteria({
+            ...criteria,
+            standardId: standard,
+            isViewMode: isView
+        })
+    }
+
+    const handleViewEvidenceDetail = (evidenceId) => {
+        router.push(`/evidence/files?evidenceId=${evidenceId}`)
+    }
+
+    const handleDeleteEntity = (type, entity) => {
+        toast.error(`❌ ${type} "${entity.code || entity.name}" đang được sử dụng và không thể xóa.`)
+    }
+
     return (
         <div className="space-y-6">
             <EvidenceTreeHeader
@@ -451,14 +493,19 @@ export default function EvidenceTree() {
                         canUploadEvidence={checkCanUploadEvidence}
                         canAssignReporters={checkCanAssignReporters}
                         onAssignClick={handleAssignClick}
-                        onEditEvidence={(evidence) => {
-                            toast.info('Chức năng sửa minh chứng đang phát triển')
-                        }}
-                        onDeleteEvidence={(evidence) => {
-                            if (confirm('Bạn chắc chắn muốn xóa?')) {
-                                toast.success('Xóa minh chứng')
-                            }
-                        }}
+
+                        onViewStandard={handleOpenStandardModal}
+                        onEditStandard={(std) => handleOpenStandardModal(std, false)}
+
+                        onViewCriteria={(crit, std) => handleOpenCriteriaModal(crit, std, true)}
+                        onEditCriteria={(crit, std) => handleOpenCriteriaModal(crit, std, false)}
+
+                        onViewEvidence={handleViewEvidenceDetail}
+                        onEditEvidence={handleViewEvidenceDetail}
+
+                        onDeleteStandard={handleDeleteEntity}
+                        onDeleteCriteria={handleDeleteEntity}
+                        onDeleteEvidence={handleDeleteEntity}
                     />
                 </div>
 
@@ -485,6 +532,33 @@ export default function EvidenceTree() {
                 onSubmit={handleAssignSubmit}
                 onCloseFileManager={() => setSelectedEvidence(null)}
             />
+
+            {currentStandard && (
+                <StandardModal
+                    standard={currentStandard}
+                    programs={programs}
+                    organizations={organizations}
+                    onClose={() => setCurrentStandard(null)}
+                    onSuccess={() => {
+                        setCurrentStandard(null)
+                        fetchTreeData()
+                        fetchFullStandardList()
+                    }}
+                />
+            )}
+
+            {currentCriteria && (
+                <CriteriaModal
+                    criteria={currentCriteria}
+                    standards={standards}
+                    programs={programs}
+                    onClose={() => setCurrentCriteria(null)}
+                    onSuccess={() => {
+                        setCurrentCriteria(null)
+                        fetchTreeData()
+                    }}
+                />
+            )}
         </div>
     )
 }

@@ -184,23 +184,14 @@ evidenceSchema.pre('save', function(next) {
 });
 
 evidenceSchema.methods.updateStatus = async function() {
-    const File = require('./File');
-    const files = await File.find({ evidenceId: this._id });
-
-    if (files.length === 0) {
+    // Không cần logic duyệt file nữa, chỉ cần trạng thái có file hay không
+    if (this.files.length === 0) {
         this.status = this.status === 'new' ? 'new' : 'in_progress';
-    } else {
-        const rejectedFiles = files.filter(f => f.approvalStatus === 'rejected');
-        const approvedFiles = files.filter(f => f.approvalStatus === 'approved');
-
-        if (rejectedFiles.length > 0) {
-            this.status = 'rejected';
-        } else if (approvedFiles.length === files.length) {
-            this.status = 'approved';
-        } else {
-            this.status = 'completed';
-        }
+    } else if (this.status === 'new') {
+        this.status = 'in_progress';
     }
+
+    // Giữ nguyên trạng thái approved/rejected/completed vì nó sẽ được quản lý bởi Report
 
     await this.save();
     return this.status;

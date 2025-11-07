@@ -1,7 +1,3 @@
-// ============================================
-// backend/routes/evidence/files.js - FULL CODE
-// ============================================
-
 const express = require('express');
 const router = express.Router();
 const { param, query } = require('express-validator');
@@ -11,10 +7,15 @@ const validation = require('../../middleware/validation');
 const {
     uploadFiles,
     downloadFile,
+    streamFile,
     deleteFile,
-    getFileInfo
+    getFileInfo,
+    moveFile,
+    searchFiles,
+    getFileStatistics
 } = require('../../controllers/evidence/fileController');
 
+// Upload files
 router.post('/upload/:evidenceId',
     auth,
     upload.array('files', 10),
@@ -26,6 +27,7 @@ router.post('/upload/:evidenceId',
     uploadFiles
 );
 
+// Download file
 router.get('/download/:id',
     auth,
     [
@@ -35,6 +37,16 @@ router.get('/download/:id',
     downloadFile
 );
 
+// Stream file (for preview)
+router.get('/stream/:id',
+    [
+        param('id').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    streamFile
+);
+
+// Get file info
 router.get('/:id/info',
     auth,
     [
@@ -44,6 +56,7 @@ router.get('/:id/info',
     getFileInfo
 );
 
+// Delete file
 router.delete('/:id',
     auth,
     [
@@ -53,6 +66,17 @@ router.delete('/:id',
     deleteFile
 );
 
+// Move file
+router.post('/:id/move',
+    auth,
+    [
+        param('id').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    moveFile
+);
+
+// Get files by evidence
 router.get('/evidence/:evidenceId',
     auth,
     [
@@ -63,19 +87,9 @@ router.get('/evidence/:evidenceId',
     validation,
     async (req, res) => {
         try {
+            const File = require('../../models/Evidence/File');
             const { evidenceId } = req.params;
             const { page = 1, limit = 20 } = req.query;
-
-            const File = require('../../models/Evidence/File');
-            const Evidence = require('../../models/Evidence/Evidence');
-
-            const evidence = await Evidence.findById(evidenceId);
-            if (!evidence) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy minh chứng'
-                });
-            }
 
             const pageNum = parseInt(page);
             const limitNum = parseInt(limit);
@@ -114,81 +128,20 @@ router.get('/evidence/:evidenceId',
     }
 );
 
-// ⭐️ THÊM ROUTE STREAM - CHO PREVIEW FILE
-router.get('/stream/:id',
+// Search files
+router.get('/search',
+    auth,
+    searchFiles
+);
+
+// Get file statistics
+router.get('/statistics/:evidenceId',
     auth,
     [
-        param('id').isMongoId().withMessage('ID file không hợp lệ')
+        param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ')
     ],
     validation,
-    async (req, res) => {
-        try {
-            const { id } = req.params;
-            const File = require('../../models/Evidence/File');
-            const fs = require('fs');
-            const path = require('path');
-
-            const file = await File.findById(id).populate('evidenceId');
-            if (!file) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy file'
-                });
-            }
-
-            // ⭐️ CHỈ KIỂM TRA QUYỀN XÓA, KHÔNG KIỂM TRA QUYỀN XEM
-            // Mọi người đều có thể stream/preview file
-
-            if (!fs.existsSync(file.filePath)) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'File không tồn tại trên hệ thống'
-                });
-            }
-
-            const stat = fs.statSync(file.filePath);
-            const fileSize = stat.size;
-            const range = req.headers.range;
-
-            // ⭐️ Set content-type chính xác để trình duyệt hiển thị đúng
-            res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
-            res.setHeader('Content-Disposition', 'inline'); // Hiển thị inline thay vì download
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            res.setHeader('Accept-Ranges', 'bytes');
-
-            // Hỗ trợ range requests cho video/audio
-            if (range) {
-                const parts = range.replace(/bytes=/, "").split("-");
-                const start = parseInt(parts[0], 10);
-                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-                const chunksize = (end - start) + 1;
-
-                res.writeHead(206, {
-                    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                    'Accept-Ranges': 'bytes',
-                    'Content-Length': chunksize,
-                    'Content-Type': file.mimeType || 'application/octet-stream'
-                });
-
-                fs.createReadStream(file.filePath, { start, end }).pipe(res);
-            } else {
-                res.writeHead(200, {
-                    'Content-Length': fileSize,
-                    'Content-Type': file.mimeType || 'application/octet-stream',
-                    'Accept-Ranges': 'bytes'
-                });
-
-                fs.createReadStream(file.filePath).pipe(res);
-            }
-
-        } catch (error) {
-            console.error('Stream file error:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Lỗi hệ thống khi stream file'
-            });
-        }
-    }
+    getFileStatistics
 );
 
 module.exports = router;

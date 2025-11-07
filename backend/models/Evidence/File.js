@@ -121,26 +121,6 @@ const fileSchema = new mongoose.Schema({
         default: Date.now
     },
 
-    approvedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-
-    approvalStatus: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
-    },
-
-    approvalDate: {
-        type: Date
-    },
-
-    rejectionReason: {
-        type: String,
-        trim: true
-    },
-
 });
 
 fileSchema.index({ evidenceId: 1 });
@@ -205,23 +185,21 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
 fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
 
-    const cleanName = evidenceName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D');
+    let baseName = path.basename(originalName, ext);
 
-    let fileName = `${evidenceCode}-${cleanName}${ext}`;
+    // FIX: Chỉ remove special characters, GIỮ nguyên tiếng Việt
+    let fileName = `${evidenceCode}-${baseName}${ext}`;
 
+    // Remove only dangerous characters, nhưng giữ tiếng Việt, space, dash
     fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[<>:"/\\|?*]/g, '') // Chỉ remove dangerous chars
+        .replace(/\s+/g, '-')          // Convert space to dash
         .trim();
 
-    const maxNameLength = 200;
+    const maxNameLength = 255;
     if (fileName.length > maxNameLength) {
         const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length);
+        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length - 1);
         fileName = truncatedName + ext;
     }
 
@@ -280,7 +258,7 @@ fileSchema.post('save', async function(doc, next) {
 fileSchema.post('findOneAndUpdate', async function(result, next) {
     if (result && result.uploadedBy) {
         try {
-            await result.addActivityLog('file_update', result.uploadedBy,
+            await result.addActivityLog('file_update', result.updatedBy,
                 `Cập nhật file: ${result.originalName}`, {
                     severity: 'low',
                     result: 'success'
@@ -295,7 +273,7 @@ fileSchema.post('findOneAndUpdate', async function(result, next) {
 fileSchema.post('findOneAndDelete', async function(doc, next) {
     if (doc && doc.uploadedBy) {
         try {
-            await doc.addActivityLog('file_delete', doc.uploadedBy,
+            await doc.addActivityLog('file_delete', doc.updatedBy,
                 `Xóa file: ${doc.originalName}`, {
                     severity: 'medium',
                     result: 'success',

@@ -81,9 +81,17 @@ export default function EvidenceTreeMain({
                                              canUploadEvidence,
                                              canAssignReporters,
                                              onAssignClick,
+                                             onWriteReportClick,
+
+                                             onViewStandard,
+                                             onEditStandard,
+                                             onDeleteStandard,
+                                             onViewCriteria,
+                                             onEditCriteria,
+                                             onDeleteCriteria,
+                                             onViewEvidence,
                                              onEditEvidence,
                                              onDeleteEvidence,
-                                             onWriteReportClick // Thêm prop mới
                                          }) {
     const router = useRouter()
 
@@ -100,7 +108,6 @@ export default function EvidenceTreeMain({
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
     const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
-    // Thêm hàm này để gọi modal lựa chọn báo cáo từ bên ngoài
     const handleWriteReportFromTree = (reportType, standardId, criteriaId, programId, organizationId) => {
         if (onWriteReportClick) {
             onWriteReportClick({
@@ -207,7 +214,7 @@ export default function EvidenceTreeMain({
                             label="Xem"
                             onClick={(e) =>
                             { e.stopPropagation();
-                                toast.success('Xem tiêu chuẩn');
+                                onViewStandard(standard, true);
                             }}
                             variant="secondary" />
                         {canEdit && (
@@ -215,7 +222,7 @@ export default function EvidenceTreeMain({
                                 icon={Edit}
                                 label="Sửa tiêu chuẩn"
                                 onClick={(e) => { e.stopPropagation();
-                                    toast.info('Sửa tiêu chuẩn');
+                                    onEditStandard(standard);
                                 }}
                                 customColor={`bg-blue-600 hover:bg-blue-700`} />
                         )}
@@ -225,7 +232,6 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo tiêu chuẩn"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // Mở modal lựa chọn báo cáo
                                     handleWriteReportFromTree('standard', standard.id, null, standard.programId, standard.organizationId);
                                 }}
                                 customColor={`bg-cyan-600 hover:bg-cyan-700`}
@@ -248,8 +254,13 @@ export default function EvidenceTreeMain({
                                 customColor={`bg-purple-600 hover:bg-purple-700`}
                             />
                         )}
-                        {canManageAll && !canEdit && !canWrite && !canAssign && (
-                            <ActionButton icon={Trash2} label="Xóa tiêu chuẩn" onClick={(e) => { e.stopPropagation(); toast.info('Xóa tiêu chuẩn'); }} variant="secondary" />
+                        {canManageAll && (
+                            <ActionButton
+                                icon={Trash2}
+                                label="Xóa tiêu chuẩn"
+                                onClick={(e) => { e.stopPropagation(); onDeleteStandard(standard); }}
+                                variant="danger"
+                            />
                         )}
                     </div>
                 </div>
@@ -312,9 +323,19 @@ export default function EvidenceTreeMain({
                     </div>
 
                     <div className="flex space-x-2 ml-4 flex-shrink-0">
-                        <ActionButton icon={Eye} label="Xem" onClick={(e) => { e.stopPropagation(); toast.success('Xem tiêu chí'); }} variant="secondary" />
+                        <ActionButton
+                            icon={Eye}
+                            label="Xem tiêu chí"
+                            onClick={(e) => { e.stopPropagation(); onViewCriteria(criteria, standard, true); }}
+                            variant="secondary"
+                        />
                         {canEdit && (
-                            <ActionButton icon={Edit} label="Sửa tiêu chí" onClick={(e) => { e.stopPropagation(); toast.info('Sửa tiêu chí'); }} customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`} />
+                            <ActionButton
+                                icon={Edit}
+                                label="Sửa tiêu chí"
+                                onClick={(e) => { e.stopPropagation(); onEditCriteria(criteria, standard, false); }}
+                                customColor={`bg-${baseColor}-600 hover:bg-${baseColor}-700`}
+                            />
                         )}
                         {canWrite && (
                             <ActionButton
@@ -322,7 +343,6 @@ export default function EvidenceTreeMain({
                                 label="Viết báo cáo Tiêu chí"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // Mở modal lựa chọn báo cáo
                                     handleWriteReportFromTree('criteria', standard.id, criteria.id, standard.programId, standard.organizationId);
                                 }}
                                 customColor={`bg-teal-600 hover:bg-teal-700`}
@@ -345,8 +365,13 @@ export default function EvidenceTreeMain({
                                 customColor={`bg-purple-600 hover:bg-purple-700`}
                             />
                         )}
-                        {canManageAll && !canEdit && !canWrite && !canAssign && (
-                            <ActionButton icon={Trash2} label="Xóa tiêu chí" onClick={(e) => { e.stopPropagation(); toast.info('Xóa tiêu chí'); }} variant="secondary" />
+                        {canManageAll && (
+                            <ActionButton
+                                icon={Trash2}
+                                label="Xóa tiêu chí"
+                                onClick={(e) => { e.stopPropagation(); onDeleteCriteria(criteria); }}
+                                variant="danger"
+                            />
                         )}
                     </div>
                 </div>
@@ -358,6 +383,7 @@ export default function EvidenceTreeMain({
                                 key={evidence.id}
                                 draggable={canManageAll}
                                 onDragStart={(e) => canManageAll && onDragStart(e, evidence, standard.id, criteria.id)}
+                                onDoubleClick={(e) => { e.stopPropagation(); onViewEvidence(evidence.id); }}
                                 className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl group transition-all"
                             >
                                 <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -386,14 +412,19 @@ export default function EvidenceTreeMain({
                                     </div>
                                 </div>
                                 <div className="flex space-x-2 ml-4 flex-shrink-0">
-                                    <ActionButton icon={Eye} label="Xem Minh chứng" onClick={(e) => { e.stopPropagation(); toast.success('Xem Minh chứng'); }} variant="secondary" />
+                                    <ActionButton
+                                        icon={Eye}
+                                        label="Xem Minh chứng"
+                                        onClick={(e) => { e.stopPropagation(); onViewEvidence(evidence.id); }}
+                                        variant="secondary"
+                                    />
                                     {canUpload && (
                                         <ActionButton
                                             icon={Edit}
                                             label="Sửa Metadata Minh chứng"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onEditEvidence(evidence);
+                                                onEditEvidence(evidence.id);
                                             }}
                                             customColor={`bg-orange-600 hover:bg-orange-700`}
                                         />
@@ -418,7 +449,12 @@ export default function EvidenceTreeMain({
                                         />
                                     )}
                                     {canManageAll && (
-                                        <ActionButton icon={Trash2} label="Xóa Minh chứng" onClick={(e) => { e.stopPropagation(); onDeleteEvidence(evidence); }} variant="secondary" />
+                                        <ActionButton
+                                            icon={Trash2}
+                                            label="Xóa Minh chứng"
+                                            onClick={(e) => { e.stopPropagation(); onDeleteEvidence(evidence); }}
+                                            variant="danger"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -453,7 +489,12 @@ export default function EvidenceTreeMain({
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {treeData.length === 0 ? (
+                {isPermissionLoading || loading ? (
+                    <div className="p-16 text-center">
+                        <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                        <p className="text-gray-500">Đang tải cây minh chứng và kiểm tra quyền...</p>
+                    </div>
+                ) : treeData.length === 0 ? (
                     <div className="p-16 text-center">
                         <Folder className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có dữ liệu</h3>

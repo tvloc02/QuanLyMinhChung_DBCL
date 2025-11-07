@@ -8,7 +8,6 @@ const permissionService = require('../../services/permissionService');
 const updateFolderMetadata = async (folderId) => {
     try {
         const children = await File.find({ parentFolder: folderId });
-
         let fileCount = 0;
         let totalSize = 0;
 
@@ -30,6 +29,26 @@ const updateFolderMetadata = async (folderId) => {
     } catch (error) {
         console.error('Update folder metadata error:', error);
     }
+};
+
+const sanitizeFileName = (evidenceCode, originalName) => {
+    const ext = path.extname(originalName);
+    let baseName = path.basename(originalName, ext);
+
+    // GIỮ nguyên tiếng Việt, chỉ remove dangerous chars
+    let fileName = `${evidenceCode}-${baseName}${ext}`;
+    fileName = fileName
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/\s+/g, '-')
+        .trim();
+
+    if (fileName.length > 200) {
+        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+        const truncated = nameWithoutExt.substring(0, 200 - ext.length);
+        fileName = truncated + ext;
+    }
+
+    return fileName;
 };
 
 const uploadFiles = async (req, res) => {
@@ -87,13 +106,11 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
-            const encodedFileName = encodeURIComponent(file.originalname);
+            // FIX: Lưu tên file gốc thô, không encode
+            const originalNameUtf8 = file.originalname;
 
-            const storedName = File.generateStoredName(
-                evidence.code,
-                evidence.name,
-                encodedFileName
-            );
+            // Tạo stored name - sanitize nhưng GIỮ tiếng Việt
+            const storedName = sanitizeFileName(evidence.code, originalNameUtf8);
 
             const permanentPath = path.join('uploads', 'evidences', storedName);
             const permanentDir = path.dirname(permanentPath);
@@ -105,25 +122,22 @@ const uploadFiles = async (req, res) => {
             if (fs.existsSync(file.path)) {
                 fs.renameSync(file.path, permanentPath);
             } else {
-                console.warn(`File temp không tồn tại: ${file.path}. Bỏ qua rename.`);
+                console.warn(`File temp không tồn tại: ${file.path}`);
                 continue;
             }
 
             const fileDoc = new File({
-                originalName: file.originalname,
+                originalName: originalNameUtf8,
                 storedName,
                 filePath: permanentPath,
                 size: file.size,
                 mimeType: file.mimetype,
-                extension: path.extname(file.originalname).toLowerCase(),
+                extension: path.extname(originalNameUtf8).toLowerCase(),
                 evidenceId,
                 uploadedBy: userId,
                 url: `/uploads/evidences/${storedName}`,
                 type: 'file',
                 parentFolder: parentFolderId || null,
-                approvalStatus: req.user.role === 'admin' ? 'approved' : 'pending',
-                approvedBy: req.user.role === 'admin' ? userId : null,
-                approvalDate: req.user.role === 'admin' ? new Date() : null
             });
 
             await fileDoc.save();
@@ -136,7 +150,6 @@ const uploadFiles = async (req, res) => {
 
         evidence.files.push(...savedFiles.map(f => f._id));
         await evidence.save();
-        await evidence.updateStatus();
 
         res.json({
             success: true,
@@ -153,7 +166,6 @@ const uploadFiles = async (req, res) => {
     }
 };
 
-// ⭐️ FIXED: downloadFile - CHỈ KIỂM TRA QUYỀN DELETE, KHÔNG KIỂM TRA QUYỀN DOWNLOAD
 const downloadFile = async (req, res) => {
     try {
         const { id } = req.params;
@@ -180,14 +192,11 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        // ⭐️ REMOVED: Reporter permission check - Mọi người có thể download
-
         await file.incrementDownloadCount();
 
-        // ⭐️ FIXED: Decode filename an toàn để hiển thị tiếng Việt đúng
-        const decodedFileName = decodeURIComponent(file.originalName);
-
-        res.download(file.filePath, decodedFileName);
+        // FIX: Set header đúng cho tên file tiếng Việt
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
+        res.download(file.filePath);
 
     } catch (error) {
         console.error('Download file error:', error);
@@ -198,11 +207,84 @@ const downloadFile = async (req, res) => {
     }
 };
 
+const streamFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const file = await File.findById(id);
+        if (!file) {
+            console.error('File not found in DB:', id);
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        console.log('Streaming file:', {
+            fileId: id,
+            filePath: file.filePath,
+            exists: fs.existsSync(file.filePath),
+            mimeType: file.mimeType
+        });
+
+        if (!fs.existsSync(file.filePath)) {
+            console.error('File path does not exist:', file.filePath);
+            return res.status(404).json({
+                success: false,
+                message: 'File không tồn tại trên hệ thống'
+            });
+        }
+
+        const stat = fs.statSync(file.filePath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        // Set headers cho preview (inline)
+        res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunksize = (end - start) + 1;
+
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': file.mimeType || 'application/octet-stream',
+                'Content-Disposition': 'inline'
+            });
+
+            fs.createReadStream(file.filePath, { start, end }).pipe(res);
+        } else {
+            res.writeHead(200, {
+                'Content-Length': fileSize,
+                'Content-Type': file.mimeType || 'application/octet-stream',
+                'Accept-Ranges': 'bytes',
+                'Content-Disposition': 'inline'
+            });
+
+            fs.createReadStream(file.filePath).pipe(res);
+        }
+
+    } catch (error) {
+        console.error('Stream file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi stream file'
+        });
+    }
+};
+
 const deleteFile = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
-        let academicYearId = req.academicYearId;
 
         const file = await File.findById(id).populate('evidenceId');
         if (!file) {
@@ -212,20 +294,15 @@ const deleteFile = async (req, res) => {
             });
         }
 
-        if (!academicYearId) {
-            academicYearId = file.evidenceId.academicYearId;
-        }
+        const isUploader = file.uploadedBy.toString() === userId.toString();
+        const hasManagerRole = req.user.role === 'admin' || req.user.role === 'manager';
+        const canDelete = hasManagerRole || isUploader;
 
-        // ⭐️ KIỂM TRA QUYỀN XÓA - CHỈ ADMIN CÓ THỂ XÓA
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            const evidence = file.evidenceId;
-            const canManage = await permissionService.canManageFiles(userId, evidence.criteriaId, academicYearId);
-            if (!canManage) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Bạn không có quyền xóa file này'
-                });
-            }
+        if (!canDelete) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xóa file này'
+            });
         }
 
         if (file.type === 'folder') {
@@ -252,7 +329,7 @@ const deleteFile = async (req, res) => {
         await File.findByIdAndDelete(id);
 
         if (file.evidenceId) {
-            await Evidence.findById(file.evidenceId._id).then(e => e?.updateStatus());
+            await Evidence.findById(file.evidenceId._id).then(e => e?.updateStatus?.());
         }
 
         if (parentFolderId) {
@@ -273,7 +350,6 @@ const deleteFile = async (req, res) => {
     }
 };
 
-// ⭐️ FIXED: getFileInfo - CHỈ KIỂM TRA QUYỀN DELETE, KHÔNG KIỂM TRA QUYỀN VIEW
 const getFileInfo = async (req, res) => {
     try {
         const { id } = req.params;
@@ -290,12 +366,12 @@ const getFileInfo = async (req, res) => {
             });
         }
 
-        // ⭐️ REMOVED: Reporter permission check - Mọi người có thể xem thông tin file
+        const isUploader = file.uploadedBy._id.toString() === req.user.id.toString();
 
         res.json({
             success: true,
             data: file,
-            canDelete: req.user.role === 'admin' || req.user.role === 'manager'
+            canDelete: req.user.role === 'admin' || req.user.role === 'manager' || isUploader
         });
 
     } catch (error) {
@@ -353,20 +429,16 @@ const moveFile = async (req, res) => {
 
             const checkIfDescendant = async (ancestorId, descendantId) => {
                 let currentId = ancestorId;
-
                 while (currentId) {
                     if (currentId.toString() === descendantId.toString()) {
                         return true;
                     }
-
                     const folder = await File.findById(currentId);
                     if (!folder || !folder.parentFolder) {
                         return false;
                     }
-
                     currentId = folder.parentFolder;
                 }
-
                 return false;
             };
 
@@ -409,16 +481,7 @@ const moveFile = async (req, res) => {
 
 const searchFiles = async (req, res) => {
     try {
-        const {
-            evidenceId,
-            keyword,
-            fileType,
-            minSize,
-            maxSize,
-            uploadedBy,
-            dateFrom,
-            dateTo
-        } = req.query;
+        const { evidenceId, keyword, fileType, minSize, maxSize, uploadedBy, dateFrom, dateTo } = req.query;
 
         let query = {};
 
@@ -496,7 +559,10 @@ const getFileStatistics = async (req, res) => {
 
         const evidence = await Evidence.findById(evidenceId);
         if (!evidence) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy minh chứng' });
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy minh chứng'
+            });
         }
 
         if (req.user.role === 'reporter') {
@@ -566,6 +632,7 @@ const getFileStatistics = async (req, res) => {
 module.exports = {
     uploadFiles,
     downloadFile,
+    streamFile,
     deleteFile,
     getFileInfo,
     moveFile,

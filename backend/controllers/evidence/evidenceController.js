@@ -154,6 +154,10 @@ const getEvidenceById = async (req, res) => {
             });
         }
 
+        // ⭐️ ĐÃ SỬA: BỎ LOGIC CHẶN XEM (403) CHO REPORTER TẠI ĐÂY.
+        // MỌI NGƯỜI DÙNG ĐỀU CÓ QUYỀN XEM CHI TIẾT MINH CHỨNG VÀ FILES.
+        // Việc kiểm tra quyền SỬA/XÓA/UPLOAD sẽ được thực hiện ở các hàm riêng.
+        /*
         if (req.user.role === 'reporter') {
             const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, evidence.academicYearId);
             if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
@@ -163,6 +167,7 @@ const getEvidenceById = async (req, res) => {
                 });
             }
         }
+        */
 
         if (evidence.status === 'new') {
             evidence.status = 'in_progress';
@@ -213,6 +218,7 @@ const createEvidence = async (req, res) => {
             });
         }
 
+        // ⭐️ KIỂM TRA QUYỀN TẠO/SỬA (CHỈ CẦN ADMIN/MANAGER HOẶC REPORTER ĐƯỢC PHÂN QUYỀN UPLOAD)
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const canUpload = await permissionService.canUploadEvidence(userId, criteriaId, academicYearId);
             if (!canUpload) {
@@ -382,6 +388,7 @@ const updateEvidence = async (req, res) => {
             academicYearId = evidence.academicYearId;
         }
 
+        // ⭐️ KIỂM TRA QUYỀN CẬP NHẬT: Chỉ admin/manager hoặc reporter được phân quyền upload
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
             if (!canUpload) {
@@ -462,6 +469,7 @@ const deleteEvidence = async (req, res) => {
             academicYearId = evidence.academicYearId;
         }
 
+        // ⭐️ KIỂM TRA QUYỀN XÓA: Chỉ admin/manager hoặc reporter được phân quyền upload
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
             if (!canUpload) {
@@ -859,6 +867,7 @@ const moveEvidence = async (req, res) => {
             academicYearId = evidence.academicYearId;
         }
 
+        // ⭐️ KIỂM TRA QUYỀN DI CHUYỂN: Chỉ admin/manager hoặc reporter được phân quyền upload
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             const canUpload = await permissionService.canUploadEvidence(userId, evidence.criteriaId, academicYearId);
             if (!canUpload) {
@@ -1127,6 +1136,8 @@ const getEvidenceByCode = async (req, res) => {
             });
         }
 
+        // ⭐️ ĐÃ SỬA: BỎ LOGIC CHẶN XEM (403) CHO REPORTER TẠI ĐÂY.
+        /*
         if (req.user.role === 'reporter') {
             const accessibleCriteriaIds = await permissionService.getAccessibleCriteriaIds(req.user.id, evidence.academicYearId);
             if (!accessibleCriteriaIds.map(id => id.toString()).includes(evidence.criteriaId.toString())) {
@@ -1136,6 +1147,7 @@ const getEvidenceByCode = async (req, res) => {
                 });
             }
         }
+        */
 
         res.json({
             success: true,

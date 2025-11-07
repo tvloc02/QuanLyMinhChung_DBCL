@@ -76,7 +76,6 @@ export default function EvidenceManagement() {
     const [showFilters, setShowFilters] = useState(false)
     const [expandedRows, setExpandedRows] = useState({})
 
-    // ⭐️ STATE CHO IMPORT
     const [showImportModal, setShowImportModal] = useState(false)
     const [importFile, setImportFile] = useState(null)
     const [importMode, setImportMode] = useState('create')
@@ -275,7 +274,6 @@ export default function EvidenceManagement() {
         fetchEvidences()
     }
 
-    // ⭐️ HÀM IMPORT
     const handleImportClick = () => {
         setShowImportModal(true)
     }
@@ -297,7 +295,6 @@ export default function EvidenceManagement() {
             setIsImporting(true)
             setImportProgress(0)
 
-            // Giả định programId và organizationId từ filter
             if (!filters.programId || !filters.organizationId) {
                 toast.error('Vui lòng chọn chương trình và tổ chức trước khi import')
                 return
@@ -342,7 +339,6 @@ export default function EvidenceManagement() {
                 status: filters.status || undefined
             })
 
-            // Download file
             const url = window.URL.createObjectURL(new Blob([response.data]))
             const link = document.createElement('a')
             link.href = url
@@ -465,7 +461,6 @@ export default function EvidenceManagement() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center space-x-4">
@@ -511,7 +506,6 @@ export default function EvidenceManagement() {
                 </div>
             </div>
 
-            {/* Search & Filters */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex flex-col lg:flex-row gap-4">
                     <div className="flex-1">
@@ -639,7 +633,6 @@ export default function EvidenceManagement() {
                 )}
             </div>
 
-            {/* Bulk Actions */}
             {selectedItems.length > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-xl p-4 shadow-md">
                     <div className="flex items-center justify-between">
@@ -677,7 +670,6 @@ export default function EvidenceManagement() {
                 </div>
             )}
 
-            {/* Table */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50">
                     <div className="flex items-center justify-between">
@@ -706,8 +698,7 @@ export default function EvidenceManagement() {
                         <p className="text-gray-500 mb-6">
                             {hasActiveFilters
                                 ? 'Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác'
-                                : isAdmin ? 'Bắt đầu bằng cách tạo minh chứng đầu tiên' : 'Hiện tại bạn không có minh chứng nào được phân quyền'
-                            }
+                                : isAdmin ? 'Bắt đầu bằng cách tạo minh chứng đầu tiên' : 'Hiện tại bạn không có minh chứng nào được phân quyền'}
                         </p>
                         {hasActiveFilters ? (
                             <button
@@ -985,7 +976,6 @@ export default function EvidenceManagement() {
                 />
             )}
 
-            {/* ⭐️ IMPORT MODAL */}
             {showImportModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
