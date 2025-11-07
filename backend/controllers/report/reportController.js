@@ -135,6 +135,15 @@ const getReportById = async (req, res) => {
                     path: 'evaluatorId',
                     select: 'fullName email'
                 }
+            })
+            // Populate edit requests for the creator to see them
+            .populate({
+                path: 'editRequests.requesterId',
+                select: 'fullName email avatar'
+            })
+            .populate({
+                path: 'editRequests.respondedBy',
+                select: 'fullName email'
             });
 
         if (!report) {
@@ -402,15 +411,25 @@ const getReportsByStandardCriteria = async (req, res) => {
         const reports = await Report.find(query)
             .populate('createdBy', 'fullName email')
             .populate('assignedReporters', 'fullName email')
+            // Populate edit requests
+            .populate({
+                path: 'editRequests.requesterId',
+                select: 'fullName email avatar'
+            })
             .sort({ createdAt: -1 });
 
         const reportsWithCanEdit = reports.map(r => {
             const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
             const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
+            const myEditRequest = r.editRequests?.find(req => req.requesterId?._id?.toString() === userId.toString());
+
             return {
                 ...r.toObject(),
                 createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
                 assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
+                // Thêm trường để FE kiểm tra trạng thái yêu cầu của mình
+                myEditRequestStatus: myEditRequest ? myEditRequest.status : 'none',
+                pendingEditRequests: r.editRequests?.filter(req => req.status === 'pending') || []
             };
         });
 
@@ -486,15 +505,25 @@ const getReportsByTask = async (req, res) => {
         const reports = await Report.find(query)
             .populate('createdBy', 'fullName email')
             .populate('assignedReporters', 'fullName email')
+            // Populate edit requests
+            .populate({
+                path: 'editRequests.requesterId',
+                select: 'fullName email avatar'
+            })
             .sort({ createdAt: -1 });
 
         const reportsWithCanEdit = reports.map(r => {
             const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
             const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
+            const myEditRequest = r.editRequests?.find(req => req.requesterId?._id?.toString() === userId.toString());
+
             return {
                 ...r.toObject(),
                 createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
                 assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
+                // Thêm trường để FE kiểm tra trạng thái yêu cầu của mình
+                myEditRequestStatus: myEditRequest ? myEditRequest.status : 'none',
+                pendingEditRequests: r.editRequests?.filter(req => req.status === 'pending') || []
             };
         });
 
@@ -1612,9 +1641,10 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
+// CẬP NHẬT LOGIC: Tạo yêu cầu sửa thay vì tự thêm vào assignedReporters
 const requestEditPermission = async (req, res) => {
     try {
-        const { id } = req.params;  // ✅ Sửa: từ reportId thành id
+        const { id } = req.params;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
@@ -1627,6 +1657,7 @@ const requestEditPermission = async (req, res) => {
             });
         }
 
+        // 1. Kiểm tra nếu đã có quyền
         if (report.assignedReporters.map(r => r.toString()).includes(userId.toString())) {
             return res.status(400).json({
                 success: false,
@@ -1634,22 +1665,34 @@ const requestEditPermission = async (req, res) => {
             });
         }
 
-        if (!report.assignedReporters.includes(report.createdBy)) {
-            report.assignedReporters.push(report.createdBy);
+        // 2. Kiểm tra nếu đã gửi yêu cầu và đang chờ duyệt
+        const existingRequest = report.editRequests.find(r =>
+            r.requesterId.toString() === userId.toString() && r.status === 'pending'
+        );
+
+        if (existingRequest) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bạn đã gửi yêu cầu và đang chờ người tạo phê duyệt'
+            });
         }
 
-        if (!report.assignedReporters.map(r => r.toString()).includes(userId.toString())) {
-            report.assignedReporters.push(userId);
-        }
+        // 3. Xóa các yêu cầu cũ bị từ chối/đã phê duyệt của user này (chỉ giữ lại 'pending')
+        report.editRequests = report.editRequests.filter(r => r.requesterId.toString() !== userId.toString() || r.status === 'pending');
+
+        // 4. Thêm yêu cầu mới với status 'pending'
+        report.editRequests.push({
+            requesterId: userId,
+            requestedAt: new Date(),
+            status: 'pending'
+        });
 
         report.updatedBy = userId;
         await report.save();
 
-        await report.populate('assignedReporters', 'fullName email');
-
         res.json({
             success: true,
-            message: 'Yêu cầu cấp quyền đã được gửi',
+            message: 'Yêu cầu cấp quyền đã được gửi, đang chờ người tạo báo cáo phê duyệt.',
             data: report
         });
 
@@ -1662,8 +1705,6 @@ const requestEditPermission = async (req, res) => {
     }
 };
 
-// Thêm 3 hàm này vào reportController.js trước dòng "module.exports"
-
 const getEditRequests = async (req, res) => {
     try {
         const { id } = req.params;
@@ -1671,6 +1712,7 @@ const getEditRequests = async (req, res) => {
         const userId = req.user.id;
 
         const report = await Report.findOne({ _id: id, academicYearId })
+            .select('createdBy editRequests')
             .populate({
                 path: 'editRequests.requesterId',
                 select: 'fullName email avatar'
@@ -1687,11 +1729,11 @@ const getEditRequests = async (req, res) => {
             });
         }
 
-        // Chỉ người viết báo cáo mới được xem yêu cầu
-        if (report.createdBy.toString() !== userId.toString()) {
+        // Chỉ người viết báo cáo (createdBy) mới được xem danh sách yêu cầu
+        if (report.createdBy.toString() !== userId.toString() && req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ người viết báo cáo mới được xem yêu cầu cấp quyền'
+                message: 'Chỉ người viết báo cáo hoặc quản lý mới được xem yêu cầu cấp quyền'
             });
         }
 
@@ -1716,10 +1758,10 @@ const approveEditRequest = async (req, res) => {
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
-        if (!requesterId) {
+        if (!mongoose.Types.ObjectId.isValid(requesterId)) {
             return res.status(400).json({
                 success: false,
-                message: 'ID người yêu cầu là bắt buộc'
+                message: 'ID người yêu cầu không hợp lệ'
             });
         }
 
@@ -1733,14 +1775,14 @@ const approveEditRequest = async (req, res) => {
         }
 
         // Chỉ người viết báo cáo mới được phê duyệt
-        if (report.createdBy.toString() !== userId.toString()) {
+        if (report.createdBy.toString() !== userId.toString() && req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ người viết báo cáo mới được phê duyệt yêu cầu'
+                message: 'Chỉ người viết báo cáo hoặc quản lý mới được phê duyệt yêu cầu'
             });
         }
 
-        // Tìm yêu cầu
+        // Tìm yêu cầu đang chờ (pending)
         const requestIndex = report.editRequests.findIndex(
             r => r.requesterId.toString() === requesterId.toString() && r.status === 'pending'
         );
@@ -1748,7 +1790,7 @@ const approveEditRequest = async (req, res) => {
         if (requestIndex === -1) {
             return res.status(404).json({
                 success: false,
-                message: 'Yêu cầu không tồn tại'
+                message: 'Yêu cầu không tồn tại hoặc đã được xử lý'
             });
         }
 
@@ -1759,7 +1801,7 @@ const approveEditRequest = async (req, res) => {
 
         // Thêm vào assignedReporters nếu chưa có
         if (!report.assignedReporters.map(r => r.toString()).includes(requesterId.toString())) {
-            report.assignedReporters.push(requesterId);
+            report.assignedReporters.push(new mongoose.Types.ObjectId(requesterId));
         }
 
         report.updatedBy = userId;
@@ -1793,10 +1835,10 @@ const rejectEditRequest = async (req, res) => {
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
-        if (!requesterId) {
+        if (!mongoose.Types.ObjectId.isValid(requesterId)) {
             return res.status(400).json({
                 success: false,
-                message: 'ID người yêu cầu là bắt buộc'
+                message: 'ID người yêu cầu không hợp lệ'
             });
         }
 
@@ -1810,14 +1852,14 @@ const rejectEditRequest = async (req, res) => {
         }
 
         // Chỉ người viết báo cáo mới được từ chối
-        if (report.createdBy.toString() !== userId.toString()) {
+        if (report.createdBy.toString() !== userId.toString() && req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ người viết báo cáo mới được từ chối yêu cầu'
+                message: 'Chỉ người viết báo cáo hoặc quản lý mới được từ chối yêu cầu'
             });
         }
 
-        // Tìm yêu cầu
+        // Tìm yêu cầu đang chờ (pending)
         const requestIndex = report.editRequests.findIndex(
             r => r.requesterId.toString() === requesterId.toString() && r.status === 'pending'
         );
@@ -1825,7 +1867,7 @@ const rejectEditRequest = async (req, res) => {
         if (requestIndex === -1) {
             return res.status(404).json({
                 success: false,
-                message: 'Yêu cầu không tồn tại'
+                message: 'Yêu cầu không tồn tại hoặc đã được xử lý'
             });
         }
 
@@ -1833,7 +1875,10 @@ const rejectEditRequest = async (req, res) => {
         report.editRequests[requestIndex].status = 'rejected';
         report.editRequests[requestIndex].respondedAt = new Date();
         report.editRequests[requestIndex].respondedBy = userId;
-        report.editRequests[requestIndex].rejectReason = reason || '';
+        report.editRequests[requestIndex].rejectReason = reason || 'Không có lý do cụ thể';
+
+        // Xóa khỏi assignedReporters nếu có (chỉ để đảm bảo)
+        report.assignedReporters = report.assignedReporters.filter(r => r.toString() !== requesterId.toString());
 
         report.updatedBy = userId;
         await report.save();

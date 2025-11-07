@@ -7,7 +7,7 @@ import { formatDate } from '../../utils/helpers'
 import TaskModal from './TaskModal'
 import TaskDetail from './TaskDetail'
 import { ActionButton } from '../ActionButtons'
-import ReportSelectionModal from '../reports/ReportSelectionModal' // Import Modal
+import ReportSelectionModal from '../reports/ReportSelectionModal'
 
 export default function TaskList() {
     const router = useRouter()
@@ -106,7 +106,7 @@ export default function TaskList() {
     }
 
     const handleDelete = async (id) => {
-        if (!confirm('Bạn có chắc muốn xóa nhiệm vụ này?')) return
+        if (!confirm('Bạn có chắc muốn xóa nhiệm vụ này? Hành động này cũng sẽ xóa báo cáo liên quan.')) return
 
         try {
             await apiMethods.tasks.delete(id)
@@ -174,8 +174,8 @@ export default function TaskList() {
         }
         const colors = {
             pending: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
-            in_progress: 'bg-blue-100 text-blue-700 border border-blue-300',
-            submitted: 'bg-cyan-100 text-cyan-700 border border-cyan-300',
+            in_progress: 'bg-sky-100 text-sky-700 border border-sky-300', // Đổi màu
+            submitted: 'bg-cyan-100 text-cyan-700 border border-cyan-300', // Đổi màu
             approved: 'bg-green-100 text-green-700 border border-green-300',
             rejected: 'bg-red-100 text-red-700 border border-red-300',
             completed: 'bg-emerald-100 text-emerald-700 border border-emerald-300'
@@ -213,7 +213,7 @@ export default function TaskList() {
                 />
             )}
 
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-sky-600 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -241,7 +241,7 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Filter Section (unchanged) */}
+            {/* Filter Section (dùng màu xanh) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="flex border-b border-gray-100">
                     <button
@@ -336,7 +336,7 @@ export default function TaskList() {
                                 setStandardId('')
                                 setCriteriaId('')
                             }}
-                            className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                            className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                         >
                             <RefreshCw size={18} />
                             Reset
@@ -344,7 +344,7 @@ export default function TaskList() {
 
                         <button
                             onClick={() => loadTasks(1)}
-                            className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                            className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                         >
                             <RefreshCw size={18} />
                             Làm mới
@@ -353,7 +353,7 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Task Table (unchanged except for action button) */}
+            {/* Task Table (đổi màu) */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
@@ -436,8 +436,8 @@ export default function TaskList() {
                                                 }}
                                                 title="Xem chi tiết"
                                             />
+                                            {/* Logic viết báo cáo chỉ hiển thị khi ở tab "Nhiệm vụ của tôi" */}
                                             {!isCreatedTab && isReporter && (
-                                                // Thay đổi hành vi nút viết báo cáo
                                                 <ActionButton
                                                     icon={FileText}
                                                     variant="primary"
@@ -446,6 +446,7 @@ export default function TaskList() {
                                                     title="Viết báo cáo"
                                                 />
                                             )}
+                                            {/* Logic quản lý chỉ hiển thị khi ở tab "Nhiệm vụ tôi giao" */}
                                             {isCreatedTab && canManage && (
                                                 <>
                                                     <ActionButton

@@ -63,6 +63,30 @@ const rejectionHistorySubSchema = new mongoose.Schema({
     submittedAgainAt: Date
 }, { _id: false });
 
+// New Sub Schema for Edit Requests
+const editRequestSubSchema = new mongoose.Schema({
+    requesterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    requestedAt: {
+        type: Date,
+        default: Date.now
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+    },
+    respondedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    respondedAt: Date,
+    rejectReason: String
+}, { _id: false });
+
 const reportSchema = new mongoose.Schema({
     academicYearId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -173,6 +197,9 @@ const reportSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+
+    // New field for edit requests
+    editRequests: [editRequestSubSchema],
 
     approvedBy: {
         type: mongoose.Schema.Types.ObjectId,

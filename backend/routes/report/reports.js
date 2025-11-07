@@ -132,6 +132,34 @@ router.post('/:id/request-edit-permission',
     reportController.requestEditPermission
 );
 
+// GET /api/reports/:id/edit-requests - Lấy danh sách yêu cầu cấp quyền
+router.get('/:id/edit-requests',
+    [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
+    validation,
+    reportController.getEditRequests
+);
+
+// POST /api/reports/:id/edit-requests/approve - Phê duyệt yêu cầu
+router.post('/:id/edit-requests/approve',
+    [
+        param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+        body('requesterId').isMongoId().withMessage('ID người yêu cầu không hợp lệ')
+    ],
+    validation,
+    reportController.approveEditRequest
+);
+
+// POST /api/reports/:id/edit-requests/reject - Từ chối yêu cầu
+router.post('/:id/edit-requests/reject',
+    [
+        param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+        body('requesterId').isMongoId().withMessage('ID người yêu cầu không hợp lệ'),
+        body('reason').optional().isLength({ max: 500 }).withMessage('Lý do từ chối không được quá 500 ký tự')
+    ],
+    validation,
+    reportController.rejectEditRequest
+);
+
 // GET /api/reports/by-task - Lấy báo cáo theo nhiệm vụ
 router.get('/by-task',
     [

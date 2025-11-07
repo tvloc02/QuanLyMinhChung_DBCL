@@ -19,7 +19,7 @@ export default function Breadcrumb({ items = [] }) {
                             <ChevronRight className="flex-shrink-0 h-4 w-4 mx-2" style={{ color: '#94A3B8' }} />
                         )}
                         {index === breadcrumbItems.length - 1 ? (
-                            <span className="flex items-center text-sm font-semibold" style={{ color: '#5B52E1' }}>
+                            <span className="flex items-center text-sm font-semibold" style={{ color: '#281ce4' }}>
                                 {item.icon && <item.icon className="flex-shrink-0 h-4 w-4 mr-1.5" />}
                                 {item.name}
                             </span>

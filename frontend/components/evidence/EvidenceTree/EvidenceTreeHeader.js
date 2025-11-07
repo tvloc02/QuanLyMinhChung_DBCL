@@ -114,7 +114,7 @@ export default function EvidenceTreeHeader({
                             className="inline-flex items-center px-3 py-2.5 md:px-4 bg-gradient-to-r from-blue-700 to-blue-800 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-medium text-sm"
                         >
                             <Shield className="h-5 w-5 md:mr-2" />
-                            <span className="hidden md:inline-flex">Phân quyền BC Tổng hợp</span>
+                            <span className="hidden md:inline-flex">BC TĐG</span>
                         </button>
                     )}
                 </div>

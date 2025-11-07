@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Send, Lock, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Lock, Clock, CheckCircle2, XCircle, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
@@ -7,12 +7,24 @@ const normalizeParam = (value) => {
     return (value === '' || value === undefined) ? null : value;
 };
 
+// Giả định userAuth được lấy từ context/localStorage
 const useAuth = () => {
-    const [user, setUser] = useState({ _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'User A' });
-    useEffect(() => {
-    }, []);
+    const [user, setUser] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                // Giả định ID user hiện tại được lấy từ localStorage
+                const userId = localStorage.getItem('userId') || 'temp-user-id-reporter';
+                const userRole = localStorage.getItem('userRole') || 'reporter';
+                return { _id: userId, role: userRole, fullName: 'Current User' };
+            } catch (error) {
+                return { _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'Current User' };
+            }
+        }
+        return { _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'Current User' };
+    });
     return { user };
 };
+
 
 export default function ReportSelectionModal({
                                                  isOpen,
@@ -33,12 +45,13 @@ export default function ReportSelectionModal({
     const [reports, setReports] = useState([])
     const [canCreateNew, setCanCreateNew] = useState(false)
     const [task, setTask] = useState(null)
-    const [requestedReports, setRequestedReports] = useState(new Map())
     const [showEditRequestsModal, setShowEditRequestsModal] = useState(false)
     const [selectedReportForRequests, setSelectedReportForRequests] = useState(null)
     const [editRequests, setEditRequests] = useState([])
     const [editRequestsLoading, setEditRequestsLoading] = useState(false)
     const [respondingTo, setRespondingTo] = useState({})
+    const [rejectReason, setRejectReason] = useState('')
+    const [showRejectInput, setShowRejectInput] = useState(null) // Stores requesterId to show reject input
 
     useEffect(() => {
         const normalizedTaskId = normalizeParam(taskId);
@@ -52,7 +65,6 @@ export default function ReportSelectionModal({
     const fetchReports = async () => {
         if (!currentUserId) return;
         setLoading(true)
-        setRequestedReports(new Map());
 
         try {
             let response;
@@ -71,6 +83,7 @@ export default function ReportSelectionModal({
             const normalizedTaskId = normalizeParam(taskId);
 
             if (normalizedTaskId) {
+                // Backend getReportsByTask đã trả về các trường cần thiết: isCreatedByMe, myEditRequestStatus, pendingEditRequests
                 response = await apiMethods.reports.getByTask({
                     taskId: normalizedTaskId,
                     ...params
@@ -79,6 +92,7 @@ export default function ReportSelectionModal({
                 canCreate = response.data.data.canCreateNew;
                 currentTask = response.data.data.task;
             } else if (params.standardId && params.reportType) {
+                // Backend getReportsByStandardCriteria đã trả về các trường cần thiết
                 response = await apiMethods.reports.getByStandardCriteria(params)
                 reportsData = response.data.data.reports || []
                 canCreate = response.data.data.canWriteReport || false;
@@ -91,18 +105,19 @@ export default function ReportSelectionModal({
                 const assignedReporters = report.assignedReporters || [];
                 const isCreatedByMe = report.createdBy?._id === currentUserId;
                 const isAssignedToMe = assignedReporters.some(r => r._id === currentUserId);
-                let canEdit = isCreatedByMe || isAssignedToMe || user.role === 'admin' || user.role === 'manager';
 
-                if (report.isPendingMyRequest) {
-                    setRequestedReports(prev => new Map(prev).set(report._id, 'pending'));
-                }
+                // Củng cố kiểm tra quyền chỉnh sửa ở frontend dựa trên các vai trò có quyền tuyệt đối
+                let canEdit = isCreatedByMe || isAssignedToMe || user.role === 'admin' || user.role === 'manager';
 
                 return {
                     ...report,
                     canEdit,
                     isCreatedByMe,
                     isAssignedToMe,
-                    pendingEditRequests: report.editRequests?.filter(r => r.status === 'pending') || []
+                    // Lấy trạng thái yêu cầu của user hiện tại
+                    myEditRequestStatus: report.myEditRequestStatus || 'none',
+                    // Lấy các yêu cầu đang chờ
+                    pendingEditRequests: report.pendingEditRequests || []
                 };
             });
 
@@ -143,18 +158,27 @@ export default function ReportSelectionModal({
             return;
         }
 
-        setRequestedReports(prev => new Map(prev).set(reportId, 'requesting'));
+        const report = reports.find(r => r._id === reportId);
+        if (report && (report.myEditRequestStatus === 'pending' || report.myEditRequestStatus === 'requesting')) {
+            toast.error('Bạn đã gửi yêu cầu và đang chờ duyệt.');
+            return;
+        }
+
+        const initialStatus = report ? report.myEditRequestStatus : 'none';
+        // Tạm thời đặt trạng thái là 'requesting' để người dùng không bấm lại
+        setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: 'requesting' } : r));
 
         try {
             await apiMethods.reports.requestEditPermission(reportId)
             toast.success('Yêu cầu cấp quyền đã được gửi, đang chờ duyệt.')
-            setRequestedReports(prev => new Map(prev).set(reportId, 'pending'));
-            fetchReports();
+            // Update UI status to 'pending'
+            setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: 'pending' } : r));
         } catch (error) {
             console.error('Request edit permission error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi gửi yêu cầu'
             toast.error(errorMessage)
-            setRequestedReports(prev => new Map(prev).set(reportId, 'none'));
+            // Khôi phục trạng thái nếu thất bại
+            setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: initialStatus } : r));
         }
     }
 
@@ -168,7 +192,7 @@ export default function ReportSelectionModal({
             setShowEditRequestsModal(true)
         } catch (error) {
             console.error('Get edit requests error:', error)
-            toast.error('Lỗi khi tải danh sách yêu cầu')
+            toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách yêu cầu')
         } finally {
             setEditRequestsLoading(false)
         }
@@ -179,9 +203,11 @@ export default function ReportSelectionModal({
             setRespondingTo(prev => ({ ...prev, [requesterId]: 'approving' }))
             await apiMethods.reports.approveEditRequest(selectedReportForRequests._id, { requesterId })
             toast.success('Đã phê duyệt yêu cầu')
+            // Cập nhật trạng thái yêu cầu trong modal
             setEditRequests(prev => prev.map(r =>
                 r.requesterId._id === requesterId ? { ...r, status: 'approved' } : r
             ))
+            // Cập nhật lại list báo cáo
             fetchReports()
         } catch (error) {
             console.error('Approve edit request error:', error)
@@ -192,16 +218,24 @@ export default function ReportSelectionModal({
     }
 
     const handleRejectEditRequest = async (requesterId) => {
+        if (!rejectReason) {
+            toast.error('Vui lòng nhập lý do từ chối.');
+            return;
+        }
         try {
             setRespondingTo(prev => ({ ...prev, [requesterId]: 'rejecting' }))
             await apiMethods.reports.rejectEditRequest(selectedReportForRequests._id, {
                 requesterId,
-                reason: 'Yêu cầu bị từ chối'
+                reason: rejectReason
             })
             toast.success('Đã từ chối yêu cầu')
+            // Cập nhật trạng thái yêu cầu trong modal
             setEditRequests(prev => prev.map(r =>
-                r.requesterId._id === requesterId ? { ...r, status: 'rejected' } : r
+                r.requesterId._id === requesterId ? { ...r, status: 'rejected', rejectReason: rejectReason } : r
             ))
+            setRejectReason('')
+            setShowRejectInput(null)
+            // Cập nhật lại list báo cáo
             fetchReports()
         } catch (error) {
             console.error('Reject edit request error:', error)
@@ -223,10 +257,10 @@ export default function ReportSelectionModal({
     const getStatusColor = (status) => {
         const colors = {
             'draft': 'bg-gray-100 text-gray-700 border-gray-300',
-            'public': 'bg-blue-100 text-blue-700 border-blue-300',
+            'public': 'bg-sky-100 text-sky-700 border-sky-300',
             'approved': 'bg-green-100 text-green-700 border-green-300',
             'rejected': 'bg-red-100 text-red-700 border-red-300',
-            'published': 'bg-purple-100 text-purple-700 border-purple-300'
+            'published': 'bg-blue-100 text-blue-700 border-blue-300'
         }
         return colors[status] || colors['draft']
     }
@@ -246,78 +280,69 @@ export default function ReportSelectionModal({
     const finishedReports = reports.filter(r => r.status !== 'draft')
 
     const getActionForReport = (report) => {
-        // Nếu là người viết → luôn có nút sửa
-        if (report.isCreatedByMe) {
-            return {
-                label: 'Tiếp tục sửa',
-                icon: Edit,
-                onClick: () => handleSelectReport(report._id),
-                disabled: false,
-                className: 'bg-indigo-600 hover:bg-indigo-700'
-            };
-        }
+        const myRequestStatus = report.myEditRequestStatus;
+        const hasPendingRequest = report.pendingEditRequests?.length > 0;
 
-        // Nếu đã được giao → nút sửa
-        if (report.isAssignedToMe) {
-            return {
-                label: 'Tiếp tục sửa',
-                icon: Edit,
-                onClick: () => handleSelectReport(report._id),
-                disabled: false,
-                className: 'bg-indigo-600 hover:bg-indigo-700'
-            };
-        }
-
-        // Nếu có quyền edit nhưng không phải trường hợp trên
+        // 1. Kiểm tra xem người dùng có quyền chỉnh sửa tuyệt đối không (Tác giả, được giao, Admin/Manager)
         if (report.canEdit) {
             return {
                 label: 'Tiếp tục sửa',
                 icon: Edit,
                 onClick: () => handleSelectReport(report._id),
                 disabled: false,
-                className: 'bg-indigo-600 hover:bg-indigo-700'
+                className: 'bg-blue-600 hover:bg-blue-700',
+                // Chỉ người tạo báo cáo mới có nút Phân quyền
+                showGrantPermission: report.isCreatedByMe && hasPendingRequest,
+                grantPermissionLabel: `Phân quyền (${report.pendingEditRequests.length})`
             };
         }
 
-        // Nếu không có quyền sửa và báo cáo không phải nháp → chỉ xem
-        if (report.status !== 'draft' && !report.canEdit) {
+        // 2. Không có quyền sửa (Reporter thứ cấp / người ngoài)
+
+        // 2a. Báo cáo đã hoàn thành -> chỉ xem
+        if (report.status !== 'draft') {
             return {
                 label: 'Xem',
                 icon: Eye,
                 onClick: () => handleSelectReport(report._id),
                 disabled: false,
-                className: 'bg-gray-500 hover:bg-gray-600'
+                className: 'bg-gray-500 hover:bg-gray-600',
+                showGrantPermission: false
             };
         }
 
-        // Kiểm tra trạng thái yêu cầu
-        const requestStatus = requestedReports.get(report._id) || (report.isPendingMyRequest ? 'pending' : 'none');
+        // 2b. Báo cáo nháp nhưng không có quyền
 
-        if (requestStatus === 'pending') {
+        // Đã gửi yêu cầu và đang chờ duyệt
+        if (myRequestStatus === 'pending' || myRequestStatus === 'requesting') {
             return {
-                label: 'Đã yêu cầu',
-                icon: Clock,
+                label: myRequestStatus === 'pending' ? 'Đã yêu cầu' : 'Đang gửi...',
+                icon: myRequestStatus === 'pending' ? Clock : Loader2,
                 disabled: true,
-                className: 'bg-yellow-600 disabled:opacity-80'
+                className: 'bg-amber-600 disabled:opacity-80',
+                showGrantPermission: false
             };
         }
 
-        if (requestStatus === 'requesting') {
+        // Yêu cầu đã bị từ chối
+        if (myRequestStatus === 'rejected') {
             return {
-                label: 'Đang gửi...',
-                icon: Loader2,
+                label: 'Bị từ chối',
+                icon: XCircle,
                 disabled: true,
-                className: 'bg-blue-600 disabled:opacity-80'
+                className: 'bg-red-600 disabled:opacity-80',
+                showGrantPermission: false
             };
         }
 
-        // Cho phép yêu cầu sửa cho báo cáo nháp của người khác
+        // Chưa có yêu cầu hoặc yêu cầu cũ đã được xử lý (approved/rejected)
         return {
             label: 'Yêu cầu sửa',
             icon: Lock,
             onClick: () => handleRequestEditPermission(report._id),
-            disabled: requestedReports.get(report._id) === 'requesting',
-            className: 'bg-blue-600 hover:bg-blue-700'
+            disabled: false,
+            className: 'bg-sky-600 hover:bg-sky-700',
+            showGrantPermission: false
         };
     };
 
@@ -328,10 +353,10 @@ export default function ReportSelectionModal({
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-white flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white flex items-center justify-between">
                         <div>
                             <h2 className="text-2xl font-bold">Báo cáo từ {taskId ? 'nhiệm vụ' : 'yêu cầu'}</h2>
-                            <p className="text-indigo-100 text-sm mt-1">{getReportTypeText()}</p>
+                            <p className="text-blue-100 text-sm mt-1">{getReportTypeText()}</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -346,21 +371,21 @@ export default function ReportSelectionModal({
                         {loading ? (
                             <div className="flex items-center justify-center py-12">
                                 <div className="text-center">
-                                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                                     <p className="text-gray-600">Đang tải báo cáo...</p>
                                 </div>
                             </div>
                         ) : reports.length === 0 ? (
                             <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <FileText className="w-8 h-8 text-indigo-600" />
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FileText className="w-8 h-8 text-blue-600" />
                                 </div>
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có báo cáo nào</h3>
                                 <p className="text-gray-500 mb-6">Tạo báo cáo mới cho yêu cầu này</p>
                                 {canCreateNew && (
                                     <button
                                         onClick={handleCreateNew}
-                                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
+                                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:shadow-lg transition-all font-medium"
                                     >
                                         <Plus className="w-5 h-5 mr-2" />
                                         Tạo báo cáo mới
@@ -377,7 +402,7 @@ export default function ReportSelectionModal({
                                                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                                 <div>
                                                     <p className="text-sm font-medium text-amber-900">
-                                                        Báo cáo nháp - Có thể tiếp tục sửa hoặc yêu cầu quyền sửa
+                                                        Báo cáo nháp - Có thể tiếp tục sửa, yêu cầu quyền sửa, hoặc phân quyền
                                                     </p>
                                                 </div>
                                             </div>
@@ -405,7 +430,7 @@ export default function ReportSelectionModal({
                                                                     Mã: <span className="font-mono font-semibold">{report.code}</span>
                                                                 </p>
                                                                 <p className="text-xs text-gray-500 mt-1">
-                                                                    Tác giả: {report.createdBy?.fullName || 'N/A'} {report.isCreatedByMe && <span className='font-bold text-indigo-600'>(Tôi)</span>}
+                                                                    Tác giả: {report.createdBy?.fullName || 'N/A'} {report.isCreatedByMe && <span className='font-bold text-blue-600'>(Bạn)</span>}
                                                                 </p>
                                                                 {report.assignedReporters && report.assignedReporters.length > 0 && (
                                                                     <p className="text-xs text-gray-500">
@@ -414,14 +439,14 @@ export default function ReportSelectionModal({
                                                                 )}
                                                             </div>
                                                             <div className="ml-4 flex gap-2 flex-wrap justify-end">
-                                                                {/* Nếu là người viết + có yêu cầu chờ → nút duyệt */}
-                                                                {report.isCreatedByMe && report.pendingEditRequests?.length > 0 && (
+                                                                {/* Nút Phân quyền / Duyệt yêu cầu */}
+                                                                {action.showGrantPermission && (
                                                                     <button
                                                                         onClick={() => handleOpenEditRequests(report)}
-                                                                        className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
                                                                     >
-                                                                        <CheckCircle2 className="w-4 h-4" />
-                                                                        Duyệt yêu cầu ({report.pendingEditRequests.length})
+                                                                        <Users className="w-4 h-4" />
+                                                                        {action.grantPermissionLabel}
                                                                     </button>
                                                                 )}
                                                                 {/* Nút chính */}
@@ -446,14 +471,14 @@ export default function ReportSelectionModal({
                                 {finishedReports.length > 0 && (
                                     <div>
                                         {draftReports.length > 0 && <div className="border-t border-gray-200 my-6"></div>}
-                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                                        <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 mb-4">
                                             <div className="flex items-start gap-3">
-                                                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                <AlertCircle className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
                                                 <div>
-                                                    <p className="text-sm font-medium text-blue-900">
+                                                    <p className="text-sm font-medium text-sky-900">
                                                         Báo cáo đã hoàn thành
                                                     </p>
-                                                    <p className="text-xs text-blue-700 mt-1">
+                                                    <p className="text-xs text-sky-700 mt-1">
                                                         Xem hoặc tạo báo cáo mới
                                                     </p>
                                                 </div>
@@ -464,7 +489,7 @@ export default function ReportSelectionModal({
                                             {finishedReports.map(report => (
                                                 <div
                                                     key={report._id}
-                                                    className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                                                    className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50 transition-all"
                                                 >
                                                     <div className="flex items-start justify-between">
                                                         <div className="flex-1 min-w-0">
@@ -485,7 +510,7 @@ export default function ReportSelectionModal({
                                                         </div>
                                                         <button
                                                             onClick={() => handleSelectReport(report._id)}
-                                                            className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                             Xem
@@ -515,7 +540,7 @@ export default function ReportSelectionModal({
                             {canCreateNew && (
                                 <button
                                     onClick={handleCreateNew}
-                                    className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center gap-2"
+                                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center gap-2"
                                 >
                                     <Plus className="w-4 h-4" />
                                     Tạo mới
@@ -529,10 +554,10 @@ export default function ReportSelectionModal({
             {/* Edit Requests Modal */}
             {showEditRequestsModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">
-                                Yêu cầu cấp quyền sửa báo cáo
+                                Yêu cầu cấp quyền sửa báo cáo: {selectedReportForRequests?.title}
                             </h3>
                             <button
                                 onClick={() => setShowEditRequestsModal(false)}
@@ -544,7 +569,7 @@ export default function ReportSelectionModal({
 
                         {editRequestsLoading ? (
                             <div className="py-8 text-center">
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-3" />
+                                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
                                 <p className="text-gray-600">Đang tải danh sách yêu cầu...</p>
                             </div>
                         ) : editRequests.filter(r => r.status === 'pending').length === 0 ? (
@@ -556,74 +581,121 @@ export default function ReportSelectionModal({
                                 {editRequests.filter(r => r.status === 'pending').map(request => (
                                     <div
                                         key={request.requesterId._id}
-                                        className="flex items-start justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
+                                        className="p-4 border border-blue-200 rounded-lg bg-blue-50 transition-all"
                                     >
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-gray-900">
-                                                {request.requesterId.fullName}
-                                            </p>
-                                            <p className="text-sm text-gray-500">
-                                                {request.requesterId.email}
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                Yêu cầu lúc: {new Date(request.requestedAt).toLocaleString('vi-VN')}
-                                            </p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleApproveEditRequest(request.requesterId._id)}
-                                                disabled={respondingTo[request.requesterId._id] === 'approving'}
-                                                className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all font-medium flex items-center gap-2"
-                                            >
-                                                {respondingTo[request.requesterId._id] === 'approving' ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <Check className="w-4 h-4" />
-                                                )}
-                                                Duyệt
-                                            </button>
-                                            <button
-                                                onClick={() => handleRejectEditRequest(request.requesterId._id)}
-                                                disabled={respondingTo[request.requesterId._id] === 'rejecting'}
-                                                className="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all font-medium flex items-center gap-2"
-                                            >
-                                                {respondingTo[request.requesterId._id] === 'rejecting' ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <p className="font-semibold text-gray-900">
+                                                    {request.requesterId.fullName}
+                                                </p>
+                                                <p className="text-sm text-gray-500">
+                                                    {request.requesterId.email}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Yêu cầu lúc: {new Date(request.requestedAt).toLocaleString('vi-VN')}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-2 flex-shrink-0">
+                                                <button
+                                                    onClick={() => handleApproveEditRequest(request.requesterId._id)}
+                                                    disabled={respondingTo[request.requesterId._id] === 'approving'}
+                                                    className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all font-medium flex items-center gap-2"
+                                                >
+                                                    {respondingTo[request.requesterId._id] === 'approving' ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <Check className="w-4 h-4" />
+                                                    )}
+                                                    Duyệt
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowRejectInput(request.requesterId._id);
+                                                        setRejectReason(''); // Reset reason for new rejection
+                                                    }}
+                                                    className="px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-all font-medium flex items-center gap-2"
+                                                >
                                                     <XCircle className="w-4 h-4" />
-                                                )}
-                                                Từ chối
-                                            </button>
+                                                    Từ chối
+                                                </button>
+                                            </div>
                                         </div>
+
+                                        {/* Reject reason input */}
+                                        {showRejectInput === request.requesterId._id && (
+                                            <div className="mt-4 pt-4 border-t border-blue-200">
+                                                <textarea
+                                                    value={rejectReason}
+                                                    onChange={(e) => setRejectReason(e.target.value)}
+                                                    placeholder="Nhập lý do từ chối (bắt buộc)"
+                                                    className="w-full p-2 border border-red-300 rounded-lg focus:ring-red-500 focus:border-red-500 text-sm"
+                                                    rows="2"
+                                                ></textarea>
+                                                <button
+                                                    onClick={() => handleRejectEditRequest(request.requesterId._id)}
+                                                    disabled={!rejectReason || respondingTo[request.requesterId._id] === 'rejecting'}
+                                                    className="mt-2 px-3 py-1.5 bg-red-700 text-white text-sm rounded-lg hover:bg-red-800 disabled:opacity-50 transition-all font-medium flex items-center gap-1.5"
+                                                >
+                                                    {respondingTo[request.requesterId._id] === 'rejecting' ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <XCircle className="w-4 h-4" />
+                                                    )}
+                                                    Xác nhận Từ chối
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        {/* Approved Requests */}
-                        {editRequests.filter(r => r.status === 'approved').length > 0 && (
-                            <div className="mt-6 pt-6 border-t">
-                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Đã phê duyệt</h4>
+                        {/* Approved/Rejected Requests History */}
+                        {(editRequests.filter(r => r.status !== 'pending').length > 0) && (
+                            <div className="mt-6 pt-6 border-t border-gray-200">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Lịch sử yêu cầu</h4>
                                 <div className="space-y-2">
                                     {editRequests.filter(r => r.status === 'approved').map(request => (
                                         <div
-                                            key={request.requesterId._id}
+                                            key={request.requesterId._id + 'a'}
                                             className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
                                         >
                                             <div>
                                                 <p className="text-sm font-medium text-gray-900">
-                                                    {request.requesterId.fullName}
+                                                    {request.requesterId.fullName} - <span className="text-green-600 font-bold">Đã Phê duyệt</span>
                                                 </p>
                                                 <p className="text-xs text-gray-500">
-                                                    Đã phê duyệt vào {new Date(request.respondedAt).toLocaleString('vi-VN')}
+                                                    Phản hồi lúc: {new Date(request.respondedAt).toLocaleString('vi-VN')}
                                                 </p>
                                             </div>
                                             <Check className="w-5 h-5 text-green-600" />
                                         </div>
                                     ))}
+                                    {editRequests.filter(r => r.status === 'rejected').map(request => (
+                                        <div
+                                            key={request.requesterId._id + 'r'}
+                                            className="flex items-start justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                                        >
+                                            <div className='flex-1'>
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {request.requesterId.fullName} - <span className="text-red-600 font-bold">Đã Từ chối</span>
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    Phản hồi lúc: {new Date(request.respondedAt).toLocaleString('vi-VN')}
+                                                </p>
+                                                {request.rejectReason && (
+                                                    <p className="text-xs text-red-700 mt-1 italic">
+                                                        Lý do: {request.rejectReason}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 ml-4" />
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
+
 
                         <div className="mt-6 pt-6 border-t flex justify-end">
                             <button
