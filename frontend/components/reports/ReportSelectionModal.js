@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Send, Lock } from 'lucide-react'
+import { X, Plus, FileText, Edit, Eye, AlertCircle, Loader2, Check, Send, Lock, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 
-// Hàm tiện ích để chuẩn hóa giá trị rỗng/null/undefined thành null
 const normalizeParam = (value) => {
     return (value === '' || value === undefined) ? null : value;
+};
+
+// Giả định hàm useAuth để lấy thông tin người dùng hiện tại
+const useAuth = () => {
+    // THAY THẾ bằng logic lấy user ID thực tế của bạn
+    const [user, setUser] = useState({ _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'User A' });
+
+    useEffect(() => {
+    }, []);
+
+    return { user };
 };
 
 export default function ReportSelectionModal({
@@ -20,26 +30,35 @@ export default function ReportSelectionModal({
                                                  onSelectExisting,
                                                  onClose
                                              }) {
+    // Lấy thông tin user
+    const { user } = useAuth();
+    const currentUserId = user?._id;
+
     const [loading, setLoading] = useState(false)
     const [reports, setReports] = useState([])
     const [canCreateNew, setCanCreateNew] = useState(false)
     const [task, setTask] = useState(null)
     const [requestingEdit, setRequestingEdit] = useState({})
-    const [requestedReports, setRequestedReports] = useState(new Set())
+
+    // Đã thay đổi thành Map<reportId, status> để quản lý trạng thái pending/requesting của từng báo cáo
+    const [requestedReports, setRequestedReports] = useState(new Map());
+
 
     useEffect(() => {
         const normalizedTaskId = normalizeParam(taskId);
         const normalizedStandardId = normalizeParam(standardId);
 
-        if (isOpen && (normalizedTaskId || (normalizedStandardId && reportType))) {
+        if (isOpen && currentUserId && (normalizedTaskId || (normalizedStandardId && reportType))) {
             fetchReports()
         }
-    }, [isOpen, taskId, standardId, criteriaId, reportType, programId, organizationId])
+    }, [isOpen, taskId, standardId, criteriaId, reportType, programId, organizationId, currentUserId])
 
     const fetchReports = async () => {
-        try {
-            setLoading(true)
+        if (!currentUserId) return;
+        setLoading(true)
+        setRequestedReports(new Map()); // Reset trạng thái yêu cầu
 
+        try {
             let response;
             let reportsData = [];
             let canCreate = false;
@@ -72,22 +91,40 @@ export default function ReportSelectionModal({
                 canCreate = response.data.data.canWriteReport || false;
                 currentTask = null;
             } else {
-                // Trường hợp không đủ tham số
                 return;
             }
 
             const newReports = reportsData.map(report => {
                 const assignedReporters = report.assignedReporters || [];
-                // Giả định backend đã đánh dấu 'Bạn' (You) cho người dùng hiện tại
-                const isAssignedToMe = assignedReporters.some(r => r.fullName === 'Bạn');
-                const isCreatedByMe = report.createdBy?.fullName === 'Bạn';
+
+                // SỬA LỖI: So sánh qua _id thay vì fullName = 'Bạn'
+                const isCreatedByMe = report.createdBy?._id === currentUserId;
+                const isAssignedToMe = assignedReporters.some(r => r._id === currentUserId);
+
+                // Logic canEdit: Admin/Manager hoặc người được giao/người tạo
+                let canEdit = isCreatedByMe || isAssignedToMe || user.role === 'admin' || user.role === 'manager';
+
+                // Kiểm tra trạng thái yêu cầu đang chờ duyệt từ Backend (isPendingMyRequest)
+                if (report.isPendingMyRequest) {
+                    setRequestedReports(prev => new Map(prev).set(report._id, 'pending'));
+                }
 
                 return {
                     ...report,
-                    canEdit: isAssignedToMe || isCreatedByMe
+                    canEdit,
+                    isCreatedByMe,
+                    isAssignedToMe
                 };
             });
 
+            // Sắp xếp: Ưu tiên nháp của tôi, sau đó là nháp (của người khác), sau đó là công khai/phát hành
+            newReports.sort((a, b) => {
+                if (a.status === 'draft' && b.status !== 'draft') return -1;
+                if (a.status !== 'draft' && b.status === 'draft') return 1;
+                if (a.isCreatedByMe && !b.isCreatedByMe) return -1;
+                if (!a.isCreatedByMe && b.isCreatedByMe) return 1;
+                return new Date(b.updatedAt) - new Date(a.updatedAt);
+            });
 
             setReports(newReports)
             setCanCreateNew(canCreate)
@@ -112,21 +149,32 @@ export default function ReportSelectionModal({
         onClose()
     }
 
+    // Cập nhật logic yêu cầu cấp quyền để sử dụng trạng thái Map
     const handleRequestEditPermission = async (reportId) => {
-        try {
-            setRequestingEdit(prev => ({ ...prev, [reportId]: true }))
+        if (!currentUserId) {
+            toast.error('Vui lòng đăng nhập để thực hiện chức năng này.');
+            return;
+        }
 
+        setRequestedReports(prev => new Map(prev).set(reportId, 'requesting'));
+        setRequestingEdit(prev => ({ ...prev, [reportId]: true }))
+
+        try {
             const response = await apiMethods.reports.requestEditPermission(reportId)
 
-            if (response.data.success) {
-                toast.success('Yêu cầu cấp quyền đã được gửi và đã được cấp')
-                setRequestedReports(prev => new Set([...prev, reportId]))
+            toast.success(response.data.message || 'Yêu cầu cấp quyền đã được gửi, đang chờ duyệt.')
 
-                await fetchReports()
-            }
+            // Cập nhật trạng thái thành 'pending' (chờ duyệt)
+            setRequestedReports(prev => new Map(prev).set(reportId, 'pending'));
+
         } catch (error) {
             console.error('Request edit permission error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi gửi yêu cầu')
+            const errorMessage = error.response?.data?.message || 'Lỗi gửi yêu cầu'
+            toast.error(errorMessage)
+
+            // Đặt lại trạng thái nếu có lỗi (trừ khi lỗi báo đã yêu cầu, nhưng Backend Controller đã xử lý)
+            setRequestedReports(prev => new Map(prev).set(reportId, 'none'));
+
         } finally {
             setRequestingEdit(prev => ({ ...prev, [reportId]: false }))
         }
@@ -163,8 +211,60 @@ export default function ReportSelectionModal({
         return labels[status] || status
     }
 
+    // Phân loại báo cáo
     const draftReports = reports.filter(r => r.status === 'draft')
-    const publishedReports = reports.filter(r => r.status !== 'draft')
+    const finishedReports = reports.filter(r => r.status !== 'draft')
+
+    const getActionForReport = (report) => {
+        const requestStatus = requestedReports.get(report._id) || (report.isPendingMyRequest ? 'pending' : 'none');
+
+        if (report.canEdit) {
+            return {
+                label: 'Tiếp tục sửa',
+                icon: Edit,
+                onClick: () => handleSelectReport(report._id),
+                disabled: false,
+                className: 'bg-indigo-600 hover:bg-indigo-700'
+            };
+        }
+
+        if (report.status !== 'draft' && !report.canEdit) {
+            return {
+                label: 'Xem',
+                icon: Eye,
+                onClick: () => handleSelectReport(report._id),
+                disabled: false,
+                className: 'bg-gray-500 hover:bg-gray-600'
+            };
+        }
+
+        if (requestStatus === 'pending') {
+            return {
+                label: 'Đã yêu cầu',
+                icon: Clock,
+                disabled: true,
+                className: 'bg-yellow-600 disabled:opacity-80'
+            };
+        }
+
+        if (requestStatus === 'requesting') {
+            return {
+                label: 'Đang gửi...',
+                icon: Loader2,
+                disabled: true,
+                className: 'bg-blue-600 disabled:opacity-80'
+            };
+        }
+
+        // Báo cáo nháp của người khác, tôi không có quyền, và chưa gửi yêu cầu
+        return {
+            label: 'Yêu cầu sửa',
+            icon: Lock,
+            onClick: () => handleRequestEditPermission(report._id),
+            disabled: requestingEdit[report._id],
+            className: 'bg-blue-600 hover:bg-blue-700'
+        };
+    };
 
     if (!isOpen) return null
 
@@ -230,76 +330,55 @@ export default function ReportSelectionModal({
                                     </div>
 
                                     <div className="space-y-3">
-                                        {draftReports.map(report => (
-                                            <div
-                                                key={report._id}
-                                                className="border border-amber-200 bg-amber-50 rounded-xl p-4"
-                                            >
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                                                {report.title}
-                                                            </h3>
-                                                            <span className={`text-xs px-2 py-1 rounded-full border font-medium whitespace-nowrap ${getStatusColor(report.status)}`}>
-                                                                {getStatusLabel(report.status)}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500">
-                                                            Mã: <span className="font-mono font-semibold">{report.code}</span>
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            Tác giả: {report.createdBy?.fullName}
-                                                        </p>
-                                                        {report.assignedReporters && report.assignedReporters.length > 0 && (
+                                        {draftReports.map(report => {
+                                            const action = getActionForReport(report);
+                                            return (
+                                                <div
+                                                    key={report._id}
+                                                    className="border border-amber-200 bg-amber-50 rounded-xl p-4"
+                                                >
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <h3 className="text-sm font-semibold text-gray-900 truncate" title={report.title}>
+                                                                    {report.title}
+                                                                </h3>
+                                                                <span className={`text-xs px-2 py-1 rounded-full border font-medium whitespace-nowrap ${getStatusColor(report.status)}`}>
+                                                                    {getStatusLabel(report.status)}
+                                                                </span>
+                                                            </div>
                                                             <p className="text-xs text-gray-500">
-                                                                Người có quyền: {report.assignedReporters.map(r => r.fullName).join(', ')}
+                                                                Mã: <span className="font-mono font-semibold">{report.code}</span>
                                                             </p>
-                                                        )}
-                                                    </div>
-                                                    <div className="ml-4 flex gap-2">
-                                                        {report.canEdit ? (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Tác giả: {report.createdBy?.fullName || 'N/A'} {report.isCreatedByMe && <span className='font-bold text-indigo-600'>(Tôi)</span>}
+                                                            </p>
+                                                            {report.assignedReporters && report.assignedReporters.length > 0 && (
+                                                                <p className="text-xs text-gray-500">
+                                                                    Được giao: {report.assignedReporters.map(r => r.fullName).join(', ')}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="ml-4 flex gap-2">
                                                             <button
-                                                                onClick={() => handleSelectReport(report._id)}
-                                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+                                                                onClick={action.onClick}
+                                                                disabled={action.disabled}
+                                                                className={`px-4 py-2 ${action.className} text-white rounded-lg transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap`}
                                                             >
-                                                                <Edit className="w-4 h-4" />
-                                                                Tiếp tục sửa
+                                                                {action.icon && <action.icon className={`w-4 h-4 ${action.label === 'Đang gửi...' ? 'animate-spin' : ''}`} />}
+                                                                {action.label}
                                                             </button>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => handleRequestEditPermission(report._id)}
-                                                                disabled={requestingEdit[report._id] || requestedReports.has(report._id)}
-                                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-all font-medium text-sm flex items-center gap-2 whitespace-nowrap"
-                                                            >
-                                                                {requestingEdit[report._id] ? (
-                                                                    <>
-                                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                                        Đang gửi...
-                                                                    </>
-                                                                ) : requestedReports.has(report._id) ? (
-                                                                    <>
-                                                                        <Check className="w-4 h-4" />
-                                                                        Đã yêu cầu
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Send className="w-4 h-4" />
-                                                                        Yêu cầu sửa
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                        )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             )}
 
                             {/* Báo cáo đã công khai */}
-                            {publishedReports.length > 0 && (
+                            {finishedReports.length > 0 && (
                                 <div>
                                     {draftReports.length > 0 && <div className="border-t border-gray-200 my-6"></div>}
                                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
@@ -317,7 +396,7 @@ export default function ReportSelectionModal({
                                     </div>
 
                                     <div className="space-y-3">
-                                        {publishedReports.map(report => (
+                                        {finishedReports.map(report => (
                                             <div
                                                 key={report._id}
                                                 className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:bg-indigo-50 transition-all"

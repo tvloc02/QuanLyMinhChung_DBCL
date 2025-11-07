@@ -17,30 +17,33 @@ import {
     Quote,
     Undo,
     Redo,
-    Type
+    Type,
+    FileText,
+    Layers
 } from 'lucide-react'
 
-const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, ref) => {
+const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled, onInsertLinkedReport, onInsertNewEvidence }, ref) => {
     const editorRef = useRef(null)
     const [showLinkInput, setShowLinkInput] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
     const [linkText, setLinkText] = useState('')
     const [detectedCodes, setDetectedCodes] = useState(new Set())
+    const [detectedReports, setDetectedReports] = useState(new Set())
 
-    // Load content when value changes
     useEffect(() => {
         if (editorRef.current && value !== editorRef.current.innerHTML) {
             editorRef.current.innerHTML = value || ''
-            detectExistingEvidenceCodes()
+            detectExistingContent()
         }
     }, [value])
 
-    // Detect evidence codes from existing links only (SCAN, NO EDIT)
-    const detectExistingEvidenceCodes = () => {
+    const detectExistingContent = () => {
         if (!editorRef.current) return
 
         const foundCodes = new Set()
+        const foundReports = new Set()
         const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link')
+        const linkedReports = editorRef.current.querySelectorAll('div.linked-report')
 
         evidenceLinks.forEach(link => {
             const code = link.getAttribute('data-code')
@@ -49,17 +52,23 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             }
         })
 
+        linkedReports.forEach(div => {
+            const reportId = div.getAttribute('data-report-id')
+            if (reportId) {
+                foundReports.add(reportId)
+            }
+        })
+
         setDetectedCodes(foundCodes)
+        setDetectedReports(foundReports)
     }
 
-    // On input: just notify parent, don't auto-wrap
     const handleInput = () => {
         if (onChange && editorRef.current) {
             const content = editorRef.current.innerHTML
             onChange(content)
 
-            // Scan for existing links (ONLY, no wrapping)
-            detectExistingEvidenceCodes()
+            detectExistingContent()
         }
     }
 
@@ -123,50 +132,46 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             document.execCommand('insertHTML', false, linkHTML)
 
             setTimeout(() => {
-                detectCodesFromContent()
+                detectExistingContent()
                 handleInput()
             }, 0)
         }
     }
 
-    const detectCodesFromContent = () => {
-        if (!editorRef.current) return
+    const handleInsertLinkedReport = (reportId, reportTitle, hideAuthor) => {
+        if (!reportId || !reportTitle) return
 
-        const foundCodes = new Set()
-        const content = editorRef.current.innerHTML
+        if (editorRef.current) {
+            editorRef.current.focus()
 
-        // Find plain codes in text
-        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
-        let match
-        while ((match = evidencePattern.exec(content)) !== null) {
-            foundCodes.add(match[1])
+            const html = `<div contenteditable="false" data-report-id="${reportId}" data-hide-author="${!!hideAuthor}" class="linked-report" title="Báo cáo nhúng: ${reportTitle}">
+                <span style="font-size: 14px; font-weight: bold; color: #4f46e5;"><${hideAuthor ? 'ẨN TÁC GIẢ' : 'CÔNG KHAI'}> BÁO CÁO NHÚNG:</span>
+                <span style="font-size: 14px; font-style: italic; color: #4b5563;">${reportTitle}</span>
+            </div>&nbsp;`
+
+            document.execCommand('insertHTML', false, html)
+
+            setTimeout(() => {
+                detectExistingContent()
+                handleInput()
+            }, 0)
         }
-
-        // Also find codes from existing links
-        const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link, span.evidence-code')
-        evidenceLinks.forEach(link => {
-            const code = link.getAttribute('data-code') || link.textContent
-            if (code && /^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
-                foundCodes.add(code)
-            }
-        })
-
-        setDetectedCodes(foundCodes)
     }
 
     useImperativeHandle(ref, () => ({
         insertEvidenceCode: handleInsertEvidenceCode,
+        insertLinkedReport: handleInsertLinkedReport,
         getContent: () => editorRef.current?.innerHTML || ''
     }))
 
-    const ToolbarButton = ({ onClick, title, children, active = false }) => (
+    const ToolbarButton = ({ onClick, title, children, active = false, className = '' }) => (
         <button
             type="button"
             onClick={onClick}
             title={title}
             className={`p-2 rounded hover:bg-gray-100 transition-colors ${
                 active ? 'bg-gray-200' : ''
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
             disabled={disabled}
         >
             {children}
@@ -175,7 +180,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
     return (
         <div className="border border-gray-300 rounded-lg overflow-hidden">
-            {/* TOOLBAR */}
             <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap gap-1">
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={() => execCommand('bold')} title="Bold (Ctrl+B)">
@@ -272,6 +276,15 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                 </div>
 
+                <div className="flex gap-1 border-r border-gray-300 pr-2">
+                    <ToolbarButton onClick={onInsertNewEvidence} title="Thêm Minh chứng Mới" className="bg-green-100 hover:bg-green-200">
+                        <FileText className="h-4 w-4 text-green-700" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={onInsertLinkedReport} title="Chèn Báo cáo Con" className="bg-indigo-100 hover:bg-indigo-200">
+                        <Layers className="h-4 w-4 text-indigo-700" />
+                    </ToolbarButton>
+                </div>
+
                 <div className="flex gap-1">
                     <ToolbarButton onClick={() => execCommand('undo')} title="Undo (Ctrl+Z)">
                         <Undo className="h-4 w-4" />
@@ -282,7 +295,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             </div>
 
-            {/* LINK INPUT */}
             {showLinkInput && (
                 <div className="bg-blue-50 border-b border-blue-200 p-3">
                     <div className="flex gap-2 items-end">
@@ -328,7 +340,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
-            {/* EDITOR */}
             <div
                 ref={editorRef}
                 contentEditable={!disabled}
@@ -342,32 +353,43 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 data-placeholder={placeholder || 'Nhập nội dung báo cáo...'}
             />
 
-            {/* DETECTED CODES COUNTER */}
-            {detectedCodes.size > 0 && (
+            {(detectedCodes.size > 0 || detectedReports.size > 0) && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-200 px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-blue-600 font-bold text-sm">{detectedCodes.size}</span>
+                                <span className="text-blue-600 font-bold text-sm">{detectedCodes.size + detectedReports.size}</span>
                             </div>
                             <span className="text-sm font-medium text-blue-900">
-                                Mã minh chứng đã phát hiện
+                                Mã minh chứng/Báo cáo nhúng đã phát hiện
                             </span>
                         </div>
                         <div className="flex flex-wrap gap-1 max-w-md">
                             {Array.from(detectedCodes)
-                                .slice(0, 5)
+                                .slice(0, 3)
                                 .map((code, idx) => (
                                     <span
-                                        key={idx}
+                                        key={`code-${idx}`}
                                         className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-mono"
+                                        title="Minh chứng"
                                     >
                                         {code}
                                     </span>
                                 ))}
-                            {detectedCodes.size > 5 && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                                    +{detectedCodes.size - 5} khác
+                            {Array.from(detectedReports)
+                                .slice(0, 2)
+                                .map((reportId, idx) => (
+                                    <span
+                                        key={`report-${idx}`}
+                                        className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-mono"
+                                        title="Báo cáo nhúng"
+                                    >
+                                        RP-{reportId.substring(0,4)}
+                                    </span>
+                                ))}
+                            {(detectedCodes.size + detectedReports.size > 5) && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                    +{detectedCodes.size + detectedReports.size - 5} khác
                                 </span>
                             )}
                         </div>
@@ -375,7 +397,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 </div>
             )}
 
-            {/* STYLES */}
             <style jsx>{`
                 [contenteditable][data-placeholder]:empty:before {
                     content: attr(data-placeholder);
@@ -426,7 +447,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     text-decoration: underline;
                 }
 
-                /* Evidence code in editor (pending wrap on save) */
                 span.evidence-code {
                     display: inline-flex;
                     align-items: center;
@@ -445,7 +465,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     background-color: #fde047;
                 }
 
-                /* Evidence link (after saved) */
                 a.evidence-link {
                     display: inline-flex;
                     align-items: center;
@@ -465,6 +484,18 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 a.evidence-link:hover {
                     background-color: #93c5fd;
                     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+                }
+
+                div.linked-report {
+                    display: block;
+                    padding: 1rem;
+                    margin: 1rem 0;
+                    border-left: 4px solid #4f46e5;
+                    background-color: #f5f3ff;
+                    border-radius: 0.375rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                    cursor: default;
+                    user-select: none;
                 }
             `}</style>
         </div>
