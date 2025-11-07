@@ -30,6 +30,12 @@ const evaluationSchema = new mongoose.Schema({
             type: String,
             required: true
         },
+        evaluationLevel: {
+            type: String,
+            enum: ['Đạt', 'Không đạt'],
+            required: [true, 'Mức đánh giá Đạt/Không đạt là bắt buộc'],
+            default: 'Không đạt'
+        },
         maxScore: {
             type: Number,
             required: true
@@ -215,7 +221,6 @@ const evaluationSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
 evaluationSchema.index({ academicYearId: 1, reportId: 1 });
 evaluationSchema.index({ academicYearId: 1, evaluatorId: 1 });
 evaluationSchema.index({ assignmentId: 1 }, { unique: true });
@@ -223,7 +228,6 @@ evaluationSchema.index({ status: 1 });
 evaluationSchema.index({ averageScore: 1 });
 evaluationSchema.index({ submittedAt: -1 });
 
-// Pre hooks
 evaluationSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
         this.updatedAt = Date.now();
@@ -256,7 +260,6 @@ evaluationSchema.pre('save', function(next) {
     next();
 });
 
-// Methods
 evaluationSchema.methods.addActivityLog = async function(action, userId, description, additionalData = {}) {
     const ActivityLog = require('../system/ActivityLog');
     return ActivityLog.log({
@@ -299,7 +302,6 @@ evaluationSchema.methods.calculateScores = function() {
         this.averageScore = 0;
     }
 
-    // Tự động xác định rating dựa trên averageScore
     if (this.averageScore >= 9) {
         this.rating = 'excellent';
     } else if (this.averageScore >= 7) {
@@ -401,6 +403,8 @@ evaluationSchema.methods.canView = function(userId, userRole) {
 
     if (userRole === 'manager' && this.status !== 'draft') return true;
 
+    if (userRole === 'expert' && this.status !== 'draft') return true;
+
     return false;
 };
 
@@ -423,7 +427,24 @@ evaluationSchema.methods.getProgress = function() {
     return Math.round((completedFields / totalFields) * 100);
 };
 
-// Virtuals
+evaluationSchema.virtual('isComplete').get(function() {
+    const requiredOverallFieldsPresent = this.overallComment &&
+        this.rating &&
+        this.evidenceAssessment &&
+        this.evidenceAssessment.adequacy &&
+        this.evidenceAssessment.relevance &&
+        this.evidenceAssessment.quality;
+
+    const allCriteriaCompleted = this.criteriaScores &&
+        this.criteriaScores.length > 0 &&
+        this.criteriaScores.every(c =>
+            typeof c.score === 'number' && c.score >= 0 &&
+            (c.evaluationLevel === 'Đạt' || c.evaluationLevel === 'Không đạt')
+        );
+
+    return requiredOverallFieldsPresent && allCriteriaCompleted;
+});
+
 evaluationSchema.virtual('ratingText').get(function() {
     const ratingMap = {
         'excellent': 'Xuất sắc',
@@ -450,11 +471,6 @@ evaluationSchema.virtual('timeSpentHours').get(function() {
     return Math.round(this.metadata.timeSpent / 60 * 100) / 100;
 });
 
-evaluationSchema.virtual('isComplete').get(function() {
-    return this.getProgress() === 100;
-});
-
-// Static methods
 evaluationSchema.statics.getAverageScoreByReport = async function(reportId) {
     const evaluations = await this.find({
         reportId,
@@ -527,7 +543,6 @@ evaluationSchema.statics.getSystemStats = async function(academicYearId) {
     return stats;
 };
 
-// Post hooks
 evaluationSchema.post('save', async function(doc, next) {
     if (this.isNew && this.evaluatorId) {
         try {

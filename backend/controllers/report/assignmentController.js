@@ -11,7 +11,7 @@ const getAssignments = async (req, res) => {
             search,
             status,
             priority,
-            expertId,
+            evaluatorId,
             assignedBy,
             reportId,
             sortBy = 'createdAt',
@@ -25,11 +25,9 @@ const getAssignments = async (req, res) => {
 
         let query = { academicYearId };
 
-        // Experts chỉ thấy phân quyền của mình
-        if (req.user.role === 'expert') {
-            query.expertId = req.user.id;
-        } else if (req.user.role === 'manager' && !expertId && !assignedBy) {
-            // Managers thấy phân quyền mà họ tạo
+        if (req.user.role === 'evaluator') {
+            query.evaluatorId = req.user.id;
+        } else if (req.user.role === 'manager' && !evaluatorId && !assignedBy) {
             query.assignedBy = req.user.id;
         }
 
@@ -64,14 +62,14 @@ const getAssignments = async (req, res) => {
 
         if (status) query.status = status;
         if (priority) query.priority = priority;
-        if (expertId) {
-            if (req.user.role === 'expert' && req.user.id !== expertId) {
+        if (evaluatorId) {
+            if (req.user.role === 'evaluator' && req.user.id !== evaluatorId) {
                 return res.status(403).json({
                     success: false,
                     message: 'Không có quyền xem phân quyền của người khác'
                 });
             }
-            query.expertId = expertId;
+            query.evaluatorId = evaluatorId;
         }
         if (assignedBy) {
             if (req.user.role === 'manager' && req.user.id !== assignedBy) {
@@ -90,7 +88,7 @@ const getAssignments = async (req, res) => {
         const [assignments, total] = await Promise.all([
             Assignment.find(query)
                 .populate('reportId', 'title type code')
-                .populate('expertId', 'fullName email')
+                .populate('evaluatorId', 'fullName email')
                 .populate('assignedBy', 'fullName email')
                 .populate('evaluationId', 'averageScore status')
                 .sort(sortOptions)
@@ -129,7 +127,7 @@ const getAssignmentById = async (req, res) => {
 
         const assignment = await Assignment.findOne({ _id: id, academicYearId })
             .populate('reportId')
-            .populate('expertId', 'fullName email')
+            .populate('evaluatorId', 'fullName email')
             .populate('assignedBy', 'fullName email')
             .populate('evaluationId');
 
@@ -140,9 +138,8 @@ const getAssignmentById = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền xem
         if (req.user.role !== 'admin' &&
-            assignment.expertId._id.toString() !== req.user.id.toString() &&
+            assignment.evaluatorId._id.toString() !== req.user.id.toString() &&
             assignment.assignedBy._id.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
@@ -168,7 +165,7 @@ const createAssignment = async (req, res) => {
     try {
         const {
             reportId,
-            expertId,
+            evaluatorId,
             assignmentNote,
             deadline,
             priority,
@@ -177,7 +174,6 @@ const createAssignment = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
-        // Chỉ manager hoặc admin mới tạo được phân quyền
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
@@ -185,7 +181,6 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        // ✅ Thêm kiểm tra bắt buộc cho các trường ID
         if (!reportId) {
             return res.status(400).json({
                 success: false,
@@ -193,17 +188,17 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        if (!expertId) {
+        if (!evaluatorId) {
             return res.status(400).json({
                 success: false,
-                message: 'ID chuyên gia (expertId) là bắt buộc.'
+                message: 'ID người đánh giá (evaluatorId) là bắt buộc.'
             });
         }
 
 
-        const [report, expert] = await Promise.all([
+        const [report, evaluator] = await Promise.all([
             Report.findOne({ _id: reportId, academicYearId }),
-            User.findById(expertId)
+            User.findById(evaluatorId)
         ]);
 
         if (!report) {
@@ -213,7 +208,6 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        // Báo cáo phải đã xuất bản mới phân quyền được
         if (report.status !== 'published') {
             return res.status(400).json({
                 success: false,
@@ -221,29 +215,13 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        if (!expert || expert.role !== 'expert') {
+        if (!evaluator || evaluator.role !== 'evaluator') {
             return res.status(400).json({
                 success: false,
-                message: 'Chuyên gia không tồn tại hoặc không có quyền đánh giá'
+                message: 'Người đánh giá không tồn tại hoặc không có vai trò evaluator'
             });
         }
 
-        // Kiểm tra xem chuyên gia này đã được phân quyền chưa
-        const existingAssignment = await Assignment.findOne({
-            reportId,
-            expertId,
-            academicYearId,
-            status: { $in: ['pending', 'accepted', 'in_progress'] }
-        });
-
-        if (existingAssignment) {
-            return res.status(400).json({
-                success: false,
-                message: 'Chuyên gia này đã được phân quyền đánh giá báo cáo này'
-            });
-        }
-
-        // Kiểm tra trường deadline bắt buộc
         if (!deadline) {
             return res.status(400).json({
                 success: false,
@@ -251,33 +229,49 @@ const createAssignment = async (req, res) => {
             });
         }
 
+        const existingAssignment = await Assignment.findOne({
+            reportId,
+            evaluatorId,
+            academicYearId,
+            status: { $in: ['accepted', 'in_progress'] }
+        });
+
+        if (existingAssignment) {
+            return res.status(400).json({
+                success: false,
+                message: 'Người đánh giá này đã được phân quyền đánh giá báo cáo này và đang trong quá trình thực hiện.'
+            });
+        }
+
         const assignment = new Assignment({
             academicYearId,
             reportId,
-            expertId,
+            evaluatorId,
             assignedBy: req.user.id,
             assignmentNote: assignmentNote?.trim(),
             deadline: new Date(deadline),
             priority: priority || 'normal',
-            evaluationCriteria: evaluationCriteria || []
+            evaluationCriteria: evaluationCriteria || [],
+            // Thiết lập trạng thái ban đầu là accepted (Đã phân công/Chấp nhận tự động)
+            status: 'accepted',
+            respondedAt: new Date()
         });
 
         await assignment.save();
 
         await assignment.populate([
             { path: 'reportId', select: 'title type code' },
-            { path: 'expertId', select: 'fullName email' },
+            { path: 'evaluatorId', select: 'fullName email' },
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
-        // Gửi notification
         const Notification = mongoose.model('Notification');
         await Notification.create({
-            recipientId: expertId,
+            recipientId: evaluatorId,
             senderId: req.user.id,
             type: 'assignment_new',
-            title: 'Phân quyền đánh giá mới',
-            message: `Bạn được phân quyền đánh giá báo cáo: ${report.title}`,
+            title: 'Phân công đánh giá mới',
+            message: `Bạn được phân công đánh giá báo cáo: ${report.title}. Hạn chót: ${new Date(deadline).toLocaleDateString()}`,
             data: {
                 assignmentId: assignment._id,
                 reportId: report._id,
@@ -295,7 +289,6 @@ const createAssignment = async (req, res) => {
     } catch (error) {
         console.error('Create assignment error:', error);
 
-        // Xử lý lỗi validation của Mongoose (thường là lỗi 400)
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
@@ -332,6 +325,14 @@ const updateAssignment = async (req, res) => {
             });
         }
 
+        // Chỉ cho phép update nếu chưa chuyển sang trạng thái đang thực hiện hoặc hoàn thành
+        if(['in_progress', 'completed'].includes(assignment.status) && req.user.role !== 'admin') {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể cập nhật phân quyền đang hoặc đã hoàn thành'
+            });
+        }
+
         const allowedFields = ['assignmentNote', 'deadline', 'priority', 'evaluationCriteria'];
 
         allowedFields.forEach(field => {
@@ -344,7 +345,7 @@ const updateAssignment = async (req, res) => {
 
         await assignment.populate([
             { path: 'reportId', select: 'title type code' },
-            { path: 'expertId', select: 'fullName email' },
+            { path: 'evaluatorId', select: 'fullName email' },
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
@@ -383,10 +384,10 @@ const deleteAssignment = async (req, res) => {
             });
         }
 
-        if (assignment.status === 'completed') {
+        if (['in_progress', 'completed'].includes(assignment.status) && req.user.role !== 'admin') {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa phân quyền đã hoàn thành'
+                message: 'Không thể xóa phân quyền đang hoặc đã hoàn thành'
             });
         }
 
@@ -406,95 +407,9 @@ const deleteAssignment = async (req, res) => {
     }
 };
 
-const acceptAssignment = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { responseNote } = req.body;
-        const academicYearId = req.academicYearId;
+// Loại bỏ hàm acceptAssignment
 
-        const assignment = await Assignment.findOne({ _id: id, academicYearId });
-        if (!assignment) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy phân quyền'
-            });
-        }
-
-        if (assignment.expertId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền phản hồi phân quyền này'
-            });
-        }
-
-        if (assignment.status !== 'pending') {
-            return res.status(400).json({
-                success: false,
-                message: 'Phân quyền đã được phản hồi trước đó'
-            });
-        }
-
-        await assignment.accept(responseNote);
-
-        res.json({
-            success: true,
-            message: 'Chấp nhận phân quyền thành công',
-            data: assignment
-        });
-
-    } catch (error) {
-        console.error('Accept assignment error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi chấp nhận phân quyền'
-        });
-    }
-};
-
-const rejectAssignment = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { responseNote } = req.body;
-        const academicYearId = req.academicYearId;
-
-        const assignment = await Assignment.findOne({ _id: id, academicYearId });
-        if (!assignment) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy phân quyền'
-            });
-        }
-
-        if (assignment.expertId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền phản hồi phân quyền này'
-            });
-        }
-
-        if (assignment.status !== 'pending') {
-            return res.status(400).json({
-                success: false,
-                message: 'Phân quyền đã được phản hồi trước đó'
-            });
-        }
-
-        await assignment.reject(responseNote);
-
-        res.json({
-            success: true,
-            message: 'Từ chối phân quyền thành công',
-            data: assignment
-        });
-
-    } catch (error) {
-        console.error('Reject assignment error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi từ chối phân quyền'
-        });
-    }
-};
+// Loại bỏ hàm rejectAssignment
 
 const cancelAssignment = async (req, res) => {
     try {
@@ -517,6 +432,13 @@ const cancelAssignment = async (req, res) => {
             });
         }
 
+        if (['in_progress', 'completed'].includes(assignment.status) && req.user.role !== 'admin') {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể hủy phân quyền đang hoặc đã hoàn thành'
+            });
+        }
+
         await assignment.cancel(reason, req.user.id);
 
         res.json({
@@ -536,17 +458,17 @@ const cancelAssignment = async (req, res) => {
 
 const getExpertWorkload = async (req, res) => {
     try {
-        const { expertId } = req.query;
+        const { evaluatorId } = req.query;
         const academicYearId = req.academicYearId;
 
-        if (!expertId) {
+        if (!evaluatorId) {
             return res.status(400).json({
                 success: false,
-                message: 'expertId là bắt buộc'
+                message: 'evaluatorId là bắt buộc'
             });
         }
 
-        const workload = await Assignment.getExpertWorkload(expertId, academicYearId);
+        const workload = await Assignment.getExpertWorkload(evaluatorId, academicYearId);
 
         res.json({
             success: true,
@@ -565,14 +487,14 @@ const getExpertWorkload = async (req, res) => {
 const getAssignmentStats = async (req, res) => {
     try {
         const academicYearId = req.academicYearId;
-        const { expertId } = req.query;
+        const { evaluatorId } = req.query;
 
         let matchQuery = {
             academicYearId: mongoose.Types.ObjectId(academicYearId)
         };
 
-        if (expertId) {
-            matchQuery.expertId = mongoose.Types.ObjectId(expertId);
+        if (evaluatorId) {
+            matchQuery.evaluatorId = mongoose.Types.ObjectId(evaluatorId);
         }
 
         const stats = await Assignment.aggregate([
@@ -581,7 +503,6 @@ const getAssignmentStats = async (req, res) => {
                 $group: {
                     _id: null,
                     total: { $sum: 1 },
-                    pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
                     accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
                     inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
                     completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
@@ -592,7 +513,7 @@ const getAssignmentStats = async (req, res) => {
         ]);
 
         const defaultStats = {
-            total: 0, pending: 0, accepted: 0, inProgress: 0,
+            total: 0, accepted: 0, inProgress: 0,
             completed: 0, overdue: 0, cancelled: 0
         };
 
@@ -636,7 +557,6 @@ const bulkCreateAssignments = async (req, res) => {
         const { assignments } = req.body;
         const academicYearId = req.academicYearId;
 
-        // Kiểm tra input
         if (!Array.isArray(assignments) || assignments.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -651,7 +571,6 @@ const bulkCreateAssignments = async (req, res) => {
             });
         }
 
-        // Chỉ manager hoặc admin mới tạo được phân công
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
@@ -659,21 +578,19 @@ const bulkCreateAssignments = async (req, res) => {
             });
         }
 
-        // Validate tất cả assignments trước khi lưu
         const validatedAssignments = [];
         const errors = [];
 
         for (let i = 0; i < assignments.length; i++) {
-            const { reportId, expertId, deadline, priority, assignmentNote, evaluationCriteria } = assignments[i];
+            const { reportId, evaluatorId, deadline, priority, assignmentNote, evaluationCriteria } = assignments[i];
 
-            // Validate required fields
             if (!reportId) {
                 errors.push(`Phân công ${i + 1}: ID báo cáo là bắt buộc`);
                 continue;
             }
 
-            if (!expertId) {
-                errors.push(`Phân công ${i + 1}: ID chuyên gia là bắt buộc`);
+            if (!evaluatorId) {
+                errors.push(`Phân công ${i + 1}: ID người đánh giá là bắt buộc`);
                 continue;
             }
 
@@ -682,7 +599,6 @@ const bulkCreateAssignments = async (req, res) => {
                 continue;
             }
 
-            // Validate deadline
             const deadlineDate = new Date(deadline);
             if (deadlineDate <= new Date()) {
                 errors.push(`Phân công ${i + 1}: Hạn chót phải lớn hơn ngày hiện tại`);
@@ -694,12 +610,14 @@ const bulkCreateAssignments = async (req, res) => {
                 data: {
                     academicYearId,
                     reportId,
-                    expertId,
+                    evaluatorId,
                     assignedBy: req.user.id,
                     assignmentNote: assignmentNote?.trim() || '',
                     deadline: new Date(deadline),
                     priority: priority || 'normal',
-                    evaluationCriteria: evaluationCriteria || []
+                    evaluationCriteria: evaluationCriteria || [],
+                    status: 'accepted', // Thiết lập trạng thái ban đầu
+                    respondedAt: new Date()
                 }
             });
         }
@@ -719,9 +637,8 @@ const bulkCreateAssignments = async (req, res) => {
             });
         }
 
-        // Fetch reports và experts để validate
         const reportIds = [...new Set(validatedAssignments.map(a => a.data.reportId))];
-        const expertIds = [...new Set(validatedAssignments.map(a => a.data.expertId))];
+        const evaluatorIds = [...new Set(validatedAssignments.map(a => a.data.evaluatorId))];
 
         const reports = await Report.find({
             _id: { $in: reportIds },
@@ -729,22 +646,21 @@ const bulkCreateAssignments = async (req, res) => {
             status: 'published'
         });
 
-        const experts = await User.find({
-            _id: { $in: expertIds },
-            role: 'expert'
+        const evaluators = await User.find({
+            _id: { $in: evaluatorIds },
+            role: 'evaluator'
         });
 
         const reportMap = new Map(reports.map(r => [r._id.toString(), r]));
-        const expertMap = new Map(experts.map(e => [e._id.toString(), e]));
+        const evaluatorMap = new Map(evaluators.map(e => [e._id.toString(), e]));
 
-        // Validate reports and experts existence
         const validationErrors = [];
         for (const assignment of validatedAssignments) {
             if (!reportMap.has(assignment.data.reportId.toString())) {
                 validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại hoặc chưa xuất bản`);
             }
-            if (!expertMap.has(assignment.data.expertId.toString())) {
-                validationErrors.push(`Chuyên gia ${assignment.data.expertId} không tồn tại`);
+            if (!evaluatorMap.has(assignment.data.evaluatorId.toString())) {
+                validationErrors.push(`Người đánh giá ${assignment.data.evaluatorId} không tồn tại hoặc không có vai trò evaluator`);
             }
         }
 
@@ -756,34 +672,32 @@ const bulkCreateAssignments = async (req, res) => {
             });
         }
 
-        // Check for existing assignments
         const existingAssignments = await Assignment.find({
             academicYearId,
             reportId: { $in: reportIds },
-            expertId: { $in: expertIds },
-            status: { $in: ['pending', 'accepted', 'in_progress'] }
+            evaluatorId: { $in: evaluatorIds },
+            status: { $in: ['accepted', 'in_progress'] }
         });
 
         const existingMap = new Map();
         for (const existing of existingAssignments) {
-            const key = `${existing.reportId.toString()}-${existing.expertId.toString()}`;
+            const key = `${existing.reportId.toString()}-${existing.evaluatorId.toString()}`;
             existingMap.set(key, existing);
         }
 
-        // Check for duplicates in new assignments
         const newAssignments = [];
         const skipped = [];
 
         for (const assignment of validatedAssignments) {
-            const key = `${assignment.data.reportId.toString()}-${assignment.data.expertId.toString()}`;
+            const key = `${assignment.data.reportId.toString()}-${assignment.data.evaluatorId.toString()}`;
 
             if (existingMap.has(key) || newAssignments.some(a => {
-                const aKey = `${a.reportId.toString()}-${a.expertId.toString()}`;
+                const aKey = `${a.reportId.toString()}-${a.evaluatorId.toString()}`;
                 return aKey === key;
             })) {
                 skipped.push({
                     report: reportMap.get(assignment.data.reportId.toString())?.code,
-                    expert: expertMap.get(assignment.data.expertId.toString())?.fullName,
+                    evaluator: evaluatorMap.get(assignment.data.evaluatorId.toString())?.fullName,
                     reason: 'Đã được phân công hoặc là bản sao trong danh sách'
                 });
             } else {
@@ -799,18 +713,15 @@ const bulkCreateAssignments = async (req, res) => {
             });
         }
 
-        // Create assignments
         const createdAssignments = await Assignment.insertMany(newAssignments);
 
-        // Populate the created assignments
         const populatedAssignments = await Assignment.find({
             _id: { $in: createdAssignments.map(a => a._id) }
         })
             .populate('reportId', 'title type code')
-            .populate('expertId', 'fullName email')
+            .populate('evaluatorId', 'fullName email')
             .populate('assignedBy', 'fullName email');
 
-        // Send notifications
         const Notification = mongoose.model('Notification');
         const notifications = [];
 
@@ -818,11 +729,11 @@ const bulkCreateAssignments = async (req, res) => {
             const report = await Report.findById(assignment.reportId);
             notifications.push(
                 Notification.create({
-                    recipientId: assignment.expertId._id,
+                    recipientId: assignment.evaluatorId._id,
                     senderId: req.user.id,
                     type: 'assignment_new',
-                    title: 'Phân quyền đánh giá mới',
-                    message: `Bạn được phân quyền đánh giá báo cáo: ${report.title}`,
+                    title: 'Phân công đánh giá mới',
+                    message: `Bạn được phân công đánh giá báo cáo: ${report.title}. Hạn chót: ${new Date(assignment.deadline).toLocaleDateString()}`,
                     data: {
                         assignmentId: assignment._id,
                         reportId: report._id,
@@ -835,7 +746,7 @@ const bulkCreateAssignments = async (req, res) => {
 
         await Promise.all(notifications);
 
-        // Log activity
+        const ActivityLog = mongoose.model('ActivityLog');
         await ActivityLog.logCriticalAction(
             req.user.id,
             'assignment_bulk_create',
@@ -846,7 +757,7 @@ const bulkCreateAssignments = async (req, res) => {
                     totalCreated: newAssignments.length,
                     totalSkipped: skipped.length,
                     reports: reportIds.length,
-                    experts: expertIds.length
+                    evaluators: evaluatorIds.length
                 }
             }
         );
@@ -886,8 +797,6 @@ module.exports = {
     createAssignment,
     updateAssignment,
     deleteAssignment,
-    acceptAssignment,
-    rejectAssignment,
     cancelAssignment,
     getExpertWorkload,
     getAssignmentStats,

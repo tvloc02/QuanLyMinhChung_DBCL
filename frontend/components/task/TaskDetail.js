@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { X, CheckCircle, XCircle, Send, FileText, Eye } from 'lucide-react'
+import { X, CheckCircle, XCircle, Send, FileText, Eye, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 
 export default function TaskDetail({ task, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false)
-    const [report, setReport] = useState(null)
+    const [reports, setReports] = useState([])
+    const [selectedReport, setSelectedReport] = useState(null)
     const [evidences, setEvidences] = useState([])
     const [currentPage, setCurrentPage] = useState(0)
     const [selectedFile, setSelectedFile] = useState(null)
@@ -26,34 +27,64 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
         loadTaskData()
     }, [task])
 
+    useEffect(() => {
+        if (selectedReport && selectedReport.criteriaId) {
+            loadEvidences(selectedReport.criteriaId)
+        }
+    }, [selectedReport])
+
     const loadTaskData = async () => {
         try {
             setLoading(true)
-            const detailedTask = await apiMethods.tasks.getById(task._id)
 
-            if (detailedTask.data.data.reportId) {
-                const reportData = await apiMethods.reports.getById(detailedTask.data.data.reportId)
-                setReport(reportData.data.data)
+            // Lấy danh sách báo cáo từ task
+            const reportsResponse = await apiMethods.reports.getByTask({
+                taskId: task._id,
+                reportType: task.reportType,
+                standardId: task.standardId?._id || task.standardId,
+                criteriaId: task.criteriaId?._id || task.criteriaId
+            })
 
-                const evidenceData = await apiMethods.evidences.getAll({
-                    criteriaId: task.criteriaId,
-                    limit: 1000
-                })
-                setEvidences(evidenceData.data.data.evidences || [])
+            const reportsData = reportsResponse.data.data.reports || []
+
+            // Filter báo cáo đã public/published
+            const publicReports = reportsData.filter(r =>
+                ['public', 'published', 'approved'].includes(r.status)
+            )
+
+            setReports(publicReports)
+
+            // Chọn báo cáo đầu tiên mặc định
+            if (publicReports.length > 0) {
+                setSelectedReport(publicReports[0])
             }
+
         } catch (error) {
             console.error('Load task data error:', error)
+            toast.error('Lỗi khi tải dữ liệu nhiệm vụ')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const loadEvidences = async (criteriaId) => {
+        try {
+            const evidenceData = await apiMethods.evidences.getAll({})
+            setEvidences(evidenceData.data.data.evidences || [])
+            setCurrentPage(0)
+        } catch (error) {
+            console.error('Load evidences error:', error)
+            setEvidences([])
         }
     }
 
     const handleApprove = async () => {
         try {
             setReviewLoading(true)
-            await apiMethods.tasks.reviewReport(task._id, { approved: true })
+            await apiMethods.reports.approve(selectedReport._id)
             toast.success('Phê duyệt báo cáo thành công')
             onSuccess()
+            loadTaskData()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Phê duyệt thất bại')
         } finally {
@@ -69,20 +100,22 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
 
         try {
             setReviewLoading(true)
-            await apiMethods.tasks.reviewReport(task._id, {
-                approved: false,
-                rejectionReason
+            await apiMethods.reports.reject(selectedReport._id, {
+                feedback: rejectionReason
             })
             toast.success('Từ chối báo cáo thành công')
             onSuccess()
+            loadTaskData()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Từ chối thất bại')
         } finally {
             setReviewLoading(false)
+            setRejectionReason('')
+            setReviewMode(false)
         }
     }
 
-    const canReview = (userRole === 'admin' || userRole === 'manager') && task.status === 'submitted'
+    const canReview = (userRole === 'admin' || userRole === 'manager') && selectedReport && selectedReport.status !== 'approved'
 
     const paginatedEvidences = evidences.slice(
         currentPage * itemsPerPage,
@@ -90,9 +123,30 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     )
     const totalPages = Math.ceil(evidences.length / itemsPerPage)
 
+    const getStatusBadgeColor = (status) => {
+        const colors = {
+            'public': 'bg-blue-100 text-blue-800',
+            'published': 'bg-purple-100 text-purple-800',
+            'approved': 'bg-green-100 text-green-800',
+            'rejected': 'bg-red-100 text-red-800'
+        }
+        return colors[status] || 'bg-gray-100 text-gray-800'
+    }
+
+    const getStatusLabel = (status) => {
+        const labels = {
+            'public': 'Công khai',
+            'published': 'Phát hành',
+            'approved': 'Chấp thuận',
+            'rejected': 'Từ chối'
+        }
+        return labels[status] || status
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                {/* Header */}
                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-6 text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
@@ -108,7 +162,57 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
+                {/* Main Content */}
                 <div className="flex-1 overflow-hidden flex">
+                    {/* Reports List Sidebar */}
+                    <div className="w-64 border-r border-gray-200 overflow-y-auto bg-gray-50 p-4 space-y-2">
+                        <h3 className="text-sm font-bold text-gray-900 px-2 mb-3">Danh sách báo cáo</h3>
+
+                        {loading ? (
+                            <div className="text-center py-8">
+                                <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <p className="text-xs text-gray-500 mt-2">Đang tải...</p>
+                            </div>
+                        ) : reports.length === 0 ? (
+                            <div className="text-center py-8">
+                                <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                <p className="text-xs text-gray-500">Không có báo cáo</p>
+                            </div>
+                        ) : (
+                            reports.map((report) => (
+                                <button
+                                    key={report._id}
+                                    onClick={() => setSelectedReport(report)}
+                                    className={`w-full text-left px-3 py-3 rounded-lg transition-all ${
+                                        selectedReport?._id === report._id
+                                            ? 'bg-purple-100 border-2 border-purple-500'
+                                            : 'bg-white border border-gray-200 hover:border-purple-300'
+                                    }`}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-semibold text-gray-900 truncate">
+                                                {report.title}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {report.code}
+                                            </p>
+                                            <div className="mt-1">
+                                                <span className={`inline-block text-xs px-2 py-0.5 rounded font-medium ${getStatusBadgeColor(report.status)}`}>
+                                                    {getStatusLabel(report.status)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {selectedReport?._id === report._id && (
+                                            <ChevronRight className="w-4 h-4 text-purple-600 flex-shrink-0 mt-1" />
+                                        )}
+                                    </div>
+                                </button>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Report Content */}
                     <div className="flex-1 border-r border-gray-200 overflow-y-auto p-6">
                         {loading ? (
                             <div className="flex items-center justify-center h-full">
@@ -117,40 +221,60 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                     <p className="text-gray-500">Đang tải dữ liệu...</p>
                                 </div>
                             </div>
-                        ) : report ? (
+                        ) : selectedReport ? (
                             <div className="space-y-6">
+                                {/* Report Info */}
                                 <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">Thông tin báo cáo</h3>
                                     <div className="space-y-3">
                                         <div>
                                             <label className="text-sm font-semibold text-gray-600">Mã báo cáo</label>
-                                            <p className="text-gray-900 font-medium">{report.reportCode}</p>
+                                            <p className="text-gray-900 font-medium">{selectedReport.code}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-semibold text-gray-600">Tiêu đề</label>
+                                            <p className="text-gray-900 font-medium">{selectedReport.title}</p>
                                         </div>
                                         <div>
                                             <label className="text-sm font-semibold text-gray-600">Trạng thái</label>
-                                            <p className="text-gray-900 font-medium">{report.status}</p>
+                                            <span className={`inline-block text-sm px-3 py-1 rounded-full font-medium ${getStatusBadgeColor(selectedReport.status)}`}>
+                                                {getStatusLabel(selectedReport.status)}
+                                            </span>
                                         </div>
                                         <div>
-                                            <label className="text-sm font-semibold text-gray-600">Ngày nộp</label>
-                                            <p className="text-gray-900 font-medium">{formatDate(report.submittedAt)}</p>
+                                            <label className="text-sm font-semibold text-gray-600">Người tạo</label>
+                                            <p className="text-gray-900 font-medium">{selectedReport.createdBy?.fullName}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-semibold text-gray-600">Ngày tạo</label>
+                                            <p className="text-gray-900 font-medium">{formatDate(selectedReport.createdAt)}</p>
                                         </div>
                                     </div>
                                 </div>
 
+                                {/* Report Content */}
                                 <div className="bg-white rounded-xl p-5 border border-gray-200">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">Nội dung báo cáo</h3>
                                     <div className="prose prose-sm max-w-none">
-                                        <p className="text-gray-700 whitespace-pre-wrap">{report.content}</p>
+                                        {selectedReport.content ? (
+                                            <div
+                                                dangerouslySetInnerHTML={{ __html: selectedReport.content }}
+                                                className="text-gray-700"
+                                            />
+                                        ) : (
+                                            <p className="text-gray-500 italic">Chưa có nội dung</p>
+                                        )}
                                     </div>
                                 </div>
 
-                                {task.status === 'rejected' && task.rejectionReason && (
+                                {/* Rejection Reason */}
+                                {selectedReport.status === 'rejected' && selectedReport.rejectionFeedback && (
                                     <div className="bg-red-50 rounded-xl p-5 border border-red-200">
                                         <h3 className="text-lg font-bold text-red-900 mb-2 flex items-center gap-2">
                                             <XCircle size={20} />
                                             Lý do từ chối
                                         </h3>
-                                        <p className="text-red-800">{task.rejectionReason}</p>
+                                        <p className="text-red-800">{selectedReport.rejectionFeedback}</p>
                                     </div>
                                 )}
                             </div>
@@ -158,12 +282,13 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                             <div className="flex items-center justify-center h-full text-center">
                                 <div>
                                     <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                    <p className="text-gray-500">Chưa có báo cáo được nộp</p>
+                                    <p className="text-gray-500">Chọn báo cáo để xem chi tiết</p>
                                 </div>
                             </div>
                         )}
                     </div>
 
+                    {/* Evidences Sidebar */}
                     <div className="w-80 border-l border-gray-200 overflow-y-auto p-6 bg-gray-50">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Minh chứng</h3>
 
@@ -223,6 +348,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
+                {/* Footer */}
                 <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-gray-50 to-slate-50">
                     {canReview ? (
                         <div className="space-y-4">
@@ -255,7 +381,10 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                 ) : (
                                     <>
                                         <button
-                                            onClick={() => setReviewMode(false)}
+                                            onClick={() => {
+                                                setReviewMode(false)
+                                                setRejectionReason('')
+                                            }}
                                             className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all font-medium"
                                         >
                                             Hủy
@@ -292,6 +421,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     )}
                 </div>
 
+                {/* File Preview Modal */}
                 {selectedFile && (
                     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
                         <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">

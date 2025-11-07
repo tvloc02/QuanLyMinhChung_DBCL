@@ -9,8 +9,6 @@ const {
     createAssignment,
     updateAssignment,
     deleteAssignment,
-    acceptAssignment,
-    rejectAssignment,
     cancelAssignment,
     getExpertWorkload,
     getAssignmentStats,
@@ -22,7 +20,7 @@ const {
 router.post('/bulk-create', auth, requireManager, [
     body('assignments').isArray({ min: 1, max: 100 }).withMessage('Danh sách phân công không hợp lệ'),
     body('assignments.*.reportId').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-    body('assignments.*.expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ'),
+    body('assignments.*.evaluatorId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
     body('assignments.*.deadline').isISO8601().withMessage('Ngày hạn chót không hợp lệ'),
     body('assignments.*.priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
     body('assignments.*.assignmentNote').optional().isLength({ max: 1000 }),
@@ -32,15 +30,15 @@ router.post('/bulk-create', auth, requireManager, [
 // Statistics routes (place before :id routes to avoid conflicts)
 router.get('/stats', auth, getAssignmentStats);
 router.get('/upcoming-deadlines', auth, getUpcomingDeadlines);
-router.get('/expert-workload', auth, getExpertWorkload);
+router.get('/evaluator-workload', auth, getExpertWorkload);
 
 // CRUD routes
 router.get('/', auth, [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('expertId').optional().isMongoId(),
+    query('evaluatorId').optional().isMongoId(),
     query('reportId').optional().isMongoId(),
-    query('status').optional().isIn(['pending', 'accepted', 'in_progress', 'completed', 'overdue', 'cancelled']),
+    query('status').optional().isIn(['accepted', 'in_progress', 'completed', 'overdue', 'cancelled']),
     query('priority').optional().isIn(['low', 'normal', 'high', 'urgent'])
 ], validation, getAssignments);
 
@@ -50,7 +48,7 @@ router.get('/:id', auth, [
 
 router.post('/', auth, requireManager, [
     body('reportId').isMongoId().withMessage('ID báo cáo không hợp lệ'),
-    body('expertId').isMongoId().withMessage('ID chuyên gia không hợp lệ'),
+    body('evaluatorId').isMongoId().withMessage('ID người đánh giá không hợp lệ'),
     body('deadline').isISO8601().withMessage('Ngày hạn chót không hợp lệ'),
     body('assignmentNote').optional().isLength({ max: 1000 }),
     body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
@@ -70,6 +68,8 @@ router.delete('/:id', auth, requireManager, [
 ], validation, deleteAssignment);
 
 // Action routes
+// Xóa các route: accept, reject
+/*
 router.post('/:id/accept', auth, [
     param('id').isMongoId(),
     body('responseNote').optional().isLength({ max: 500 })
@@ -79,6 +79,7 @@ router.post('/:id/reject', auth, [
     param('id').isMongoId(),
     body('responseNote').notEmpty().isLength({ max: 500 })
 ], validation, rejectAssignment);
+*/
 
 router.post('/:id/cancel', auth, requireManager, [
     param('id').isMongoId(),

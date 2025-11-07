@@ -173,7 +173,7 @@ const createReport = async (req, res) => {
             contentMethod,
             summary,
             keywords,
-            linkedCriteriaReports // Thêm trường mới
+            linkedCriteriaReports
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -222,7 +222,6 @@ const createReport = async (req, res) => {
             createdBy: req.user.id,
             updatedBy: req.user.id,
             assignedReporters: [req.user.id],
-            // Lưu thông tin báo cáo tiêu chí gắn kèm
             linkedCriteriaReports: linkedCriteriaReports || []
         };
 
@@ -293,7 +292,7 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, linkedCriteriaReports, ...updateData } = req.body; // Lấy linkedCriteriaReports
+        const { content, linkedCriteriaReports, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
@@ -312,8 +311,6 @@ const updateReport = async (req, res) => {
             });
         }
 
-        // ⭐️ LOGIC GHI LẠI PHIÊN BẢN CHỈNH SỬA
-        // 1. Lấy nội dung cũ trước khi thay đổi
         const oldContent = report.content;
         const oldTitle = report.title;
 
@@ -333,12 +330,9 @@ const updateReport = async (req, res) => {
             report.content = processEvidenceLinksInContent(content);
         }
 
-        // 2. So sánh và thêm phiên bản (giả định bạn có phương thức addVersion trên model)
         if (report.content !== oldContent || report.title !== oldTitle) {
             const changeNote = `Cập nhật nội dung/tiêu đề từ phiên bản trước.`;
-            // Cần lưu nội dung cũ vào versions/history
             if (report.addVersion && typeof report.addVersion === 'function') {
-                // Lưu snapshot của nội dung cũ
                 await report.addVersion({
                     content: oldContent,
                     title: oldTitle,
@@ -349,7 +343,6 @@ const updateReport = async (req, res) => {
                 console.warn("Report model does not have addVersion method. History tracking skipped.");
             }
         }
-
 
         report.updatedBy = req.user.id;
         await report.save();
@@ -403,7 +396,6 @@ const getReportsByStandardCriteria = async (req, res) => {
             query.criteriaId = criteriaId;
         }
 
-        // Dùng permissionService để xác định quyền tạo mới
         const permissionService = require('../../services/permissionService');
         const canWriteReport = await permissionService.canWriteReport(userId, reportType, academicYearId);
 
@@ -426,7 +418,7 @@ const getReportsByStandardCriteria = async (req, res) => {
             success: true,
             data: {
                 reports: reportsWithCanEdit,
-                canCreateNew: canWriteReport, // Người dùng có quyền viết báo cáo thì có quyền tạo mới
+                canCreateNew: canWriteReport,
                 canWriteReport: canWriteReport,
                 task: null
             }
@@ -434,6 +426,90 @@ const getReportsByStandardCriteria = async (req, res) => {
 
     } catch (error) {
         console.error('Get reports by standard/criteria error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
+        });
+    }
+};
+
+const getReportsByTask = async (req, res) => {
+    try {
+        const { taskId, reportType, standardId, criteriaId, programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        let query = {
+            academicYearId,
+            status: { $in: ['draft', 'public', 'published'] }
+        };
+
+        let task = null;
+
+        if (taskId) {
+            task = await Task.findById(taskId);
+
+            if (!task) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy nhiệm vụ'
+                });
+            }
+
+            query.type = task.reportType;
+            query.standardId = task.standardId;
+            if (task.criteriaId) {
+                query.criteriaId = task.criteriaId;
+            }
+        } else if (standardId && reportType) {
+            query.type = reportType;
+            query.standardId = standardId;
+            if (criteriaId && reportType === 'criteria') {
+                query.criteriaId = criteriaId;
+            }
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin nhiệm vụ hoặc tiêu chuẩn'
+            });
+        }
+
+        const permissionService = require('../../services/permissionService');
+        const canWriteReport = await permissionService.canWriteReport(
+            userId,
+            query.type,
+            academicYearId,
+            query.standardId,
+            query.criteriaId
+        );
+
+        const reports = await Report.find(query)
+            .populate('createdBy', 'fullName email')
+            .populate('assignedReporters', 'fullName email')
+            .sort({ createdAt: -1 });
+
+        const reportsWithCanEdit = reports.map(r => {
+            const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
+            const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
+            return {
+                ...r.toObject(),
+                createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
+                assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                reports: reportsWithCanEdit,
+                canCreateNew: canWriteReport,
+                canWriteReport: canWriteReport,
+                task: task
+            }
+        });
+
+    } catch (error) {
+        console.error('Get reports by task error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
@@ -626,7 +702,6 @@ const approveReport = async (req, res) => {
 
         await report.save();
 
-        // Update evidence status if reject to approved transition
         if (report.criteriaId) {
             try {
                 const Evidence = require('../../models/Evidence/Evidence');
@@ -680,7 +755,6 @@ const rejectReport = async (req, res) => {
 
         await report.recordRejection(req.user.id, feedback);
 
-        // Update evidence status to rejected
         if (report.criteriaId) {
             try {
                 const Evidence = require('../../models/Evidence/Evidence');
@@ -1538,79 +1612,13 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-const getReportsByTask = async (req, res) => {
-    try {
-        const { taskId } = req.query;
-        const { reportType, standardId, criteriaId } = req.query;
-        const academicYearId = req.academicYearId;
-        const userId = req.user.id;
-
-        if (!taskId) {
-            // Chuyển sang luồng tìm kiếm theo Tiêu chuẩn/Tiêu chí nếu không có TaskId
-            return getReportsByStandardCriteria(req, res);
-        }
-
-        const Task = require('../../models/Task/Task');
-        const task = await Task.findById(taskId);
-
-        if (!task) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy nhiệm vụ'
-            });
-        }
-
-        let query = {
-            academicYearId,
-            taskId,
-            type: reportType
-        };
-
-        if (standardId) query.standardId = standardId;
-        if (criteriaId) query.criteriaId = criteriaId;
-
-        const reports = await Report.find(query)
-            .populate('createdBy', 'fullName email')
-            .populate('assignedReporters', 'fullName email')
-            .sort({ createdAt: -1 });
-
-        const canCreateNew = task.assignedTo.map(id => id.toString()).includes(userId.toString());
-
-        const reportsWithCanEdit = reports.map(r => {
-            const isCreatedByMe = r.createdBy?._id?.toString() === userId.toString();
-            const isAssigned = r.assignedReporters.map(r => r._id.toString()).includes(userId.toString());
-            return {
-                ...r.toObject(),
-                createdBy: r.createdBy ? { ...r.createdBy.toObject(), fullName: isCreatedByMe ? 'Bạn' : r.createdBy.fullName } : null,
-                assignedReporters: r.assignedReporters.map(r => r._id.toString() === userId.toString() ? { ...r.toObject(), fullName: 'Bạn' } : r.toObject()),
-            };
-        });
-
-        res.json({
-            success: true,
-            data: {
-                reports: reportsWithCanEdit,
-                canCreateNew,
-                task
-            }
-        });
-
-    } catch (error) {
-        console.error('Get reports by task error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
-        });
-    }
-};
-
 const requestEditPermission = async (req, res) => {
     try {
-        const { reportId } = req.params;
+        const { id } = req.params;  // ✅ Sửa: từ reportId thành id
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
-        const report = await Report.findOne({ _id: reportId, academicYearId });
+        const report = await Report.findOne({ _id: id, academicYearId });
 
         if (!report) {
             return res.status(404).json({
@@ -1654,6 +1662,202 @@ const requestEditPermission = async (req, res) => {
     }
 };
 
+// Thêm 3 hàm này vào reportController.js trước dòng "module.exports"
+
+const getEditRequests = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        const report = await Report.findOne({ _id: id, academicYearId })
+            .populate({
+                path: 'editRequests.requesterId',
+                select: 'fullName email avatar'
+            })
+            .populate({
+                path: 'editRequests.respondedBy',
+                select: 'fullName email'
+            });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        // Chỉ người viết báo cáo mới được xem yêu cầu
+        if (report.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ người viết báo cáo mới được xem yêu cầu cấp quyền'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: report.editRequests || []
+        });
+
+    } catch (error) {
+        console.error('Get edit requests error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy danh sách yêu cầu'
+        });
+    }
+};
+
+const approveEditRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { requesterId } = req.body;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        if (!requesterId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID người yêu cầu là bắt buộc'
+            });
+        }
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        // Chỉ người viết báo cáo mới được phê duyệt
+        if (report.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ người viết báo cáo mới được phê duyệt yêu cầu'
+            });
+        }
+
+        // Tìm yêu cầu
+        const requestIndex = report.editRequests.findIndex(
+            r => r.requesterId.toString() === requesterId.toString() && r.status === 'pending'
+        );
+
+        if (requestIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Yêu cầu không tồn tại'
+            });
+        }
+
+        // Cập nhật status yêu cầu
+        report.editRequests[requestIndex].status = 'approved';
+        report.editRequests[requestIndex].respondedAt = new Date();
+        report.editRequests[requestIndex].respondedBy = userId;
+
+        // Thêm vào assignedReporters nếu chưa có
+        if (!report.assignedReporters.map(r => r.toString()).includes(requesterId.toString())) {
+            report.assignedReporters.push(requesterId);
+        }
+
+        report.updatedBy = userId;
+        await report.save();
+
+        await report.populate([
+            { path: 'editRequests.requesterId', select: 'fullName email' },
+            { path: 'editRequests.respondedBy', select: 'fullName email' },
+            { path: 'assignedReporters', select: 'fullName email' }
+        ]);
+
+        res.json({
+            success: true,
+            message: 'Phê duyệt yêu cầu thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Approve edit request error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi hệ thống khi phê duyệt yêu cầu'
+        });
+    }
+};
+
+const rejectEditRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { requesterId, reason } = req.body;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+
+        if (!requesterId) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID người yêu cầu là bắt buộc'
+            });
+        }
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Báo cáo không tồn tại'
+            });
+        }
+
+        // Chỉ người viết báo cáo mới được từ chối
+        if (report.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Chỉ người viết báo cáo mới được từ chối yêu cầu'
+            });
+        }
+
+        // Tìm yêu cầu
+        const requestIndex = report.editRequests.findIndex(
+            r => r.requesterId.toString() === requesterId.toString() && r.status === 'pending'
+        );
+
+        if (requestIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Yêu cầu không tồn tại'
+            });
+        }
+
+        // Cập nhật status yêu cầu thành rejected
+        report.editRequests[requestIndex].status = 'rejected';
+        report.editRequests[requestIndex].respondedAt = new Date();
+        report.editRequests[requestIndex].respondedBy = userId;
+        report.editRequests[requestIndex].rejectReason = reason || '';
+
+        report.updatedBy = userId;
+        await report.save();
+
+        await report.populate([
+            { path: 'editRequests.requesterId', select: 'fullName email' },
+            { path: 'editRequests.respondedBy', select: 'fullName email' }
+        ]);
+
+        res.json({
+            success: true,
+            message: 'Từ chối yêu cầu thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Reject edit request error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi hệ thống khi từ chối yêu cầu'
+        });
+    }
+};
+
 module.exports = {
     getReports,
     getReportById,
@@ -1680,4 +1884,7 @@ module.exports = {
     getReportsByTask,
     requestEditPermission,
     getReportsByStandardCriteria,
+    getEditRequests,
+    approveEditRequest,
+    rejectEditRequest
 };

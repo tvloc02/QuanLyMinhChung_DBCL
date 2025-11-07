@@ -20,11 +20,10 @@ import {
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
-export default function MyReportEvaluations() {
+export default function ReportEvaluations() {
     const router = useRouter()
     const { user, isLoading } = useAuth()
 
-    // Giả định rằng trang này nhận reportId qua query parameter để lọc
     const { reportId } = router.query
 
     const breadcrumbItems = [
@@ -33,6 +32,7 @@ export default function MyReportEvaluations() {
     ]
 
     const [evaluations, setEvaluations] = useState([])
+    const [averageScore, setAverageScore] = useState(null)
     const [loading, setLoading] = useState(true)
     const [reportTitle, setReportTitle] = useState('Đang tải...')
 
@@ -41,7 +41,7 @@ export default function MyReportEvaluations() {
         rating: '',
         page: 1,
         limit: 10,
-        sortBy: 'submittedAt', // Sắp xếp theo ngày nộp
+        sortBy: 'submittedAt',
         sortOrder: 'desc'
     })
 
@@ -52,10 +52,10 @@ export default function MyReportEvaluations() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        // Chỉ fetch nếu có reportId và user đã load
         if (router.isReady && reportId && user) {
             fetchReportDetails()
             fetchEvaluationsForReport()
+            fetchAverageScore()
         }
     }, [filters, reportId, user, router.isReady])
 
@@ -69,28 +69,35 @@ export default function MyReportEvaluations() {
         }
     }
 
+    const fetchAverageScore = async () => {
+        try {
+            const scoreRes = await apiMethods.evaluations.getAverageScoreByReport(reportId)
+            setAverageScore(scoreRes.data?.data?.averageScore)
+        } catch (error) {
+            console.error('Fetch average score error:', error)
+            setAverageScore(null)
+        }
+    }
+
     const fetchEvaluationsForReport = async () => {
         try {
             setLoading(true)
 
-            // API cần hỗ trợ lọc theo reportId
             const params = {
                 page: filters.page,
                 limit: filters.limit,
                 sortBy: filters.sortBy,
                 sortOrder: filters.sortOrder,
-                reportId: reportId, // Lọc theo Report ID
+                reportId: reportId,
                 status: filters.status,
                 rating: filters.rating
             }
 
-            // Lấy tất cả các đánh giá (Evaluation) cho Report này
             const response = await apiMethods.evaluations.getAll(params)
             const data = response.data?.data || response.data
 
-            // Lọc ra các bản nháp (draft) vì Report Owner chỉ quan tâm đến các bản đã nộp trở lên
+            // Chỉ hiển thị các bản đã nộp trở lên (submitted, supervised, final)
             setEvaluations(data?.evaluations?.filter(e => e.status !== 'draft') || [])
-            // Note: Cần thêm logic pagination nếu API trả về đầy đủ
 
         } catch (error) {
             console.error('Fetch evaluations for report error:', error)
@@ -149,8 +156,8 @@ export default function MyReportEvaluations() {
         return labels[rating] || rating
     }
 
-    // Nếu chuyên gia đang xem chính báo cáo TĐG của mình (người tạo ra báo cáo)
-    if (user?.role !== 'expert') {
+    // Chỉ cho phép admin/manager/reporter xem danh sách đánh giá đã nộp
+    if (user && !['admin', 'manager', 'reporter'].includes(user.role)) {
         return (
             <Layout title="Đánh giá Báo cáo TĐG" breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
@@ -164,7 +171,6 @@ export default function MyReportEvaluations() {
     return (
         <Layout title="Đánh giá Báo cáo TĐG" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -173,13 +179,12 @@ export default function MyReportEvaluations() {
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Đánh giá Báo cáo TĐG</h1>
                             <p className="text-blue-200">
-                                Xem các đánh giá của chuyên gia dành cho báo cáo: <span className="font-semibold">{reportTitle}</span>
+                                Xem các đánh giá của người đánh giá dành cho báo cáo: <span className="font-semibold">{reportTitle}</span>
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex flex-wrap items-center gap-4">
                         <h3 className="text-sm font-bold text-gray-900 flex-1 min-w-[150px]">Lọc kết quả</h3>
@@ -223,9 +228,19 @@ export default function MyReportEvaluations() {
                             Tìm kiếm
                         </button>
                     </div>
+                    {averageScore !== null && (
+                        <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
+                            <p className="text-sm font-semibold text-indigo-800 flex items-center">
+                                <BarChart3 className="h-4 w-4 mr-2" />
+                                Điểm trung bình các đánh giá đã nộp:
+                            </p>
+                            <span className="text-xl font-bold text-indigo-700">
+                                {averageScore.toFixed(2)} / 10
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* List Table */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                         <h2 className="text-lg font-bold text-gray-900">
@@ -247,7 +262,7 @@ export default function MyReportEvaluations() {
                                 Chưa có đánh giá nào được nộp
                             </h3>
                             <p className="text-gray-500 mb-6">
-                                Các chuyên gia chưa nộp bản đánh giá cho báo cáo này.
+                                Các người đánh giá chưa nộp bản đánh giá cho báo cáo này.
                             </p>
                         </div>
                     ) : (
@@ -256,7 +271,10 @@ export default function MyReportEvaluations() {
                                 <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
-                                        Chuyên gia
+                                        Người đánh giá
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
+                                        Điểm TB
                                     </th>
                                     <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200">
                                         Xếp loại
@@ -279,9 +297,14 @@ export default function MyReportEvaluations() {
                                             <div className="flex items-center space-x-2">
                                                 <User className="h-4 w-4 text-blue-500 flex-shrink-0" />
                                                 <span className="text-sm font-semibold text-gray-900">
-                                                    {evaluation.evaluatorId?.fullName || 'Chuyên gia ẩn danh'}
+                                                    {evaluation.evaluatorId?.fullName || 'Người đánh giá ẩn danh'}
                                                 </span>
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center border-r border-gray-200">
+                                            <span className="text-sm font-bold text-gray-900">
+                                                {evaluation.averageScore?.toFixed(2) || 'N/A'}
+                                            </span>
                                         </td>
                                         <td className="px-6 py-4 text-center border-r border-gray-200">
                                             {evaluation.rating && (
@@ -304,7 +327,6 @@ export default function MyReportEvaluations() {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <button
-                                                // Link đến trang chi tiết đánh giá (evaluation-detail.js)
                                                 onClick={() => router.push(`/reports/evaluations/${evaluation._id}`)}
                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                 title="Xem chi tiết đánh giá"

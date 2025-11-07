@@ -13,10 +13,10 @@ const assignmentSchema = new mongoose.Schema({
         required: [true, 'Báo cáo là bắt buộc']
     },
 
-    expertId: {
+    evaluatorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, 'Chuyên gia là bắt buộc']
+        required: [true, 'Chuyên gia/Người đánh giá là bắt buộc']
     },
 
     assignedBy: {
@@ -61,8 +61,8 @@ const assignmentSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'in_progress', 'completed', 'overdue', 'cancelled'],
-        default: 'pending'
+        enum: ['accepted', 'in_progress', 'completed', 'overdue', 'cancelled'],
+        default: 'accepted'
     },
 
     respondedAt: Date,
@@ -116,12 +116,12 @@ const assignmentSchema = new mongoose.Schema({
 });
 
 assignmentSchema.index({ academicYearId: 1, reportId: 1 });
-assignmentSchema.index({ academicYearId: 1, expertId: 1 });
+assignmentSchema.index({ academicYearId: 1, evaluatorId: 1 });
 assignmentSchema.index({ assignedBy: 1 });
 assignmentSchema.index({ status: 1 });
 assignmentSchema.index({ deadline: 1 });
 assignmentSchema.index({ createdAt: -1 });
-assignmentSchema.index({ reportId: 1, expertId: 1 }, { unique: true });
+assignmentSchema.index({ reportId: 1, evaluatorId: 1 }, { unique: true });
 
 assignmentSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -140,6 +140,9 @@ assignmentSchema.pre('save', function(next) {
         }
     }
 
+    // Nếu chuyển từ 'pending' sang 'accepted', set respondedAt.
+    // Trong trường hợp này, chúng ta đã set default là 'accepted' ở trên.
+
     next();
 });
 
@@ -154,8 +157,7 @@ assignmentSchema.virtual('daysUntilDeadline').get(function() {
 
 assignmentSchema.virtual('statusText').get(function() {
     const statusMap = {
-        'pending': 'Chờ phản hồi',
-        'accepted': 'Đã chấp nhận',
+        'accepted': 'Đã phân công',
         'in_progress': 'Đang đánh giá',
         'completed': 'Đã hoàn thành',
         'overdue': 'Quá hạn',
@@ -188,41 +190,16 @@ assignmentSchema.methods.addActivityLog = async function(action, userId, descrip
     });
 };
 
+// Loại bỏ accept/reject methods
+/*
 assignmentSchema.methods.accept = async function(responseNote = '') {
-    const oldStatus = this.status;
-    this.status = 'accepted';
-    this.responseNote = responseNote;
-    this.respondedAt = new Date();
-
-    await this.save();
-
-    await this.addActivityLog('assignment_accept', this.expertId,
-        `Chấp nhận phân công đánh giá`, {
-            oldData: { status: oldStatus },
-            newData: { status: 'accepted' },
-            metadata: { responseNote }
-        });
-
-    return this;
+    // ...
 };
 
 assignmentSchema.methods.reject = async function(responseNote = '') {
-    const oldStatus = this.status;
-    this.status = 'cancelled';
-    this.responseNote = responseNote;
-    this.respondedAt = new Date();
-
-    await this.save();
-
-    await this.addActivityLog('assignment_reject', this.expertId,
-        `Từ chối phân công đánh giá: ${responseNote}`, {
-            oldData: { status: oldStatus },
-            newData: { status: 'cancelled' },
-            metadata: { responseNote }
-        });
-
-    return this;
+    // ...
 };
+*/
 
 assignmentSchema.methods.start = function() {
     this.status = 'in_progress';
@@ -243,7 +220,7 @@ assignmentSchema.methods.complete = async function(evaluationId) {
 
     await this.save();
 
-    await this.addActivityLog('assignment_complete', this.expertId,
+    await this.addActivityLog('assignment_complete', this.evaluatorId,
         `Hoàn thành phân công đánh giá`, {
             oldData: { status: oldStatus },
             newData: { status: 'completed' },
@@ -293,34 +270,32 @@ assignmentSchema.methods.addReminder = function(type = 'reminder', message = '')
 assignmentSchema.methods.canModify = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
-    if (this.assignedBy.toString() === userId.toString() && this.status === 'pending') {
+    // Chỉ người phân công có thể modify khi status chưa phải là 'in_progress' hay 'completed'
+    if (this.assignedBy.toString() === userId.toString() && !['in_progress', 'completed'].includes(this.status)) {
         return true;
     }
 
-    if (this.expertId.toString() === userId.toString() && this.status === 'pending') {
-        return true;
-    }
+    // Evaluator không được modify, chỉ được start/complete (thông qua Evaluation)
 
     return false;
 };
 
 assignmentSchema.methods.canEvaluate = function(userId) {
-    return this.expertId.toString() === userId.toString() &&
+    return this.evaluatorId.toString() === userId.toString() &&
         ['accepted', 'in_progress'].includes(this.status);
 };
 
-assignmentSchema.statics.getExpertWorkload = async function(expertId, academicYearId) {
+assignmentSchema.statics.getExpertWorkload = async function(evaluatorId, academicYearId) {
     const assignments = await this.find({
-        expertId,
+        evaluatorId,
         academicYearId,
-        status: { $in: ['pending', 'accepted', 'in_progress'] }
+        status: { $in: ['accepted', 'in_progress'] } // Chỉ tính accepted và in_progress
     });
 
     return {
         total: assignments.length,
-        pending: assignments.filter(a => a.status === 'pending').length,
-        accepted: assignments.filter(a => a.status === 'accepted').length,
         inProgress: assignments.filter(a => a.status === 'in_progress').length,
+        accepted: assignments.filter(a => a.status === 'accepted').length,
         overdue: assignments.filter(a => a.isOverdue).length
     };
 };
@@ -329,7 +304,7 @@ assignmentSchema.statics.getAssignmentStats = async function(academicYearId, fil
     let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
 
     if (filters.assignedBy) matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
-    if (filters.expertId) matchStage.expertId = mongoose.Types.ObjectId(filters.expertId);
+    if (filters.evaluatorId) matchStage.evaluatorId = mongoose.Types.ObjectId(filters.evaluatorId);
     if (filters.status) matchStage.status = filters.status;
 
     const stats = await this.aggregate([
@@ -338,7 +313,6 @@ assignmentSchema.statics.getAssignmentStats = async function(academicYearId, fil
             $group: {
                 _id: null,
                 total: { $sum: 1 },
-                pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
                 accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
                 inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
                 completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
@@ -349,7 +323,7 @@ assignmentSchema.statics.getAssignmentStats = async function(academicYearId, fil
     ]);
 
     return stats[0] || {
-        total: 0, pending: 0, accepted: 0, inProgress: 0,
+        total: 0, accepted: 0, inProgress: 0,
         completed: 0, overdue: 0, cancelled: 0
     };
 };
@@ -361,17 +335,17 @@ assignmentSchema.statics.getUpcomingDeadlines = async function(academicYearId, d
     return this.find({
         academicYearId,
         deadline: { $lte: deadline },
-        status: { $in: ['pending', 'accepted', 'in_progress'] }
+        status: { $in: ['accepted', 'in_progress'] }
     })
         .populate('reportId', 'title type')
-        .populate('expertId', 'fullName email')
+        .populate('evaluatorId', 'fullName email')
         .sort({ deadline: 1 });
 };
 
 assignmentSchema.statics.markOverdueAssignments = async function() {
     const overdueAssignments = await this.find({
         deadline: { $lt: new Date() },
-        status: { $in: ['pending', 'accepted', 'in_progress'] }
+        status: { $in: ['accepted', 'in_progress'] }
     });
 
     const promises = overdueAssignments.map(assignment => assignment.markOverdue());

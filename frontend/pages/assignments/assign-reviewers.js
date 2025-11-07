@@ -7,11 +7,8 @@ import {
     Plus,
     Trash2,
     Save,
-    ArrowLeft,
-    FileText,
     Search,
     AlertCircle,
-    Calendar,
     Users,
     X,
     Loader2,
@@ -28,14 +25,14 @@ export default function AssignReviewersPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [reports, setReports] = useState([])
-    const [experts, setExperts] = useState([])
+    const [evaluators, setEvaluators] = useState([])
     const [assignments, setAssignments] = useState({})
     const [existingAssignments, setExistingAssignments] = useState({})
-    const [existingActiveExperts, setExistingActiveExperts] = useState({})
+    const [existingActiveEvaluators, setExistingActiveEvaluators] = useState({})
 
-    const [showExpertSearch, setShowExpertSearch] = useState(null)
+    const [showEvaluatorSearch, setShowEvaluatorSearch] = useState(null)
     const [searchTerm, setSearchTerm] = useState('')
-    const [filteredExperts, setFilteredExperts] = useState([])
+    const [filteredEvaluators, setFilteredEvaluators] = useState([])
     const [pagination, setPagination] = useState({
         current: 1,
         pages: 1,
@@ -50,14 +47,11 @@ export default function AssignReviewersPage() {
         { name: 'Phân quyền đánh giá', icon: Users }
     ]
 
-    // ✅ HÀM CHUẨN HÓA ID: Đảm bảo reportIds luôn là một mảng các chuỗi ID
     const normalizeReportIds = useCallback(() => {
         if (!reportIds) return []
         if (Array.isArray(reportIds)) {
-            // Xử lý trường hợp Next.js gửi tham số query nhiều lần
             return reportIds.flatMap(id => id.split(',')).filter(Boolean)
         }
-        // Xử lý trường hợp chuỗi đơn lẻ (ID1,ID2,...)
         return reportIds.split(',').filter(Boolean)
     }, [reportIds])
 
@@ -78,51 +72,48 @@ export default function AssignReviewersPage() {
                 return
             }
 
-            fetchReportsAndExperts(ids)
+            fetchReportsAndEvaluators(ids)
         }
-    }, [router.isReady, user, normalizeReportIds]) // Dùng normalizeReportIds trong dependency
+    }, [router.isReady, user, normalizeReportIds])
 
     useEffect(() => {
-        if (!showExpertSearch) {
-            setFilteredExperts([])
+        if (!showEvaluatorSearch) {
+            setFilteredEvaluators([])
             return
         }
 
-        const { reportId, assignmentIdx } = showExpertSearch
+        const { reportId, assignmentIdx } = showEvaluatorSearch
         const currentAssignment = assignments[reportId]?.[assignmentIdx]
 
-        const alreadySelectedIds = new Set(currentAssignment?.selectedExperts?.map(e => e._id) || [])
-        const existingActiveIds = existingActiveExperts[reportId] || new Set()
+        const alreadySelectedIds = new Set(currentAssignment?.selectedEvaluators?.map(e => e._id) || [])
+        const existingActiveIds = existingActiveEvaluators[reportId] || new Set()
 
-        const expertsToExclude = new Set([...alreadySelectedIds, ...existingActiveIds])
+        const evaluatorsToExclude = new Set([...alreadySelectedIds, ...existingActiveIds])
 
         const term = searchTerm.toLowerCase().trim()
 
-        const filtered = experts.filter(expert => {
-            if (expertsToExclude.has(expert._id)) return false
+        const filtered = evaluators.filter(evaluator => {
+            if (evaluatorsToExclude.has(evaluator._id)) return false
 
             if (term) {
                 return (
-                    expert.fullName?.toLowerCase().includes(term) ||
-                    expert.email?.toLowerCase().includes(term) ||
-                    expert.department?.toLowerCase().includes(term)
+                    evaluator.fullName?.toLowerCase().includes(term) ||
+                    evaluator.email?.toLowerCase().includes(term) ||
+                    evaluator.department?.toLowerCase().includes(term)
                 )
             }
             return true
         })
 
-        setFilteredExperts(filtered)
-    }, [searchTerm, showExpertSearch, assignments, experts, existingActiveExperts])
+        setFilteredEvaluators(filtered)
+    }, [searchTerm, showEvaluatorSearch, assignments, evaluators, existingActiveEvaluators])
 
-    // ✅ SỬA: Cập nhật hàm nhận IDs
-    const fetchReportsAndExperts = async (ids) => {
+    const fetchReportsAndEvaluators = async (ids) => {
         try {
             setLoading(true)
 
-            // Dùng IDs đã chuẩn hóa
             const reportsData = await Promise.all(
                 ids.map(id => apiMethods.reports.getById(id).catch(error => {
-                    // Log lỗi 400 nếu có ID không hợp lệ
                     console.warn(`Cannot fetch report ${id}:`, error.response?.status, error.message)
                     return null
                 }))
@@ -146,7 +137,7 @@ export default function AssignReviewersPage() {
                 return
             }
 
-            await fetchExperts(1)
+            await fetchEvaluators(1)
             await fetchExistingAssignments(validReports)
 
         } catch (error) {
@@ -173,14 +164,14 @@ export default function AssignReviewersPage() {
 
             const assignmentResponses = await Promise.all(assignmentPromises)
 
-            const activeExpertsMap = {}
+            const activeEvaluatorsMap = {}
             const existingMap = {}
 
             assignmentResponses.forEach((res, index) => {
                 const reportId = reportsList[index]._id
 
                 if (!res || !res.data) {
-                    activeExpertsMap[reportId] = new Set()
+                    activeEvaluatorsMap[reportId] = new Set()
                     existingMap[reportId] = []
                     return
                 }
@@ -188,20 +179,20 @@ export default function AssignReviewersPage() {
                 const assignmentsData = res.data?.data?.assignments || []
 
                 const activeAssignments = assignmentsData.filter(a =>
-                    a.status && ['pending', 'accepted', 'in_progress'].includes(a.status)
+                    a.status && ['accepted', 'in_progress'].includes(a.status)
                 )
 
-                const expertIds = new Set(
+                const evaluatorIds = new Set(
                     activeAssignments
-                        .map(a => a.expertId?._id || a.expertId)
+                        .map(a => a.evaluatorId?._id || a.evaluatorId)
                         .filter(Boolean)
                 )
 
-                activeExpertsMap[reportId] = expertIds
+                activeEvaluatorsMap[reportId] = evaluatorIds
                 existingMap[reportId] = activeAssignments
             })
 
-            setExistingActiveExperts(activeExpertsMap)
+            setExistingActiveEvaluators(activeEvaluatorsMap)
             setExistingAssignments(existingMap)
 
         } catch (error) {
@@ -209,28 +200,30 @@ export default function AssignReviewersPage() {
         }
     }
 
-    const fetchExperts = async (page = pagination.current) => {
+    const fetchEvaluators = async (page = 1) => {
         try {
             setLoading(true)
             const params = {
                 page: page,
                 limit: 12,
-                role: 'expert',
+                role: 'evaluator',
                 status: 'active',
                 sortBy: 'fullName',
                 sortOrder: 'asc'
             }
 
-            if (searchTerm) params.search = searchTerm
+            if (searchTerm) {
+                params.search = searchTerm
+            }
 
             const response = await api.get('/api/users', { params })
 
             if (response.data.success) {
-                setExperts(response.data.data.users)
+                setEvaluators(response.data.data.users.filter(u => u.role === 'evaluator')) // Chỉ lấy user có role evaluator
                 setPagination(response.data.data.pagination)
             }
         } catch (error) {
-            console.error('Error fetching experts:', error)
+            console.error('Error fetching evaluators:', error)
         } finally {
             setLoading(false)
         }
@@ -242,7 +235,7 @@ export default function AssignReviewersPage() {
             [reportId]: [
                 ...prev[reportId],
                 {
-                    selectedExperts: [],
+                    selectedEvaluators: [],
                     deadline: '',
                     priority: 'normal',
                     assignmentNote: '',
@@ -259,26 +252,26 @@ export default function AssignReviewersPage() {
         }))
     }
 
-    const openExpertSearch = (reportId, assignmentIdx) => {
-        setShowExpertSearch({ reportId, assignmentIdx })
+    const openEvaluatorSearch = (reportId, assignmentIdx) => {
+        setShowEvaluatorSearch({ reportId, assignmentIdx })
         setSearchTerm('')
-        fetchExperts(1)
+        fetchEvaluators(1)
     }
 
-    const closeExpertSearch = () => {
-        setShowExpertSearch(null)
+    const closeEvaluatorSearch = () => {
+        setShowEvaluatorSearch(null)
         setSearchTerm('')
-        setFilteredExperts([])
+        setFilteredEvaluators([])
     }
 
-    const addExpertToAssignment = (expert) => {
-        if (!showExpertSearch) return
+    const addEvaluatorToAssignment = (evaluator) => {
+        if (!showEvaluatorSearch) return
 
-        const { reportId, assignmentIdx } = showExpertSearch
+        const { reportId, assignmentIdx } = showEvaluatorSearch
 
-        const existingActiveIds = existingActiveExperts[reportId] || new Set()
-        if (existingActiveIds.has(expert._id)) {
-            toast.error('Chuyên gia này đã được phân quyền báo cáo này')
+        const existingActiveIds = existingActiveEvaluators[reportId] || new Set()
+        if (existingActiveIds.has(evaluator._id)) {
+            toast.error('Người đánh giá này đã được phân quyền báo cáo này')
             return
         }
 
@@ -286,24 +279,24 @@ export default function AssignReviewersPage() {
             const updated = { ...prev }
             const assignment = updated[reportId][assignmentIdx]
 
-            if (assignment.selectedExperts.some(e => e._id === expert._id)) {
-                toast.error('Chuyên gia này đã được chọn')
+            if (assignment.selectedEvaluators.some(e => e._id === evaluator._id)) {
+                toast.error('Người đánh giá này đã được chọn')
                 return prev
             }
 
-            assignment.selectedExperts.push(expert)
+            assignment.selectedEvaluators.push(evaluator)
             return updated
         })
 
-        toast.success(`Đã thêm ${expert.fullName}`)
+        toast.success(`Đã thêm ${evaluator.fullName}`)
         setSearchTerm('')
     }
 
-    const removeExpertFromAssignment = (reportId, assignmentIdx, expertId) => {
+    const removeEvaluatorFromAssignment = (reportId, assignmentIdx, evaluatorId) => {
         setAssignments(prev => {
             const updated = { ...prev }
-            updated[reportId][assignmentIdx].selectedExperts =
-                updated[reportId][assignmentIdx].selectedExperts.filter(e => e._id !== expertId)
+            updated[reportId][assignmentIdx].selectedEvaluators =
+                updated[reportId][assignmentIdx].selectedEvaluators.filter(e => e._id !== evaluatorId)
             return updated
         })
     }
@@ -324,9 +317,9 @@ export default function AssignReviewersPage() {
 
         Object.entries(assignments).forEach(([reportId, reportsAssignments]) => {
             reportsAssignments.forEach((assignment) => {
-                if (!assignment.selectedExperts || assignment.selectedExperts.length === 0) {
+                if (!assignment.selectedEvaluators || assignment.selectedEvaluators.length === 0) {
                     const report = reports.find(r => r._id === reportId)
-                    toast.error(`Chọn chuyên gia cho báo cáo ${report?.code}`)
+                    toast.error(`Chọn người đánh giá cho báo cáo ${report?.code}`)
                     hasErrors = true
                 }
                 if (!assignment.deadline) {
@@ -346,9 +339,9 @@ export default function AssignReviewersPage() {
                 .flatMap(([reportId, reportsAssignments]) =>
                     reportsAssignments.flatMap(assignment => {
                         const deadline = new Date(assignment.deadline).toISOString()
-                        return assignment.selectedExperts.map(expert => ({
+                        return assignment.selectedEvaluators.map(evaluator => ({
                             reportId,
-                            expertId: expert._id,
+                            evaluatorId: evaluator._id, // Cập nhật key từ expertId
                             deadline,
                             priority: assignment.priority,
                             assignmentNote: assignment.assignmentNote,
@@ -369,7 +362,14 @@ export default function AssignReviewersPage() {
             for (let i = 0; i < finalAssignments.length; i++) {
                 const assignment = finalAssignments[i]
                 try {
-                    await apiMethods.assignments.create(assignment)
+                    await apiMethods.assignments.create({
+                        reportId: assignment.reportId,
+                        evaluatorId: assignment.evaluatorId,
+                        deadline: assignment.deadline,
+                        priority: assignment.priority,
+                        assignmentNote: assignment.assignmentNote,
+                        evaluationCriteria: assignment.evaluationCriteria
+                    })
                     successCount++
                 } catch (err) {
                     failCount++
@@ -404,7 +404,7 @@ export default function AssignReviewersPage() {
 
     const getTotalAssignments = () => {
         return Object.values(assignments).reduce(
-            (sum, arr) => sum + arr.reduce((acc, item) => acc + (item.selectedExperts?.length || 0), 0),
+            (sum, arr) => sum + arr.reduce((acc, item) => acc + (item.selectedEvaluators?.length || 0), 0),
             0
         )
     }
@@ -446,12 +446,12 @@ export default function AssignReviewersPage() {
         )
     }
 
-    if (!user || user.role !== 'manager') {
+    if (!user || !['admin', 'manager'].includes(user.role)) {
         return (
             <Layout breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded">
                     <h3 className="text-red-800 font-bold">Lỗi truy cập</h3>
-                    <p className="text-red-600">Chỉ quản lý viên có thể phân quyền đánh giá</p>
+                    <p className="text-red-600">Chỉ Admin hoặc Quản lý viên có thể phân quyền đánh giá</p>
                 </div>
             </Layout>
         )
@@ -479,7 +479,7 @@ export default function AssignReviewersPage() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Phân quyền đánh giá</h1>
-                            <p className="text-blue-100">Giao báo cáo cho chuyên gia đánh giá</p>
+                            <p className="text-blue-100">Giao báo cáo cho người đánh giá (Evaluator)</p>
                         </div>
                     </div>
                 </div>
@@ -540,10 +540,10 @@ export default function AssignReviewersPage() {
                                                     <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-lg border border-green-300">
                                                         <div className="flex-1">
                                                             <p className="text-sm font-semibold text-gray-900">
-                                                                {assignment.expertId?.fullName || 'N/A'}
+                                                                {assignment.evaluatorId?.fullName || 'N/A'}
                                                             </p>
                                                             <p className="text-xs text-gray-600">
-                                                                {assignment.expertId?.email}
+                                                                {assignment.evaluatorId?.email}
                                                             </p>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <span className={`text-xs px-2 py-1 rounded border ${getPriorityColor(assignment.priority)}`}>
@@ -587,33 +587,33 @@ export default function AssignReviewersPage() {
                                                                     Phân quyền #{idx + 1}
                                                                 </p>
 
-                                                                {/* Experts Selection */}
+                                                                {/* Evaluators Selection */}
                                                                 <div className="mb-3">
                                                                     <p className="text-xs font-semibold text-gray-700 mb-2">
-                                                                        Chuyên gia <span className="text-red-500">*</span>
+                                                                        Người đánh giá <span className="text-red-500">*</span>
                                                                     </p>
 
-                                                                    {assignment.selectedExperts.length === 0 ? (
+                                                                    {assignment.selectedEvaluators.length === 0 ? (
                                                                         <div className="text-center py-3 border-2 border-dashed border-blue-300 rounded-lg bg-white">
-                                                                            <p className="text-gray-500 text-xs">Chưa chọn chuyên gia</p>
+                                                                            <p className="text-gray-500 text-xs">Chưa chọn người đánh giá</p>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="space-y-2">
-                                                                            {assignment.selectedExperts.map(expert => (
+                                                                            {assignment.selectedEvaluators.map(evaluator => (
                                                                                 <div
-                                                                                    key={expert._id}
+                                                                                    key={evaluator._id}
                                                                                     className="flex items-center justify-between bg-white p-3 rounded-lg border-2 border-blue-300 hover:border-blue-400 transition-colors"
                                                                                 >
                                                                                     <div className="flex-1 min-w-0">
                                                                                         <p className="text-sm font-semibold text-gray-900 truncate">
-                                                                                            {expert.fullName}
+                                                                                            {evaluator.fullName}
                                                                                         </p>
                                                                                         <p className="text-xs text-gray-600 truncate">
-                                                                                            {expert.email}
+                                                                                            {evaluator.email}
                                                                                         </p>
                                                                                     </div>
                                                                                     <button
-                                                                                        onClick={() => removeExpertFromAssignment(report._id, idx, expert._id)}
+                                                                                        onClick={() => removeEvaluatorFromAssignment(report._id, idx, evaluator._id)}
                                                                                         className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded transition-colors flex-shrink-0"
                                                                                     >
                                                                                         <X className="h-4 w-4" />
@@ -624,11 +624,11 @@ export default function AssignReviewersPage() {
                                                                     )}
 
                                                                     <button
-                                                                        onClick={() => openExpertSearch(report._id, idx)}
+                                                                        onClick={() => openEvaluatorSearch(report._id, idx)}
                                                                         className="w-full mt-2 px-4 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold flex items-center justify-center text-sm"
                                                                     >
                                                                         <Search className="h-4 w-4 mr-2" />
-                                                                        {assignment.selectedExperts.length === 0 ? 'Tìm kiếm chuyên gia' : 'Thêm chuyên gia khác'}
+                                                                        {assignment.selectedEvaluators.length === 0 ? 'Tìm kiếm người đánh giá' : 'Thêm người đánh giá khác'}
                                                                     </button>
                                                                 </div>
 
@@ -670,7 +670,7 @@ export default function AssignReviewersPage() {
                                                                     <textarea
                                                                         value={assignment.assignmentNote}
                                                                         onChange={(e) => handleAssignmentChange(report._id, idx, 'assignmentNote', e.target.value)}
-                                                                        placeholder="Ghi chú cho chuyên gia..."
+                                                                        placeholder="Ghi chú cho người đánh giá..."
                                                                         rows={2}
                                                                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
                                                                     />
@@ -703,13 +703,13 @@ export default function AssignReviewersPage() {
                     ))
                 )}
 
-                {/* Expert Search Modal */}
-                {showExpertSearch && (
+                {/* Evaluator Search Modal */}
+                {showEvaluatorSearch && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
                             <div className="flex items-center justify-between p-4 border-b-2 border-gray-200 flex-shrink-0">
-                                <h3 className="text-lg font-bold text-gray-900">Tìm kiếm chuyên gia</h3>
-                                <button onClick={closeExpertSearch} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                                <h3 className="text-lg font-bold text-gray-900">Tìm kiếm người đánh giá</h3>
+                                <button onClick={closeEvaluatorSearch} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
                                     <X className="h-5 w-5 text-gray-600" />
                                 </button>
                             </div>
@@ -719,7 +719,7 @@ export default function AssignReviewersPage() {
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="Nhập tên hoặc email chuyên gia..."
+                                        placeholder="Nhập tên hoặc email người đánh giá..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         autoFocus
@@ -727,41 +727,41 @@ export default function AssignReviewersPage() {
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">
-                                    {filteredExperts.length} chuyên gia có sẵn
+                                    {filteredEvaluators.length} người đánh giá có sẵn
                                 </p>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-4">
-                                {filteredExperts.length === 0 ? (
+                                {filteredEvaluators.length === 0 ? (
                                     <div className="text-center py-8">
                                         {searchTerm.trim() ? (
                                             <>
                                                 <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                                                 <p className="text-gray-600 text-sm">
-                                                    Không tìm thấy chuyên gia với từ "{searchTerm}"
+                                                    Không tìm thấy người đánh giá với từ "{searchTerm}"
                                                 </p>
                                             </>
                                         ) : (
                                             <>
                                                 <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                                                <p className="text-gray-600 text-sm">Tất cả chuyên gia đã được chọn</p>
+                                                <p className="text-gray-600 text-sm">Tất cả người đánh giá đã được chọn</p>
                                             </>
                                         )}
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {filteredExperts.map(expert => (
+                                        {filteredEvaluators.map(evaluator => (
                                             <button
-                                                key={expert._id}
-                                                onClick={() => addExpertToAssignment(expert)}
+                                                key={evaluator._id}
+                                                onClick={() => addEvaluatorToAssignment(evaluator)}
                                                 className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all"
                                             >
                                                 <p className="text-sm font-semibold text-gray-900">
-                                                    {expert.fullName}
+                                                    {evaluator.fullName}
                                                 </p>
                                                 <p className="text-xs text-gray-600">
-                                                    {expert.email}
-                                                    {expert.department && ` • ${expert.department}`}
+                                                    {evaluator.email}
+                                                    {evaluator.department && ` • ${evaluator.department}`}
                                                 </p>
                                             </button>
                                         ))}
@@ -772,7 +772,7 @@ export default function AssignReviewersPage() {
                             {pagination.pages > 1 && (
                                 <div className="p-3 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-between">
                                     <button
-                                        onClick={() => fetchExperts(pagination.current - 1)}
+                                        onClick={() => fetchEvaluators(pagination.current - 1)}
                                         disabled={!pagination.hasPrev}
                                         className="px-3 py-1 text-sm text-gray-700 bg-white border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors font-semibold"
                                     >
@@ -782,7 +782,7 @@ export default function AssignReviewersPage() {
                                         Trang {pagination.current} / {pagination.pages}
                                     </span>
                                     <button
-                                        onClick={() => fetchExperts(pagination.current + 1)}
+                                        onClick={() => fetchEvaluators(pagination.current + 1)}
                                         disabled={!pagination.hasNext}
                                         className="px-3 py-1 text-sm text-gray-700 bg-white border-2 border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors font-semibold"
                                     >
@@ -793,7 +793,7 @@ export default function AssignReviewersPage() {
 
                             <div className="p-4 border-t-2 border-gray-200 bg-gradient-to-r from-blue-50 to-sky-50 flex justify-end flex-shrink-0">
                                 <button
-                                    onClick={closeExpertSearch}
+                                    onClick={closeEvaluatorSearch}
                                     className="px-6 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 font-semibold text-sm transition-colors"
                                 >
                                     Đóng

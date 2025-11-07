@@ -268,30 +268,27 @@ export const apiMethods = {
         delete: (id) => api.delete(`/api/reports/${id}`),
         publish: (id) => api.post(`/api/reports/${id}/publish`),
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
-        approve: (id, feedback) => api.post(`/api/reports/${id}/approve`, { feedback }),
-        reject: (id, feedback) => api.post(`/api/reports/${id}/reject`, { feedback }),
+        approve: (id, data = {}) => api.post(`/api/reports/${id}/approve`, data),
+        reject: (id, data = {}) => api.post(`/api/reports/${id}/reject`, data),
         makePublic: (id) => api.post(`/api/reports/${id}/make-public`),
-        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format }, responseType: 'blob' }),
-        downloadFile: (id) => api.get(`/api/reports/${id}/download-file`, { responseType: 'blob' }),
-        uploadFile: (id, file) => {
-            const formData = new FormData()
-            formData.append('file', file)
-            return api.post(`/api/reports/${id}/upload-file`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
-        },
-        convertFileToContent: (id) => api.post(`/api/reports/${id}/convert-file-to-content`),
-        getByTask: (params) => api.get('/api/reports/by-task', { params }),
-        getReportsByStandardCriteria: (params) => api.get('/api/reports/by-standard-criteria', { params }),
         requestEditPermission: (id) => api.post(`/api/reports/${id}/request-edit-permission`),
-        getStats: (params) => api.get('/api/reports/stats', { params }),
+        uploadFile: (id, formData) => api.post(`/api/reports/${id}/upload-file`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        }),
+        downloadFile: (id) => api.get(`/api/reports/${id}/download-file`),
+        download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format } }),
+        assignReporter: (id, reporterIds) => api.post(`/api/reports/${id}/assign-reporter`, { reporterIds }),
         getVersions: (id) => api.get(`/api/reports/${id}/versions`),
-        addVersion: (id, content, changeNote) => api.post(`/api/reports/${id}/versions`, { content, changeNote }),
+        addVersion: (id, data) => api.post(`/api/reports/${id}/versions`, data),
         getComments: (id) => api.get(`/api/reports/${id}/comments`),
-        addComment: (id, comment, section) => api.post(`/api/reports/${id}/comments`, { comment, section }),
-        resolveComment: (id, commentId) => api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
-        getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
-        assignReporter: (id, reporterIds) => api.post(`/api/reports/${id}/assign-reporter`, { reporterIds })
+        addComment: (id, data) => api.post(`/api/reports/${id}/comments`, data),
+
+        getByTask: (params) => api.get('/api/reports/by-task', { params }),
+        getByStandardCriteria: (params) => api.get('/api/reports/by-standard-criteria', { params }),
+        getStats: (params) => api.get('/api/reports/stats', { params }),
+        getEditRequests: (id) => api.get(`/api/reports/${id}/edit-requests`),
+        approveEditRequest: (id, data) => api.post(`/api/reports/${id}/edit-requests/approve`, data),
+        rejectEditRequest: (id, data) => api.post(`/api/reports/${id}/edit-requests/reject`, data),
     },
 
     assignments: {

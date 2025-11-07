@@ -5,43 +5,21 @@ import Layout from '../../components/common/Layout'
 import { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {
-    ArrowLeft,
-    Edit,
-    Download,
-    CheckCircle,
-    Eye,
-    FileText,
-    Calendar,
-    User,
-    MessageSquare,
-    Loader2,
-    Link as LinkIcon,
-    Clock,
-    ExternalLink,
-    RotateCcw
+    Edit2, Trash2, Download, Lock, CheckCircle, XCircle, Share2,
+    ArrowLeft, Eye, Send, RotateCcw, FileText, Loader2, AlertCircle
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
 export default function ReportDetail() {
     const router = useRouter()
-    const { id } = router.query
     const { user, isLoading } = useAuth()
+    const { id } = router.query
 
     const [report, setReport] = useState(null)
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState('content')
-    const [evidences, setEvidences] = useState([])
-    const [versions, setVersions] = useState([])
-    const [comments, setComments] = useState([])
-    const [newComment, setNewComment] = useState('')
-    const [addingComment, setAddingComment] = useState(false)
-    const [downloadingHtml, setDownloadingHtml] = useState(false)
-
-    const breadcrumbItems = [
-        { name: 'Trang chủ', href: '/' },
-        { name: 'Quản lý báo cáo', href: '/reports', icon: FileText },
-        { name: report?.title || 'Chi tiết báo cáo' }
-    ]
+    const [actionLoading, setActionLoading] = useState({})
+    const [showRejectModal, setShowRejectModal] = useState(false)
+    const [rejectReason, setRejectReason] = useState('')
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -50,552 +28,400 @@ export default function ReportDetail() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (router.isReady && id && user) {
-            setLoading(true)
-            fetchReportDetail(id)
+        if (id && user) {
+            fetchReport()
         }
-    }, [router.isReady, id, user])
+    }, [id, user])
 
-    const fetchReportDetail = async (reportId) => {
+    const fetchReport = async () => {
         try {
-            const response = await apiMethods.reports.getById(reportId)
-            const reportData = response.data?.data || response.data
-
-            if (reportData && reportData._id) {
-                setReport(reportData)
-                setComments(reportData.reviewerComments || [])
-
-                fetchEvidences(reportId)
-                fetchVersions(reportId)
-            } else {
-                toast.error('Không tìm thấy dữ liệu báo cáo')
-                router.push('/reports')
-            }
+            setLoading(true)
+            const response = await apiMethods.reports.getById(id)
+            setReport(response.data.data)
         } catch (error) {
-            console.error('Fetch report detail error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tải thông tin báo cáo')
-            router.push('/reports')
+            console.error('Fetch report error:', error)
+            toast.error('Lỗi khi tải báo cáo')
+            router.replace('/reports')
         } finally {
             setLoading(false)
         }
     }
 
-    const fetchEvidences = async (reportId) => {
-        try {
-            const response = await apiMethods.reports.getEvidences(reportId)
-            const data = response.data?.data || response.data || []
-            setEvidences(Array.isArray(data) ? data : [])
-        } catch (error) {
-            console.error('Fetch evidences error:', error)
-            setEvidences([])
+    // Xác định quyền của user hiện tại
+    const getPermissions = () => {
+        if (!report || !user) return {}
+
+        const isCreator = report.createdBy?._id === user._id
+        const isAssignee = report.assignedReporters?.some(r => r._id === user._id)
+        const isManager = user.role === 'manager'
+        const isAdmin = user.role === 'admin'
+        const isReporter = user.role === 'reporter'
+
+        return {
+            canView: true, // Tất cả đều có quyền xem
+            canEdit: isCreator || isAssignee,
+            canDelete: isCreator || isAssignee,
+            canPublish: isCreator || isAssignee,
+            canUnpublish: isCreator || isAssignee,
+            canApproveReport: isManager && report.status !== 'approved' && report.status !== 'rejected',
+            canRejectReport: isManager && report.status !== 'approved' && report.status !== 'rejected',
+            canApproveEditRequest: (isCreator || isAssignee) && isReporter,
+            canRejectEditRequest: (isCreator || isAssignee) && isReporter,
+            canRequestEditPermission: !isAssignee && report.status === 'draft',
+            isCreator,
+            isAssignee,
+            isManager,
+            isAdmin
         }
     }
 
-    const fetchVersions = async (reportId) => {
-        try {
-            const response = await apiMethods.reports.getVersions(reportId)
-            const data = response.data?.data || response.data || []
-            setVersions(Array.isArray(data) ? data : [])
-        } catch (error) {
-            console.error('Fetch versions error:', error)
-            setVersions([])
-        }
+    const permissions = getPermissions()
+
+    const handleEdit = () => {
+        router.push(`/reports/${id}/edit`)
     }
 
-    const handleDownloadHtml = async () => {
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
+    const handleDelete = async () => {
+        if (!confirm('Bạn có chắc chắn muốn xóa báo cáo này?')) return
 
         try {
-            setDownloadingHtml(true)
-            const response = await apiMethods.reports.download(id, 'html')
-
-            let blob
-            if (response.data instanceof Blob) {
-                blob = response.data
-            } else if (response.data instanceof ArrayBuffer) {
-                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
-            } else {
-                blob = new Blob([response.data], { type: 'text/html;charset=utf-8' })
-            }
-
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `${report.code}.doc`)
-            document.body.appendChild(link)
-            link.click()
-
-            setTimeout(() => {
-                document.body.removeChild(link)
-                window.URL.revokeObjectURL(url)
-            }, 100)
-
-            toast.success('Tải xuống thành công - File HTML chứa các liên kết công khai')
+            setActionLoading(prev => ({ ...prev, delete: true }))
+            await apiMethods.reports.delete(id)
+            toast.success('Xóa báo cáo thành công')
+            router.replace('/reports')
         } catch (error) {
-            console.error('Download error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi tải xuống')
+            toast.error(error.response?.data?.message || 'Lỗi khi xóa báo cáo')
         } finally {
-            setDownloadingHtml(false)
+            setActionLoading(prev => ({ ...prev, delete: false }))
         }
     }
 
     const handlePublish = async () => {
         if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
 
         try {
+            setActionLoading(prev => ({ ...prev, publish: true }))
             await apiMethods.reports.publish(id)
             toast.success('Xuất bản báo cáo thành công')
-            fetchReportDetail(id)
+            fetchReport()
         } catch (error) {
-            console.error('Publish error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản')
+            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản báo cáo')
+        } finally {
+            setActionLoading(prev => ({ ...prev, publish: false }))
         }
     }
 
     const handleUnpublish = async () => {
         if (!confirm('Bạn có chắc chắn muốn thu hồi xuất bản báo cáo này?')) return
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
 
         try {
+            setActionLoading(prev => ({ ...prev, unpublish: true }))
             await apiMethods.reports.unpublish(id)
             toast.success('Thu hồi xuất bản báo cáo thành công')
-            fetchReportDetail(id)
+            fetchReport()
         } catch (error) {
-            console.error('Unpublish error:', error)
-            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi xuất bản')
+            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi báo cáo')
+        } finally {
+            setActionLoading(prev => ({ ...prev, unpublish: false }))
         }
     }
 
-    const handleAddComment = async () => {
-        if (!newComment.trim()) {
-            toast.error('Vui lòng nhập nội dung nhận xét')
-            return
-        }
-        if (!id) return toast.error('ID báo cáo không hợp lệ')
+    const handleApproveReport = async () => {
+        if (!confirm('Bạn có chắc chắn muốn phê duyệt báo cáo này?')) return
 
         try {
-            setAddingComment(true)
-            await apiMethods.reports.addComment(id, newComment.trim())
-            toast.success('Thêm nhận xét thành công')
-            setNewComment('')
-            fetchReportDetail(id)
+            setActionLoading(prev => ({ ...prev, approveReport: true }))
+            await apiMethods.reports.approve(id)
+            toast.success('Phê duyệt báo cáo thành công')
+            fetchReport()
         } catch (error) {
-            console.error('Add comment error:', error)
-            toast.error('Lỗi khi thêm nhận xét')
+            toast.error(error.response?.data?.message || 'Lỗi khi phê duyệt báo cáo')
         } finally {
-            setAddingComment(false)
+            setActionLoading(prev => ({ ...prev, approveReport: false }))
+        }
+    }
+
+    const handleRejectReport = async () => {
+        try {
+            setActionLoading(prev => ({ ...prev, rejectReport: true }))
+            await apiMethods.reports.reject(id, { feedback: rejectReason })
+            toast.success('Từ chối báo cáo thành công')
+            setShowRejectModal(false)
+            setRejectReason('')
+            fetchReport()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi từ chối báo cáo')
+        } finally {
+            setActionLoading(prev => ({ ...prev, rejectReport: false }))
+        }
+    }
+
+    const handleRequestEditPermission = async () => {
+        try {
+            setActionLoading(prev => ({ ...prev, requestEdit: true }))
+            await apiMethods.reports.requestEditPermission(id)
+            toast.success('Yêu cầu cấp quyền đã được gửi')
+            fetchReport()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi yêu cầu quyền')
+        } finally {
+            setActionLoading(prev => ({ ...prev, requestEdit: false }))
         }
     }
 
     const getStatusColor = (status) => {
         const colors = {
-            draft: 'bg-gray-100 text-gray-800 border-gray-200',
-            under_review: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            published: 'bg-green-100 text-green-800 border-green-200',
-            archived: 'bg-blue-100 text-blue-800 border-blue-200'
+            draft: 'bg-gray-100 text-gray-800',
+            public: 'bg-blue-100 text-blue-800',
+            approved: 'bg-green-100 text-green-800',
+            rejected: 'bg-red-100 text-red-800',
+            published: 'bg-purple-100 text-purple-800'
         }
-        return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+        return colors[status] || 'bg-gray-100 text-gray-800'
     }
 
     const getStatusLabel = (status) => {
         const labels = {
             draft: 'Bản nháp',
-            under_review: 'Đang xem xét',
-            published: 'Đã xuất bản',
-            archived: 'Lưu trữ'
+            public: 'Công khai',
+            approved: 'Chấp thuận',
+            rejected: 'Từ chối',
+            published: 'Phát hành'
         }
         return labels[status] || status
     }
 
-    const getTypeLabel = (type) => {
-        const labels = {
-            criteria_analysis: 'Phân tích tiêu chí',
-            standard_analysis: 'Phân tích tiêu chuẩn',
-            comprehensive_report: 'Báo cáo tổng hợp'
-        }
-        return labels[type] || type
-    }
-
-    const getPublicLink = () => {
-        if (!report?.code) return null
-        return `${typeof window !== 'undefined' ? window.location.origin : ''}/public/reports/${report.code}`
-    }
-
     if (isLoading || loading) {
         return (
-            <Layout title="" breadcrumbItems={breadcrumbItems}>
-                <div className="flex flex-col justify-center items-center py-20">
-                    <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                    <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+            <Layout title="Chi tiết báo cáo">
+                <div className="flex items-center justify-center py-16">
+                    <div className="text-center">
+                        <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Đang tải báo cáo...</p>
+                    </div>
                 </div>
             </Layout>
         )
     }
 
-    if (!user || !report) {
-        return null
-    }
-
-    const publicLink = getPublicLink()
-
-    return (
-        <Layout title="" breadcrumbItems={breadcrumbItems}>
-            <div className="space-y-6">
-                {/* Header */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex items-start justify-between mb-4">
+    if (!report) {
+        return (
+            <Layout title="Chi tiết báo cáo">
+                <div className="flex items-center justify-center py-16">
+                    <div className="text-center">
+                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">Báo cáo không tồn tại</p>
                         <button
                             onClick={() => router.push('/reports')}
-                            className="inline-flex items-center text-gray-600 hover:text-gray-900 font-medium"
+                            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                         >
-                            <ArrowLeft className="h-5 w-5 mr-2" />
                             Quay lại
                         </button>
-                        <div className="flex gap-2">
-                            {report.status === 'draft' && (
-                                <button
-                                    onClick={handlePublish}
-                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    <CheckCircle className="h-4 w-4 mr-2" />
-                                    Xuất bản
-                                </button>
-                            )}
-                            {report.status === 'published' && (
-                                <button
-                                    onClick={handleUnpublish}
-                                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                                >
-                                    <RotateCcw className="h-4 w-4 mr-2" />
-                                    Thu hồi
-                                </button>
-                            )}
-                            <button
-                                onClick={() => router.push(`/reports/${id}/edit`)}
-                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all"
-                            >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Chỉnh sửa
-                            </button>
-                            <button
-                                onClick={handleDownloadHtml}
-                                disabled={downloadingHtml}
-                                className="inline-flex items-center px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 font-medium transition-all disabled:opacity-50"
-                            >
-                                {downloadingHtml ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Đang tải...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Download className="h-4 w-4 mr-2" />
-                                        Tải báo cáo
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
-                                        {report.code}
-                                    </span>
-                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(report.status)}`}>
-                                        {getStatusLabel(report.status)}
-                                    </span>
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                        {getTypeLabel(report.type)}
-                                    </span>
-                                </div>
-                                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                    {report.title}
-                                </h1>
-                                {report.summary && (
-                                    <p className="text-gray-600 text-lg">
-                                        {report.summary}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-blue-50 rounded-lg">
-                                    <User className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Người tạo</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.createdBy?.fullName || 'N/A'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-green-50 rounded-lg">
-                                    <Calendar className="h-5 w-5 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Ngày tạo</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {formatDate(report.createdAt)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-purple-50 rounded-lg">
-                                    <Eye className="h-5 w-5 text-purple-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Lượt xem</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.metadata?.viewCount || 0}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-orange-50 rounded-lg">
-                                    <Download className="h-5 w-5 text-orange-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500">Lượt tải</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {report.metadata?.downloadCount || 0}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {report.keywords && report.keywords.length > 0 && (
-                            <div className="pt-4 border-t border-gray-200">
-                                <p className="text-sm font-medium text-gray-700 mb-2">Từ khóa:</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {report.keywords.map((keyword, index) => (
-                                        <span
-                                            key={index}
-                                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-                                        >
-                                            {keyword}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
+            </Layout>
+        )
+    }
 
-                {/* Tabs */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="border-b border-gray-200">
-                        <div className="flex space-x-1 p-2">
-                            <button
-                                onClick={() => setActiveTab('content')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'content'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <FileText className="h-4 w-4 inline mr-2" />
-                                Nội dung
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('evidences')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'evidences'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <LinkIcon className="h-4 w-4 inline mr-2" />
-                                Minh chứng ({evidences.length})
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('versions')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'versions'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <Clock className="h-4 w-4 inline mr-2" />
-                                Phiên bản ({versions.length})
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('comments')}
-                                className={`flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                                    activeTab === 'comments'
-                                        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200'
-                                        : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                            >
-                                <MessageSquare className="h-4 w-4 inline mr-2" />
-                                Nhận xét ({comments.length})
-                            </button>
+    return (
+        <Layout title="Chi tiết báo cáo">
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        Quay lại
+                    </button>
+                </div>
+
+                {/* Main Content */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                    <div className="space-y-6">
+                        {/* Title & Status */}
+                        <div>
+                            <div className="flex items-start justify-between mb-4">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{report.title}</h1>
+                                    <p className="text-gray-600">Mã: <span className="font-mono font-semibold text-blue-600">{report.code}</span></p>
+                                </div>
+                                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(report.status)}`}>
+                                    {getStatusLabel(report.status)}
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {report.standardId && (
+                                    <span className="px-3 py-1 bg-sky-100 text-sky-800 text-sm rounded-full">
+                                        Tiêu chuẩn: {report.standardId.code}
+                                    </span>
+                                )}
+                                {report.criteriaId && (
+                                    <span className="px-3 py-1 bg-cyan-100 text-cyan-800 text-sm rounded-full">
+                                        Tiêu chí: {report.criteriaId.code}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="p-6">
-                        {activeTab === 'content' && (
-                            <div className="prose max-w-none">
-                                <div dangerouslySetInnerHTML={{ __html: report.content }} />
+                        {/* Info */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Người tạo</p>
+                                <p className="font-semibold text-gray-900">{report.createdBy?.fullName}</p>
                             </div>
-                        )}
-
-                        {activeTab === 'evidences' && (
-                            <div className="space-y-4">
-                                {evidences.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <LinkIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">Chưa có minh chứng nào được liên kết</p>
-                                    </div>
-                                ) : (
-                                    evidences.map((evidence, index) => (
-                                        <div
-                                            key={index}
-                                            className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all"
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-sm font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                                            {evidence.evidenceId?.code || 'N/A'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm font-medium text-gray-900 mb-1">
-                                                        {evidence.evidenceId?.name || 'Tên minh chứng'}
-                                                    </p>
-                                                    {evidence.contextText && (
-                                                        <p className="text-xs text-gray-500 italic">
-                                                            Ngữ cảnh: {evidence.contextText}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Ngày tạo</p>
+                                <p className="font-semibold text-gray-900">{formatDate(report.createdAt)}</p>
                             </div>
-                        )}
-
-                        {activeTab === 'versions' && (
-                            <div className="space-y-4">
-                                {versions.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                        <p className="text-gray-500">Chưa có phiên bản nào</p>
-                                    </div>
-                                ) : (
-                                    versions.map((version, index) => (
-                                        <div
-                                            key={index}
-                                            className="p-4 border border-gray-200 rounded-xl"
-                                        >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-semibold text-gray-900">
-                                                        Phiên bản {version.version}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">
-                                                        {formatDate(version.changedAt)}
-                                                    </span>
-                                                </div>
-                                                <span className="text-xs text-gray-600">
-                                                    {version.changedBy?.fullName}
-                                                </span>
-                                            </div>
-                                            {version.changeNote && (
-                                                <p className="text-sm text-gray-600">
-                                                    {version.changeNote}
-                                                </p>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Người được giao</p>
+                                <p className="font-semibold text-gray-900">{report.assignedReporters?.length || 0}</p>
                             </div>
-                        )}
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Lượt xem</p>
+                                <p className="font-semibold text-gray-900">{report.metadata?.viewCount || 0}</p>
+                            </div>
+                        </div>
 
-                        {activeTab === 'comments' && (
-                            <div className="space-y-6">
-                                <div className="bg-gray-50 rounded-xl p-4">
-                                    <textarea
-                                        value={newComment}
-                                        onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder="Nhập nhận xét của bạn..."
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                        rows="4"
-                                    />
-                                    <div className="flex justify-end mt-3">
+                        {/* Content */}
+                        <div className="border-t pt-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Nội dung báo cáo</h2>
+                            <div className="prose prose-sm max-w-none bg-gray-50 p-6 rounded-lg">
+                                <div dangerouslySetInnerHTML={{ __html: report.content || '<p className="text-gray-500">Chưa có nội dung</p>' }} />
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="border-t pt-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Thao tác</h2>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Reporter/Creator Actions */}
+                                {permissions.canEdit && (
+                                    <>
                                         <button
-                                            onClick={handleAddComment}
-                                            disabled={addingComment || !newComment.trim()}
-                                            className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium transition-all disabled:opacity-50"
+                                            onClick={handleEdit}
+                                            className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
                                         >
-                                            {addingComment ? (
-                                                <>
-                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    Đang thêm...
-                                                </>
-                                            ) : (
-                                                'Thêm nhận xét'
-                                            )}
+                                            <Edit2 className="w-5 h-5" />
+                                            Chỉnh sửa
                                         </button>
-                                    </div>
-                                </div>
+                                        <button
+                                            onClick={handleDelete}
+                                            disabled={actionLoading.delete}
+                                            className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                            Xóa
+                                        </button>
+                                    </>
+                                )}
 
-                                <div className="space-y-4">
-                                    {comments.length === 0 ? (
-                                        <div className="text-center py-12">
-                                            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                                            <p className="text-gray-500">Chưa có nhận xét nào</p>
-                                        </div>
-                                    ) : (
-                                        comments.map((comment, index) => (
-                                            <div
-                                                key={index}
-                                                className="p-4 border border-gray-200 rounded-xl"
-                                            >
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
-                                                            {comment.reviewerId?.fullName?.charAt(0) || 'U'}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-900">
-                                                                {comment.reviewerId?.fullName || 'Unknown'}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">
-                                                                {formatDate(comment.commentedAt)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
-                                                        {comment.reviewerType}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-700 ml-13">
-                                                    {comment.comment}
-                                                </p>
-                                                {comment.section && (
-                                                    <p className="text-xs text-gray-500 mt-2 ml-13">
-                                                        Phần: {comment.section}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                                {/* Publish Actions */}
+                                {permissions.canPublish && report.status === 'draft' && (
+                                    <button
+                                        onClick={handlePublish}
+                                        disabled={actionLoading.publish}
+                                        className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all font-medium"
+                                    >
+                                        <Send className="w-5 h-5" />
+                                        Xuất bản
+                                    </button>
+                                )}
+
+                                {permissions.canUnpublish && report.status === 'published' && (
+                                    <button
+                                        onClick={handleUnpublish}
+                                        disabled={actionLoading.unpublish}
+                                        className="flex items-center gap-2 px-4 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-all font-medium"
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
+                                        Thu hồi xuất bản
+                                    </button>
+                                )}
+
+                                {/* Manager Actions */}
+                                {permissions.canApproveReport && (
+                                    <button
+                                        onClick={handleApproveReport}
+                                        disabled={actionLoading.approveReport}
+                                        className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-all font-medium"
+                                    >
+                                        <CheckCircle className="w-5 h-5" />
+                                        Phê duyệt báo cáo
+                                    </button>
+                                )}
+
+                                {permissions.canRejectReport && (
+                                    <button
+                                        onClick={() => setShowRejectModal(true)}
+                                        disabled={actionLoading.rejectReport}
+                                        className="flex items-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                                    >
+                                        <XCircle className="w-5 h-5" />
+                                        Từ chối báo cáo
+                                    </button>
+                                )}
+
+                                {/* Request Edit Permission */}
+                                {permissions.canRequestEditPermission && (
+                                    <button
+                                        onClick={handleRequestEditPermission}
+                                        disabled={actionLoading.requestEdit}
+                                        className="flex items-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-all font-medium"
+                                    >
+                                        <Share2 className="w-5 h-5" />
+                                        Yêu cầu quyền sửa
+                                    </button>
+                                )}
                             </div>
-                        )}
+
+                            {/* Info message */}
+                            {!permissions.canEdit && !permissions.canApproveReport && !permissions.canRequestEditPermission && (
+                                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+                                    <Eye className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-blue-800">Bạn chỉ có quyền xem báo cáo này</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
+
+                {/* Reject Modal */}
+                {showRejectModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Từ chối báo cáo</h3>
+                            <textarea
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Nhập lý do từ chối..."
+                                rows={4}
+                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                            />
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowRejectModal(false)
+                                        setRejectReason('')
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-all font-medium"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleRejectReport}
+                                    disabled={!rejectReason.trim() || actionLoading.rejectReport}
+                                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                                >
+                                    Xác nhận từ chối
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </Layout>
     )
