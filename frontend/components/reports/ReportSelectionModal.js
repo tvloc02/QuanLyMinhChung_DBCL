@@ -15,7 +15,8 @@ const useAuth = () => {
                 // Giả định ID user hiện tại được lấy từ localStorage
                 const userId = localStorage.getItem('userId') || 'temp-user-id-reporter';
                 const userRole = localStorage.getItem('userRole') || 'reporter';
-                return { _id: userId, role: userRole, fullName: 'Current User' };
+                // Đảm bảo ID là chuỗi để so sánh
+                return { _id: String(userId), role: userRole, fullName: 'Current User' };
             } catch (error) {
                 return { _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'Current User' };
             }
@@ -83,7 +84,6 @@ export default function ReportSelectionModal({
             const normalizedTaskId = normalizeParam(taskId);
 
             if (normalizedTaskId) {
-                // Backend getReportsByTask đã trả về các trường cần thiết: isCreatedByMe, myEditRequestStatus, pendingEditRequests
                 response = await apiMethods.reports.getByTask({
                     taskId: normalizedTaskId,
                     ...params
@@ -92,7 +92,6 @@ export default function ReportSelectionModal({
                 canCreate = response.data.data.canCreateNew;
                 currentTask = response.data.data.task;
             } else if (params.standardId && params.reportType) {
-                // Backend getReportsByStandardCriteria đã trả về các trường cần thiết
                 response = await apiMethods.reports.getByStandardCriteria(params)
                 reportsData = response.data.data.reports || []
                 canCreate = response.data.data.canWriteReport || false;
@@ -102,21 +101,17 @@ export default function ReportSelectionModal({
             }
 
             const newReports = reportsData.map(report => {
-                const assignedReporters = report.assignedReporters || [];
-                const isCreatedByMe = report.createdBy?._id === currentUserId;
-                const isAssignedToMe = assignedReporters.some(r => r._id === currentUserId);
-
-                // Củng cố kiểm tra quyền chỉnh sửa ở frontend dựa trên các vai trò có quyền tuyệt đối
-                let canEdit = isCreatedByMe || isAssignedToMe || user.role === 'admin' || user.role === 'manager';
+                // Các trường này đã được tính toán chính xác ở Controller (backend)
+                const isCreatedByMe = report.isCreatedByMe;
+                const isAssignedToMe = report.isAssignedToMe;
+                const canEdit = report.canEdit;
 
                 return {
                     ...report,
                     canEdit,
                     isCreatedByMe,
                     isAssignedToMe,
-                    // Lấy trạng thái yêu cầu của user hiện tại
                     myEditRequestStatus: report.myEditRequestStatus || 'none',
-                    // Lấy các yêu cầu đang chờ
                     pendingEditRequests: report.pendingEditRequests || []
                 };
             });
@@ -165,19 +160,16 @@ export default function ReportSelectionModal({
         }
 
         const initialStatus = report ? report.myEditRequestStatus : 'none';
-        // Tạm thời đặt trạng thái là 'requesting' để người dùng không bấm lại
         setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: 'requesting' } : r));
 
         try {
             await apiMethods.reports.requestEditPermission(reportId)
             toast.success('Yêu cầu cấp quyền đã được gửi, đang chờ duyệt.')
-            // Update UI status to 'pending'
             setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: 'pending' } : r));
         } catch (error) {
             console.error('Request edit permission error:', error)
             const errorMessage = error.response?.data?.message || 'Lỗi gửi yêu cầu'
             toast.error(errorMessage)
-            // Khôi phục trạng thái nếu thất bại
             setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: initialStatus } : r));
         }
     }
@@ -203,11 +195,9 @@ export default function ReportSelectionModal({
             setRespondingTo(prev => ({ ...prev, [requesterId]: 'approving' }))
             await apiMethods.reports.approveEditRequest(selectedReportForRequests._id, { requesterId })
             toast.success('Đã phê duyệt yêu cầu')
-            // Cập nhật trạng thái yêu cầu trong modal
             setEditRequests(prev => prev.map(r =>
                 r.requesterId._id === requesterId ? { ...r, status: 'approved' } : r
             ))
-            // Cập nhật lại list báo cáo
             fetchReports()
         } catch (error) {
             console.error('Approve edit request error:', error)
@@ -229,13 +219,11 @@ export default function ReportSelectionModal({
                 reason: rejectReason
             })
             toast.success('Đã từ chối yêu cầu')
-            // Cập nhật trạng thái yêu cầu trong modal
             setEditRequests(prev => prev.map(r =>
                 r.requesterId._id === requesterId ? { ...r, status: 'rejected', rejectReason: rejectReason } : r
             ))
             setRejectReason('')
             setShowRejectInput(null)
-            // Cập nhật lại list báo cáo
             fetchReports()
         } catch (error) {
             console.error('Reject edit request error:', error)
@@ -283,7 +271,8 @@ export default function ReportSelectionModal({
         const myRequestStatus = report.myEditRequestStatus;
         const hasPendingRequest = report.pendingEditRequests?.length > 0;
 
-        // 1. Kiểm tra xem người dùng có quyền chỉnh sửa tuyệt đối không (Tác giả, được giao, Admin/Manager)
+        // 1. NGƯỜI CÓ QUYỀN CHỈNH SỬA (Tác giả, Được giao, Admin/Manager)
+        // Nếu canEdit là TRUE (đã được tính chính xác ở Backend), LUÔN LUÔN cho phép sửa.
         if (report.canEdit) {
             return {
                 label: 'Tiếp tục sửa',
@@ -297,17 +286,16 @@ export default function ReportSelectionModal({
             };
         }
 
-        // 2. Không có quyền sửa (Reporter thứ cấp / người ngoài)
+        // 2. NGƯỜI KHÔNG CÓ QUYỀN CHỈNH SỬA
 
-        // 2a. Báo cáo đã hoàn thành -> chỉ xem
+        // 2a. Báo cáo đã hoàn thành/Phát hành -> chỉ xem
         if (report.status !== 'draft') {
             return {
                 label: 'Xem',
                 icon: Eye,
                 onClick: () => handleSelectReport(report._id),
                 disabled: false,
-                className: 'bg-gray-500 hover:bg-gray-600',
-                showGrantPermission: false
+                className: 'bg-gray-500 hover:bg-gray-600'
             };
         }
 
@@ -319,8 +307,7 @@ export default function ReportSelectionModal({
                 label: myRequestStatus === 'pending' ? 'Đã yêu cầu' : 'Đang gửi...',
                 icon: myRequestStatus === 'pending' ? Clock : Loader2,
                 disabled: true,
-                className: 'bg-amber-600 disabled:opacity-80',
-                showGrantPermission: false
+                className: 'bg-amber-600 disabled:opacity-80'
             };
         }
 
@@ -330,19 +317,17 @@ export default function ReportSelectionModal({
                 label: 'Bị từ chối',
                 icon: XCircle,
                 disabled: true,
-                className: 'bg-red-600 disabled:opacity-80',
-                showGrantPermission: false
+                className: 'bg-red-600 disabled:opacity-80'
             };
         }
 
-        // Chưa có yêu cầu hoặc yêu cầu cũ đã được xử lý (approved/rejected)
+        // Chưa có yêu cầu
         return {
             label: 'Yêu cầu sửa',
             icon: Lock,
             onClick: () => handleRequestEditPermission(report._id),
             disabled: false,
-            className: 'bg-sky-600 hover:bg-sky-700',
-            showGrantPermission: false
+            className: 'bg-sky-600 hover:bg-sky-700'
         };
     };
 

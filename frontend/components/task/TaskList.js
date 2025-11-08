@@ -111,7 +111,12 @@ export default function TaskList() {
         try {
             await apiMethods.tasks.delete(id)
             toast.success('Xóa thành công')
-            loadTasks(pagination.current)
+            // Load lại trang đầu tiên nếu xóa ở trang cuối cùng
+            if (tasks.length === 1 && pagination.current > 1) {
+                loadTasks(pagination.current - 1);
+            } else {
+                loadTasks(pagination.current);
+            }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Xóa thất bại')
         }
@@ -174,8 +179,8 @@ export default function TaskList() {
         }
         const colors = {
             pending: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
-            in_progress: 'bg-sky-100 text-sky-700 border border-sky-300', // Đổi màu
-            submitted: 'bg-cyan-100 text-cyan-700 border border-cyan-300', // Đổi màu
+            in_progress: 'bg-sky-100 text-sky-700 border border-sky-300',
+            submitted: 'bg-cyan-100 text-cyan-700 border border-cyan-300',
             approved: 'bg-green-100 text-green-700 border border-green-300',
             rejected: 'bg-red-100 text-red-700 border border-red-300',
             completed: 'bg-emerald-100 text-emerald-700 border border-emerald-300'
@@ -436,8 +441,8 @@ export default function TaskList() {
                                                 }}
                                                 title="Xem chi tiết"
                                             />
-                                            {/* Logic viết báo cáo chỉ hiển thị khi ở tab "Nhiệm vụ của tôi" */}
                                             {!isCreatedTab && isReporter && (
+                                                // Thay đổi hành vi nút viết báo cáo
                                                 <ActionButton
                                                     icon={FileText}
                                                     variant="primary"
@@ -446,7 +451,6 @@ export default function TaskList() {
                                                     title="Viết báo cáo"
                                                 />
                                             )}
-                                            {/* Logic quản lý chỉ hiển thị khi ở tab "Nhiệm vụ tôi giao" */}
                                             {isCreatedTab && canManage && (
                                                 <>
                                                     <ActionButton

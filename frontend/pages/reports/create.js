@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import RichTextEditor from '../../components/reports/RichTextEditor'
-import EvidencePicker from '../../components/reports/EvidencePicker'
+import ReportEvidencePicker from '../../components/reports/ReportEvidencePicker'
 import EvidenceViewer from '../../components/reports/EvidenceViewer'
 import ReportSelectionModal from '../../components/reports/ReportSelectionModal'
 import toast from 'react-hot-toast'
@@ -1026,7 +1026,7 @@ export default function CreateReportPage() {
                                     Tạo Minh chứng Mới
                                 </button>
 
-                                <EvidencePicker
+                                <ReportEvidencePicker
                                     standardId={formData.standardId}
                                     criteriaId={formData.criteriaId}
                                     programId={formData.programId}

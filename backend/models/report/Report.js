@@ -331,16 +331,23 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
     });
 };
 
+// Logic canEdit củng cố so sánh ID
 reportSchema.methods.canEdit = function(userId, userRole) {
-    if (userRole === 'admin') return true;
-    return this.createdBy.toString() === userId.toString() ||
-        this.assignedReporters.map(r => r.toString()).includes(userId.toString());
+    if (userRole === 'admin' || userRole === 'manager') return true;
+
+    // So sánh chuỗi ID để đảm bảo tính nhất quán (userId có thể là String hoặc ObjectId)
+    const currentUserIdStr = String(userId);
+
+    const isCreator = String(this.createdBy) === currentUserIdStr;
+    const isAssigned = this.assignedReporters.some(r => String(r) === currentUserIdStr);
+
+    return isCreator || isAssigned;
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
     if (userRole === 'admin') return true;
 
-    if (this.createdBy.toString() === userId.toString()) return true;
+    if (String(this.createdBy) === String(userId)) return true;
 
     if (['public', 'published'].includes(this.status)) return true;
 
@@ -458,7 +465,8 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
         'overall_tdg': 'CR'
     };
 
-    const academicYear = await mongoose.model('AcademicYear').findById(academicYearId);
+    const AcademicYear = mongoose.model('AcademicYear');
+    const academicYear = await AcademicYear.findById(academicYearId);
     const yearCode = academicYear ? academicYear.code.replace('-', '') : 'XXXX';
 
     let baseCode = `${typePrefix[type]}-${yearCode}`;
@@ -486,7 +494,8 @@ reportSchema.statics.generateCode = async function(type, academicYearId, standar
 reportSchema.post('save', async function(doc, next) {
     if (this.isNew && this.createdBy) {
         try {
-            await this.addActivityLog('report_create', this.createdBy,
+            const ActivityLog = require('../system/ActivityLog');
+            await ActivityLog.log('report_create', this.createdBy,
                 `Tạo mới báo cáo: ${this.title}`, {
                     severity: 'medium',
                     result: 'success',
