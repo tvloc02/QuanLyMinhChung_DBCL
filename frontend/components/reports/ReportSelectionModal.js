@@ -154,6 +154,17 @@ export default function ReportSelectionModal({
         }
 
         const report = reports.find(r => r._id === reportId);
+
+        // 🚨 SỬA LỖI: Nếu canEdit là TRUE, KHÔNG gửi request. Chặn ngay tại Frontend.
+        if (report.canEdit) {
+            toast.error('Bạn đã có quyền chỉnh sửa báo cáo này. Vui lòng bấm "Tiếp tục sửa".');
+
+            // Sau khi toast, buộc cập nhật UI để chuyển nút về "Tiếp tục sửa"
+            setReports(prev => prev.map(r => r._id === reportId ? { ...r, canEdit: true } : r));
+
+            return;
+        }
+
         if (report && (report.myEditRequestStatus === 'pending' || report.myEditRequestStatus === 'requesting')) {
             toast.error('Bạn đã gửi yêu cầu và đang chờ duyệt.');
             return;
@@ -272,7 +283,6 @@ export default function ReportSelectionModal({
         const hasPendingRequest = report.pendingEditRequests?.length > 0;
 
         // 1. NGƯỜI CÓ QUYỀN CHỈNH SỬA (Tác giả, Được giao, Admin/Manager)
-        // Nếu canEdit là TRUE (đã được tính chính xác ở Backend), LUÔN LUÔN cho phép sửa.
         if (report.canEdit) {
             return {
                 label: 'Tiếp tục sửa',
@@ -336,7 +346,7 @@ export default function ReportSelectionModal({
     return (
         <>
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                     {/* Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white flex items-center justify-between">
                         <div>
@@ -554,7 +564,7 @@ export default function ReportSelectionModal({
 
                         {editRequestsLoading ? (
                             <div className="py-8 text-center">
-                                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
+                                <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
                                 <p className="text-gray-600">Đang tải danh sách yêu cầu...</p>
                             </div>
                         ) : editRequests.filter(r => r.status === 'pending').length === 0 ? (

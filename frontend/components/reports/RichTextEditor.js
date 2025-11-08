@@ -1,24 +1,11 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import {
-    Bold,
-    Italic,
-    Underline,
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
-    AlignJustify,
-    List,
-    ListOrdered,
-    Heading1,
-    Heading2,
-    Heading3,
-    Link as LinkIcon,
-    Code,
-    Quote,
-    Undo,
-    Redo,
-    Type
+    Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+    List, ListOrdered, Heading1, Heading2, Heading3, Code,
+    Quote, Undo, Redo, Type, Subscript, Superscript, Table2, Minus, Eraser,
+    Unlink, Image, Copy, FileText, Palette, PlusCircle, Trash2, Download
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, ref) => {
     const editorRef = useRef(null)
@@ -83,6 +70,34 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
         execCommand('fontSize', size)
     }
 
+    const handleInsertImage = () => {
+        const url = prompt('Nhập URL hình ảnh:')
+        if (url) {
+            execCommand('insertImage', url)
+        }
+    }
+
+    const handleInsertTable = () => {
+        const rows = prompt('Số hàng (Rows):', 3)
+        const cols = prompt('Số cột (Columns):', 3)
+        if (!rows || !cols || isNaN(rows) || isNaN(cols)) return
+
+        let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 10px 0;">'
+        for (let i = 0; i < parseInt(rows); i++) {
+            tableHtml += '<tr>'
+            for (let j = 0; j < parseInt(cols); j++) {
+                if (i === 0) {
+                    tableHtml += '<th style="border: 1px solid #ccc; padding: 8px; background-color: #f0f0f0;">Tiêu đề</th>'
+                } else {
+                    tableHtml += '<td style="border: 1px solid #ccc; padding: 8px;">Nội dung</td>'
+                }
+            }
+            tableHtml += '</tr>'
+        }
+        tableHtml += '</table>'
+        execCommand('insertHTML', tableHtml)
+    }
+
     const handleInsertLink = () => {
         const selection = window.getSelection()
         const selectedText = selection.toString()
@@ -94,6 +109,10 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             const url = prompt('Nhập URL:')
             if (url) execCommand('createLink', url)
         }
+    }
+
+    const handleUnlink = () => {
+        execCommand('unlink')
     }
 
     const confirmInsertLink = () => {
@@ -123,35 +142,10 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
             document.execCommand('insertHTML', false, linkHTML)
 
             setTimeout(() => {
-                detectCodesFromContent()
+                detectExistingEvidenceCodes()
                 handleInput()
             }, 0)
         }
-    }
-
-    const detectCodesFromContent = () => {
-        if (!editorRef.current) return
-
-        const foundCodes = new Set()
-        const content = editorRef.current.innerHTML
-
-        // Find plain codes in text
-        const evidencePattern = /\b([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})\b/g
-        let match
-        while ((match = evidencePattern.exec(content)) !== null) {
-            foundCodes.add(match[1])
-        }
-
-        // Also find codes from existing links
-        const evidenceLinks = editorRef.current.querySelectorAll('a.evidence-link, span.evidence-code')
-        evidenceLinks.forEach(link => {
-            const code = link.getAttribute('data-code') || link.textContent
-            if (code && /^[A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2}$/.test(code)) {
-                foundCodes.add(code)
-            }
-        })
-
-        setDetectedCodes(foundCodes)
     }
 
     useImperativeHandle(ref, () => ({
@@ -190,6 +184,15 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     <ToolbarButton onClick={() => execCommand('strikeThrough')} title="Strikethrough">
                         <span className="text-sm font-bold">S</span>
                     </ToolbarButton>
+                    <ToolbarButton onClick={() => execCommand('subscript')} title="Subscript">
+                        <Subscript className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => execCommand('superscript')} title="Superscript">
+                        <Superscript className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => execCommand('removeFormat')} title="Remove Formatting">
+                        <Eraser className="h-4 w-4" />
+                    </ToolbarButton>
                 </div>
 
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
@@ -201,6 +204,9 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     </ToolbarButton>
                     <ToolbarButton onClick={() => execCommand('formatBlock', '<h3>')} title="Heading 3">
                         <Heading3 className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => execCommand('formatBlock', '<p>')} title="Paragraph">
+                        <Type className="h-4 w-4" />
                     </ToolbarButton>
                 </div>
 
@@ -223,7 +229,7 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
 
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={handleTextColor} title="Text Color">
-                        <Type className="h-4 w-4" />
+                        <span className="text-sm font-bold" style={{ color: '#dc2626' }}>A</span>
                     </ToolbarButton>
                     <ToolbarButton onClick={handleBackgroundColor} title="Background Color">
                         <span className="text-sm font-bold">🎨</span>
@@ -252,14 +258,23 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     <ToolbarButton onClick={() => execCommand('insertOrderedList')} title="Numbered List">
                         <ListOrdered className="h-4 w-4" />
                     </ToolbarButton>
+                    <ToolbarButton onClick={handleInsertTable} title="Insert Table">
+                        <Table2 className="h-4 w-4" />
+                    </ToolbarButton>
                 </div>
 
                 <div className="flex gap-1 border-r border-gray-300 pr-2">
                     <ToolbarButton onClick={handleInsertLink} title="Insert Link">
-                        <LinkIcon className="h-4 w-4" />
+                        🔗
+                    </ToolbarButton>
+                    <ToolbarButton onClick={handleUnlink} title="Remove Link">
+                        <Unlink className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={handleInsertImage} title="Insert Image">
+                        <Image className="h-4 w-4" />
                     </ToolbarButton>
                     <ToolbarButton onClick={() => execCommand('insertHorizontalRule')} title="Horizontal Line">
-                        <span className="text-sm font-bold">—</span>
+                        <Minus className="h-4 w-4" />
                     </ToolbarButton>
                 </div>
 
@@ -403,12 +418,12 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                 [contenteditable] blockquote {
                     border-left: 4px solid #e5e7eb;
                     padding-left: 1rem;
-                    margin: 1rem 0;
+                    margin: 1em 0;
                     color: #6b7280;
                 }
                 [contenteditable] pre {
                     background-color: #f3f4f6;
-                    padding: 1rem;
+                    padding: 1em;
                     border-radius: 0.375rem;
                     overflow-x: auto;
                     font-family: monospace;
@@ -426,26 +441,6 @@ const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, r
                     text-decoration: underline;
                 }
 
-                /* Evidence code in editor (pending wrap on save) */
-                span.evidence-code {
-                    display: inline-flex;
-                    align-items: center;
-                    padding: 0.25rem 0.75rem;
-                    background-color: #fef08a;
-                    color: #854d0e;
-                    border-radius: 0.375rem;
-                    font-family: monospace;
-                    font-weight: 600;
-                    font-size: 0.875rem;
-                    border: 1px solid #fcd34d;
-                    cursor: pointer;
-                    white-space: nowrap;
-                }
-                span.evidence-code:hover {
-                    background-color: #fde047;
-                }
-
-                /* Evidence link (after saved) */
                 a.evidence-link {
                     display: inline-flex;
                     align-items: center;
