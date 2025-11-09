@@ -349,7 +349,7 @@ const deleteTask = async (req, res) => {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
 
-        const task = await Task.findOneAndDelete({ _id: id, academicYearId });
+        const task = await Task.findOne({ _id: id, academicYearId });
 
         if (!task) {
             return res.status(404).json({
@@ -358,7 +358,16 @@ const deleteTask = async (req, res) => {
             });
         }
 
-        await Report.deleteMany({ taskId: id });
+        if (req.user.role !== 'admin' && req.user.role !== 'manager' && !task.assignedTo.map(id => id.toString()).includes(req.user.id.toString())) {
+            return res.status(403).json({
+                success: false,
+                message: 'Bạn không có quyền xóa nhiệm vụ này'
+            });
+        }
+
+        await Task.findByIdAndDelete(id);
+
+        await mongoose.model('Report').deleteMany({ taskId: id });
 
         res.json({
             success: true,
@@ -371,42 +380,6 @@ const deleteTask = async (req, res) => {
             success: false,
             message: 'Lỗi hệ thống khi xóa nhiệm vụ'
         });
-    }
-};
-
-const submitReport = async (req, res) => {
-    try {
-        const { taskId } = req.params;
-        const academicYearId = req.academicYearId;
-        const userId = req.user.id;
-
-        const task = await Task.findOne({ _id: taskId, academicYearId });
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy nhiệm vụ' });
-        }
-
-        if (!task.assignedTo.map(id => id.toString()).includes(userId.toString())) {
-            return res.status(403).json({ success: false, message: 'Bạn không được giao nhiệm vụ này' });
-        }
-
-        if (task.status !== 'pending' && task.status !== 'in_progress' && task.status !== 'rejected') {
-            return res.status(400).json({ success: false, message: `Không thể nộp báo cáo ở trạng thái ${task.status}` });
-        }
-
-        task.status = 'submitted';
-        task.updatedBy = userId;
-        task.updatedAt = new Date();
-        await task.save();
-
-        res.json({
-            success: true,
-            message: 'Báo cáo đã được nộp thành công và đang chờ duyệt',
-            data: task
-        });
-
-    } catch (error) {
-        console.error('Submit report error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi nộp báo cáo' });
     }
 };
 
@@ -513,7 +486,6 @@ module.exports = {
     createTask,
     updateTask,
     deleteTask,
-    submitReport,
     reviewReport,
     getTaskByCriteria
 };

@@ -12,7 +12,6 @@ const {
     createTask,
     updateTask,
     deleteTask,
-    submitReport,
     reviewReport,
     getTaskByCriteria
 } = require('../../controllers/Task/taskController');
@@ -117,27 +116,18 @@ router.post('/',
 );
 
 router.put('/:id',
-    requireManager,
     updateTaskValidation,
     validation,
     updateTask
 );
 
 router.delete('/:id',
-    requireManager,
     [param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')],
     validation,
     deleteTask
 );
 
-router.post('/:id/submit-report', [
-    param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
-    body('reportId')
-        .notEmpty()
-        .withMessage('ID báo cáo là bắt buộc')
-        .isMongoId()
-        .withMessage('ID báo cáo không hợp lệ')
-], validation, submitReport);
+// ROUTE NỘP BÁO CÁO CŨ ĐÃ ĐƯỢC LOẠI BỎ.
 
 router.post('/:id/review-report',
     requireManager,

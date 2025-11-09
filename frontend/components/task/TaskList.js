@@ -23,17 +23,17 @@ export default function TaskList() {
     const [showTaskDetail, setShowTaskDetail] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
     const [userRole, setUserRole] = useState('')
+    const [userId, setUserId] = useState('')
     const [standards, setStandards] = useState([])
     const [criterias, setCriterias] = useState([])
-
-    // State mới cho Modal
     const [showReportSelection, setShowReportSelection] = useState(false)
     const [reportContext, setReportContext] = useState(null)
 
-
     useEffect(() => {
         const role = localStorage.getItem('userRole') || ''
+        const id = localStorage.getItem('userId') || ''
         setUserRole(role)
+        setUserId(id)
     }, [])
 
     useEffect(() => {
@@ -111,11 +111,10 @@ export default function TaskList() {
         try {
             await apiMethods.tasks.delete(id)
             toast.success('Xóa thành công')
-            // Load lại trang đầu tiên nếu xóa ở trang cuối cùng
             if (tasks.length === 1 && pagination.current > 1) {
-                loadTasks(pagination.current - 1);
+                loadTasks(pagination.current - 1)
             } else {
-                loadTasks(pagination.current);
+                loadTasks(pagination.current)
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Xóa thất bại')
@@ -123,20 +122,18 @@ export default function TaskList() {
     }
 
     const handleWriteReport = (task) => {
-        // Mở Modal lựa chọn báo cáo thay vì chuyển hướng trực tiếp
         setReportContext({
             taskId: task._id,
             reportType: task.reportType,
             standardId: task.standardId?._id || task.standardId,
             criteriaId: task.criteriaId?._id || task.criteriaId,
-            programId: task.programId?._id || task.programId, // Thêm program/orgId để tối ưu create.js
+            programId: task.programId?._id || task.programId,
             organizationId: task.organizationId?._id || task.organizationId
         })
         setShowReportSelection(true)
     }
 
     const handleCreateNewReport = () => {
-        // Chuyển hướng đến trang tạo báo cáo với context từ Task
         router.push({
             pathname: '/reports/create',
             query: {
@@ -146,7 +143,7 @@ export default function TaskList() {
                 criteriaId: reportContext.criteriaId,
                 programId: reportContext.programId,
                 organizationId: reportContext.organizationId,
-                forceModal: true // Giữ modal logic trong create.js
+                forceModal: true
             }
         })
         setShowReportSelection(false)
@@ -158,7 +155,6 @@ export default function TaskList() {
         setShowReportSelection(false)
         setReportContext(null)
     }
-
 
     const getStatusLabel = (status) => {
         const icons = {
@@ -193,13 +189,11 @@ export default function TaskList() {
         )
     }
 
-    const canManage = userRole === 'admin' || userRole === 'manager'
     const isReporter = userRole === 'reporter'
     const isCreatedTab = activeTab === 'created'
 
     return (
         <div className="space-y-6">
-            {/* Report Selection Modal */}
             {showReportSelection && reportContext && (
                 <ReportSelectionModal
                     isOpen={showReportSelection}
@@ -218,7 +212,7 @@ export default function TaskList() {
                 />
             )}
 
-            <div className="bg-gradient-to-r from-blue-600 to-sky-600 rounded-2xl shadow-xl p-8 text-white">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-xl p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="w-16 h-16 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -231,7 +225,7 @@ export default function TaskList() {
                             </p>
                         </div>
                     </div>
-                    {isCreatedTab && canManage && (
+                    {isCreatedTab && (
                         <button
                             onClick={() => {
                                 setSelectedTask(null)
@@ -246,7 +240,6 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Filter Section (dùng màu xanh) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="flex border-b border-gray-100">
                     <button
@@ -358,21 +351,20 @@ export default function TaskList() {
                 </div>
             </div>
 
-            {/* Task Table (đổi màu) */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
+                        <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
                         <tr>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[50px]">STT</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[80px]">Mã</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Loại báo cáo</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Người giao</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Thời gian giao</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[100px]">Hạn</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[120px]">Người được giao</th>
-                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[130px]">Trạng thái</th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[180px]">Thao tác</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[50px]">STT</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[80px]">Mã</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[100px]">Loại báo cáo</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[100px]">Người giao</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[100px]">Thời gian giao</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[100px]">Hạn</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[120px]">Người được giao</th>
+                            <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-300 w-[130px]">Trạng thái</th>
+                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-300 w-[180px]">Thao tác</th>
                         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -442,7 +434,6 @@ export default function TaskList() {
                                                 title="Xem chi tiết"
                                             />
                                             {!isCreatedTab && isReporter && (
-                                                // Thay đổi hành vi nút viết báo cáo
                                                 <ActionButton
                                                     icon={FileText}
                                                     variant="primary"
@@ -451,7 +442,7 @@ export default function TaskList() {
                                                     title="Viết báo cáo"
                                                 />
                                             )}
-                                            {isCreatedTab && canManage && (
+                                            {isCreatedTab && (
                                                 <>
                                                     <ActionButton
                                                         icon={Edit2}
@@ -482,7 +473,7 @@ export default function TaskList() {
                 </div>
 
                 {!loading && tasks.length > 0 && (
-                    <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200 flex items-center justify-between">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-t-2 border-blue-300 flex items-center justify-between">
                         <div className="text-sm text-gray-700">
                             Hiển thị <span className="font-bold text-blue-600">{tasks.length}</span> trong tổng số{' '}
                             <span className="font-bold text-blue-600">{pagination.total}</span>

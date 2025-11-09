@@ -141,26 +141,26 @@ export const apiMethods = {
         getAll: (params) => api.get('/api/organizations', { params }),
         getById: (id) => api.get(`/api/organizations/${id}`),
         create: (data) => api.post('/api/organizations', data),
-        update: (id, data) => api.put('/api/organizations/${id}', data),
-        delete: (id) => api.delete('/api/organizations/${id}')
+        update: (id, data) => api.put(`/api/organizations/${id}`, data),
+        delete: (id) => api.delete(`/api/organizations/${id}`)
     },
 
     standards: {
         getAll: (params) => api.get('/api/standards', { params }),
         getById: (id) => api.get(`/api/standards/${id}`),
         create: (data) => api.post('/api/standards', data),
-        update: (id, data) => api.put('/api/standards/${id}', data),
-        delete: (id) => api.delete('/api/standards/${id}'),
+        update: (id, data) => api.put(`/api/standards/${id}`, data),
+        delete: (id) => api.delete(`/api/standards/${id}`),
         getByProgram: (programId, organizationId) =>
-            api.get('/api/standards/program/${programId}/organization/${organizationId}')
+            api.get(`/api/standards/program/${programId}/organization/${organizationId}`)
     },
 
     criteria: {
         getAll: (params) => api.get('/api/criteria', { params }),
         getById: (id) => api.get(`/api/criteria/${id}`),
         create: (data) => api.post('/api/criteria', data),
-        update: (id, data) => api.put('/api/criteria/${id}', data),
-        delete: (id) => api.delete('/api/criteria/${id}'),
+        update: (id, data) => api.put(`/api/criteria/${id}`, data),
+        delete: (id) => api.delete(`/api/criteria/${id}`),
         getByStandard: (standardId) => api.get('/api/criteria/standard/${standardId}'),
         getByProgram: (programId, organizationId) =>
             api.get('/api/criteria/program/${programId}/organization/${organizationId}'),
@@ -178,10 +178,9 @@ export const apiMethods = {
         getAssignedTasks: (params) => api.get('/api/tasks/assigned', { params }),
         getById: (id) => api.get(`/api/tasks/${id}`),
         create: (data) => api.post('/api/tasks', data),
-        update: (id, data) => api.put(`/api/tasks/${id}`, data),
         delete: (id) => api.delete(`/api/tasks/${id}`),
+        update: (id, data) => api.put(`/api/tasks/${id}`, data),
         getByCriteria: (criteriaId) => api.get('/api/tasks/by-criteria', { params: { criteriaId } }),
-        submitReport: (id, reportId) => api.post(`/api/tasks/${id}/submit-report`, { reportId }),
         reviewReport: (id, data) => api.post(`/api/tasks/${id}/review-report`, data)
     },
 
@@ -284,6 +283,9 @@ export const apiMethods = {
         reject: (id, data = {}) => api.post(`/api/reports/${id}/reject`, data),
         makePublic: (id) => api.post(`/api/reports/${id}/make-public`),
 
+        // === NEW SUBMISSION API ===
+        submitReportToTask: (id, data) => api.post(`/api/reports/${id}/submit-to-task`, data),
+
         // === EDIT PERMISSION ===
         requestEditPermission: (id) => api.post(`/api/reports/${id}/request-edit-permission`),
         getEditRequests: (id) => api.get(`/api/reports/${id}/edit-requests`),
@@ -345,7 +347,7 @@ export const apiMethods = {
         getAll: (params) => api.get('/api/evaluations', { params }),
         getById: (id) => api.get(`/api/evaluations/${id}`),
         create: (data) => api.post('/api/evaluations', data),
-        update: (id, data) => api.put('/api/evaluations/${id}', data),
+        update: (id, data) => api.put(`/api/evaluations/${id}`, data),
         submit: (id) => api.post('/api/evaluations/${id}/submit'),
         review: (id, data) => api.post('/api/evaluations/${id}/review', data),
         finalize: (id, data) => api.post('/api/evaluations/${id}/finalize', data),

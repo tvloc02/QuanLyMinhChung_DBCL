@@ -1,5 +1,3 @@
-// backend/routes/report/reports.js - FULL FILE
-
 const express = require('express');
 const router = express.Router();
 const { body, query, param } = require('express-validator');
@@ -87,7 +85,11 @@ const createReportValidation = [
     body('keywords')
         .optional()
         .isArray()
-        .withMessage('Từ khóa phải là mảng')
+        .withMessage('Từ khóa phải là mảng'),
+    body('taskId')
+        .optional({ checkFalsy: true })
+        .isMongoId()
+        .withMessage('ID nhiệm vụ (taskId) không hợp lệ')
 ];
 
 const updateReportValidation = [
@@ -120,8 +122,6 @@ const approvalValidation = [
         .withMessage('Phản hồi không được quá 2000 ký tự')
 ];
 
-// ============ GET INSERTABLE REPORTS (QUERY REPORTS) ============
-// Phải đặt trước GET /:id để tránh conflict
 router.get('/insertable',
     [
         query('reportType')
@@ -146,7 +146,6 @@ router.get('/insertable',
     reportController.getInsertableReports
 );
 
-// ============ GET BY-TASK (QUERY REPORTS) ============
 router.get('/by-task',
     [
         query('taskId')
@@ -172,7 +171,6 @@ router.get('/by-task',
     reportController.getReportsByTask
 );
 
-// ============ GET BY STANDARD/CRITERIA (QUERY REPORTS) ============
 router.get('/by-standard-criteria',
     [
         query('reportType')
@@ -192,21 +190,18 @@ router.get('/by-standard-criteria',
     reportController.getReportsByStandardCriteria
 );
 
-// ============ POST - TẠOYÊU CẦU CẤP QUYỀN CHỈNH SỬA ============
 router.post('/:id/request-edit-permission',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
     reportController.requestEditPermission
 );
 
-// ============ GET - DANH SÁCH YÊU CẦU CẤP QUYỀN ============
 router.get('/:id/edit-requests',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
     reportController.getEditRequests
 );
 
-// ============ POST - PHÊ DUYỆT YÊU CẦU CẤP QUYỀN ============
 router.post('/:id/edit-requests/approve',
     [
         param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
@@ -216,7 +211,6 @@ router.post('/:id/edit-requests/approve',
     reportController.approveEditRequest
 );
 
-// ============ POST - TỪ CHỐI YÊU CẦU CẤP QUYỀN ============
 router.post('/:id/edit-requests/reject',
     [
         param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
@@ -227,14 +221,12 @@ router.post('/:id/edit-requests/reject',
     reportController.rejectEditRequest
 );
 
-// ============ POST - TẠO BÁO CÁO ============
 router.post('/',
     createReportValidation,
     validation,
     reportController.createReport
 );
 
-// ============ GET - DANH SÁCH BÁO CÁO ============
 router.get('/',
     [
         query('page')
@@ -447,6 +439,15 @@ router.put('/:id/comments/:commentId/resolve',
     ],
     validation,
     reportController.resolveReportComment
+);
+
+router.post('/:id/submit-to-task',
+    [
+        param('id').isMongoId().withMessage('ID báo cáo không hợp lệ'),
+        body('taskId').isMongoId().withMessage('ID nhiệm vụ là bắt buộc')
+    ],
+    validation,
+    reportController.submitReportToTask
 );
 
 module.exports = router;

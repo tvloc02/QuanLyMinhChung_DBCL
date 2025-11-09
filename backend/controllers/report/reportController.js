@@ -2,6 +2,23 @@ const mongoose = require('mongoose');
 const Report = require('../../models/report/Report');
 const Task = require("../../models/Task/Task");
 
+const canReviewReport = async (req, report) => {
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+        return true;
+    }
+
+    if (report.taskId) {
+        const TaskModel = mongoose.model('Task');
+        const task = await TaskModel.findById(report.taskId);
+
+        if (task && String(task.createdBy) === String(req.user.id)) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
 const getReports = async (req, res) => {
     try {
         const {
@@ -181,7 +198,8 @@ const createReport = async (req, res) => {
             contentMethod,
             summary,
             keywords,
-            linkedCriteriaReports
+            linkedCriteriaReports,
+            taskId
         } = req.body;
 
         const academicYearId = req.academicYearId;
@@ -230,7 +248,8 @@ const createReport = async (req, res) => {
             createdBy: req.user.id,
             updatedBy: req.user.id,
             assignedReporters: [req.user.id],
-            linkedCriteriaReports: linkedCriteriaReports || []
+            linkedCriteriaReports: linkedCriteriaReports || [],
+            taskId: taskId || null
         };
 
         if (standardId) {
@@ -248,7 +267,7 @@ const createReport = async (req, res) => {
                     message: 'Nội dung báo cáo là bắt buộc khi dùng trình soạn thảo trực tuyến'
                 });
             }
-            reportData.content = processEvidenceLinksInContent(content);
+            reportData.content = content;
         } else {
             reportData.content = '';
         }
@@ -300,7 +319,7 @@ const createReport = async (req, res) => {
 const updateReport = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content, linkedCriteriaReports, ...updateData } = req.body;
+        const { content, linkedCriteriaReports, taskId, ...updateData } = req.body;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
@@ -335,7 +354,11 @@ const updateReport = async (req, res) => {
         }
 
         if (content !== undefined) {
-            report.content = processEvidenceLinksInContent(content);
+            report.content = content;
+        }
+
+        if (taskId !== undefined) {
+            report.taskId = taskId;
         }
 
         if (report.content !== oldContent || report.title !== oldTitle) {
@@ -465,7 +488,7 @@ const getReportsByTask = async (req, res) => {
 
         let query = {
             academicYearId,
-            status: { $in: ['draft', 'public', 'published'] }
+            status: { $in: ['draft', 'public', 'published', 'submitted'] }
         };
 
         let task = null;
@@ -725,10 +748,10 @@ const approveReport = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+        if (!await canReviewReport(req, report)) {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ Manager hoặc Admin có quyền phê duyệt báo cáo'
+                message: 'Bạn không có quyền phê duyệt báo cáo này'
             });
         }
 
@@ -786,10 +809,10 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+        if (!await canReviewReport(req, report)) {
             return res.status(403).json({
                 success: false,
-                message: 'Chỉ Manager hoặc Admin có quyền từ chối báo cáo'
+                message: 'Bạn không có quyền từ chối báo cáo này'
             });
         }
 
@@ -1339,7 +1362,7 @@ const convertFileToContent = async (req, res) => {
             });
         }
 
-        report.content = processEvidenceLinksInContent(htmlContent);
+        report.content = htmlContent;
         report.contentMethod = 'online_editor';
         report.updatedBy = req.user.id;
 
@@ -1620,27 +1643,6 @@ const resolveReportComment = async (req, res) => {
     }
 };
 
-function processEvidenceLinksInContent(content) {
-    if (!content) return ''
-
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:3000'
-
-    content = normalizeExistingLinks(content, baseUrl)
-
-    return content
-}
-
-function normalizeExistingLinks(content, baseUrl) {
-    const pattern = /<a[^>]*class="evidence-link"[^>]*data-code="([A-Z]{1,3}\d+\.\d{2}\.\d{2}\.\d{2})"[^>]*>.*?<\/a>/gi
-
-    content = content.replace(pattern, (match, code) => {
-        const url = `${baseUrl}/public/evidences/${code}`
-        return `<a href="${url}" class="evidence-link" data-code="${code}" target="_blank" rel="noopener noreferrer">${code}</a>`
-    })
-
-    return content
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     const map = {
@@ -1916,9 +1918,7 @@ const getInsertableReports = async (req, res) => {
             status: { $in: ['public', 'published'] }
         };
 
-        // Logic xác định báo cáo nào có thể chèn được
         if (reportType === 'overall_tdg') {
-            // Báo cáo tổng hợp TDG có thể chèn báo cáo tiêu chuẩn + tiêu chí (public/published)
             query.type = { $in: ['standard', 'criteria'] };
             if (programId) {
                 query.programId = programId;
@@ -1927,7 +1927,6 @@ const getInsertableReports = async (req, res) => {
                 query.organizationId = organizationId;
             }
         } else if (reportType === 'standard') {
-            // Báo cáo tiêu chuẩn có thể chèn báo cáo tiêu chí của standardId đó (public/published)
             if (!standardId) {
                 return res.status(400).json({
                     success: false,
@@ -1937,7 +1936,6 @@ const getInsertableReports = async (req, res) => {
             query.type = 'criteria';
             query.standardId = standardId;
         } else if (reportType === 'criteria') {
-            // Báo cáo tiêu chí không thể chèn báo cáo khác
             return res.json({
                 success: true,
                 data: {
@@ -1995,6 +1993,67 @@ const getInsertableReports = async (req, res) => {
     }
 };
 
+const submitReportToTask = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { taskId } = req.body;
+        const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+        const ReportModel = mongoose.model('Report');
+
+        const report = await ReportModel.findOne({ _id: id, academicYearId });
+        if (!report) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
+        }
+
+        const task = await Task.findOne({ _id: taskId, academicYearId });
+        if (!task) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy nhiệm vụ đích' });
+        }
+
+        if (!task.assignedTo.some(id => id.toString() === userId.toString())) {
+            return res.status(403).json({ success: false, message: 'Bạn không được giao nhiệm vụ này' });
+        }
+
+        if (task.reportId && String(task.reportId) !== String(id)) {
+            return res.status(400).json({ success: false, message: 'Nhiệm vụ này đã có báo cáo được nộp' });
+        }
+
+        if (report.status !== 'draft' && report.status !== 'rejected') {
+            return res.status(400).json({ success: false, message: `Báo cáo phải ở trạng thái nháp hoặc bị từ chối để được nộp.` });
+        }
+
+        if (task.status === 'completed' || task.status === 'cancelled') {
+            return res.status(400).json({ success: false, message: `Không thể nộp báo cáo cho Task ở trạng thái ${task.status}.` });
+        }
+
+        report.taskId = taskId;
+        report.status = 'submitted';
+        report.updatedBy = userId;
+        await report.save();
+
+        task.reportId = id;
+        task.status = 'submitted';
+        task.submittedAt = new Date();
+        task.updatedBy = userId;
+        await task.save();
+
+        res.json({
+            success: true,
+            message: `Báo cáo đã được nộp thành công cho Task ${task.taskCode} và đang chờ duyệt.`,
+            data: {
+                report: report,
+                task: task
+            }
+        });
+
+    } catch (error) {
+        console.error('Submit report to task error:', error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống khi nộp báo cáo cho Task' });
+    }
+};
+
+
 module.exports = {
     getReports,
     getReportById,
@@ -2024,5 +2083,6 @@ module.exports = {
     getEditRequests,
     approveEditRequest,
     rejectEditRequest,
-    getInsertableReports
+    getInsertableReports,
+    submitReportToTask
 };

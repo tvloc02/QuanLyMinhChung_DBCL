@@ -46,7 +46,9 @@ export default function CreateReportPage() {
     const [isLocked, setIsLocked] = useState({})
     const [linkedCriteriaReports, setLinkedCriteriaReports] = useState([])
 
-    // State để lưu context data
+    const [showTaskSubmissionModal, setShowTaskSubmissionModal] = useState(false);
+    const [taskSubmissionContext, setTaskSubmissionContext] = useState(null);
+
     const [contextData, setContextData] = useState({
         programId: null,
         organizationId: null,
@@ -78,7 +80,6 @@ export default function CreateReportPage() {
     const [showNewEvidenceModal, setShowNewEvidenceModal] = useState(false)
     const [showCriteriaReportPicker, setShowCriteriaReportPicker] = useState(false)
 
-    // Cờ kiểm soát việc đã xử lý modal lần đầu chưa
     const [hasHandledInitialModal, setHasHandledInitialModal] = useState(false)
 
     const breadcrumbItems = [
@@ -130,7 +131,6 @@ export default function CreateReportPage() {
                 }
                 setIsLocked(newIsLocked)
 
-                // Chỉ hiển thị modal nếu chưa xử lý lần đầu
                 if (!hasHandledInitialModal) {
                     setShowReportSelectionModal(true)
                 }
@@ -226,7 +226,6 @@ export default function CreateReportPage() {
     const validateForm = () => {
         const errors = {};
 
-        // ===== BASIC FIELDS =====
         if (!formData.title.trim()) {
             errors.title = 'Tiêu đề báo cáo là bắt buộc';
         }
@@ -247,11 +246,9 @@ export default function CreateReportPage() {
             errors.criteriaId = 'Tiêu chí là bắt buộc';
         }
 
-        // ===== CONTENT VALIDATION =====
         if (formData.contentMethod === 'online_editor') {
             const plainText = editorRef.current?.getContent?.() || '';
 
-            // Loại bỏ HTML tags để kiểm tra text thực tế
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = plainText;
             const textContent = tempDiv.textContent || '';
@@ -268,6 +265,27 @@ export default function CreateReportPage() {
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
+
+    const handleSubmissionToTask = async (reportId, selectedTaskId) => {
+        if (!selectedTaskId) {
+            toast('Báo cáo đã được tạo (Draft). Bạn có thể nộp sau.', { icon: '📝' });
+            router.push(`/reports/${reportId}`);
+            return;
+        }
+
+        try {
+            const response = await apiMethods.reports.submitReportToTask(reportId, { taskId: selectedTaskId });
+            toast.success(response.data?.message || `Nộp báo cáo thành công cho Task ID: ${selectedTaskId}`);
+            router.push(`/reports/${reportId}`);
+        } catch (error) {
+            console.error('Submission to Task error:', error);
+            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo cho nhiệm vụ');
+            router.push(`/reports/${reportId}`);
+        } finally {
+            setShowTaskSubmissionModal(false);
+            setTaskSubmissionContext(null);
+        }
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -287,6 +305,7 @@ export default function CreateReportPage() {
                 contentMethod: formData.contentMethod,
                 summary: formData.summary,
                 keywords: formData.keywords,
+                taskId: formData.taskId || null
             }
 
             if (formData.type !== 'overall_tdg') {
@@ -295,9 +314,7 @@ export default function CreateReportPage() {
             if (formData.type === 'criteria') {
                 submitData.criteriaId = formData.criteriaId
             }
-            if (formData.taskId) {
-                submitData.taskId = formData.taskId
-            }
+
             if (formData.contentMethod === 'online_editor') {
                 submitData.content = formData.content
             } else {
@@ -321,9 +338,18 @@ export default function CreateReportPage() {
                     setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
                 }
 
-                setTimeout(() => {
-                    router.push(`/reports/${reportId}`)
-                }, 1500)
+                if (!formData.taskId) {
+                    setTaskSubmissionContext({
+                        reportId: reportId,
+                        reportType: formData.type,
+                        standardId: formData.standardId,
+                        criteriaId: formData.criteriaId
+                    });
+                    setShowTaskSubmissionModal(true);
+                } else {
+                    await handleSubmissionToTask(reportId, formData.taskId);
+                }
+
             }
         } catch (error) {
             console.error('Submit error:', error)
@@ -433,17 +459,14 @@ export default function CreateReportPage() {
     }
 
     const handleSelectExistingReport = (reportId) => {
-        // Sau khi chọn báo cáo đã có, chuyển hướng đến trang chỉnh sửa
         router.push(`/reports/${reportId}`)
         setHasHandledInitialModal(true)
     }
 
     const handleCreateNewReport = () => {
-        // Sau khi chọn tạo báo cáo mới, đóng modal và đánh dấu đã xử lý
         setShowReportSelectionModal(false)
         setHasHandledInitialModal(true)
 
-        // Giữ lại các thông tin đã được ghim từ context
         setFormData(prev => ({
             ...prev,
             title: '',
@@ -519,7 +542,7 @@ export default function CreateReportPage() {
             {showCriteriaReportPicker && (
                 <CriteriaReportPickerModal
                     isOpen={showCriteriaReportPicker}
-                    reportType={formData.type}  // ← THÊM DÒNG NÀY
+                    reportType={formData.type}
                     standardId={formData.standardId}
                     programId={formData.programId}
                     organizationId={formData.organizationId}
@@ -532,7 +555,6 @@ export default function CreateReportPage() {
                 />
             )}
 
-            {/* New Evidence Modal */}
             {showNewEvidenceModal && (
                 <NewEvidenceModal
                     criteriaId={formData.criteriaId}
@@ -543,6 +565,23 @@ export default function CreateReportPage() {
                     onSuccess={() => {
                         setShowNewEvidenceModal(false)
                         toast.success('Minh chứng mới đã được tạo thành công và sẵn sàng để chèn.')
+                    }}
+                />
+            )}
+
+            {showTaskSubmissionModal && taskSubmissionContext && (
+                <TaskSelectionModal
+                    isOpen={showTaskSubmissionModal}
+                    reportId={taskSubmissionContext.reportId}
+                    reportType={taskSubmissionContext.reportType}
+                    standardId={taskSubmissionContext.standardId}
+                    criteriaId={taskSubmissionContext.criteriaId}
+                    onClose={() => setShowTaskSubmissionModal(false)}
+                    onSelectTask={handleSubmissionToTask}
+                    onSkip={(id) => {
+                        setShowTaskSubmissionModal(false);
+                        toast('Báo cáo đã được tạo (Draft). Bạn có thể nộp sau.', { icon: '📝' });
+                        router.push(`/reports/${id}`);
                     }}
                 />
             )}
@@ -929,7 +968,6 @@ export default function CreateReportPage() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            // Kiểm tra điều kiện theo loại báo cáo
                                             if (formData.type === 'overall_tdg') {
                                                 if (!formData.programId || !formData.organizationId) {
                                                     toast.error('Vui lòng chọn Chương trình và Tổ chức trước khi chèn báo cáo.')
@@ -1104,225 +1142,89 @@ export default function CreateReportPage() {
     )
 }
 
-function CriteriaReportPickerModal({
-                                       isOpen,
-                                       standardId,
-                                       programId,
-                                       organizationId,
-                                       reportType,
-                                       initialReports,
-                                       onClose,
-                                       onSelectReports
-                                   }) {
-    const [reports, setReports] = useState([]);
+function TaskSelectionModal({ isOpen, reportId, reportType, standardId, criteriaId, onClose, onSelectTask, onSkip }) {
+    const [tasks, setTasks] = useState([]);
+    const [selectedTaskId, setSelectedTaskId] = useState('');
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
-            fetchInsertableReports();
+            fetchTasks();
         }
-    }, [isOpen, reportType, standardId, programId, organizationId]);
+    }, [isOpen]);
 
-    const fetchInsertableReports = async () => {
+    const fetchTasks = async () => {
         try {
             setLoading(true);
-            setError(null);
-
             const params = {
-                reportType: reportType
+                reportType: reportType,
+                standardId: standardId,
+                criteriaId: criteriaId,
+                status: 'pending,in_progress,rejected',
+                limit: 50
             };
 
-            if (reportType === 'standard' && standardId) {
-                params.standardId = standardId;
-            } else if (reportType === 'overall_tdg') {
-                if (programId) params.programId = programId;
-                if (organizationId) params.organizationId = organizationId;
-            }
+            const response = await apiMethods.tasks.getAssignedTasks(params);
 
-            const response = await apiMethods.reports.getInsertable(params);
-
-            if (response.data?.data?.reports) {
-                const fetchedReports = response.data.data.reports.map(report => {
-                    const initial = initialReports?.find(ir => ir._id === report._id);
-                    return {
-                        ...report,
-                        isSelected: initial ? true : false,
-                        displayAuthor: initial?.displayAuthor ?? true
-                    };
-                });
-                setReports(fetchedReports);
-            }
+            const availableTasks = response.data.data.filter(t => t.reportId === reportId || !t.reportId);
+            setTasks(availableTasks);
         } catch (err) {
-            console.error('Fetch insertable reports error:', err);
-            setError('Không thể tải danh sách báo cáo. Vui lòng thử lại.');
-            setReports([]);
+            toast.error("Không thể tải danh sách nhiệm vụ");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleToggle = (reportId) => {
-        setReports(prev => prev.map(r =>
-            r._id === reportId ? { ...r, isSelected: !r.isSelected } : r
-        ));
-    };
-
-    const handleAuthorToggle = (reportId, value) => {
-        setReports(prev => prev.map(r =>
-            r._id === reportId ? { ...r, displayAuthor: value === 'true' } : r
-        ));
-    };
-
-    const handleSave = () => {
-        const selectedReports = reports.filter(r => r.isSelected);
-        if (selectedReports.length === 0) {
-            toast.error('Vui lòng chọn ít nhất một báo cáo');
-            return;
-        }
-        onSelectReports(selectedReports);
-    };
-
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50">
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900">
-                            Chọn Báo Cáo Để Chèn Vào
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                            {reportType === 'overall_tdg' && 'Chọn báo cáo tiêu chuẩn hoặc tiêu chí để chèn'}
-                            {reportType === 'standard' && 'Chọn báo cáo tiêu chí để chèn'}
-                            {reportType === 'criteria' && 'Báo cáo tiêu chí không thể chèn báo cáo khác'}
-                        </p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-red-100 rounded-lg transition-all"
-                    >
-                        <X className="w-5 h-5 text-gray-600" />
-                    </button>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="p-6 border-b">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <FileText className="w-6 h-6 text-indigo-600" />
+                        Nộp Báo Cáo cho Nhiệm Vụ
+                    </h3>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                    <p className="text-gray-600">
+                        Báo cáo này được tạo độc lập. Bạn có muốn liên kết và nộp nó cho một nhiệm vụ cụ thể không?
+                    </p>
+
                     {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <div className="text-center">
-                                <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-                                <p className="text-gray-600">Đang tải danh sách báo cáo...</p>
-                            </div>
-                        </div>
-                    ) : error ? (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-                            <p className="font-semibold mb-2">Lỗi</p>
-                            <p className="text-sm">{error}</p>
-                            <button
-                                onClick={fetchInsertableReports}
-                                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
-                            >
-                                Thử lại
-                            </button>
-                        </div>
-                    ) : reports.length > 0 ? (
-                        reports.map(report => (
-                            <div
-                                key={report._id}
-                                className="flex items-start p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all"
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={report.isSelected}
-                                    onChange={() => handleToggle(report._id)}
-                                    className="w-5 h-5 text-indigo-600 rounded mt-1 cursor-pointer"
-                                />
-                                <div className="flex-1 min-w-0 ml-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-sm font-semibold text-indigo-700">
-                                            {report.code}
-                                        </p>
-                                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                                            {report.type === 'criteria' ? 'Tiêu chí' : 'Tiêu chuẩn'}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-gray-900 font-medium mb-2">
-                                        {report.title}
-                                    </p>
-                                    <p className="text-xs text-gray-500 mb-2">
-                                        Tác giả: <span className="font-medium">{report.createdBy?.fullName || 'N/A'}</span>
-                                    </p>
-
-                                    {/* Preview nội dung rút gọn */}
-                                    {report.content && (
-                                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded mb-2 line-clamp-2 border-l-2 border-gray-300">
-                                            <div dangerouslySetInnerHTML={{
-                                                __html: report.content.substring(0, 150) + '...'
-                                            }} />
-                                        </div>
-                                    )}
-
-                                    {/* Hiển thị thông tin tiêu chuẩn/tiêu chí */}
-                                    <div className="text-xs text-gray-500 space-y-1">
-                                        {report.standard && (
-                                            <p>
-                                                📋 Tiêu chuẩn: <span className="font-medium">{report.standard.code} - {report.standard.name}</span>
-                                            </p>
-                                        )}
-                                        {report.criteria && (
-                                            <p>
-                                                ✓ Tiêu chí: <span className="font-medium">{report.criteria.code} - {report.criteria.name}</span>
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Tuỳ chọn hiển thị tác giả */}
-                                    {report.isSelected && (
-                                        <div className="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
-                                            <label className="text-xs text-gray-700 flex items-center">
-                                                <span className="mr-2">Hiển thị tên tác giả:</span>
-                                                <select
-                                                    value={report.displayAuthor ? 'true' : 'false'}
-                                                    onChange={(e) => handleAuthorToggle(report._id, e.target.value)}
-                                                    className="px-2 py-1 border border-indigo-200 rounded text-xs focus:ring-indigo-500"
-                                                >
-                                                    <option value="true">✓ Có</option>
-                                                    <option value="false">✗ Không</option>
-                                                </select>
-                                            </label>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))
+                        <div className="text-center py-4">Đang tải nhiệm vụ...</div>
+                    ) : tasks.length === 0 ? (
+                        <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg">Không tìm thấy nhiệm vụ nào phù hợp để nộp.</div>
                     ) : (
-                        <div className="text-center py-12">
-                            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500 text-sm">
-                                Không có báo cáo nào có thể chèn
-                            </p>
-                        </div>
+                        <select
+                            value={selectedTaskId}
+                            onChange={(e) => setSelectedTaskId(e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-indigo-500"
+                        >
+                            <option value="">-- Không nộp cho Task nào (Lưu Draft) --</option>
+                            {tasks.map(t => (
+                                <option key={t._id} value={t._id}>
+                                    {t.taskCode} - {t.description?.substring(0, 40) || '...'}
+                                </option>
+                            ))}
+                        </select>
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                <div className="p-6 border-t flex justify-end gap-3">
                     <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
+                        onClick={() => onSkip(reportId)}
+                        className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all font-medium"
                     >
-                        Hủy
+                        Bỏ qua
                     </button>
                     <button
-                        onClick={handleSave}
-                        disabled={!reports.some(r => r.isSelected)}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
+                        onClick={() => onSelectTask(reportId, selectedTaskId)}
+                        disabled={!selectedTaskId}
+                        className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-medium"
                     >
-                        <Plus className="w-4 h-4" />
-                        Chèn ({reports.filter(r => r.isSelected).length})
+                        Nộp & Chuyển Trạng Thái
                     </button>
                 </div>
             </div>
