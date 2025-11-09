@@ -104,7 +104,12 @@ export default function ReportSelectionModal({
                 // Các trường này đã được tính toán chính xác ở Controller (backend)
                 const isCreatedByMe = report.isCreatedByMe;
                 const isAssignedToMe = report.isAssignedToMe;
-                const canEdit = report.canEdit;
+                let canEdit = report.canEdit;
+
+                // CẢI THIỆN ĐỒNG BỘ: Nếu backend trả về isAssignedToMe=true, phải có quyền sửa.
+                if (isAssignedToMe || isCreatedByMe) {
+                    canEdit = true;
+                }
 
                 return {
                     ...report,
@@ -155,11 +160,11 @@ export default function ReportSelectionModal({
 
         const report = reports.find(r => r._id === reportId);
 
-        // 🚨 SỬA LỖI: Nếu canEdit là TRUE, KHÔNG gửi request. Chặn ngay tại Frontend.
+        // 🚨 Chặn: Nếu canEdit là TRUE, KHÔNG gửi request.
         if (report.canEdit) {
             toast.error('Bạn đã có quyền chỉnh sửa báo cáo này. Vui lòng bấm "Tiếp tục sửa".');
 
-            // Sau khi toast, buộc cập nhật UI để chuyển nút về "Tiếp tục sửa"
+            // Buộc cập nhật UI để chuyển nút về "Tiếp tục sửa"
             setReports(prev => prev.map(r => r._id === reportId ? { ...r, canEdit: true } : r));
 
             return;
@@ -175,6 +180,7 @@ export default function ReportSelectionModal({
 
         try {
             await apiMethods.reports.requestEditPermission(reportId)
+
             toast.success('Yêu cầu cấp quyền đã được gửi, đang chờ duyệt.')
             setReports(prev => prev.map(r => r._id === reportId ? { ...r, myEditRequestStatus: 'pending' } : r));
         } catch (error) {
@@ -290,8 +296,8 @@ export default function ReportSelectionModal({
                 onClick: () => handleSelectReport(report._id),
                 disabled: false,
                 className: 'bg-blue-600 hover:bg-blue-700',
-                // Chỉ người tạo báo cáo mới có nút Phân quyền
-                showGrantPermission: report.isCreatedByMe && hasPendingRequest,
+                // 🚨 SỬA LỖI: Luôn hiện nút Phân quyền nếu là người tạo báo cáo
+                showGrantPermission: report.isCreatedByMe,
                 grantPermissionLabel: `Phân quyền (${report.pendingEditRequests.length})`
             };
         }
@@ -321,13 +327,14 @@ export default function ReportSelectionModal({
             };
         }
 
-        // Yêu cầu đã bị từ chối
+        // 🚨 SỬA LỖI: Yêu cầu đã bị từ chối -> Cho phép thử lại (không disabled)
         if (myRequestStatus === 'rejected') {
             return {
-                label: 'Bị từ chối',
-                icon: XCircle,
-                disabled: true,
-                className: 'bg-red-600 disabled:opacity-80'
+                label: 'Yêu cầu sửa (Thử lại)',
+                icon: Lock,
+                onClick: () => handleRequestEditPermission(report._id),
+                disabled: false,
+                className: 'bg-sky-600 hover:bg-sky-700'
             };
         }
 
@@ -650,33 +657,31 @@ export default function ReportSelectionModal({
                             <div className="mt-6 pt-6 border-t border-gray-200">
                                 <h4 className="text-sm font-semibold text-gray-900 mb-3">Lịch sử yêu cầu</h4>
                                 <div className="space-y-2">
-                                    {editRequests.filter(r => r.status === 'approved').map(request => (
+                                    {/* Hiển thị tất cả các trạng thái, không chỉ pending */}
+                                    {editRequests.map(request => (
                                         <div
-                                            key={request.requesterId._id + 'a'}
-                                            className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
-                                        >
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {request.requesterId.fullName} - <span className="text-green-600 font-bold">Đã Phê duyệt</span>
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    Phản hồi lúc: {new Date(request.respondedAt).toLocaleString('vi-VN')}
-                                                </p>
-                                            </div>
-                                            <Check className="w-5 h-5 text-green-600" />
-                                        </div>
-                                    ))}
-                                    {editRequests.filter(r => r.status === 'rejected').map(request => (
-                                        <div
-                                            key={request.requesterId._id + 'r'}
-                                            className="flex items-start justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                                            key={request.requesterId._id + request.status}
+                                            className={`flex items-center justify-between p-3 rounded-lg ${
+                                                request.status === 'approved' ? 'bg-green-50 border border-green-200' :
+                                                    request.status === 'rejected' ? 'bg-red-50 border border-red-200' :
+                                                        'bg-gray-50 border border-gray-200'
+                                            }`}
                                         >
                                             <div className='flex-1'>
                                                 <p className="text-sm font-medium text-gray-900">
-                                                    {request.requesterId.fullName} - <span className="text-red-600 font-bold">Đã Từ chối</span>
+                                                    {request.requesterId.fullName} -
+                                                    <span className={`font-bold ml-1 ${
+                                                        request.status === 'approved' ? 'text-green-600' :
+                                                            request.status === 'rejected' ? 'text-red-600' :
+                                                                'text-amber-600'
+                                                    }`}>
+                                                        {request.status === 'approved' ? 'Đã Phê duyệt' :
+                                                            request.status === 'rejected' ? 'Đã Từ chối' :
+                                                                'Đang chờ'}
+                                                    </span>
                                                 </p>
                                                 <p className="text-xs text-gray-500">
-                                                    Phản hồi lúc: {new Date(request.respondedAt).toLocaleString('vi-VN')}
+                                                    Phản hồi lúc: {new Date(request.respondedAt || request.requestedAt).toLocaleString('vi-VN')}
                                                 </p>
                                                 {request.rejectReason && (
                                                     <p className="text-xs text-red-700 mt-1 italic">
@@ -684,7 +689,14 @@ export default function ReportSelectionModal({
                                                     </p>
                                                 )}
                                             </div>
-                                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 ml-4" />
+                                            {(request.status === 'approved' || request.status === 'rejected') && (
+                                                <div className="flex-shrink-0 ml-4">
+                                                    {request.status === 'approved' ?
+                                                        <Check className="w-5 h-5 text-green-600" /> :
+                                                        <XCircle className="w-5 h-5 text-red-600" />
+                                                    }
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
