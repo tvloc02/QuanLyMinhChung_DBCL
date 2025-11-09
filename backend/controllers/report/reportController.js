@@ -1899,6 +1899,102 @@ const rejectEditRequest = async (req, res) => {
     }
 };
 
+const getInsertableReports = async (req, res) => {
+    try {
+        const { reportType, standardId, programId, organizationId } = req.query;
+        const academicYearId = req.academicYearId;
+
+        if (!reportType) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu loại báo cáo'
+            });
+        }
+
+        let query = {
+            academicYearId,
+            status: { $in: ['public', 'published'] }
+        };
+
+        // Logic xác định báo cáo nào có thể chèn được
+        if (reportType === 'overall_tdg') {
+            // Báo cáo tổng hợp TDG có thể chèn báo cáo tiêu chuẩn + tiêu chí (public/published)
+            query.type = { $in: ['standard', 'criteria'] };
+            if (programId) {
+                query.programId = programId;
+            }
+            if (organizationId) {
+                query.organizationId = organizationId;
+            }
+        } else if (reportType === 'standard') {
+            // Báo cáo tiêu chuẩn có thể chèn báo cáo tiêu chí của standardId đó (public/published)
+            if (!standardId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Thiếu tiêu chuẩn'
+                });
+            }
+            query.type = 'criteria';
+            query.standardId = standardId;
+        } else if (reportType === 'criteria') {
+            // Báo cáo tiêu chí không thể chèn báo cáo khác
+            return res.json({
+                success: true,
+                data: {
+                    reports: [],
+                    message: 'Báo cáo tiêu chí không thể chèn báo cáo khác'
+                }
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Loại báo cáo không hợp lệ'
+            });
+        }
+
+        const reports = await Report.find(query)
+            .select('_id code title content type standardId criteriaId createdBy')
+            .populate('createdBy', 'fullName email')
+            .populate('standardId', 'code name')
+            .populate('criteriaId', 'code name')
+            .sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            data: {
+                reports: reports.map(r => ({
+                    _id: r._id,
+                    code: r.code,
+                    title: r.title,
+                    content: r.content,
+                    type: r.type,
+                    standard: r.standardId ? {
+                        _id: r.standardId._id,
+                        code: r.standardId.code,
+                        name: r.standardId.name
+                    } : null,
+                    criteria: r.criteriaId ? {
+                        _id: r.criteriaId._id,
+                        code: r.criteriaId.code,
+                        name: r.criteriaId.name
+                    } : null,
+                    createdBy: r.createdBy ? {
+                        _id: r.createdBy._id,
+                        fullName: r.createdBy.fullName
+                    } : null
+                }))
+            }
+        });
+
+    } catch (error) {
+        console.error('Get insertable reports error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi lấy danh sách báo cáo'
+        });
+    }
+};
+
 module.exports = {
     getReports,
     getReportById,
@@ -1927,5 +2023,6 @@ module.exports = {
     getReportsByStandardCriteria,
     getEditRequests,
     approveEditRequest,
-    rejectEditRequest
+    rejectEditRequest,
+    getInsertableReports
 };

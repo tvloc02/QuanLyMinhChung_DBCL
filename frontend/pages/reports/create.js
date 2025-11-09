@@ -224,25 +224,50 @@ export default function CreateReportPage() {
     }
 
     const validateForm = () => {
-        const errors = {}
-        if (!formData.title.trim()) errors.title = 'Tiêu đề báo cáo là bắt buộc'
-        if (!formData.programId) errors.programId = 'Chương trình là bắt buộc'
-        if (!formData.organizationId) errors.organizationId = 'Tổ chức là bắt buộc'
+        const errors = {};
+
+        // ===== BASIC FIELDS =====
+        if (!formData.title.trim()) {
+            errors.title = 'Tiêu đề báo cáo là bắt buộc';
+        }
+
+        if (!formData.programId) {
+            errors.programId = 'Chương trình là bắt buộc';
+        }
+
+        if (!formData.organizationId) {
+            errors.organizationId = 'Tổ chức là bắt buộc';
+        }
+
         if (formData.type !== 'overall_tdg' && !formData.standardId) {
-            errors.standardId = 'Tiêu chuẩn là bắt buộc'
+            errors.standardId = 'Tiêu chuẩn là bắt buộc';
         }
+
         if (formData.type === 'criteria' && !formData.criteriaId) {
-            errors.criteriaId = 'Tiêu chí là bắt buộc'
+            errors.criteriaId = 'Tiêu chí là bắt buộc';
         }
-        if (formData.contentMethod === 'online_editor' && !formData.content.trim()) {
-            errors.content = 'Nội dung báo cáo là bắt buộc'
+
+        // ===== CONTENT VALIDATION =====
+        if (formData.contentMethod === 'online_editor') {
+            const plainText = editorRef.current?.getContent?.() || '';
+
+            // Loại bỏ HTML tags để kiểm tra text thực tế
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = plainText;
+            const textContent = tempDiv.textContent || '';
+
+            if (!textContent.trim()) {
+                errors.content = 'Nội dung báo cáo là bắt buộc (tối thiểu một số ký tự)';
+            }
+        } else if (formData.contentMethod === 'file_upload') {
+            if (!selectedFile) {
+                errors.file = 'Vui lòng chọn file để upload';
+            }
         }
-        if (formData.contentMethod === 'file_upload' && !selectedFile) {
-            errors.file = 'Vui lòng chọn file để upload'
-        }
-        setFormErrors(errors)
-        return Object.keys(errors).length === 0
-    }
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -433,36 +458,47 @@ export default function CreateReportPage() {
         setIsFromContext(false);
     }
 
-    // Logic chèn nội dung báo cáo tiêu chí đã chọn
     const handleInsertCriteriaReports = (selectedReports) => {
-        if (!editorRef.current || !editorRef.current.insertHTML) {
-            toast.error('Lỗi: Trình soạn thảo chưa sẵn sàng.');
+        if (!editorRef.current) {
+            toast.error('Lỗi: Không thể truy cập trình soạn thảo.');
+            return;
+        }
+
+        if (typeof editorRef.current.insertHTML !== 'function') {
+            toast.error('Lỗi: Trình soạn thảo không có method insertHTML.');
             return;
         }
 
         let htmlToInsert = '';
-        selectedReports.forEach(report => {
-            const authorText = report.displayAuthor ? ` (Tác giả: ${report.authorName || report.createdBy?.fullName || 'N/A'})` : '';
 
-            // Tạo đoạn HTML mô tả và nội dung
-            htmlToInsert += `
-                <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-left: 5px solid #6366f1; border-radius: 8px; background: #f9f9f9;">
-                    <h4 style="color: #6366f1; border-bottom: 1px solid #eef2ff; padding-bottom: 5px; margin-top: 0; font-size: 1.1em; font-weight: bold;">
-                        Báo cáo Tiêu chí ${report.code}: ${report.name}
-                        ${authorText}
-                    </h4>
-                    <div style="margin-top: 10px;">
-                        ${report.content}
-                    </div>
-                </div>
-            `;
+        selectedReports.forEach((report, index) => {
+            htmlToInsert += report.content;
+
+            if (index < selectedReports.length - 1) {
+                htmlToInsert += '<p><br></p>';
+            }
         });
 
-        // Thêm nội dung vào cuối trình soạn thảo
-        editorRef.current.insertHTML(htmlToInsert);
-        setLinkedCriteriaReports(selectedReports); // Cập nhật state để theo dõi
-        toast.success(`Đã chèn nội dung ${selectedReports.length} báo cáo tiêu chí.`);
-    }
+        try {
+            const success = editorRef.current.insertHTML(htmlToInsert);
+
+            if (success) {
+                setLinkedCriteriaReports(prev => [
+                    ...prev,
+                    ...selectedReports.filter(sr =>
+                        !prev.some(p => p._id === sr._id)
+                    )
+                ]);
+
+                toast.success(`Đã chèn ${selectedReports.length} báo cáo`);
+            } else {
+                toast.error('Không thể chèn nội dung. Vui lòng thử lại.');
+            }
+        } catch (error) {
+            console.error('Insert reports error:', error);
+            toast.error(`Lỗi khi chèn: ${error.message}`);
+        }
+    };
 
 
     if (isLoading || loading) {
@@ -480,10 +516,10 @@ export default function CreateReportPage() {
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
-            {/* Criteria Report Picker Modal (Giả định) */}
             {showCriteriaReportPicker && (
                 <CriteriaReportPickerModal
                     isOpen={showCriteriaReportPicker}
+                    reportType={formData.type}  // ← THÊM DÒNG NÀY
                     standardId={formData.standardId}
                     programId={formData.programId}
                     organizationId={formData.organizationId}
@@ -893,14 +929,25 @@ export default function CreateReportPage() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            if (!formData.standardId) {
-                                                toast.error('Vui lòng chọn Tiêu chuẩn trước khi chèn báo cáo tiêu chí.')
+                                            // Kiểm tra điều kiện theo loại báo cáo
+                                            if (formData.type === 'overall_tdg') {
+                                                if (!formData.programId || !formData.organizationId) {
+                                                    toast.error('Vui lòng chọn Chương trình và Tổ chức trước khi chèn báo cáo.')
+                                                    return
+                                                }
+                                            } else if (formData.type === 'standard') {
+                                                if (!formData.standardId) {
+                                                    toast.error('Vui lòng chọn Tiêu chuẩn trước khi chèn báo cáo.')
+                                                    return
+                                                }
+                                            } else if (formData.type === 'criteria') {
+                                                toast.error('Báo cáo tiêu chí không thể chèn báo cáo khác.')
                                                 return
                                             }
                                             setShowCriteriaReportPicker(true)
                                         }}
                                         className="flex items-center mt-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:shadow-lg hover:bg-indigo-700 transition-colors"
-                                        disabled={!formData.standardId}
+                                        disabled={formData.type === 'criteria' || !formData.standardId && formData.type === 'standard'}
                                     >
                                         <Plus className="w-4 h-4 mr-2" />
                                         Chọn & Chèn Nội Dung
@@ -1057,78 +1104,224 @@ export default function CreateReportPage() {
     )
 }
 
-// Giả định Modal chọn báo cáo tiêu chí
-function CriteriaReportPickerModal({ isOpen, standardId, programId, organizationId, initialReports, onClose, onSelectReports }) {
-    if (!isOpen) return null;
+function CriteriaReportPickerModal({
+                                       isOpen,
+                                       standardId,
+                                       programId,
+                                       organizationId,
+                                       reportType,
+                                       initialReports,
+                                       onClose,
+                                       onSelectReports
+                                   }) {
+    const [reports, setReports] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Dummy data (Cần thay bằng fetch API từ reports/by-standard-criteria với status public/published)
-    const rawReports = [
-        // Nội dung giả lập, cần có nội dung HTML thực tế từ API
-        { _id: 'r1', code: 'TC.01.01', name: 'Mục tiêu chương trình', content: '<h2>1.1. Mục tiêu</h2><p>Chương trình đáp ứng tốt nhu cầu xã hội theo đánh giá.</p>', authorName: 'Nguyễn Văn A' },
-        { _id: 'r2', code: 'TC.01.02', name: 'Triết lý và sứ mệnh', content: '<h3>1.2. Triết lý</h3><p>Triết lý giáo dục đặt người học làm trung tâm, nhấn mạnh vào năng lực thực hành.</p>', authorName: 'Trần Thị B' },
-        { _id: 'r3', code: 'TC.02.01', name: 'Chương trình đào tạo', content: '<h2>2.1. Cấu trúc CTĐT</h2><p>Cấu trúc chương trình đào tạo đã được cập nhật năm 2024.</p>', authorName: 'Lê Văn C' },
-    ];
+    useEffect(() => {
+        if (isOpen) {
+            fetchInsertableReports();
+        }
+    }, [isOpen, reportType, standardId, programId, organizationId]);
 
-    const [reports, setReports] = useState(() => {
-        return rawReports.map(dr => {
-            const initial = initialReports.find(ir => ir._id === dr._id);
-            return initial ? { ...dr, isSelected: true, displayAuthor: initial.displayAuthor } : { ...dr, isSelected: false, displayAuthor: true };
-        });
-    });
+    const fetchInsertableReports = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const params = {
+                reportType: reportType
+            };
+
+            if (reportType === 'standard' && standardId) {
+                params.standardId = standardId;
+            } else if (reportType === 'overall_tdg') {
+                if (programId) params.programId = programId;
+                if (organizationId) params.organizationId = organizationId;
+            }
+
+            const response = await apiMethods.reports.getInsertable(params);
+
+            if (response.data?.data?.reports) {
+                const fetchedReports = response.data.data.reports.map(report => {
+                    const initial = initialReports?.find(ir => ir._id === report._id);
+                    return {
+                        ...report,
+                        isSelected: initial ? true : false,
+                        displayAuthor: initial?.displayAuthor ?? true
+                    };
+                });
+                setReports(fetchedReports);
+            }
+        } catch (err) {
+            console.error('Fetch insertable reports error:', err);
+            setError('Không thể tải danh sách báo cáo. Vui lòng thử lại.');
+            setReports([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleToggle = (reportId) => {
-        setReports(prev => prev.map(r => r._id === reportId ? { ...r, isSelected: !r.isSelected } : r));
+        setReports(prev => prev.map(r =>
+            r._id === reportId ? { ...r, isSelected: !r.isSelected } : r
+        ));
     };
 
     const handleAuthorToggle = (reportId, value) => {
-        setReports(prev => prev.map(r => r._id === reportId ? { ...r, displayAuthor: value === 'true' } : r));
+        setReports(prev => prev.map(r =>
+            r._id === reportId ? { ...r, displayAuthor: value === 'true' } : r
+        ));
     };
 
     const handleSave = () => {
-        const finalSelected = reports.filter(r => r.isSelected);
-        onSelectReports(finalSelected);
+        const selectedReports = reports.filter(r => r.isSelected);
+        if (selectedReports.length === 0) {
+            toast.error('Vui lòng chọn ít nhất một báo cáo');
+            return;
+        }
+        onSelectReports(selectedReports);
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="p-6 border-b flex items-center justify-between">
-                    <h3 className="text-xl font-bold">Chọn Báo Cáo Tiêu Chí Gắn Kèm</h3>
-                    <button onClick={onClose}><X className="w-5 h-5" /></button>
+                {/* Header */}
+                <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">
+                            Chọn Báo Cáo Để Chèn Vào
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                            {reportType === 'overall_tdg' && 'Chọn báo cáo tiêu chuẩn hoặc tiêu chí để chèn'}
+                            {reportType === 'standard' && 'Chọn báo cáo tiêu chí để chèn'}
+                            {reportType === 'criteria' && 'Báo cáo tiêu chí không thể chèn báo cáo khác'}
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-red-100 rounded-lg transition-all"
+                    >
+                        <X className="w-5 h-5 text-gray-600" />
+                    </button>
                 </div>
+
+                {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-3">
-                    <p className="text-sm text-gray-600 mb-4 italic">
-                        Chọn các báo cáo tiêu chí đã hoàn thành để chèn nội dung vào báo cáo hiện tại.
-                    </p>
-                    {reports.map(report => (
-                        <div key={report._id} className="flex items-start p-3 border rounded-lg bg-gray-50">
-                            <div className="flex-1 min-w-0 mr-4">
-                                <span className="text-sm font-medium block">{report.code}: {report.name}</span>
-                                <div className="text-xs text-gray-500 mt-1 flex items-center">
-                                    Hiển thị tên người viết:
-                                    <select
-                                        value={report.displayAuthor ? 'true' : 'false'}
-                                        onChange={(e) => handleAuthorToggle(report._id, e.target.value)}
-                                        className="ml-2 text-xs border border-gray-300 rounded-md p-1 focus:ring-indigo-500"
-                                        disabled={!report.isSelected}
-                                    >
-                                        <option value={'true'}>Có</option>
-                                        <option value={'false'}>Không</option>
-                                    </select>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="text-center">
+                                <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                                <p className="text-gray-600">Đang tải danh sách báo cáo...</p>
+                            </div>
+                        </div>
+                    ) : error ? (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+                            <p className="font-semibold mb-2">Lỗi</p>
+                            <p className="text-sm">{error}</p>
+                            <button
+                                onClick={fetchInsertableReports}
+                                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                            >
+                                Thử lại
+                            </button>
+                        </div>
+                    ) : reports.length > 0 ? (
+                        reports.map(report => (
+                            <div
+                                key={report._id}
+                                className="flex items-start p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={report.isSelected}
+                                    onChange={() => handleToggle(report._id)}
+                                    className="w-5 h-5 text-indigo-600 rounded mt-1 cursor-pointer"
+                                />
+                                <div className="flex-1 min-w-0 ml-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-indigo-700">
+                                            {report.code}
+                                        </p>
+                                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                                            {report.type === 'criteria' ? 'Tiêu chí' : 'Tiêu chuẩn'}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-900 font-medium mb-2">
+                                        {report.title}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        Tác giả: <span className="font-medium">{report.createdBy?.fullName || 'N/A'}</span>
+                                    </p>
+
+                                    {/* Preview nội dung rút gọn */}
+                                    {report.content && (
+                                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded mb-2 line-clamp-2 border-l-2 border-gray-300">
+                                            <div dangerouslySetInnerHTML={{
+                                                __html: report.content.substring(0, 150) + '...'
+                                            }} />
+                                        </div>
+                                    )}
+
+                                    {/* Hiển thị thông tin tiêu chuẩn/tiêu chí */}
+                                    <div className="text-xs text-gray-500 space-y-1">
+                                        {report.standard && (
+                                            <p>
+                                                📋 Tiêu chuẩn: <span className="font-medium">{report.standard.code} - {report.standard.name}</span>
+                                            </p>
+                                        )}
+                                        {report.criteria && (
+                                            <p>
+                                                ✓ Tiêu chí: <span className="font-medium">{report.criteria.code} - {report.criteria.name}</span>
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Tuỳ chọn hiển thị tác giả */}
+                                    {report.isSelected && (
+                                        <div className="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
+                                            <label className="text-xs text-gray-700 flex items-center">
+                                                <span className="mr-2">Hiển thị tên tác giả:</span>
+                                                <select
+                                                    value={report.displayAuthor ? 'true' : 'false'}
+                                                    onChange={(e) => handleAuthorToggle(report._id, e.target.value)}
+                                                    className="px-2 py-1 border border-indigo-200 rounded text-xs focus:ring-indigo-500"
+                                                >
+                                                    <option value="true">✓ Có</option>
+                                                    <option value="false">✗ Không</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <input
-                                type="checkbox"
-                                checked={report.isSelected}
-                                onChange={() => handleToggle(report._id)}
-                                className="w-5 h-5 text-indigo-600 rounded mt-1"
-                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-12">
+                            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500 text-sm">
+                                Không có báo cáo nào có thể chèn
+                            </p>
                         </div>
-                    ))}
+                    )}
                 </div>
-                <div className="p-6 border-t flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-lg">Hủy</button>
-                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">
+
+                {/* Footer */}
+                <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-medium"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={!reports.some(r => r.isSelected)}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center gap-2"
+                    >
+                        <Plus className="w-4 h-4" />
                         Chèn ({reports.filter(r => r.isSelected).length})
                     </button>
                 </div>
