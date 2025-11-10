@@ -3,7 +3,7 @@ import {
     Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
     List, ListOrdered, Heading1, Heading2, Heading3, Code,
     Quote, Undo, Redo, Type, Subscript, Superscript, Table2, Minus, Eraser,
-    Unlink, Image, FileText, Palette, Settings, Eye, EyeOff
+    Unlink, Image, FileText, Palette, Settings, Eye, EyeOff, Check
 } from 'lucide-react'
 
 const RichTextEditor = forwardRef(({ value, onChange, placeholder, disabled }, ref) => {

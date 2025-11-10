@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react'
 import { Search, Plus, FileText, Filter } from 'lucide-react'
 import evidenceService from '../../services/evidenceService'
 import toast from 'react-hot-toast'
-import { getLocalStorage } from '../../utils/helpers' // Thêm import này
+import { getLocalStorage } from '../../utils/helpers'
 
 export default function ReportEvidencePicker({
-                                           standardId,
-                                           criteriaId,
-                                           onSelect,
-                                           onViewEvidence,
-                                           programId,
-                                           organizationId
-                                       }) {
+                                                 standardId,
+                                                 criteriaId,
+                                                 onSelect,
+                                                 onViewEvidence,
+                                                 programId,
+                                                 organizationId
+                                             }) {
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
@@ -23,22 +23,26 @@ export default function ReportEvidencePicker({
     }, [standardId, criteriaId, filter, programId, organizationId])
 
     const fetchEvidences = async () => {
+        // Chỉ tải nếu có tối thiểu ProgramId và OrganizationId
+        if (!programId || !organizationId) {
+            setEvidences([]);
+            return;
+        }
+
         try {
             setLoading(true)
 
-            // Lấy academicYearId từ localStorage (nơi client lưu trữ năm học hiện tại)
+            // Lấy academicYearId từ localStorage
             const academicYearId = getLocalStorage('selected_academic_year')?.id;
 
             const allowedStatuses = ['new', 'in_progress', 'completed', 'approved'];
             const params = {
                 limit: 100,
                 statuses: allowedStatuses.join(','),
-                // Thêm academicYearId vào params để rõ ràng
-                academicYearId: academicYearId
+                academicYearId: academicYearId,
+                programId: programId,
+                organizationId: organizationId
             }
-
-            if (programId) params.programId = programId;
-            if (organizationId) params.organizationId = organizationId;
 
             // Áp dụng bộ lọc ngữ cảnh chính:
             if (filter === 'criteria' && criteriaId) {
@@ -48,13 +52,11 @@ export default function ReportEvidencePicker({
             } else if (standardId) {
                 // Mặc định: Lấy tất cả minh chứng trong Standard hiện tại
                 params.standardId = standardId
+            } else if (criteriaId) {
+                // Nếu chỉ có criteriaId (trường hợp tạo mới chưa chọn standardId)
+                params.criteriaId = criteriaId;
             }
-
-            // Nếu không có cả standardId và criteriaId, ta vẫn tải nếu có program/org, nhưng sẽ là toàn bộ
-            if (!params.standardId && !params.criteriaId && !params.programId) {
-                setEvidences([]);
-                return;
-            }
+            // Nếu không có standardId/criteriaId, nó sẽ load tất cả theo Program/Org
 
             const response = await evidenceService.getEvidences(params)
             setEvidences(response.data?.evidences || [])
@@ -76,13 +78,17 @@ export default function ReportEvidencePicker({
         )
     })
 
-    if (!standardId && !criteriaId) {
+    // Cập nhật điều kiện hiển thị: Nếu không có ProgramId hoặc OrganizationId, hiển thị thông báo
+    if (!programId || !organizationId) {
         return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                Vui lòng chọn Tiêu chuẩn hoặc Tiêu chí để xem danh sách minh chứng
+                Vui lòng chọn **Chương trình** và **Tổ chức** để xem danh sách minh chứng.
             </div>
         )
     }
+
+    // Kiểm tra xem ngữ cảnh đã được thu hẹp về Standard hoặc Criteria chưa
+    const isContextNarrowed = standardId || criteriaId;
 
     return (
         <div className="space-y-3">
@@ -134,6 +140,12 @@ export default function ReportEvidencePicker({
                         </button>
                     </div>
                 )}
+
+                {!isContextNarrowed && (
+                    <div className="text-xs text-gray-500 italic p-1">
+                        Hiển thị tất cả minh chứng trong Chương trình/Tổ chức đã chọn.
+                    </div>
+                )}
             </div>
 
             {/* Evidence List */}
@@ -159,7 +171,7 @@ export default function ReportEvidencePicker({
                                         <span className="font-mono text-sm font-semibold text-blue-600">
                                             {evidence.code}
                                         </span>
-                                        {evidence.criteriaId && (
+                                        {evidence.criteriaId && evidence.criteriaId.code && (
                                             <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
                                                 Tiêu chí {evidence.criteriaId.code}
                                             </span>

@@ -226,23 +226,40 @@ const createReport = async (req, res) => {
         let standardCode = '';
         let criteriaCode = '';
 
-        if (standardId) {
-            try {
-                const StandardModel = mongoose.model('Standard');
-                const standard = await StandardModel.findById(standardId).select('code');
-                standardCode = standard?.code || '';
-            } catch (error) {
-                console.error('Error fetching standard code:', error);
+        // ĐIỀU CHỈNH LOGIC Ở ĐÂY: Chỉ kiểm tra và lấy code nếu type KHÔNG phải là overall_tdg
+        if (type !== 'overall_tdg') {
+            if (type !== 'overall_tdg' && !standardId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tiêu chuẩn (standardId) là bắt buộc cho loại báo cáo này'
+                });
             }
-        }
 
-        if (criteriaId) {
-            try {
-                const CriteriaModel = mongoose.model('Criteria');
-                const criteria = await CriteriaModel.findById(criteriaId).select('code');
-                criteriaCode = criteria?.code || '';
-            } catch (error) {
-                console.error('Error fetching criteria code:', error);
+            if (type === 'criteria' && !criteriaId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tiêu chí (criteriaId) là bắt buộc cho loại báo cáo tiêu chí'
+                });
+            }
+
+            if (standardId) {
+                try {
+                    const StandardModel = mongoose.model('Standard');
+                    const standard = await StandardModel.findById(standardId).select('code');
+                    standardCode = standard?.code || '';
+                } catch (error) {
+                    console.error('Error fetching standard code:', error);
+                }
+            }
+
+            if (criteriaId) {
+                try {
+                    const CriteriaModel = mongoose.model('Criteria');
+                    const criteria = await CriteriaModel.findById(criteriaId).select('code');
+                    criteriaCode = criteria?.code || '';
+                } catch (error) {
+                    console.error('Error fetching criteria code:', error);
+                }
             }
         }
 
@@ -271,12 +288,15 @@ const createReport = async (req, res) => {
             taskId: taskId || null
         };
 
-        if (standardId) {
-            reportData.standardId = standardId;
-        }
+        // Chỉ thêm standardId và criteriaId nếu type KHÔNG phải overall_tdg
+        if (type !== 'overall_tdg') {
+            if (standardId) {
+                reportData.standardId = standardId;
+            }
 
-        if (criteriaId) {
-            reportData.criteriaId = criteriaId;
+            if (criteriaId) {
+                reportData.criteriaId = criteriaId;
+            }
         }
 
         if (contentMethod === 'online_editor') {
