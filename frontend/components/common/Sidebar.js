@@ -275,13 +275,6 @@ const getAllMenuItems = (router) => [
                 active: () => router.pathname === '/reports/reports'
             },
             {
-                name: 'Danh sách nhiệm vụ',
-                icon: Target,
-                path: '/reports/requests',
-                permissionKey: 'reports_request',
-                active: () => router.pathname === '/reports/requests'
-            },
-            {
                 name: 'Tạo báo cáo mới',
                 icon: Plus,
                 path: '/reports/create',

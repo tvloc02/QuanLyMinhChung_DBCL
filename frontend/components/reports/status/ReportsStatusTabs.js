@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { apiMethods } from '../../../services/api';
 import toast from 'react-hot-toast';
-import {
-    Search, Filter, RefreshCw
-} from 'lucide-react';
+import { Search, Filter, RefreshCw } from 'lucide-react';
 import ReportListTable from './ReportListTable';
 
 export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab, userRole, userId }) {
@@ -49,7 +47,6 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
     useEffect(() => {
         fetchReportData(filters.page);
     }, [filters.page, filters.type, filters.search, filters.programId, filters.standardId, filters.criteriaId]);
-
 
     const fetchFilterData = async () => {
         try {
@@ -113,21 +110,12 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 delete params.status;
             }
 
-            // Gửi userId cụ thể nếu tab yêu cầu createdBy=me
-            if (isCreatedByMe) {
-                params.createdBy = userId; // Sử dụng userId đã truyền vào
-            } else {
-                delete params.createdBy;
-            }
-
-            // Áp dụng lọc người tạo
             if (isCreatedByMe) {
                 params.createdBy = userId;
             } else {
                 delete params.createdBy;
             }
 
-            // Loại bỏ các trường không cần thiết hoặc rỗng
             Object.keys(params).forEach(key => {
                 if (params[key] === '' || params[key] === null || (Array.isArray(params[key]) && params[key].length === 0)) {
                     delete params[key];
@@ -178,16 +166,15 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
 
     return (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-
-            <div className="flex border-b border-gray-200">
+            <div className="flex overflow-x-auto border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                 {statusTabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`px-6 py-4 font-semibold transition-all text-sm ${
+                        className={`px-6 py-4 font-semibold transition-all text-sm whitespace-nowrap border-b-2 ${
                             activeTab === tab.id
-                                ? 'text-blue-600 border-b-2 border-blue-600'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'text-blue-600 border-blue-500 bg-blue-50'
+                                : 'text-gray-600 border-transparent hover:text-gray-900'
                         }`}
                     >
                         {tab.label}
@@ -237,28 +224,28 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                     <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Chương trình</label>
-                            <select value={filters.programId} onChange={(e) => handleFilterChange('programId', e.target.value)} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl">
+                            <select value={filters.programId} onChange={(e) => handleFilterChange('programId', e.target.value)} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">Tất cả</option>
                                 {programs.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Tổ chức</label>
-                            <select value={filters.organizationId} onChange={(e) => handleFilterChange('organizationId', e.target.value)} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl">
+                            <select value={filters.organizationId} onChange={(e) => handleFilterChange('organizationId', e.target.value)} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="">Tất cả</option>
                                 {organizations.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Tiêu chuẩn</label>
-                            <select value={filters.standardId} onChange={(e) => handleFilterChange('standardId', e.target.value)} disabled={!filters.programId || !filters.organizationId} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl disabled:bg-gray-100">
+                            <select value={filters.standardId} onChange={(e) => handleFilterChange('standardId', e.target.value)} disabled={!filters.programId || !filters.organizationId} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
                                 <option value="">Tất cả</option>
                                 {standards.map(s => <option key={s._id} value={s._id}>{s.code} - {s.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Tiêu chí</label>
-                            <select value={filters.criteriaId} onChange={(e) => handleFilterChange('criteriaId', e.target.value)} disabled={!filters.standardId} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl disabled:bg-gray-100">
+                            <select value={filters.criteriaId} onChange={(e) => handleFilterChange('criteriaId', e.target.value)} disabled={!filters.standardId} className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
                                 <option value="">Tất cả</option>
                                 {criteria.map(c => <option key={c._id} value={c._id}>{c.code} - {c.name}</option>)}
                             </select>
@@ -273,6 +260,7 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 pagination={pagination}
                 handlePageChange={(page) => setFilters(prev => ({ ...prev, page }))}
                 userRole={userRole}
+                userId={userId}
                 handleActionSuccess={handleActionSuccess}
             />
         </div>

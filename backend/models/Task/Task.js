@@ -140,8 +140,18 @@ taskSchema.pre('save', function(next) {
     next();
 });
 
+// Dòng 144: Đã sửa lỗi TypeError bằng cách thêm kiểm tra điều kiện
 taskSchema.virtual('fullName').get(function() {
-    return `${this.taskCode}: ${this.description.substring(0, 50)}`;
+    const descriptionText = this.description;
+
+    if (descriptionText && typeof descriptionText === 'string') {
+        // Cắt chuỗi và thêm '...' nếu chuỗi dài hơn 50 ký tự
+        const truncatedDescription = descriptionText.substring(0, 50) + (descriptionText.length > 50 ? '...' : '');
+        return `${this.taskCode}: ${truncatedDescription}`;
+    }
+
+    // Xử lý trường hợp description bị null/undefined/không phải chuỗi
+    return `${this.taskCode}: (No Description)`;
 });
 
 taskSchema.methods.canEdit = function(userId, userRole) {

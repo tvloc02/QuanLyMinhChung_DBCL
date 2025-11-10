@@ -4,8 +4,15 @@ const Criteria = mongoose.model('Criteria');
 const Standard = mongoose.model('Standard');
 const Program = mongoose.model('Program');
 const Organization = mongoose.model('Organization');
-
 const permissionService = require('../../services/permissionService');
+
+const getNotificationModel = () => {
+    if (mongoose.models.Notification) {
+        return mongoose.models.Notification;
+    }
+      throw new Error("Notification Model not registered.");
+}
+
 
 const generateTaskCode = async (academicYearId) => {
     const count = await Task.countDocuments({ academicYearId });
@@ -135,6 +142,7 @@ const getTaskById = async (req, res) => {
 
 const createTask = async (req, res) => {
     try {
+        const Notification = getNotificationModel(); // Lấy Model trong hàm
         const {
             description,
             standardId,
@@ -220,6 +228,27 @@ const createTask = async (req, res) => {
 
         await task.save();
 
+        // ⭐️ TẠO THÔNG BÁO CHO NGƯỜI ĐƯỢC GIAO TASK
+        const deadlineText = dueDate ? `Hạn chót: ${new Date(dueDate).toLocaleDateString('vi-VN')}` : 'Không có hạn chót.';
+        const taskTitle = `Nhiệm vụ TĐG mới: ${task.taskCode}`;
+        const taskMessage = `Bạn được giao Task "${task.description.substring(0, 100)}...". ${deadlineText}`;
+
+        await Notification.createSystemNotification(
+            taskTitle,
+            taskMessage,
+            assignedTo,
+            {
+                type: 'assignment_new', // Tái sử dụng loại thông báo assignment_new cho Task
+                url: `/tasks/${task._id}`,
+                priority: 'high',
+                metadata: {
+                    taskCode: task.taskCode,
+                    standardId: standardId,
+                    criteriaId: criteriaId
+                }
+            }
+        );
+
         await task.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
@@ -256,6 +285,7 @@ const createTask = async (req, res) => {
 
 const updateTask = async (req, res) => {
     try {
+        const Notification = getNotificationModel(); // Lấy Model trong hàm
         const { id } = req.params;
         const {
             description,
@@ -281,6 +311,11 @@ const updateTask = async (req, res) => {
                 message: 'Bạn không có quyền chỉnh sửa nhiệm vụ này'
             });
         }
+
+        const oldAssignedTo = task.assignedTo.map(id => id.toString());
+        const newAssignedTo = assignedTo ? assignedTo.map(id => id.toString()) : oldAssignedTo;
+        const addedAssignees = newAssignedTo.filter(id => !oldAssignedTo.includes(id));
+        const removedAssignees = oldAssignedTo.filter(id => !newAssignedTo.includes(id));
 
         if (description) task.description = description.trim();
         if (assignedTo && assignedTo.length > 0) task.assignedTo = assignedTo;
@@ -319,6 +354,34 @@ const updateTask = async (req, res) => {
 
         await task.save();
 
+        // ⭐️ THÔNG BÁO KHI CÓ THAY ĐỔI NGƯỜI ĐƯỢC GIAO
+        if (addedAssignees.length > 0) {
+            const deadlineText = dueDate ? `Hạn chót: ${new Date(dueDate).toLocaleDateString('vi-VN')}` : 'Không có hạn chót.';
+            await Notification.createSystemNotification(
+                `Bạn được giao Task mới: ${task.taskCode}`,
+                `Bạn vừa được thêm vào Task "${task.description.substring(0, 100)}...". ${deadlineText}`,
+                addedAssignees,
+                {
+                    type: 'assignment_new',
+                    url: `/tasks/${task._id}`,
+                    priority: 'high',
+                }
+            );
+        }
+
+        if (removedAssignees.length > 0) {
+            await Notification.createSystemNotification(
+                `Task đã bị gỡ: ${task.taskCode}`,
+                `Bạn đã bị gỡ khỏi Task "${task.description.substring(0, 100)}...".`,
+                removedAssignees,
+                {
+                    type: 'assignment_cancelled',
+                    url: `/tasks`,
+                    priority: 'normal',
+                }
+            );
+        }
+
         await task.populate([
             { path: 'academicYearId', select: 'name code' },
             { path: 'standardId', select: 'name code' },
@@ -346,6 +409,7 @@ const updateTask = async (req, res) => {
 
 const deleteTask = async (req, res) => {
     try {
+        const Notification = getNotificationModel(); // Lấy Model trong hàm
         const { id } = req.params;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
@@ -365,6 +429,20 @@ const deleteTask = async (req, res) => {
                 success: false,
                 message: 'Bạn không có quyền xóa nhiệm vụ này'
             });
+        }
+
+        // ⭐️ THÔNG BÁO KHI XÓA TASK
+        if (task.assignedTo.length > 0) {
+            await Notification.createSystemNotification(
+                `Task đã bị hủy/xóa: ${task.taskCode}`,
+                `Task "${task.description.substring(0, 100)}..." đã bị người giao hủy/xóa khỏi hệ thống.`,
+                task.assignedTo,
+                {
+                    type: 'assignment_cancelled',
+                    url: `/tasks`,
+                    priority: 'normal',
+                }
+            );
         }
 
         // Cập nhật Report liên quan (nếu có)
@@ -400,18 +478,19 @@ const deleteTask = async (req, res) => {
 
 const reviewReport = async (req, res) => {
     try {
+        const Notification = getNotificationModel(); // Lấy Model trong hàm
         const { taskId } = req.params;
         const { status, rejectionReason } = req.body;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-            return res.status(403).json({ success: false, message: 'Cần quyền manager trở lên để duyệt báo cáo' });
-        }
-
         const task = await Task.findOne({ _id: taskId, academicYearId });
         if (!task) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy nhiệm vụ' });
+        }
+
+        if (req.user.role !== 'admin' && req.user.role !== 'manager' && String(task.createdBy) !== String(userId)) {
+            return res.status(403).json({ success: false, message: 'Cần quyền Manager/Admin hoặc là người tạo Task để duyệt báo cáo' });
         }
 
         if (task.status !== 'submitted') {
@@ -433,6 +512,23 @@ const reviewReport = async (req, res) => {
         task.updatedBy = userId;
         task.updatedAt = new Date();
         await task.save();
+
+        // ⭐️ THÔNG BÁO CHO NGƯỜI THỰC HIỆN TASK
+        const notifTitle = status === 'completed' ? `Task ${task.taskCode} đã HOÀN THÀNH` : `Task ${task.taskCode} đã bị TỪ CHỐI`;
+        const notifMessage = status === 'completed' ?
+            `Báo cáo liên kết với Task ${task.taskCode} đã được duyệt và Task đã hoàn thành.` :
+            `Báo cáo liên kết với Task ${task.taskCode} đã bị từ chối. Lý do: ${task.rejectionReason}. Vui lòng chỉnh sửa và nộp lại.`;
+
+        await Notification.createSystemNotification(
+            notifTitle,
+            notifMessage,
+            task.assignedTo,
+            {
+                type: status === 'completed' ? 'report_published' : 'report_review_requested',
+                url: `/tasks/${task._id}`,
+                priority: 'high'
+            }
+        );
 
         res.json({
             success: true,

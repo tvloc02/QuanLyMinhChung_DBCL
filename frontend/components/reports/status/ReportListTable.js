@@ -9,7 +9,7 @@ import {
     Loader2, Upload, ChevronDown, ChevronRight
 } from 'lucide-react';
 
-function ReportListTable({ reports, loading, pagination, handlePageChange, userRole, handleActionSuccess }) {
+function ReportListTable({ reports, loading, pagination, handlePageChange, userRole, userId, handleActionSuccess }) {
     const router = useRouter();
     const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
     const [expandedRows, setExpandedRows] = useState({});
@@ -84,13 +84,6 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                         handleActionSuccess();
                     }
                     break;
-                case 'submitToTask':
-                    if (confirm('Bạn có chắc chắn muốn nộp báo cáo này cho Task?')) {
-                        await apiMethods.reports.submitReportToTask(reportId, { taskId: report.taskId });
-                        toast.success('Nộp Task thành công');
-                        handleActionSuccess();
-                    }
-                    break;
                 case 'assignReview':
                     router.push(`/reports/assign-reviewers?reportIds=${reportId}`);
                     break;
@@ -119,25 +112,23 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
     const getReportActions = (report) => {
         const actions = [];
         const status = report.status;
-        const isMyReport = String(report.createdBy?._id) === String(localStorage.getItem('userId'));
-        const canEdit = report.canEdit;
+        const userIdStr = String(userId);
+        const createdByIdStr = String(report.createdBy?._id);
+        const isMyReport = createdByIdStr === userIdStr;
         const hasEvaluations = report.evaluations && report.evaluations.length > 0;
 
         actions.push({ icon: Eye, variant: "view", title: "Xem chi tiết", action: 'view' });
 
-        if (canEdit && ['draft', 'in_progress', 'rejected'].includes(status)) {
+        if (isMyReport && ['draft', 'in_progress', 'rejected'].includes(status)) {
             actions.push({ icon: Edit2, variant: "edit", title: "Chỉnh sửa", action: 'edit' });
         }
 
-        if (canEdit && ['draft', 'in_progress', 'rejected'].includes(status)) {
+        if (isMyReport && ['draft', 'in_progress', 'rejected'].includes(status)) {
             actions.push({ icon: Send, variant: "blue", title: "Công khai", action: 'makePublic' });
         }
-        if (canEdit && status === 'public') {
-            actions.push({ icon: RotateCcw, variant: "blue", title: "Rút lại Công khai", action: 'retractPublic' });
-        }
 
-        if (isMyReport && report.taskId && ['draft', 'in_progress', 'rejected', 'public'].includes(status) && status !== 'submitted') {
-            actions.push({ icon: Upload, variant: "blue", title: "Nộp Task", action: 'submitToTask' });
+        if (isMyReport && status === 'public') {
+            actions.push({ icon: RotateCcw, variant: "blue", title: "Rút lại", action: 'retractPublic' });
         }
 
         if (isManagerOrAdmin && ['submitted', 'public'].includes(status)) {
@@ -146,7 +137,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         }
 
         if (isManagerOrAdmin && status === 'approved' && !hasEvaluations) {
-            actions.push({ icon: UserPlus, variant: "blue", title: "Phân quyền Đánh giá", action: 'assignReview' });
+            actions.push({ icon: UserPlus, variant: "blue", title: "Phân quyền", action: 'assignReview' });
         }
 
         if (isManagerOrAdmin && status === 'approved' && hasEvaluations) {
@@ -154,14 +145,14 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         }
 
         if (isManagerOrAdmin && status === 'published') {
-            actions.push({ icon: RotateCcw, variant: "warning", title: "Thu hồi Phát hành", action: 'unpublish' });
+            actions.push({ icon: RotateCcw, variant: "warning", title: "Thu hồi", action: 'unpublish' });
         }
 
-        if (['draft', 'rejected'].includes(status) && (isMyReport || isManagerOrAdmin)) {
+        if (isMyReport && ['draft', 'rejected'].includes(status)) {
             actions.push({ icon: Trash2, variant: "delete", title: "Xóa", action: 'delete' });
         }
 
-        return actions.slice(0, 5);
+        return actions.slice(0, 4);
     };
 
     const toggleExpandRow = (id) => {
@@ -171,24 +162,21 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         }));
     };
 
-
     return (
         <div className="overflow-x-auto">
             <table className="w-full border-collapse">
-                <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
+                <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                 <tr>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[4%]">
-                        <input type="checkbox" className="rounded border-gray-300 text-blue-600 w-4 h-4" />
-                    </th>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[5%]">STT</th>
-                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[8%]">Mã Task</th>
-                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[9%]">Mã BC</th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[18%]">Tiêu đề báo cáo</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[8%]">Loại BC</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Tiêu chuẩn</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Tiêu chí</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[8%]">Người tạo</th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[20%]">Thao tác</th>
+                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[4%]">STT</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[7%]">Mã Task</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[7%]">Mã BC</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[18%]">Tiêu đề</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[8%]">Loại</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Tiêu chuẩn</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Tiêu chí</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[8%]">Trạng thái</th>
+                    <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-[10%]">Người tạo</th>
+                    <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-blue-200 w-[18%]">Hành động</th>
                 </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -202,106 +190,73 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                 ) : reports.length === 0 ? (
                     <tr>
                         <td colSpan="10" className="px-6 py-16 text-center">
-                            <p className="text-gray-500 font-medium">Không có báo cáo nào trong trạng thái này.</p>
+                            <p className="text-gray-500 font-medium">Không có báo cáo nào.</p>
                         </td>
                     </tr>
                 ) : (
                     reports.map((report, index) => {
                         const actions = getReportActions(report);
-
-                        // SỬA LỖI STT NaN: Đảm bảo pagination.current/limit là số (hoặc mặc định là 1/10)
                         const current = pagination.current || 1;
                         const limit = pagination.limit || 10;
                         const stt = (current - 1) * limit + index + 1;
-
                         const taskCode = report.taskId?.taskCode || '-';
 
                         return (
-                            <tr key={report._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
+                            <tr key={report._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
                                 <td className="px-4 py-3 text-center border-r border-gray-200">
-                                    <input type="checkbox" className="rounded border-gray-300 text-blue-600 w-4 h-4" />
-                                </td>
-                                <td className="px-4 py-3 text-center border-r border-gray-200">
-                                        <span className="text-sm font-semibold text-gray-700">
-                                            {stt}
-                                        </span>
+                                    <span className="text-sm font-semibold text-gray-700">{stt}</span>
                                 </td>
                                 <td className="px-3 py-3 text-center border-r border-gray-200">
-                                        <span className="text-xs font-medium text-gray-700">
-                                            {taskCode}
-                                        </span>
+                                    <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200 whitespace-nowrap">{taskCode}</span>
                                 </td>
                                 <td className="px-3 py-3 text-center border-r border-gray-200">
-                                         <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 whitespace-nowrap">
-                                            {report.code}
-                                        </span>
+                                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 whitespace-nowrap">{report.code}</span>
                                 </td>
-                                <td className="px-6 py-3 border-r border-gray-200">
-                                    <div className="max-w-xs">
-                                        <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={report.title}>
-                                            {report.title}
-                                        </p>
-                                    </div>
+                                <td className="px-4 py-3 border-r border-gray-200">
+                                    <p className="text-sm font-semibold text-gray-900 line-clamp-2" title={report.title}>{report.title}</p>
                                 </td>
-                                <td className="px-4 py-3 text-center border-r border-gray-200">
-                                        <span className="text-xs font-medium text-gray-700">
-                                            {getTypeText(report.type)}
-                                        </span>
+                                <td className="px-3 py-3 text-center border-r border-gray-200">
+                                    <span className="text-xs font-medium text-gray-700">{getTypeText(report.type)}</span>
                                 </td>
-                                {/* Cột Tiêu chuẩn */}
-                                <td className="px-4 py-3 border-r border-gray-200 text-xs">
+                                <td className="px-3 py-3 border-r border-gray-200 text-xs">
                                     {report.standardId && (
-                                        <div>
-                                            <button
-                                                onClick={() => toggleExpandRow(report.standardId._id)}
-                                                className="flex items-start space-x-1 hover:text-blue-600 transition-colors w-full text-left"
-                                            >
-                                                {expandedRows[report.standardId._id] ? (
-                                                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
-                                                ) : (
-                                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
-                                                )}
-                                                <div className="flex-1">
-                                                    <span className="font-bold text-blue-700">{report.standardId?.code}</span>
-                                                    {expandedRows[report.standardId._id] && report.standardId?.name && (
-                                                        <p className="mt-1 text-gray-600 leading-relaxed truncate">
-                                                            {report.standardId?.name}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => toggleExpandRow(report.standardId._id)}
+                                            className="flex items-center space-x-1 hover:text-blue-600 transition-colors w-full text-left"
+                                        >
+                                            {expandedRows[report.standardId._id] ? (
+                                                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-600" />
+                                            ) : (
+                                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                                            )}
+                                            <span className="font-bold text-blue-700">{report.standardId?.code}</span>
+                                        </button>
                                     )}
                                 </td>
-                                {/* Cột Tiêu chí */}
-                                <td className="px-4 py-3 border-r border-gray-200 text-xs">
+                                <td className="px-3 py-3 border-r border-gray-200 text-xs">
                                     {report.criteriaId && (
-                                        <div>
-                                            <button
-                                                onClick={() => toggleExpandRow(report.criteriaId._id)}
-                                                className="flex items-start space-x-1 hover:text-blue-600 transition-colors w-full text-left"
-                                            >
-                                                {expandedRows[report.criteriaId._id] ? (
-                                                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
-                                                ) : (
-                                                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-gray-500" />
-                                                )}
-                                                <div className="flex-1">
-                                                    <span className="font-bold text-blue-700">{report.criteriaId?.code}</span>
-                                                    {expandedRows[report.criteriaId._id] && report.criteriaId?.name && (
-                                                        <p className="mt-1 text-gray-600 leading-relaxed truncate">
-                                                            {report.criteriaId?.name}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => toggleExpandRow(report.criteriaId._id)}
+                                            className="flex items-center space-x-1 hover:text-blue-600 transition-colors w-full text-left"
+                                        >
+                                            {expandedRows[report.criteriaId._id] ? (
+                                                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-blue-600" />
+                                            ) : (
+                                                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                                            )}
+                                            <span className="font-bold text-blue-700">{report.criteriaId?.code}</span>
+                                        </button>
                                     )}
                                 </td>
-                                <td className="px-4 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
+                                <td className="px-3 py-3 text-center border-r border-gray-200">
+                                        <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${getStatusColor(report.status)}`}>
+                                            {report.status}
+                                        </span>
+                                </td>
+                                <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">
                                     {report.createdBy?.fullName || 'N/A'}
                                 </td>
-                                <td className="px-6 py-3">
+                                <td className="px-4 py-3">
                                     <div className="flex items-center justify-center gap-2 flex-wrap">
                                         {actions.map(btn => (
                                             <ActionButton
@@ -322,7 +277,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                 </tbody>
             </table>
             {pagination.pages > 1 && (
-                <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-t-2 border-blue-200">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-t-2 border-blue-200">
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-gray-700">
                             Hiển thị <strong className="text-blue-600">{(pagination.current - 1) * pagination.limit + 1}</strong> đến{' '}
@@ -343,7 +298,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                                     onClick={() => handlePageChange(i + 1)}
                                     className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
                                         pagination.current === i + 1
-                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
                                             : 'border-2 border-blue-200 hover:bg-white text-gray-700'
                                     }`}
                                 >

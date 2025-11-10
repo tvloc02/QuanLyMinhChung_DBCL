@@ -11,7 +11,6 @@ const canReviewReport = async (req, report) => {
         const TaskModel = mongoose.model('Task');
         const task = await TaskModel.findById(report.taskId);
 
-        // Cho phép người tạo Task duyệt
         if (task && String(task.createdBy) === String(req.user.id)) {
             return true;
         }
@@ -76,7 +75,14 @@ const getReports = async (req, res) => {
         }
 
         if (type) query.type = type;
-        if (status) query.status = status;
+
+        if (status) {
+            const statusArray = status.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (statusArray.length > 0) {
+                query.status = { $in: statusArray };
+            }
+        }
+
         if (programId) query.programId = programId;
         if (organizationId) query.organizationId = organizationId;
         if (standardId) query.standardId = standardId;
@@ -96,7 +102,7 @@ const getReports = async (req, res) => {
                 .populate('createdBy', 'fullName email')
                 .populate('attachedFile', 'originalName size')
                 .populate('assignedReporters', 'fullName email')
-                .populate('taskId', 'taskCode') // <--- ĐÃ THÊM POPULATE NÀY
+                .populate('taskId', 'taskCode')
                 .populate({
                     path: 'evaluations',
                     select: 'averageScore rating status',
@@ -257,7 +263,7 @@ const createReport = async (req, res) => {
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim() || '',
             keywords: keywords || [],
-            status: 'draft', // LUÔN LUÔN LÀ DRAFT KHI TẠO MỚI
+            status: 'draft',
             createdBy: req.user.id,
             updatedBy: req.user.id,
             assignedReporters: [req.user.id],
@@ -289,7 +295,6 @@ const createReport = async (req, res) => {
 
         await report.save();
 
-        // CHỈ CẬP NHẬT TRẠNG THÁI TASK SANG 'IN_PROGRESS' NẾU NÓ ĐANG Ở 'PENDING'
         if (taskId && existingTask && existingTask.status === 'pending') {
             await Task.updateOne(
                 { _id: taskId },
@@ -383,7 +388,6 @@ const updateReport = async (req, res) => {
             report.content = content;
         }
 
-        // Cập nhật Report.taskId nếu được cung cấp và khác giá trị cũ
         if (taskId !== undefined && String(taskId) !== String(report.taskId)) {
             let existingTask = null;
             if (taskId) {
@@ -396,19 +400,16 @@ const updateReport = async (req, res) => {
                 }
             }
 
-            // Xử lý việc gán/gỡ taskId trong Report
             const oldTaskId = report.taskId;
             report.taskId = taskId || null;
 
-            // Nếu Task cũ đang giữ Report này làm Report chính, gỡ liên kết
             if (oldTaskId && String(oldTaskId) !== String(taskId)) {
                 await Task.updateOne(
-                    { _id: oldTaskId, reportId: report._id }, // Chỉ gỡ nếu Task cũ đang trỏ đến Report này
+                    { _id: oldTaskId, reportId: report._id },
                     { reportId: null, status: 'in_progress', updatedBy: userId, updatedAt: new Date() }
                 );
             }
 
-            // Nếu Report được gán cho Task mới và Task đang pending, cập nhật trạng thái Task đó
             if (taskId && existingTask.status === 'pending') {
                 await Task.updateOne(
                     { _id: taskId },
@@ -416,7 +417,6 @@ const updateReport = async (req, res) => {
                 );
             }
         }
-
 
         if (report.content !== oldContent || report.title !== oldTitle) {
             const changeNote = `Cập nhật nội dung/tiêu đề từ phiên bản trước.`;
@@ -583,7 +583,6 @@ const getReportsByTask = async (req, res) => {
         };
 
         if (primaryReportId) {
-            // Lấy Report chính
             const primaryReport = await ReportModel.findById(primaryReportId)
                 .populate('createdBy', 'fullName email')
                 .populate('assignedReporters', 'fullName email')
@@ -598,7 +597,6 @@ const getReportsByTask = async (req, res) => {
             }
         }
 
-        // Lấy các Report khác, loại trừ Report chính (nếu nó được lấy ở trên)
         const otherReportsQuery = {
             ...baseReportQuery,
             _id: { $nin: mainQuery._id.$in },
@@ -695,7 +693,6 @@ const deleteReport = async (req, res) => {
 
         report.updatedBy = req.user.id;
 
-        // Xóa liên kết trong Task nếu Report này là Report chính của Task đó
         if (report.taskId) {
             await Task.updateOne(
                 { _id: report.taskId, reportId: id },
@@ -748,7 +745,6 @@ const publishReport = async (req, res) => {
             });
         }
 
-        // CHỈ PHÁT HÀNH KHI ĐÃ ĐƯỢC PHÊ DUYỆT (approved)
         if (report.status !== 'approved') {
             return res.status(400).json({
                 success: false,
@@ -803,14 +799,12 @@ const unpublishReport = async (req, res) => {
             });
         }
 
-        // Quyền thu hồi xuất bản cần phải là Manager/Admin
         if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
                 message: 'Bạn không có quyền thu hồi báo cáo này'
             });
         }
-
 
         if (report.status !== 'published') {
             return res.status(400).json({
@@ -860,7 +854,6 @@ const approveReport = async (req, res) => {
             });
         }
 
-        // CHẤP NHẬN DUYỆT TỪ 2 TRẠNG THÁI: submitted (từ task) VÀ public (tự công khai)
         if (report.status !== 'submitted' && report.status !== 'public') {
             return res.status(400).json({
                 success: false,
@@ -878,10 +871,9 @@ const approveReport = async (req, res) => {
 
         await report.save();
 
-        // Cập nhật Task nếu Report này là Report chính của Task (được gán)
         if (report.taskId) {
             await Task.updateOne(
-                { _id: report.taskId, reportId: id },
+                { _id: report.taskId },
                 { status: 'approved', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), updatedAt: new Date() }
             );
         }
@@ -937,7 +929,6 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        // CHẤP NHẬN TỪ CHỐI TỪ 2 TRẠNG THÁI: submitted (từ task) VÀ public (tự công khai)
         if (report.status !== 'submitted' && report.status !== 'public') {
             return res.status(400).json({
                 success: false,
@@ -947,10 +938,9 @@ const rejectReport = async (req, res) => {
 
         await report.recordRejection(req.user.id, feedback);
 
-        // Cập nhật Task nếu Report này là Report chính của Task (được gán)
         if (report.taskId) {
             await Task.updateOne(
-                { _id: report.taskId, reportId: id },
+                { _id: report.taskId },
                 { status: 'rejected', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), rejectionReason: feedback, updatedAt: new Date() }
             );
         }
@@ -1047,8 +1037,6 @@ const makePublic = async (req, res) => {
             });
         }
 
-        // Quyền công khai: Người tạo/ Assigned Reporter/ Admin/ Manager
-        // Vẫn giữ canEdit để kiểm tra quyền
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -1104,7 +1092,6 @@ const retractPublic = async (req, res) => {
             });
         }
 
-        // Quyền thu hồi công khai: Người tạo/ Assigned Reporter/ Admin/ Manager
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
@@ -1119,7 +1106,6 @@ const retractPublic = async (req, res) => {
             });
         }
 
-        // Thu hồi về trạng thái draft
         report.status = 'draft';
         report.updatedBy = req.user.id;
 
@@ -2226,14 +2212,12 @@ const submitReportToTask = async (req, res) => {
             return res.status(400).json({ success: false, message: `Không thể nộp báo cáo cho Task ở trạng thái ${task.status}.` });
         }
 
-        // Cập nhật Report
         report.taskId = taskId;
         report.status = 'submitted';
         report.updatedBy = userId;
         await report.save();
 
-        // Cập nhật Task: Gán Report mới làm Report chính và chuyển trạng thái sang submitted
-        task.reportId = id; // Report mới được gán làm Report chính (Current active submission)
+        task.reportId = id;
         task.status = 'submitted';
         task.submittedAt = new Date();
         task.updatedBy = userId;
@@ -2254,7 +2238,6 @@ const submitReportToTask = async (req, res) => {
     }
 };
 
-
 module.exports = {
     getReports,
     getReportById,
@@ -2267,7 +2250,7 @@ module.exports = {
     rejectReport,
     assignReporter,
     makePublic,
-    retractPublic, // ĐÃ THÊM API MỚI
+    retractPublic,
     downloadReport,
     getReportStats,
     uploadReportFile,

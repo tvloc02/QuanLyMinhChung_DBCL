@@ -150,6 +150,12 @@ export default function TaskList() {
         setReportContext(null)
     }
 
+    const handleSelectExistingReport = (reportId) => {
+        router.push(`/reports/${reportId}`)
+        setShowReportSelection(false)
+        setReportContext(null)
+    }
+
     const getReportStats = (task) => {
         const assignedCount = task.assignedTo?.length || 0
         const submittedCount = task.status === 'submitted' || task.status === 'completed' || task.status === 'approved' ? 1 : 0
@@ -325,13 +331,7 @@ export default function TaskList() {
                             Xóa bộ lọc
                         </button>
 
-                        <button
-                            onClick={() => loadTasks(1)}
-                            className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
-                        >
-                            <RefreshCw size={18} />
-                            Làm mới
-                        </button>
+
                     </div>
                 </div>
             </div>

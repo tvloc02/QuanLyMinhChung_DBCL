@@ -5,6 +5,7 @@ import {
     Download, Activity, BarChart3, Database, Loader2
 } from 'lucide-react';
 import { StatCard, QuickAction, ActivityItem, LoadingSkeleton, EmptyState } from '../shared/DashboardComponents';
+import { apiMethods } from '../../services/api';
 
 const AdminDashboard = () => {
     const router = useRouter();
@@ -13,7 +14,9 @@ const AdminDashboard = () => {
         totalUsers: 0,
         totalEvidences: 0,
         activeYears: 0,
-        pendingReports: 0
+        pendingReports: 0,
+        totalPrograms: 0,
+        totalLogs: 0
     });
     const [activities, setActivities] = useState([]);
     const [roleStats, setRoleStats] = useState([]);
@@ -26,53 +29,41 @@ const AdminDashboard = () => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
 
-            // Fetch stats
-            const statsResponse = await fetch('/api/dashboard/admin/stats', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 1. Fetch Admin Stats (API: /api/dashboard/admin/stats)
+            const statsResult = await apiMethods.dashboard.getAdminStats();
+            const data = statsResult.data.data;
+            setStats(prev => ({
+                ...prev,
+                totalUsers: data.totalUsers || 0,
+                totalEvidences: data.totalEvidences || 0,
+                activeYears: data.activeYears || 0,
+                pendingReports: data.pendingReports || 0,
+                totalPrograms: data.totalPrograms || 0,
+                totalLogs: data.totalLogs || 0
+            }));
 
-            if (statsResponse.ok) {
-                const statsResult = await statsResponse.json();
-                if (statsResult.success) {
-                    setStats(statsResult.data);
-                }
-            }
 
-            // Fetch recent activities
-            const activitiesResponse = await fetch('/api/activity-logs?limit=10&sortOrder=desc', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // 2. Fetch User Statistics by Role (API: /api/users/statistics)
+            const userStatsResult = await apiMethods.users.getStatistics();
+            const userStatsData = userStatsResult.data.data;
 
-            if (activitiesResponse.ok) {
-                const activitiesResult = await activitiesResponse.json();
-                if (activitiesResult.success) {
-                    setActivities(activitiesResult.data.logs || []);
-                }
-            }
+            // FIX: Role 'expert' và 'evaluator' có thể bị nhầm lẫn trong logic cũ, sử dụng các trường cụ thể
+            const totalUsers = userStatsData.totalUsers || 1;
+            setRoleStats([
+                { role: 'Admin', count: userStatsData.adminUsers || 0, total: totalUsers, color: 'bg-indigo-600' },
+                { role: 'Manager', count: userStatsData.managerUsers || 0, total: totalUsers, color: 'bg-blue-600' },
+                { role: 'Reporter', count: userStatsData.reporterUsers || 0, total: totalUsers, color: 'bg-green-600' },
+                { role: 'Evaluator', count: userStatsData.evaluatorUsers || 0, total: totalUsers, color: 'bg-purple-600' }
+            ]);
 
-            // Fetch user statistics by role
-            const userStatsResponse = await fetch('/api/users/statistics', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (userStatsResponse.ok) {
-                const userStatsResult = await userStatsResponse.json();
-                if (userStatsResult.success) {
-                    const data = userStatsResult.data;
-                    setRoleStats([
-                        { role: 'Admin', count: data.adminUsers || 0, total: data.totalUsers || 1, color: 'bg-indigo-600' },
-                        { role: 'Manager', count: data.managerUsers || 0, total: data.totalUsers || 1, color: 'bg-blue-600' },
-                        { role: 'Expert', count: data.expertUsers || 0, total: data.totalUsers || 1, color: 'bg-green-600' },
-                        { role: 'Advisor', count: data.advisorUsers || 0, total: data.totalUsers || 1, color: 'bg-purple-600' }
-                    ]);
-                }
-            }
+            // 3. Fetch Recent Activities (API: /api/activity-logs)
+            const activitiesResult = await apiMethods.activityLogs.getAll({ limit: 10, sortOrder: 'desc' });
+            setActivities(activitiesResult.data.data.logs || []);
 
         } catch (err) {
             console.error('Error fetching dashboard data:', err);
-            setError('Không thể tải dữ liệu dashboard');
+            setError(err.response?.data?.message || 'Không thể tải dữ liệu dashboard');
         } finally {
             setLoading(false);
         }
@@ -96,7 +87,7 @@ const AdminDashboard = () => {
             <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-lg p-8 text-white">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold mb-2">Chào mừng bạn đến với hệ thống</h1>
+                        <h1 className="text-3xl font-bold mb-2">Chào mừng, Admin!</h1>
                         <p className="text-indigo-100">Tổng quan hệ thống và quản lý</p>
                     </div>
                     <Shield className="w-16 h-16 opacity-20" />
@@ -151,28 +142,28 @@ const AdminDashboard = () => {
                         description="Thêm, sửa, xóa người dùng"
                         icon={Users}
                         color="bg-blue-500"
-                        href="/users/create"
+                        href="/admin/users"
                     />
                     <QuickAction
-                        title="Năm học"
-                        description="Quản lý năm học và sao chép"
+                        title="Tạo năm học mới"
+                        description="Khởi tạo năm học và sao chép dữ liệu"
                         icon={Calendar}
                         color="bg-purple-500"
-                        href="/academic-years/academic-years"
+                        href="/admin/academic-years"
                     />
                     <QuickAction
-                        title="Cấu hình hệ thống"
-                        description="Cài đặt và bảo mật"
-                        icon={Settings}
-                        color="bg-gray-600"
-                        href="/settings"
-                    />
-                    <QuickAction
-                        title="Sao lưu dữ liệu"
-                        description="Backup và khôi phục"
-                        icon={Download}
+                        title="Sao lưu hệ thống"
+                        description="Thực hiện sao lưu cơ sở dữ liệu"
+                        icon={Database}
                         color="bg-green-500"
-                        href="/settings/backups"
+                        onClick={() => apiMethods.system.backup().then(() => toast.success('Yêu cầu sao lưu đã được gửi!'))}
+                    />
+                    <QuickAction
+                        title="Audit Log"
+                        description="Xem toàn bộ nhật ký hoạt động"
+                        icon={Activity}
+                        color="bg-gray-600"
+                        href="/admin/activity-logs"
                     />
                 </div>
             </div>
@@ -182,9 +173,9 @@ const AdminDashboard = () => {
                 {/* Recent Activities */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Hoạt động gần đây</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">Nhật ký hoạt động (Tổng: {stats.totalLogs})</h3>
                         <button
-                            onClick={() => router.push('/activity-logs')}
+                            onClick={() => router.push('/admin/activity-logs')}
                             className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                         >
                             Xem tất cả
@@ -199,10 +190,10 @@ const AdminDashboard = () => {
                                 <ActivityItem
                                     key={activity._id}
                                     action={activity.description}
-                                    user={activity.userId?.fullName || activity.userId?.email}
+                                    user={activity.userId?.fullName || activity.userId?.email || 'Hệ thống'}
                                     time={formatTimeAgo(activity.createdAt)}
                                     type={activity.action}
-                                    metadata={activity}
+                                    severity={activity.severity}
                                 />
                             ))}
                         </div>
@@ -217,7 +208,7 @@ const AdminDashboard = () => {
 
                 {/* Role Statistics */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê theo vai trò</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê người dùng theo vai trò</h3>
 
                     {loading ? (
                         <div className="space-y-4">
