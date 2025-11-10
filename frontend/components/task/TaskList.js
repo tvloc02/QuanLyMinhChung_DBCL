@@ -1,11 +1,11 @@
-// fileName: TaskList.js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { Plus, Search, Trash2, Edit2, Eye, RefreshCw, Filter, CheckCircle, AlertCircle, Clock, FileText, XCircle } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, RefreshCw, Filter, CheckCircle, AlertCircle, Clock, FileText, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 import TaskModal from './TaskModal'
+import TaskReview from './TaskReview'
 import TaskDetail from './TaskDetail'
 import { ActionButton } from '../ActionButtons'
 import ReportSelectionModal from '../reports/ReportSelectionModal'
@@ -18,9 +18,9 @@ export default function TaskList() {
     const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0, hasPrev: false, hasNext: false })
     const [search, setSearch] = useState('')
     const [status, setStatus] = useState('')
-    const [standardId, setStandardId] = useState('')
-    const [criteriaId, setCriteriaId] = useState('')
+    const [reportType, setReportType] = useState('')
     const [showTaskModal, setShowTaskModal] = useState(false)
+    const [showTaskReview, setShowTaskReview] = useState(false)
     const [showTaskDetail, setShowTaskDetail] = useState(false)
     const [selectedTask, setSelectedTask] = useState(null)
     const [userRole, setUserRole] = useState('')
@@ -41,7 +41,7 @@ export default function TaskList() {
         if (pagination && pagination.current !== undefined) {
             loadTasks(pagination.current)
         }
-    }, [activeTab, pagination.current, search, status, standardId, criteriaId])
+    }, [activeTab, pagination.current, search, status, reportType])
 
     useEffect(() => {
         fetchStandardsAndCriteria()
@@ -73,8 +73,7 @@ export default function TaskList() {
 
             if (search) params.search = search
             if (status) params.status = status
-            if (standardId) params.standardId = standardId
-            if (criteriaId) params.criteriaId = criteriaId
+            if (reportType) params.reportType = reportType
 
             let response
             if (activeTab === 'created') {
@@ -151,54 +150,10 @@ export default function TaskList() {
         setReportContext(null)
     }
 
-    const handleSelectExistingReport = (reportId) => {
-        router.push(`/reports/${reportId}`)
-        setShowReportSelection(false)
-        setReportContext(null)
-    }
-
-    const handleReviewReportFromList = (task) => {
-        setSelectedTask(task)
-        setShowTaskDetail(true)
-    }
-
-    const handleApproveReport = async (reportId) => {
-        if (!confirm('Bạn có chắc chắn muốn phê duyệt báo cáo này?')) return
-
-        try {
-            await apiMethods.reports.approve(reportId)
-            const taskToUpdate = tasks.find(t => t.reportId === reportId)
-            if (taskToUpdate) {
-                await apiMethods.tasks.reviewReport(taskToUpdate._id, { status: 'completed' })
-            }
-            toast.success('Phê duyệt báo cáo thành công')
-            loadTasks(pagination.current)
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi khi phê duyệt báo cáo')
-        }
-    }
-
-    const handleRejectReport = (reportId) => {
-        const reason = prompt('Vui lòng nhập lý do từ chối báo cáo:')
-        if (reason && reason.trim()) {
-            apiMethods.reports.reject(reportId, { feedback: reason })
-                .then(() => {
-                    const taskToUpdate = tasks.find(t => t.reportId === reportId)
-                    if (taskToUpdate) {
-                        return apiMethods.tasks.reviewReport(taskToUpdate._id, { status: 'rejected', rejectionReason: reason })
-                    }
-                    return Promise.resolve()
-                })
-                .then(() => {
-                    toast.success('Từ chối báo cáo thành công')
-                    loadTasks(pagination.current)
-                })
-                .catch(error => {
-                    toast.error(error.response?.data?.message || 'Lỗi khi từ chối báo cáo')
-                })
-        } else if (reason !== null) {
-            toast.error('Lý do từ chối không được để trống.')
-        }
+    const getReportStats = (task) => {
+        const assignedCount = task.assignedTo?.length || 0
+        const submittedCount = task.status === 'submitted' || task.status === 'completed' || task.status === 'approved' ? 1 : 0
+        return { submitted: submittedCount, total: assignedCount }
     }
 
     const isReporter = userRole === 'reporter'
@@ -321,8 +276,8 @@ export default function TaskList() {
                         <Filter className="w-5 h-5 text-blue-600" />
                         <h3 className="text-lg font-semibold text-gray-900">Bộ lọc tìm kiếm</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                        <div className="relative">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="relative md:col-span-2">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input
                                 type="text"
@@ -348,42 +303,26 @@ export default function TaskList() {
                         </select>
 
                         <select
-                            value={standardId}
-                            onChange={(e) => setStandardId(e.target.value)}
+                            value={reportType}
+                            onChange={(e) => setReportType(e.target.value)}
                             className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         >
-                            <option value="">Tất cả tiêu chuẩn</option>
-                            {standards.map(std => (
-                                <option key={std._id} value={std._id}>
-                                    {std.code} - {std.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={criteriaId}
-                            onChange={(e) => setCriteriaId(e.target.value)}
-                            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        >
-                            <option value="">Tất cả tiêu chí</option>
-                            {criterias.map(crit => (
-                                <option key={crit._id} value={crit._id}>
-                                    {crit.code} - {crit.name}
-                                </option>
-                            ))}
+                            <option value="">Tất cả loại báo cáo</option>
+                            <option value="overall_tdg">Tổng hợp TĐG</option>
+                            <option value="standard">Tiêu chuẩn</option>
+                            <option value="criteria">Tiêu chí</option>
                         </select>
 
                         <button
                             onClick={() => {
                                 setSearch('')
                                 setStatus('')
-                                setStandardId('')
-                                setCriteriaId('')
+                                setReportType('')
                             }}
-                            className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
+                            className="px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 font-medium"
                         >
                             <RefreshCw size={18} />
-                            Reset
+                            Xóa bộ lọc
                         </button>
 
                         <button
@@ -434,10 +373,6 @@ export default function TaskList() {
                             </tr>
                         ) : (
                             tasks.map((item, index) => {
-                                // Logic hiển thị nút duyệt trong Task List:
-                                // Phải là tab Tôi giao AND Task có reportId AND Report ở trạng thái submitted/public
-                                const canShowReviewButton = isCreatedTab && item.reportId && ['submitted', 'public'].includes(item.status);
-
                                 return (
                                     <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
                                         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200 text-center">
@@ -474,30 +409,32 @@ export default function TaskList() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             <div className="flex items-center justify-center gap-2">
-
-                                                {/* NÚT DUYỆT BÁO CÁO MỚI */}
-                                                {canShowReviewButton && (
+                                                {isCreatedTab && (
                                                     <ActionButton
                                                         icon={CheckCircle}
                                                         variant="warning"
                                                         size="sm"
-                                                        onClick={() => handleReviewReportFromList(item)}
+                                                        onClick={() => {
+                                                            setSelectedTask(item)
+                                                            setShowTaskReview(true)
+                                                        }}
                                                         title="Duyệt báo cáo"
                                                     />
                                                 )}
 
-                                                <ActionButton
-                                                    icon={Eye}
-                                                    variant="view"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setSelectedTask(item)
-                                                        setShowTaskDetail(true)
-                                                    }}
-                                                    title="Xem chi tiết"
-                                                />
+                                                {!isCreatedTab && (
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        variant="view"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedTask(item)
+                                                            setShowTaskDetail(true)
+                                                        }}
+                                                        title="Xem chi tiết"
+                                                    />
+                                                )}
 
-                                                {/* NÚT VIẾT BÁO CÁO (assignedTab) */}
                                                 {!isCreatedTab && isReporter && (
                                                     <ActionButton
                                                         icon={FileText}
@@ -508,7 +445,6 @@ export default function TaskList() {
                                                     />
                                                 )}
 
-                                                {/* NÚT CHỈNH SỬA/XÓA (createdTab) */}
                                                 {isCreatedTab && (
                                                     <>
                                                         <ActionButton
@@ -581,17 +517,31 @@ export default function TaskList() {
                 />
             )}
 
-            {showTaskDetail && (
+            {showTaskDetail && selectedTask && (
                 <TaskDetail
                     task={selectedTask}
                     onClose={() => {
-                        loadTasks(pagination.current)
                         setShowTaskDetail(false)
                         setSelectedTask(null)
                     }}
                     onSuccess={() => {
                         loadTasks(pagination.current)
                         setShowTaskDetail(false)
+                        setSelectedTask(null)
+                    }}
+                />
+            )}
+
+            {showTaskReview && selectedTask && (
+                <TaskReview
+                    task={selectedTask}
+                    onClose={() => {
+                        setShowTaskReview(false)
+                        setSelectedTask(null)
+                    }}
+                    onSuccess={() => {
+                        loadTasks(pagination.current)
+                        setShowTaskReview(false)
                         setSelectedTask(null)
                     }}
                 />
