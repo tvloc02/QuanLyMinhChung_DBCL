@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
-// Component phụ để hiển thị danh sách người được giao trong modal
 const AssignedReportersModal = ({ isOpen, reporters, onClose }) => {
     if (!isOpen) return null
 
@@ -94,7 +93,6 @@ export default function ReportDetail() {
         }
     }
 
-    // Xác định quyền của user hiện tại
     const getPermissions = () => {
         if (!report || !user) return {}
 
@@ -103,28 +101,26 @@ export default function ReportDetail() {
         const isManager = user.role === 'manager'
         const isAdmin = user.role === 'admin'
 
-        const canEdit = isCreator || isAssignee || isManager || isAdmin;
+        const canEdit = isCreator || isAssignee || isManager || isAdmin
 
-        // Trạng thái cho phép công khai: draft, in_progress
-        const canMakePublic = canEdit && ['draft', 'in_progress'].includes(report.status);
+        const canMakePublic = canEdit && ['draft', 'in_progress'].includes(report.status)
+        const canRetractPublic = canEdit && report.status === 'public'
 
-        // Trạng thái cho phép xuất bản: approved
-        const canPublish = (isManager || isAdmin) && report.status === 'approved';
-        const canUnpublish = (isManager || isAdmin) && report.status === 'published';
+        const canPublish = (isManager || isAdmin) && report.status === 'approved'
+        const canUnpublish = (isManager || isAdmin) && report.status === 'published'
 
-        // Quyền duyệt: Manager/Admin/Người tạo Task, và Report phải ở trạng thái submitted HOẶC public
-        const canApproveReport = (isManager || isAdmin || (report.taskId && user.role === 'manager')) && ['submitted', 'public'].includes(report.status);
-        const canRejectReport = (isManager || isAdmin || (report.taskId && user.role === 'manager')) && ['submitted', 'public'].includes(report.status);
+        const canApproveOrRejectReport = (isManager || isAdmin) && ['submitted', 'public'].includes(report.status)
 
         return {
             canView: true,
             canEdit: canEdit,
             canDelete: isCreator || isAdmin,
-            canMakePublic: canMakePublic, // Quyền mới
+            canMakePublic: canMakePublic,
+            canRetractPublic: canRetractPublic,
             canPublish: canPublish,
             canUnpublish: canUnpublish,
-            canApproveReport: canApproveReport,
-            canRejectReport: canRejectReport,
+            canApproveReport: canApproveOrRejectReport,
+            canRejectReport: canApproveOrRejectReport,
             canRequestEditPermission: !isAssignee && report.status === 'draft',
             isCreator,
             isAssignee,
@@ -154,7 +150,6 @@ export default function ReportDetail() {
         }
     }
 
-    // Xử lý Công khai (Public)
     const handleMakePublic = async () => {
         if (report.status !== 'draft' && report.status !== 'in_progress') {
             toast.error('Chỉ có thể công khai báo cáo ở trạng thái Nháp hoặc Đang thực hiện.')
@@ -174,7 +169,25 @@ export default function ReportDetail() {
         }
     }
 
-    // Xử lý Phát hành (Publish - Sau khi Approved)
+    const handleRetractPublic = async () => {
+        if (report.status !== 'public') {
+            toast.error('Chỉ có thể thu hồi công khai báo cáo ở trạng thái Công khai.')
+            return
+        }
+        if (!confirm('Bạn có chắc chắn muốn thu hồi công khai báo cáo này về trạng thái Draft?')) return
+
+        try {
+            setActionLoading(prev => ({ ...prev, retractPublic: true }))
+            await apiMethods.reports.retractPublic(id)
+            toast.success('Thu hồi công khai báo cáo thành công')
+            fetchReport()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi thu hồi công khai báo cáo')
+        } finally {
+            setActionLoading(prev => ({ ...prev, retractPublic: false }))
+        }
+    }
+
     const handlePublish = async () => {
         if (report.status !== 'approved') {
             toast.error('Chỉ có thể phát hành (publish) báo cáo đã được Chấp thuận (approved).')
@@ -245,6 +258,10 @@ export default function ReportDetail() {
         } finally {
             setActionLoading(prev => ({ ...prev, rejectReport: false }))
         }
+    }
+
+    const handleNavigateToReviewAssignment = () => {
+        router.push(`/assignments/assign-reviewers?reportId=${report._id}`)
     }
 
     const handleRequestEditPermission = async () => {
@@ -318,15 +335,12 @@ export default function ReportDetail() {
         )
     }
 
-    // Logic kiểm tra Đánh giá (Evaluation)
-    const hasEvaluations = report.evaluations && report.evaluations.length > 0;
-    const isApprovedButNotPublished = report.status === 'approved';
+    const isApprovedButNotPublished = report.status === 'approved'
 
     return (
         <Layout title={`Chi tiết báo cáo: ${report.code}`}>
             <div className="space-y-6">
 
-                {/* Header Block (Inspired by profile.js gradient) */}
                 <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
@@ -348,10 +362,8 @@ export default function ReportDetail() {
                     </div>
                 </div>
 
-                {/* Main Grid: Details (Left) and Metadata/Actions (Right) */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* Left Column: Report Content */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
                             <div className="pb-6 border-b border-gray-200">
@@ -375,7 +387,6 @@ export default function ReportDetail() {
                                 </div>
                             </div>
 
-                            {/* Content Area */}
                             <div className="pt-6">
                                 <div className="prose prose-lg max-w-none bg-gray-50 p-6 rounded-xl border border-gray-200 min-h-[300px]">
                                     <div dangerouslySetInnerHTML={{ __html: report.content || '<p className="text-gray-500 italic">Báo cáo này chưa có nội dung chi tiết.</p>' }} />
@@ -383,7 +394,6 @@ export default function ReportDetail() {
                             </div>
                         </div>
 
-                        {/* Summary Block */}
                         {(report.summary || report.keywords?.length > 0) && (
                             <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -406,22 +416,18 @@ export default function ReportDetail() {
                         )}
                     </div>
 
-                    {/* Right Column: Metadata & Actions */}
                     <div className="lg:col-span-1 space-y-6">
 
-                        {/* Block 1: Audit & Assigned Users */}
                         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 space-y-4">
                             <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                                 <Users className="w-5 h-5 text-purple-600" />
                                 Thông tin Phân công
                             </h3>
                             <div className="space-y-3">
-                                {/* Creator */}
                                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                     <p className="text-sm font-medium text-gray-600 flex items-center gap-1"><User className="w-4 h-4"/> Người tạo:</p>
                                     <p className="text-sm font-bold text-gray-900">{report.createdBy?.fullName}</p>
                                 </div>
-                                {/* Assigned Reporters */}
                                 <div className="p-2 bg-gray-50 rounded-lg">
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm font-medium text-gray-600 flex items-center gap-1"><Users className="w-4 h-4"/> Người được giao:</p>
@@ -440,7 +446,6 @@ export default function ReportDetail() {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Dates */}
                                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                                     <p className="text-sm text-gray-600 flex items-center gap-1">
                                         <Calendar className="w-4 h-4" /> Ngày tạo:
@@ -456,11 +461,9 @@ export default function ReportDetail() {
                             </div>
                         </div>
 
-                        {/* Block 2: Actions */}
                         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 space-y-3">
                             <h3 className="text-lg font-semibold text-gray-800 mb-3">Thao tác</h3>
 
-                            {/* Edit & Delete */}
                             {(permissions.canEdit || permissions.canDelete) && (
                                 <div className="flex gap-3">
                                     {permissions.canEdit && (
@@ -485,7 +488,6 @@ export default function ReportDetail() {
                                 </div>
                             )}
 
-                            {/* Công khai (Draft/In_Progress -> Public) */}
                             {permissions.canMakePublic && (
                                 <button
                                     onClick={handleMakePublic}
@@ -497,11 +499,20 @@ export default function ReportDetail() {
                                 </button>
                             )}
 
-                            {/* Nút Phân quyền đánh giá (Giả định sau Approved) */}
+                            {permissions.canRetractPublic && (
+                                <button
+                                    onClick={handleRetractPublic}
+                                    disabled={actionLoading.retractPublic}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-all font-medium text-sm"
+                                >
+                                    <Lock className="w-4 h-4" />
+                                    Thu hồi công khai
+                                </button>
+                            )}
+
                             {isApprovedButNotPublished && (permissions.isManager || permissions.isAdmin) && (
                                 <button
-                                    // TODO: Replace with actual assignment/evaluation routing
-                                    onClick={() => toast('Chức năng phân quyền đánh giá chưa được triển khai.', {icon: '🚧'})}
+                                    onClick={handleNavigateToReviewAssignment}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium text-sm"
                                 >
                                     <FilePlus className="w-4 h-4" />
@@ -509,7 +520,6 @@ export default function ReportDetail() {
                                 </button>
                             )}
 
-                            {/* Phát hành (Publish - Sau Approved/Evaluation) */}
                             {permissions.canPublish && (
                                 <button
                                     onClick={handlePublish}
@@ -532,7 +542,6 @@ export default function ReportDetail() {
                                 </button>
                             )}
 
-                            {/* Approval Actions - Chỉ cho người duyệt Task thấy khi Report đã submitted/public */}
                             {permissions.canApproveReport && (
                                 <>
                                     <button
@@ -554,7 +563,6 @@ export default function ReportDetail() {
                                 </>
                             )}
 
-                            {/* Request Edit Permission */}
                             {permissions.canRequestEditPermission && (
                                 <button
                                     onClick={handleRequestEditPermission}
@@ -604,7 +612,6 @@ export default function ReportDetail() {
                     </div>
                 )}
 
-                {/* Assigned Reporters List Modal */}
                 <AssignedReportersModal
                     isOpen={showReportersModal}
                     reporters={report?.assignedReporters}

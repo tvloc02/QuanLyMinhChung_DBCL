@@ -542,6 +542,7 @@ const getReportsByTask = async (req, res) => {
         const { taskId } = req.query;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
+        const isTaskCreator = req.query.isTaskCreator === 'true';
 
         if (!taskId) {
             return res.status(400).json({
@@ -550,7 +551,9 @@ const getReportsByTask = async (req, res) => {
             });
         }
 
-        const task = await Task.findOne({ _id: taskId, academicYearId });
+        const TaskModel = mongoose.model('Task');
+        const ReportModel = mongoose.model('Report');
+        const task = await TaskModel.findOne({ _id: taskId, academicYearId });
 
         if (!task) {
             return res.status(404).json({
@@ -560,28 +563,49 @@ const getReportsByTask = async (req, res) => {
         }
 
         let reports = [];
+        let primaryReportId = task.reportId ? String(task.reportId) : null;
 
-        // 1. Lấy Report chính được gán trong Task (Report đã nộp/được Task gán)
-        if (task.reportId) {
-            const primaryReport = await Report.findById(task.reportId)
+        let baseReportQuery = {
+            academicYearId,
+            taskId: taskId
+        };
+
+        let statusFilter = ['draft', 'in_progress', 'submitted', 'rejected', 'public', 'approved', 'published'];
+
+        if (isTaskCreator) {
+            statusFilter = ['submitted', 'rejected', 'public', 'approved', 'published'];
+        }
+
+        let mainQuery = {
+            ...baseReportQuery,
+            _id: { $in: [] },
+            status: { $in: statusFilter }
+        };
+
+        if (primaryReportId) {
+            // Lấy Report chính
+            const primaryReport = await ReportModel.findById(primaryReportId)
                 .populate('createdBy', 'fullName email')
                 .populate('assignedReporters', 'fullName email')
                 .populate({
                     path: 'editRequests.requesterId',
                     select: 'fullName email avatar'
                 });
-            if (primaryReport) {
+
+            if (primaryReport && statusFilter.includes(primaryReport.status)) {
                 reports.push(primaryReport);
+                mainQuery._id.$in.push(primaryReport._id);
             }
         }
 
-        // 2. Lấy các Report khác (Draft/In_Progress/Rejected) cùng taskId
-        const otherReports = await Report.find({
-            academicYearId,
-            taskId: taskId,
-            _id: { $ne: task.reportId }, // Loại trừ Report chính
-            status: { $in: ['draft', 'in_progress', 'submitted', 'rejected'] }
-        })
+        // Lấy các Report khác, loại trừ Report chính (nếu nó được lấy ở trên)
+        const otherReportsQuery = {
+            ...baseReportQuery,
+            _id: { $nin: mainQuery._id.$in },
+            status: { $in: statusFilter }
+        };
+
+        const otherReports = await ReportModel.find(otherReportsQuery)
             .populate('createdBy', 'fullName email')
             .populate('assignedReporters', 'fullName email')
             .populate({
@@ -590,7 +614,7 @@ const getReportsByTask = async (req, res) => {
             })
             .sort({ createdAt: -1 });
 
-        reports = [...reports, ...otherReports]; // Report chính (nếu có) sẽ ở đầu
+        reports = [...reports, ...otherReports];
 
         const permissionService = require('../../services/permissionService');
         const canWriteReport = await permissionService.canWriteReport(

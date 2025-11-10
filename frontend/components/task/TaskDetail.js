@@ -1,14 +1,15 @@
-// fileName: TaskDetail.js
 import { useState, useEffect } from 'react'
-import { X, CheckCircle, XCircle, Send, FileText, Eye, ChevronRight, File, Download, Upload } from 'lucide-react'
+import { X, CheckCircle, XCircle, Send, FileText, Eye, ChevronRight, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
+import { useRouter } from 'next/router'
 
 export default function TaskDetail({ task, onClose, onSuccess }) {
+    const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [reports, setReports] = useState([]) // reports: chứa TẤT CẢ reports liên quan
-    const [selectedReport, setSelectedReport] = useState(null) // selectedReport: Report đang được hiển thị
+    const [reports, setReports] = useState([])
+    const [selectedReport, setSelectedReport] = useState(null)
     const [evidences, setEvidences] = useState([])
     const [currentPage, setCurrentPage] = useState(0)
     const [selectedFile, setSelectedFile] = useState(null)
@@ -18,7 +19,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     const [rejectionReason, setRejectionReason] = useState('')
     const [reviewLoading, setReviewLoading] = useState(false)
 
-    const itemsPerPage = 1 // Số lượng evidences hiển thị trên sidebar
+    const itemsPerPage = 1
 
     useEffect(() => {
         const role = localStorage.getItem('userRole') || ''
@@ -29,10 +30,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
 
     useEffect(() => {
         loadTaskData()
-    }, [task])
-
-    useEffect(() => {
-        // Tải evidences dựa trên tiêu chí của Task (vì Task chỉ liên quan đến 1 Tiêu chí/Tiêu chuẩn)
         const criteriaId = task.criteriaId?._id || task.criteriaId
         if (criteriaId) {
             loadEvidences(criteriaId)
@@ -45,20 +42,18 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
         try {
             setLoading(true)
 
-            if (!task._id) {
-                setReports([])
-                setSelectedReport(null)
-                return
-            }
+            const isTaskCreator = String(task.createdBy?._id || task.createdBy) === String(userId)
 
-            // Dùng API getReportsByTask để lấy TẤT CẢ reports liên quan đến Task này
-            const response = await apiMethods.reports.getByTask({ taskId: task._id })
+            const response = await apiMethods.reports.getByTask({
+                taskId: task._id,
+                reportType: task.reportType,
+                isTaskCreator: isTaskCreator,
+            })
 
             const reportsData = response.data.data.reports || []
             setReports(reportsData)
 
             if (reportsData.length > 0) {
-                // Ưu tiên chọn Report chính của Task (task.reportId) hoặc Report đầu tiên
                 const primaryReport = reportsData.find(r => String(r._id) === String(task.reportId));
                 setSelectedReport(primaryReport || reportsData[0]);
             } else {
@@ -81,7 +76,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                 setEvidences([])
                 return
             }
-            // Tải tất cả evidences liên quan đến criteriaId này
             const evidenceData = await apiMethods.evidences.getAll({ criteriaId })
             setEvidences(evidenceData.data.data.evidences || [])
             setCurrentPage(0)
@@ -94,18 +88,13 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     const handleApprove = async () => {
         if (!selectedReport) return
 
+        if (!confirm('Bạn có chắc chắn muốn phê duyệt báo cáo này và hoàn thành nhiệm vụ?')) return
+
         try {
             setReviewLoading(true)
 
-            // 1. Phê duyệt Báo cáo (backend sẽ cập nhật Report)
-            // Lưu ý: Cần đảm bảo TaskId được gửi trong body nếu API cần, nhưng Report API dùng ID trong URL.
-            // Task status được cập nhật trong Task Controller
             await apiMethods.reports.approve(selectedReport._id)
-
-            // 2. Cập nhật Task status (chuyển Task sang Approved)
-            // Task Controller sẽ tự kiểm tra xem Report có phải Report chính của Task không
-            await apiMethods.tasks.reviewReport(task._id, { status: 'approved' })
-
+            await apiMethods.tasks.reviewReport(task._id, { status: 'completed' })
 
             toast.success('Phê duyệt báo cáo và Task thành công')
             onSuccess()
@@ -125,15 +114,16 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
             return
         }
 
+        if (!confirm('Bạn có chắc chắn muốn từ chối báo cáo này? Thao tác này sẽ đặt lại Task về trạng thái bị từ chối.')) return
+
+
         try {
             setReviewLoading(true)
 
-            // 1. Từ chối Báo cáo (backend sẽ cập nhật Report)
             await apiMethods.reports.reject(selectedReport._id, {
                 feedback: rejectionReason
             })
 
-            // 2. Cập nhật Task status (chuyển Task sang Rejected)
             await apiMethods.tasks.reviewReport(task._id, { status: 'rejected', rejectionReason })
 
             toast.success('Từ chối báo cáo và Task thành công')
@@ -151,41 +141,46 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     const handleDownloadReportFile = async (report) => {
         if (report.contentMethod === 'file_upload' && report.attachedFile) {
             try {
-                // Tải file đính kèm
-                // NOTE: API downloadFile cần phải trả về blob để frontend xử lý tải xuống
-                const response = await apiMethods.reports.downloadFile(report._id);
+                const response = await apiMethods.reports.downloadFile(report._id)
 
-                // Logic để kích hoạt tải file từ blob/buffer (Cần axios responseType: 'blob')
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', report.attachedFile.originalName || 'report-file.pdf'); // Sử dụng tên gốc
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-                toast.success('Tải file thành công');
+                const url = window.URL.createObjectURL(new Blob([response.data]))
+                const link = document.createElement('a')
+                link.href = url
+                link.setAttribute('download', report.attachedFile.originalName || 'report-file.pdf')
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                window.URL.revokeObjectURL(url)
+                toast.success('Tải file thành công')
 
             } catch (error) {
-                console.error('Download error:', error);
-                toast.error(error.response?.data?.message || 'Lỗi khi tải file báo cáo');
+                console.error('Download error:', error)
+                toast.error(error.response?.data?.message || 'Lỗi khi tải file báo cáo')
             }
         } else {
-            toast.error('Báo cáo không có file đính kèm hoặc được soạn trực tuyến');
+            toast.error('Báo cáo không có file đính kèm hoặc được soạn trực tuyến')
         }
     }
+
+    const handleNavigateToReviewAssignment = () => {
+        if (!selectedReport) return
+        router.push(`/assignments/assign-reviewers?reportId=${selectedReport._id}`)
+        onClose()
+    }
+
 
     const isTaskCreator = String(task.createdBy?._id || task.createdBy) === String(userId)
     const isAdmin = userRole === 'admin'
     const isManager = userRole === 'manager'
-    const isReporter = userRole === 'reporter'
 
-    // Cho phép Admin, Manager hoặc Người tạo Task duyệt
+    const isReportPublicOrSubmitted = ['submitted', 'public'].includes(selectedReport?.status)
+
     const canReview = (isAdmin || isManager || isTaskCreator)
 
-    // Điều kiện để hiển thị nút Duyệt báo cáo: Phải là Report chính VÀ trạng thái là submitted HOẶC public
-    const isPrimaryReport = String(selectedReport?._id) === String(task.reportId);
-    const canShowReviewActions = canReview && isPrimaryReport && ['submitted', 'public'].includes(selectedReport?.status);
+    const isPrimaryReport = String(selectedReport?._id) === String(task.reportId)
+    const canShowReviewActions = canReview && isPrimaryReport && isReportPublicOrSubmitted
+
+    const canShowAssignmentButton = (isAdmin || isManager) && isPrimaryReport && selectedReport?.status === 'approved'
 
     const paginatedEvidences = evidences.slice(
         currentPage * itemsPerPage,
@@ -195,26 +190,26 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
 
     const getStatusBadgeColor = (status) => {
         const colors = {
-            'draft': 'bg-gray-100 text-gray-800',
-            'public': 'bg-blue-100 text-blue-800',
-            'published': 'bg-purple-100 text-purple-800',
-            'approved': 'bg-green-100 text-green-800',
-            'rejected': 'bg-red-100 text-red-800',
-            'submitted': 'bg-cyan-100 text-cyan-800',
-            'in_progress': 'bg-sky-100 text-sky-800',
+            draft: 'bg-gray-100 text-gray-800',
+            public: 'bg-blue-100 text-blue-800',
+            published: 'bg-purple-100 text-purple-800',
+            approved: 'bg-green-100 text-green-800',
+            rejected: 'bg-red-100 text-red-800',
+            submitted: 'bg-cyan-100 text-cyan-800',
+            in_progress: 'bg-sky-100 text-sky-800',
         }
         return colors[status] || 'bg-gray-100 text-gray-800'
     }
 
     const getStatusLabel = (status) => {
         const labels = {
-            'draft': 'Bản nháp',
-            'public': 'Công khai',
-            'published': 'Phát hành',
-            'approved': 'Chấp thuận',
-            'rejected': 'Từ chối',
-            'submitted': 'Đã nộp chờ duyệt',
-            'in_progress': 'Đang thực hiện',
+            draft: 'Bản nháp',
+            public: 'Công khai',
+            published: 'Phát hành',
+            approved: 'Chấp thuận',
+            rejected: 'Từ chối',
+            submitted: 'Đã nộp chờ duyệt',
+            in_progress: 'Đang thực hiện',
         }
         return labels[status] || status
     }
@@ -222,7 +217,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header - Blue */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
@@ -238,9 +232,8 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="flex-1 overflow-hidden flex">
-                    {/* Reports List Sidebar */}
+                    {/* Danh sách Báo cáo (Cột trái) */}
                     <div className="w-64 border-r border-gray-200 overflow-y-auto bg-gray-50 p-4 space-y-2">
                         <h3 className="text-sm font-bold text-gray-900 px-2 mb-3">Danh sách báo cáo ({reports.length})</h3>
 
@@ -293,7 +286,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                         )}
                     </div>
 
-                    {/* Report Content */}
+                    {/* Nội dung Báo cáo (Cột giữa) */}
                     <div className="flex-1 border-r border-gray-200 overflow-y-auto p-6">
                         {loading ? (
                             <div className="flex items-center justify-center h-full">
@@ -304,7 +297,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                             </div>
                         ) : selectedReport ? (
                             <div className="space-y-6">
-                                {/* Report Info */}
                                 <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">Thông tin báo cáo</h3>
                                     <div className="space-y-3">
@@ -346,7 +338,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                     </div>
                                 </div>
 
-                                {/* Report Content */}
                                 <div className="bg-white rounded-xl p-5 border border-gray-200">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">Nội dung báo cáo</h3>
                                     <div className="prose prose-sm max-w-none">
@@ -361,7 +352,6 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                     </div>
                                 </div>
 
-                                {/* Rejection Reason */}
                                 {selectedReport.status === 'rejected' && selectedReport.rejectionFeedback && (
                                     <div className="bg-red-50 rounded-xl p-5 border border-red-200">
                                         <h3 className="text-lg font-bold text-red-900 mb-2 flex items-center gap-2">
@@ -382,7 +372,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                         )}
                     </div>
 
-                    {/* Evidences Sidebar */}
+                    {/* Minh chứng (Cột phải) */}
                     <div className="w-80 border-l border-gray-200 overflow-y-auto p-6 bg-gray-50">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Minh chứng</h3>
 
@@ -442,7 +432,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     </div>
                 </div>
 
-                {/* Footer */}
+                {/* Footer với Thao tác */}
                 <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-blue-50 to-blue-100">
                     {canShowReviewActions ? (
                         <div className="space-y-4">
@@ -503,6 +493,21 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                 )}
                             </div>
                         </div>
+                    ) : canShowAssignmentButton ? (
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={onClose}
+                                className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all font-medium"
+                            >
+                                Đóng
+                            </button>
+                            <button
+                                onClick={handleNavigateToReviewAssignment}
+                                className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium"
+                            >
+                                Phân quyền đánh giá
+                            </button>
+                        </div>
                     ) : (
                         <div className="flex gap-3 justify-end">
                             <button
@@ -515,11 +520,10 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                     )}
                 </div>
 
-                {/* File Preview Modal */}
                 {selectedFile && (
                     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
                         <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-blue-50">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
                                 <h3 className="text-lg font-bold text-gray-900">{selectedFile.originalName}</h3>
                                 <button
                                     onClick={() => setSelectedFile(null)}

@@ -1,6 +1,7 @@
+// fileName: TaskList.js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { Plus, Search, Trash2, Edit2, Eye, RefreshCw, Filter, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Eye, RefreshCw, Filter, CheckCircle, AlertCircle, Clock, FileText, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
@@ -156,6 +157,54 @@ export default function TaskList() {
         setReportContext(null)
     }
 
+    const handleReviewReportFromList = (task) => {
+        setSelectedTask(task)
+        setShowTaskDetail(true)
+    }
+
+    const handleApproveReport = async (reportId) => {
+        if (!confirm('Bạn có chắc chắn muốn phê duyệt báo cáo này?')) return
+
+        try {
+            await apiMethods.reports.approve(reportId)
+            const taskToUpdate = tasks.find(t => t.reportId === reportId)
+            if (taskToUpdate) {
+                await apiMethods.tasks.reviewReport(taskToUpdate._id, { status: 'completed' })
+            }
+            toast.success('Phê duyệt báo cáo thành công')
+            loadTasks(pagination.current)
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi phê duyệt báo cáo')
+        }
+    }
+
+    const handleRejectReport = (reportId) => {
+        const reason = prompt('Vui lòng nhập lý do từ chối báo cáo:')
+        if (reason && reason.trim()) {
+            apiMethods.reports.reject(reportId, { feedback: reason })
+                .then(() => {
+                    const taskToUpdate = tasks.find(t => t.reportId === reportId)
+                    if (taskToUpdate) {
+                        return apiMethods.tasks.reviewReport(taskToUpdate._id, { status: 'rejected', rejectionReason: reason })
+                    }
+                    return Promise.resolve()
+                })
+                .then(() => {
+                    toast.success('Từ chối báo cáo thành công')
+                    loadTasks(pagination.current)
+                })
+                .catch(error => {
+                    toast.error(error.response?.data?.message || 'Lỗi khi từ chối báo cáo')
+                })
+        } else if (reason !== null) {
+            toast.error('Lý do từ chối không được để trống.')
+        }
+    }
+
+    const isReporter = userRole === 'reporter'
+    const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin'
+    const isCreatedTab = activeTab === 'created'
+
     const getStatusLabel = (status) => {
         const icons = {
             pending: <Clock className="w-4 h-4 mr-2" />,
@@ -188,9 +237,6 @@ export default function TaskList() {
             </div>
         )
     }
-
-    const isReporter = userRole === 'reporter'
-    const isCreatedTab = activeTab === 'created'
 
     return (
         <div className="space-y-6">
@@ -225,7 +271,7 @@ export default function TaskList() {
                             </p>
                         </div>
                     </div>
-                    {isCreatedTab && (
+                    {isCreatedTab && isManagerOrAdmin && (
                         <button
                             onClick={() => {
                                 setSelectedTask(null)
@@ -387,86 +433,108 @@ export default function TaskList() {
                                 </td>
                             </tr>
                         ) : (
-                            tasks.map((item, index) => (
-                                <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
-                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200 text-center">
-                                        {((pagination.current - 1) * 10) + index + 1}
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
+                            tasks.map((item, index) => {
+                                // Logic hiển thị nút duyệt trong Task List:
+                                // Phải là tab Tôi giao AND Task có reportId AND Report ở trạng thái submitted/public
+                                const canShowReviewButton = isCreatedTab && item.reportId && ['submitted', 'public'].includes(item.status);
+
+                                return (
+                                    <tr key={item._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600 border-r border-gray-200 text-center">
+                                            {((pagination.current - 1) * 10) + index + 1}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
                                             <span className="px-2 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-lg border border-blue-200">
                                                 {item.taskCode}
                                             </span>
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
-                                        {item.reportType === 'overall_tdg' ? 'Tổng hợp TĐG' : item.reportType === 'standard' ? 'Tiêu chuẩn' : 'Tiêu chí'}
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
-                                        {item.createdBy?.fullName || '-'}
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
-                                        {formatDate(item.createdAt)}
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
-                                        {item.dueDate ? formatDate(item.dueDate) : '-'}
-                                    </td>
-                                    <td className="px-3 py-4 border-r border-gray-200 text-center text-sm">
-                                        <div className="flex flex-wrap gap-1 justify-center">
-                                            {item.assignedTo?.map(user => (
-                                                <span key={user._id} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded border border-purple-200">
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                            {item.reportType === 'overall_tdg' ? 'Tổng hợp TĐG' : item.reportType === 'standard' ? 'Tiêu chuẩn' : 'Tiêu chí'}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                            {item.createdBy?.fullName || '-'}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                            {formatDate(item.createdAt)}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center text-sm text-gray-600">
+                                            {item.dueDate ? formatDate(item.dueDate) : '-'}
+                                        </td>
+                                        <td className="px-3 py-4 border-r border-gray-200 text-center text-sm">
+                                            <div className="flex flex-wrap gap-1 justify-center">
+                                                {item.assignedTo?.map(user => (
+                                                    <span key={user._id} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded border border-purple-200">
                                                         {user.fullName?.split(' ').pop()}
                                                     </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
-                                        {getStatusLabel(item.status)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <ActionButton
-                                                icon={Eye}
-                                                variant="view"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setSelectedTask(item)
-                                                    setShowTaskDetail(true)
-                                                }}
-                                                title="Xem chi tiết"
-                                            />
-                                            {!isCreatedTab && isReporter && (
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap border-r border-gray-200 text-center">
+                                            {getStatusLabel(item.status)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                            <div className="flex items-center justify-center gap-2">
+
+                                                {/* NÚT DUYỆT BÁO CÁO MỚI */}
+                                                {canShowReviewButton && (
+                                                    <ActionButton
+                                                        icon={CheckCircle}
+                                                        variant="warning"
+                                                        size="sm"
+                                                        onClick={() => handleReviewReportFromList(item)}
+                                                        title="Duyệt báo cáo"
+                                                    />
+                                                )}
+
                                                 <ActionButton
-                                                    icon={FileText}
-                                                    variant="primary"
+                                                    icon={Eye}
+                                                    variant="view"
                                                     size="sm"
-                                                    onClick={() => handleWriteReport(item)}
-                                                    title="Viết báo cáo"
+                                                    onClick={() => {
+                                                        setSelectedTask(item)
+                                                        setShowTaskDetail(true)
+                                                    }}
+                                                    title="Xem chi tiết"
                                                 />
-                                            )}
-                                            {isCreatedTab && (
-                                                <>
+
+                                                {/* NÚT VIẾT BÁO CÁO (assignedTab) */}
+                                                {!isCreatedTab && isReporter && (
                                                     <ActionButton
-                                                        icon={Edit2}
-                                                        variant="edit"
+                                                        icon={FileText}
+                                                        variant="primary"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            setSelectedTask(item)
-                                                            setShowTaskModal(true)
-                                                        }}
-                                                        title="Chỉnh sửa"
+                                                        onClick={() => handleWriteReport(item)}
+                                                        title="Viết báo cáo"
                                                     />
-                                                    <ActionButton
-                                                        icon={Trash2}
-                                                        variant="delete"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(item._id)}
-                                                        title="Xóa"
-                                                    />
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                                )}
+
+                                                {/* NÚT CHỈNH SỬA/XÓA (createdTab) */}
+                                                {isCreatedTab && (
+                                                    <>
+                                                        <ActionButton
+                                                            icon={Edit2}
+                                                            variant="edit"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setSelectedTask(item)
+                                                                setShowTaskModal(true)
+                                                            }}
+                                                            title="Chỉnh sửa"
+                                                        />
+                                                        <ActionButton
+                                                            icon={Trash2}
+                                                            variant="delete"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(item._id)}
+                                                            title="Xóa"
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
+                            })
                         )}
                         </tbody>
                     </table>
@@ -517,6 +585,7 @@ export default function TaskList() {
                 <TaskDetail
                     task={selectedTask}
                     onClose={() => {
+                        loadTasks(pagination.current)
                         setShowTaskDetail(false)
                         setSelectedTask(null)
                     }}
