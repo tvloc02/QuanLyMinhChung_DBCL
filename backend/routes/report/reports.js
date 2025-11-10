@@ -152,20 +152,7 @@ router.get('/by-task',
             .notEmpty()
             .withMessage('ID nhiệm vụ là bắt buộc')
             .isMongoId()
-            .withMessage('ID nhiệm vụ không hợp lệ'),
-        query('reportType')
-            .notEmpty()
-            .withMessage('Loại báo cáo là bắt buộc')
-            .isIn(['criteria', 'standard', 'overall_tdg'])
-            .withMessage('Loại báo cáo không hợp lệ'),
-        query('standardId')
-            .optional()
-            .isMongoId()
-            .withMessage('ID tiêu chuẩn không hợp lệ'),
-        query('criteriaId')
-            .optional()
-            .isMongoId()
-            .withMessage('ID tiêu chí không hợp lệ')
+            .withMessage('ID nhiệm vụ không hợp lệ')
     ],
     validation,
     reportController.getReportsByTask
@@ -288,6 +275,7 @@ router.delete('/:id',
 );
 
 router.post('/:id/publish',
+    requireManager, // Giữ requireManager vì Phát hành là bước cuối
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
     reportController.publishReport
@@ -301,14 +289,14 @@ router.post('/:id/unpublish',
 );
 
 router.post('/:id/approve',
-    requireManager,
+    requireManager, // Giữ requireManager cho việc duyệt
     approvalValidation,
     validation,
     reportController.approveReport
 );
 
 router.post('/:id/reject',
-    requireManager,
+    requireManager, // Giữ requireManager cho việc từ chối
     approvalValidation,
     validation,
     reportController.rejectReport
@@ -318,6 +306,12 @@ router.post('/:id/make-public',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
     reportController.makePublic
+);
+
+router.post('/:id/retract-public',
+    [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
+    validation,
+    reportController.retractPublic // API THU HỒI CÔNG KHAI MỚI
 );
 
 router.post('/:id/assign-reporter',

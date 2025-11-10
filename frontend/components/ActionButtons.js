@@ -1,3 +1,4 @@
+// fileName: ActionButtons.js
 import React from 'react';
 const ActionButton = ({
                           icon: Icon,
@@ -10,84 +11,29 @@ const ActionButton = ({
                       }) => {
     const buttonTitle = title || label;
 
+    const baseStyle = {
+        bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
+        icon: 'text-blue-600',
+        shadow: 'shadow-slate-200',
+        hover: 'hover:from-slate-100 hover:to-slate-200',
+        ring: 'focus:ring-slate-300'
+    };
+
     const variants = {
-        view: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        add: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        edit: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        delete: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        primary: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        secondary: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        success: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        warning: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        purple: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        pink: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        },
-        lock: {
-            bg: 'bg-gradient-to-br from-slate-50 to-slate-100',
-            icon: 'text-blue-600',
-            shadow: 'shadow-slate-200',
-            hover: 'hover:from-slate-100 hover:to-slate-200',
-            ring: 'focus:ring-slate-300'
-        }
+        view: { ...baseStyle, icon: 'text-blue-600' },
+        add: { ...baseStyle, icon: 'text-blue-600' },
+        edit: { ...baseStyle, icon: 'text-blue-600' },
+        delete: { ...baseStyle, icon: 'text-blue-600' }, // Giữ Delete màu đỏ cho an toàn
+        primary: { ...baseStyle, icon: 'text-blue-600' },
+        secondary: { ...baseStyle, icon: 'text-blue-600' },
+        success: { ...baseStyle, icon: 'text-blue-600' },
+        warning: { ...baseStyle, icon: 'text-blue-600' },
+        purple: { ...baseStyle, icon: 'text-blue-600' },
+        pink: { ...baseStyle, icon: 'text-blue-600' },
+        lock: { ...baseStyle, icon: 'text-blue-400' },
+
+        // Thêm biến thể blue cho các nút mới theo yêu cầu
+        blue: { ...baseStyle, icon: 'text-blue-600' },
     };
 
     const sizes = {
@@ -108,7 +54,7 @@ const ActionButton = ({
         }
     };
 
-    const currentVariant = variants[variant];
+    const currentVariant = variants[variant] || variants.primary;
     const currentSize = sizes[size];
 
     return (

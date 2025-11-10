@@ -348,6 +348,8 @@ const deleteTask = async (req, res) => {
     try {
         const { id } = req.params;
         const academicYearId = req.academicYearId;
+        const userId = req.user.id;
+        const ReportModel = mongoose.model('Report');
 
         const task = await Task.findOne({ _id: id, academicYearId });
 
@@ -365,9 +367,22 @@ const deleteTask = async (req, res) => {
             });
         }
 
-        await Task.findByIdAndDelete(id);
+        // Cập nhật Report liên quan (nếu có)
+        // Nếu Report được gán cho Task này, gỡ liên kết
+        if (task.reportId) {
+            await ReportModel.updateOne(
+                { _id: task.reportId },
+                { taskId: null, updatedBy: userId, updatedAt: new Date() }
+            );
+        }
 
-        await mongoose.model('Report').deleteMany({ taskId: id });
+        // Gỡ taskId khỏi các Report khác cũng liên kết với Task này (nếu có)
+        await ReportModel.updateMany(
+            { taskId: id },
+            { taskId: null, updatedBy: userId, updatedAt: new Date() }
+        );
+
+        await Task.findByIdAndDelete(id);
 
         res.json({
             success: true,
@@ -454,9 +469,10 @@ const getTaskByCriteria = async (req, res) => {
 
         const tasks = await Task.find({
             academicYearId,
-            status: { $in: ['pending', 'in_progress', 'submitted'] },
+            assignedTo: req.user.id,
+            status: { $in: ['pending', 'in_progress', 'rejected'] },
             $or: [
-                { criteriaId: criteriaId },
+                { criteriaId: criteriaId, reportType: 'criteria' },
                 { standardId: standardId, criteriaId: null, reportType: 'standard' }
             ]
         })

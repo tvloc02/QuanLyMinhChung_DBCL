@@ -11,6 +11,7 @@ const canReviewReport = async (req, report) => {
         const TaskModel = mongoose.model('Task');
         const task = await TaskModel.findById(report.taskId);
 
+        // Cho phép người tạo Task duyệt
         if (task && String(task.createdBy) === String(req.user.id)) {
             return true;
         }
@@ -95,6 +96,7 @@ const getReports = async (req, res) => {
                 .populate('createdBy', 'fullName email')
                 .populate('attachedFile', 'originalName size')
                 .populate('assignedReporters', 'fullName email')
+                .populate('taskId', 'taskCode') // <--- ĐÃ THÊM POPULATE NÀY
                 .populate({
                     path: 'evaluations',
                     select: 'averageScore rating status',
@@ -204,6 +206,17 @@ const createReport = async (req, res) => {
 
         const academicYearId = req.academicYearId;
 
+        let existingTask = null;
+        if (taskId) {
+            existingTask = await Task.findOne({ _id: taskId, academicYearId });
+            if (!existingTask) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy nhiệm vụ được liên kết'
+                });
+            }
+        }
+
         let standardCode = '';
         let criteriaCode = '';
 
@@ -244,7 +257,7 @@ const createReport = async (req, res) => {
             contentMethod: contentMethod || 'online_editor',
             summary: summary?.trim() || '',
             keywords: keywords || [],
-            status: 'draft',
+            status: 'draft', // LUÔN LUÔN LÀ DRAFT KHI TẠO MỚI
             createdBy: req.user.id,
             updatedBy: req.user.id,
             assignedReporters: [req.user.id],
@@ -273,7 +286,20 @@ const createReport = async (req, res) => {
         }
 
         const report = new Report(reportData);
+
         await report.save();
+
+        // CHỈ CẬP NHẬT TRẠNG THÁI TASK SANG 'IN_PROGRESS' NẾU NÓ ĐANG Ở 'PENDING'
+        if (taskId && existingTask && existingTask.status === 'pending') {
+            await Task.updateOne(
+                { _id: taskId },
+                {
+                    status: 'in_progress',
+                    updatedBy: req.user.id,
+                    updatedAt: new Date()
+                }
+            );
+        }
 
         await report.populate([
             { path: 'academicYearId', select: 'name code' },
@@ -357,9 +383,40 @@ const updateReport = async (req, res) => {
             report.content = content;
         }
 
-        if (taskId !== undefined) {
-            report.taskId = taskId;
+        // Cập nhật Report.taskId nếu được cung cấp và khác giá trị cũ
+        if (taskId !== undefined && String(taskId) !== String(report.taskId)) {
+            let existingTask = null;
+            if (taskId) {
+                existingTask = await Task.findOne({ _id: taskId, academicYearId });
+                if (!existingTask) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Không tìm thấy Task mới'
+                    });
+                }
+            }
+
+            // Xử lý việc gán/gỡ taskId trong Report
+            const oldTaskId = report.taskId;
+            report.taskId = taskId || null;
+
+            // Nếu Task cũ đang giữ Report này làm Report chính, gỡ liên kết
+            if (oldTaskId && String(oldTaskId) !== String(taskId)) {
+                await Task.updateOne(
+                    { _id: oldTaskId, reportId: report._id }, // Chỉ gỡ nếu Task cũ đang trỏ đến Report này
+                    { reportId: null, status: 'in_progress', updatedBy: userId, updatedAt: new Date() }
+                );
+            }
+
+            // Nếu Report được gán cho Task mới và Task đang pending, cập nhật trạng thái Task đó
+            if (taskId && existingTask.status === 'pending') {
+                await Task.updateOne(
+                    { _id: taskId },
+                    { status: 'in_progress', updatedBy: userId, updatedAt: new Date() }
+                );
+            }
         }
+
 
         if (report.content !== oldContent || report.title !== oldTitle) {
             const changeNote = `Cập nhật nội dung/tiêu đề từ phiên bản trước.`;
@@ -482,55 +539,49 @@ const getReportsByStandardCriteria = async (req, res) => {
 
 const getReportsByTask = async (req, res) => {
     try {
-        const { taskId, reportType, standardId, criteriaId, programId, organizationId } = req.query;
+        const { taskId } = req.query;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
 
-        let query = {
-            academicYearId,
-            status: { $in: ['draft', 'public', 'published', 'submitted'] }
-        };
-
-        let task = null;
-
-        if (taskId) {
-            task = await Task.findById(taskId);
-
-            if (!task) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy nhiệm vụ'
-                });
-            }
-
-            query.type = task.reportType;
-            query.standardId = task.standardId;
-            if (task.criteriaId) {
-                query.criteriaId = task.criteriaId;
-            }
-        } else if (standardId && reportType) {
-            query.type = reportType;
-            query.standardId = standardId;
-            if (criteriaId && reportType === 'criteria') {
-                query.criteriaId = criteriaId;
-            }
-        } else {
+        if (!taskId) {
             return res.status(400).json({
                 success: false,
-                message: 'Thiếu thông tin nhiệm vụ hoặc tiêu chuẩn'
+                message: 'Thiếu thông tin nhiệm vụ (taskId)'
             });
         }
 
-        const permissionService = require('../../services/permissionService');
-        const canWriteReport = await permissionService.canWriteReport(
-            userId,
-            query.type,
-            academicYearId,
-            query.standardId,
-            query.criteriaId
-        );
+        const task = await Task.findOne({ _id: taskId, academicYearId });
 
-        const reports = await Report.find(query)
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy nhiệm vụ'
+            });
+        }
+
+        let reports = [];
+
+        // 1. Lấy Report chính được gán trong Task (Report đã nộp/được Task gán)
+        if (task.reportId) {
+            const primaryReport = await Report.findById(task.reportId)
+                .populate('createdBy', 'fullName email')
+                .populate('assignedReporters', 'fullName email')
+                .populate({
+                    path: 'editRequests.requesterId',
+                    select: 'fullName email avatar'
+                });
+            if (primaryReport) {
+                reports.push(primaryReport);
+            }
+        }
+
+        // 2. Lấy các Report khác (Draft/In_Progress/Rejected) cùng taskId
+        const otherReports = await Report.find({
+            academicYearId,
+            taskId: taskId,
+            _id: { $ne: task.reportId }, // Loại trừ Report chính
+            status: { $in: ['draft', 'in_progress', 'submitted', 'rejected'] }
+        })
             .populate('createdBy', 'fullName email')
             .populate('assignedReporters', 'fullName email')
             .populate({
@@ -538,6 +589,17 @@ const getReportsByTask = async (req, res) => {
                 select: 'fullName email avatar'
             })
             .sort({ createdAt: -1 });
+
+        reports = [...reports, ...otherReports]; // Report chính (nếu có) sẽ ở đầu
+
+        const permissionService = require('../../services/permissionService');
+        const canWriteReport = await permissionService.canWriteReport(
+            userId,
+            task.reportType,
+            academicYearId,
+            task.standardId,
+            task.criteriaId
+        );
 
         const reportsWithCanEdit = reports.map(r => {
             const isCreatedByMe = String(r.createdBy?._id) === String(userId);
@@ -608,6 +670,15 @@ const deleteReport = async (req, res) => {
         }
 
         report.updatedBy = req.user.id;
+
+        // Xóa liên kết trong Task nếu Report này là Report chính của Task đó
+        if (report.taskId) {
+            await Task.updateOne(
+                { _id: report.taskId, reportId: id },
+                { reportId: null, status: 'in_progress', updatedBy: req.user.id, updatedAt: new Date() }
+            );
+        }
+
         await Report.findByIdAndDelete(id);
 
         res.json({
@@ -639,10 +710,10 @@ const publishReport = async (req, res) => {
             });
         }
 
-        if (!report.canEdit(req.user.id, req.user.role)) {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền xuất bản báo cáo này'
+                message: 'Chỉ Manager hoặc Admin có quyền phát hành báo cáo này'
             });
         }
 
@@ -650,6 +721,14 @@ const publishReport = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Báo cáo đã được xuất bản'
+            });
+        }
+
+        // CHỈ PHÁT HÀNH KHI ĐÃ ĐƯỢC PHÊ DUYỆT (approved)
+        if (report.status !== 'approved') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể phát hành báo cáo đã được phê duyệt'
             });
         }
 
@@ -700,12 +779,14 @@ const unpublishReport = async (req, res) => {
             });
         }
 
-        if (!report.canEdit(req.user.id, req.user.role)) {
+        // Quyền thu hồi xuất bản cần phải là Manager/Admin
+        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
             return res.status(403).json({
                 success: false,
-                message: 'Không có quyền thu hồi báo cáo này'
+                message: 'Bạn không có quyền thu hồi báo cáo này'
             });
         }
+
 
         if (report.status !== 'published') {
             return res.status(400).json({
@@ -755,6 +836,14 @@ const approveReport = async (req, res) => {
             });
         }
 
+        // CHẤP NHẬN DUYỆT TỪ 2 TRẠNG THÁI: submitted (từ task) VÀ public (tự công khai)
+        if (report.status !== 'submitted' && report.status !== 'public') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể phê duyệt báo cáo ở trạng thái đã nộp hoặc công khai'
+            });
+        }
+
         report.status = 'approved';
         report.approvedBy = req.user.id;
         report.approvedAt = new Date();
@@ -764,6 +853,14 @@ const approveReport = async (req, res) => {
         report.updatedBy = req.user.id;
 
         await report.save();
+
+        // Cập nhật Task nếu Report này là Report chính của Task (được gán)
+        if (report.taskId) {
+            await Task.updateOne(
+                { _id: report.taskId, reportId: id },
+                { status: 'approved', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), updatedAt: new Date() }
+            );
+        }
 
         if (report.criteriaId) {
             try {
@@ -816,7 +913,23 @@ const rejectReport = async (req, res) => {
             });
         }
 
+        // CHẤP NHẬN TỪ CHỐI TỪ 2 TRẠNG THÁI: submitted (từ task) VÀ public (tự công khai)
+        if (report.status !== 'submitted' && report.status !== 'public') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể từ chối báo cáo ở trạng thái đã nộp hoặc công khai'
+            });
+        }
+
         await report.recordRejection(req.user.id, feedback);
+
+        // Cập nhật Task nếu Report này là Report chính của Task (được gán)
+        if (report.taskId) {
+            await Task.updateOne(
+                { _id: report.taskId, reportId: id },
+                { status: 'rejected', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), rejectionReason: feedback, updatedAt: new Date() }
+            );
+        }
 
         if (report.criteriaId) {
             try {
@@ -910,10 +1023,26 @@ const makePublic = async (req, res) => {
             });
         }
 
+        // Quyền công khai: Người tạo/ Assigned Reporter/ Admin/ Manager
+        // Vẫn giữ canEdit để kiểm tra quyền
         if (!report.canEdit(req.user.id, req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền công khai báo cáo này'
+            });
+        }
+
+        if (report.status === 'public') {
+            return res.status(400).json({
+                success: false,
+                message: 'Báo cáo đã ở trạng thái công khai'
+            });
+        }
+
+        if (report.status !== 'draft' && report.status !== 'in_progress' && report.status !== 'rejected') {
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ có thể công khai báo cáo ở trạng thái nháp, bị từ chối hoặc đang thực hiện. Trạng thái hiện tại: ${report.status}`
             });
         }
 
@@ -933,6 +1062,56 @@ const makePublic = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi hệ thống khi công khai báo cáo'
+        });
+    }
+};
+
+const retractPublic = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const academicYearId = req.academicYearId;
+
+        const report = await Report.findOne({ _id: id, academicYearId });
+
+        if (!report) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy báo cáo'
+            });
+        }
+
+        // Quyền thu hồi công khai: Người tạo/ Assigned Reporter/ Admin/ Manager
+        if (!report.canEdit(req.user.id, req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Không có quyền thu hồi công khai báo cáo này'
+            });
+        }
+
+        if (report.status !== 'public') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể thu hồi công khai báo cáo đang ở trạng thái công khai'
+            });
+        }
+
+        // Thu hồi về trạng thái draft
+        report.status = 'draft';
+        report.updatedBy = req.user.id;
+
+        await report.save();
+
+        res.json({
+            success: true,
+            message: 'Thu hồi công khai báo cáo thành công',
+            data: report
+        });
+
+    } catch (error) {
+        console.error('Retract public report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi hệ thống khi thu hồi công khai báo cáo'
         });
     }
 };
@@ -2015,24 +2194,22 @@ const submitReportToTask = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Bạn không được giao nhiệm vụ này' });
         }
 
-        if (task.reportId && String(task.reportId) !== String(id)) {
-            return res.status(400).json({ success: false, message: 'Nhiệm vụ này đã có báo cáo được nộp' });
-        }
-
-        if (report.status !== 'draft' && report.status !== 'rejected') {
-            return res.status(400).json({ success: false, message: `Báo cáo phải ở trạng thái nháp hoặc bị từ chối để được nộp.` });
+        if (report.status !== 'draft' && report.status !== 'rejected' && report.status !== 'in_progress' && report.status !== 'public') {
+            return res.status(400).json({ success: false, message: `Báo cáo phải ở trạng thái nháp, bị từ chối, đang thực hiện hoặc công khai để được nộp.` });
         }
 
         if (task.status === 'completed' || task.status === 'cancelled') {
             return res.status(400).json({ success: false, message: `Không thể nộp báo cáo cho Task ở trạng thái ${task.status}.` });
         }
 
+        // Cập nhật Report
         report.taskId = taskId;
         report.status = 'submitted';
         report.updatedBy = userId;
         await report.save();
 
-        task.reportId = id;
+        // Cập nhật Task: Gán Report mới làm Report chính và chuyển trạng thái sang submitted
+        task.reportId = id; // Report mới được gán làm Report chính (Current active submission)
         task.status = 'submitted';
         task.submittedAt = new Date();
         task.updatedBy = userId;
@@ -2066,6 +2243,7 @@ module.exports = {
     rejectReport,
     assignReporter,
     makePublic,
+    retractPublic, // ĐÃ THÊM API MỚI
     downloadReport,
     getReportStats,
     uploadReportFile,

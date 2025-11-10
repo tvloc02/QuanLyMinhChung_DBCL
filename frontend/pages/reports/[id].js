@@ -1,3 +1,4 @@
+// fileName: [id].js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -7,7 +8,7 @@ import toast from 'react-hot-toast'
 import {
     Edit2, Trash2, Download, CheckCircle, XCircle, Share2,
     ArrowLeft, Eye, Send, RotateCcw, FileText, Loader2, AlertCircle,
-    Users, Calendar, Clock, Lock, User, TrendingUp, Link
+    Users, Calendar, Clock, Lock, User, TrendingUp, Link, FilePlus
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -102,18 +103,28 @@ export default function ReportDetail() {
         const isManager = user.role === 'manager'
         const isAdmin = user.role === 'admin'
 
-        // SỬA LOGIC QUYỀN XUẤT BẢN: CHỈ CREATOR, MANAGER, ADMIN
-        const canPublish = isCreator || isManager || isAdmin
-        const canUnpublish = isCreator || isManager || isAdmin
+        const canEdit = isCreator || isAssignee || isManager || isAdmin;
+
+        // Trạng thái cho phép công khai: draft, in_progress
+        const canMakePublic = canEdit && ['draft', 'in_progress'].includes(report.status);
+
+        // Trạng thái cho phép xuất bản: approved
+        const canPublish = (isManager || isAdmin) && report.status === 'approved';
+        const canUnpublish = (isManager || isAdmin) && report.status === 'published';
+
+        // Quyền duyệt: Manager/Admin/Người tạo Task, và Report phải ở trạng thái submitted HOẶC public
+        const canApproveReport = (isManager || isAdmin || (report.taskId && user.role === 'manager')) && ['submitted', 'public'].includes(report.status);
+        const canRejectReport = (isManager || isAdmin || (report.taskId && user.role === 'manager')) && ['submitted', 'public'].includes(report.status);
 
         return {
             canView: true,
-            canEdit: isCreator || isAssignee || isManager || isAdmin,
+            canEdit: canEdit,
             canDelete: isCreator || isAdmin,
+            canMakePublic: canMakePublic, // Quyền mới
             canPublish: canPublish,
             canUnpublish: canUnpublish,
-            canApproveReport: (isManager || isAdmin) && report.status === 'submitted',
-            canRejectReport: (isManager || isAdmin) && report.status === 'submitted',
+            canApproveReport: canApproveReport,
+            canRejectReport: canRejectReport,
             canRequestEditPermission: !isAssignee && report.status === 'draft',
             isCreator,
             isAssignee,
@@ -143,20 +154,41 @@ export default function ReportDetail() {
         }
     }
 
-    const handlePublish = async () => {
-        if (report.status !== 'draft') {
-            toast.error('Chỉ có thể xuất bản báo cáo ở trạng thái Bản nháp.')
+    // Xử lý Công khai (Public)
+    const handleMakePublic = async () => {
+        if (report.status !== 'draft' && report.status !== 'in_progress') {
+            toast.error('Chỉ có thể công khai báo cáo ở trạng thái Nháp hoặc Đang thực hiện.')
             return
         }
-        if (!confirm('Bạn có chắc chắn muốn xuất bản báo cáo này?')) return
+        if (!confirm('Bạn có chắc chắn muốn công khai báo cáo này? Người giao Task sẽ thấy báo cáo này để duyệt.')) return
+
+        try {
+            setActionLoading(prev => ({ ...prev, makePublic: true }))
+            await apiMethods.reports.makePublic(id)
+            toast.success('Công khai báo cáo thành công')
+            fetchReport()
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Lỗi khi công khai báo cáo')
+        } finally {
+            setActionLoading(prev => ({ ...prev, makePublic: false }))
+        }
+    }
+
+    // Xử lý Phát hành (Publish - Sau khi Approved)
+    const handlePublish = async () => {
+        if (report.status !== 'approved') {
+            toast.error('Chỉ có thể phát hành (publish) báo cáo đã được Chấp thuận (approved).')
+            return
+        }
+        if (!confirm('Bạn có chắc chắn muốn phát hành báo cáo này?')) return
 
         try {
             setActionLoading(prev => ({ ...prev, publish: true }))
             await apiMethods.reports.publish(id)
-            toast.success('Xuất bản báo cáo thành công')
+            toast.success('Phát hành báo cáo thành công')
             fetchReport()
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi khi xuất bản báo cáo')
+            toast.error(error.response?.data?.message || 'Lỗi khi phát hành báo cáo')
         } finally {
             setActionLoading(prev => ({ ...prev, publish: false }))
         }
@@ -234,7 +266,9 @@ export default function ReportDetail() {
             public: 'bg-blue-100 text-blue-800 border-blue-300',
             approved: 'bg-green-100 text-green-800 border-green-300',
             rejected: 'bg-red-100 text-red-800 border-red-300',
-            published: 'bg-purple-100 text-purple-800 border-purple-300'
+            published: 'bg-purple-100 text-purple-800 border-purple-300',
+            submitted: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+            in_progress: 'bg-sky-100 text-sky-800 border-sky-300',
         }
         return colors[status] || 'bg-gray-100 text-gray-800 border-gray-300'
     }
@@ -245,7 +279,9 @@ export default function ReportDetail() {
             public: 'Công khai',
             approved: 'Chấp thuận',
             rejected: 'Từ chối',
-            published: 'Phát hành'
+            published: 'Phát hành',
+            submitted: 'Đã nộp chờ duyệt',
+            in_progress: 'Đang thực hiện',
         }
         return labels[status] || status
     }
@@ -281,6 +317,10 @@ export default function ReportDetail() {
             </Layout>
         )
     }
+
+    // Logic kiểm tra Đánh giá (Evaluation)
+    const hasEvaluations = report.evaluations && report.evaluations.length > 0;
+    const isApprovedButNotPublished = report.status === 'approved';
 
     return (
         <Layout title={`Chi tiết báo cáo: ${report.code}`}>
@@ -445,29 +485,54 @@ export default function ReportDetail() {
                                 </div>
                             )}
 
-                            {/* Publish/Unpublish Actions */}
-                            {permissions.canPublish && report.status === 'draft' && (
+                            {/* Công khai (Draft/In_Progress -> Public) */}
+                            {permissions.canMakePublic && (
+                                <button
+                                    onClick={handleMakePublic}
+                                    disabled={actionLoading.makePublic}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-all font-medium text-sm"
+                                >
+                                    <Share2 className="w-4 h-4" />
+                                    Công khai báo cáo
+                                </button>
+                            )}
+
+                            {/* Nút Phân quyền đánh giá (Giả định sau Approved) */}
+                            {isApprovedButNotPublished && (permissions.isManager || permissions.isAdmin) && (
+                                <button
+                                    // TODO: Replace with actual assignment/evaluation routing
+                                    onClick={() => toast('Chức năng phân quyền đánh giá chưa được triển khai.', {icon: '🚧'})}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium text-sm"
+                                >
+                                    <FilePlus className="w-4 h-4" />
+                                    Phân quyền đánh giá
+                                </button>
+                            )}
+
+                            {/* Phát hành (Publish - Sau Approved/Evaluation) */}
+                            {permissions.canPublish && (
                                 <button
                                     onClick={handlePublish}
                                     disabled={actionLoading.publish}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all font-medium text-sm"
                                 >
                                     <Send className="w-4 h-4" />
-                                    Xuất bản (Phát hành)
+                                    Phát hành (Public)
                                 </button>
                             )}
-                            {permissions.canUnpublish && report.status === 'published' && (
+
+                            {permissions.canUnpublish && (
                                 <button
                                     onClick={handleUnpublish}
                                     disabled={actionLoading.unpublish}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-all font-medium text-sm"
                                 >
                                     <RotateCcw className="w-4 h-4" />
-                                    Thu hồi xuất bản
+                                    Thu hồi phát hành
                                 </button>
                             )}
 
-                            {/* Approval Actions */}
+                            {/* Approval Actions - Chỉ cho người duyệt Task thấy khi Report đã submitted/public */}
                             {permissions.canApproveReport && (
                                 <>
                                     <button

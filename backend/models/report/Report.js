@@ -166,7 +166,7 @@ const reportSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['draft', 'public', 'approved', 'rejected', 'published'],
+        enum: ['draft', 'public', 'approved', 'rejected', 'published', 'in_progress', 'submitted'],
         default: 'draft'
     },
 
@@ -308,7 +308,9 @@ reportSchema.virtual('statusText').get(function() {
         'public': 'Công khai',
         'approved': 'Chấp thuận',
         'rejected': 'Từ chối',
-        'published': 'Phát hành'
+        'published': 'Phát hành',
+        'in_progress': 'Đang thực hiện',
+        'submitted': 'Đã nộp chờ duyệt'
     };
     return statusMap[this.status] || this.status;
 });

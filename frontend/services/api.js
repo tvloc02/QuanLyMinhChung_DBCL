@@ -269,58 +269,52 @@ export const apiMethods = {
     },
 
     reports: {
-        // === CRUD CƠ BẢN ===
         getAll: (params) => api.get('/api/reports', { params }),
         getById: (id) => api.get(`/api/reports/${id}`),
         create: (data) => api.post('/api/reports', data),
         update: (id, data) => api.put(`/api/reports/${id}`, data),
         delete: (id) => api.delete(`/api/reports/${id}`),
 
-        // === PUBLISH & STATUS ===
         publish: (id) => api.post(`/api/reports/${id}/publish`),
         unpublish: (id) => api.post(`/api/reports/${id}/unpublish`),
-        approve: (id, data = {}) => api.post(`/api/reports/${id}/approve`, data),
+        approve: (id) => api.post(`/api/reports/${id}/approve`),
         reject: (id, data = {}) => api.post(`/api/reports/${id}/reject`, data),
         makePublic: (id) => api.post(`/api/reports/${id}/make-public`),
+        retractPublic: (id) => api.post(`/api/reports/${id}/retract-public`),
 
-        // === NEW SUBMISSION API ===
         submitReportToTask: (id, data) => api.post(`/api/reports/${id}/submit-to-task`, data),
 
-        // === EDIT PERMISSION ===
         requestEditPermission: (id) => api.post(`/api/reports/${id}/request-edit-permission`),
         getEditRequests: (id) => api.get(`/api/reports/${id}/edit-requests`),
         approveEditRequest: (id, data) => api.post(`/api/reports/${id}/edit-requests/approve`, data),
         rejectEditRequest: (id, data) => api.post(`/api/reports/${id}/edit-requests/reject`, data),
 
-        // === FILE UPLOAD & DOWNLOAD ===
-        uploadFile: (id, formData) => api.post(`/api/reports/${id}/upload-file`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        }),
+        uploadFile: (id, file) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            return api.post(`/api/reports/${id}/upload-file`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+        },
         downloadFile: (id) => api.get(`/api/reports/${id}/download-file`),
         download: (id, format = 'html') => api.get(`/api/reports/${id}/download`, { params: { format } }),
         convertFileToContent: (id) => api.post(`/api/reports/${id}/convert-file-to-content`),
 
-        // === REPORTER MANAGEMENT ===
         assignReporter: (id, reporterIds) => api.post(`/api/reports/${id}/assign-reporter`, { reporterIds }),
 
-        // === VERSIONS ===
         getVersions: (id) => api.get(`/api/reports/${id}/versions`),
         addVersion: (id, data) => api.post(`/api/reports/${id}/versions`, data),
 
-        // === COMMENTS ===
         getComments: (id) => api.get(`/api/reports/${id}/comments`),
         addComment: (id, data) => api.post(`/api/reports/${id}/comments`, data),
         resolveComment: (id, commentId) => api.put(`/api/reports/${id}/comments/${commentId}/resolve`),
 
-        // === EVIDENCES ===
         getEvidences: (id) => api.get(`/api/reports/${id}/evidences`),
 
-        // === QUERY REPORTS ===
         getByTask: (params) => api.get('/api/reports/by-task', { params }),
         getByStandardCriteria: (params) => api.get('/api/reports/by-standard-criteria', { params }),
         getStats: (params) => api.get('/api/reports/stats', { params }),
 
-        // === NEW: GET INSERTABLE REPORTS ===
         getInsertable: (params) => api.get('/api/reports/insertable', { params }),
     },
 

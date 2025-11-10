@@ -131,7 +131,7 @@ export default function CreateReportPage() {
                 }
                 setIsLocked(newIsLocked)
 
-                if (!hasHandledInitialModal) {
+                if (forceModal === 'true' && !hasHandledInitialModal) {
                     setShowReportSelectionModal(true)
                 }
             }
@@ -268,18 +268,21 @@ export default function CreateReportPage() {
 
     const handleSubmissionToTask = async (reportId, selectedTaskId) => {
         if (!selectedTaskId) {
-            toast('Báo cáo đã được tạo (Draft). Bạn có thể nộp sau.', { icon: '📝' });
+            toast('Báo cáo đã được tạo (Draft). Bạn có thể liên kết Task sau.', { icon: '📝' });
             router.push(`/reports/${reportId}`);
             return;
         }
 
         try {
+            // Khi tạo độc lập, Report được tạo với taskId: null và status: 'draft'.
+            // Bây giờ ta nộp, Report được submitReportToTask
             const response = await apiMethods.reports.submitReportToTask(reportId, { taskId: selectedTaskId });
             toast.success(response.data?.message || `Nộp báo cáo thành công cho Task ID: ${selectedTaskId}`);
             router.push(`/reports/${reportId}`);
         } catch (error) {
             console.error('Submission to Task error:', error);
-            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo cho nhiệm vụ');
+            // Dù có lỗi nộp, vẫn chuyển hướng đến trang báo cáo để người dùng có thể thử lại
+            toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo cho nhiệm vụ. Đã lưu dưới dạng Draft.');
             router.push(`/reports/${reportId}`);
         } finally {
             setShowTaskSubmissionModal(false);
@@ -321,14 +324,21 @@ export default function CreateReportPage() {
                 submitData.content = ''
             }
 
+            // Report creation
             const response = await reportService.createReport(submitData)
 
             if (response.success) {
                 const reportId = response.data._id
 
+                // File upload logic
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
-                        await reportService.uploadFile(reportId, selectedFile)
+                        // SỬA LỖI TẠO FORM DATA TẠI ĐÂY
+                        const fileFormData = new FormData();
+                        fileFormData.append('file', selectedFile);
+
+                        // apiMethods.reports.uploadFile cần ReportId và FormData
+                        await apiMethods.reports.uploadFile(reportId, fileFormData);
                         setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' })
                     } catch (uploadError) {
                         console.error('Upload error:', uploadError)
@@ -338,6 +348,7 @@ export default function CreateReportPage() {
                     setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
                 }
 
+                // Nếu KHÔNG có Task context ban đầu (tạo độc lập), hiện modal chọn Task để nộp
                 if (!formData.taskId) {
                     setTaskSubmissionContext({
                         reportId: reportId,
@@ -347,7 +358,8 @@ export default function CreateReportPage() {
                     });
                     setShowTaskSubmissionModal(true);
                 } else {
-                    await handleSubmissionToTask(reportId, formData.taskId);
+                    // Nếu đã có Task context, Task đã được cập nhật reportId và status='in_progress'
+                    router.push(`/reports/${reportId}`);
                 }
 
             }
@@ -359,6 +371,8 @@ export default function CreateReportPage() {
             } else if (error.message) {
                 errorMessage = error.message
             }
+            // HIỂN THỊ LỖI THẬT SỰ TỪ SERVER
+            toast.error(errorMessage);
             setMessage({ type: 'error', text: errorMessage })
         } finally {
             setSubmitting(false)
@@ -467,6 +481,7 @@ export default function CreateReportPage() {
         setShowReportSelectionModal(false)
         setHasHandledInitialModal(true)
 
+        // Reset form data to context/initial values
         setFormData(prev => ({
             ...prev,
             title: '',
@@ -580,7 +595,7 @@ export default function CreateReportPage() {
                     onSelectTask={handleSubmissionToTask}
                     onSkip={(id) => {
                         setShowTaskSubmissionModal(false);
-                        toast('Báo cáo đã được tạo (Draft). Bạn có thể nộp sau.', { icon: '📝' });
+                        toast('Báo cáo đã được tạo (Draft). Bạn có thể liên kết Task sau.', { icon: '📝' });
                         router.push(`/reports/${id}`);
                     }}
                 />
@@ -921,7 +936,7 @@ export default function CreateReportPage() {
                             )}
 
                             {/* Gắn Báo cáo Tiêu chí Công Khai */}
-                            {formData.type === 'standard' && (
+                            {formData.type !== 'criteria' && (
                                 <div className="mt-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
                                     <h4 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
                                         <BookOpen className="w-5 h-5 text-indigo-600" />
@@ -978,9 +993,6 @@ export default function CreateReportPage() {
                                                     toast.error('Vui lòng chọn Tiêu chuẩn trước khi chèn báo cáo.')
                                                     return
                                                 }
-                                            } else if (formData.type === 'criteria') {
-                                                toast.error('Báo cáo tiêu chí không thể chèn báo cáo khác.')
-                                                return
                                             }
                                             setShowCriteriaReportPicker(true)
                                         }}
@@ -1166,7 +1178,8 @@ function TaskSelectionModal({ isOpen, reportId, reportType, standardId, criteria
 
             const response = await apiMethods.tasks.getAssignedTasks(params);
 
-            const availableTasks = response.data.data.filter(t => t.reportId === reportId || !t.reportId);
+            // Logic kiểm tra ở frontend: Task phải chưa có ReportId hoặc ReportId là Report hiện tại
+            const availableTasks = response.data.data.filter(t => !t.reportId || String(t.reportId) === String(reportId));
             setTasks(availableTasks);
         } catch (err) {
             toast.error("Không thể tải danh sách nhiệm vụ");
@@ -1189,13 +1202,13 @@ function TaskSelectionModal({ isOpen, reportId, reportType, standardId, criteria
 
                 <div className="p-6 space-y-4 overflow-y-auto flex-1">
                     <p className="text-gray-600">
-                        Báo cáo này được tạo độc lập. Bạn có muốn liên kết và nộp nó cho một nhiệm vụ cụ thể không?
+                        Báo cáo đã được tạo (Draft). Bạn có muốn liên kết và nộp nó cho một nhiệm vụ cụ thể không?
                     </p>
 
                     {loading ? (
                         <div className="text-center py-4">Đang tải nhiệm vụ...</div>
                     ) : tasks.length === 0 ? (
-                        <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg">Không tìm thấy nhiệm vụ nào phù hợp để nộp.</div>
+                        <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg">Không tìm thấy nhiệm vụ nào phù hợp (chưa có Report được gán, được giao cho bạn, và ở trạng thái Pending/In Progress/Rejected) để nộp.</div>
                     ) : (
                         <select
                             value={selectedTaskId}

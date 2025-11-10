@@ -1,14 +1,14 @@
 // fileName: TaskDetail.js
 import { useState, useEffect } from 'react'
-import { X, CheckCircle, XCircle, Send, FileText, Eye, ChevronRight } from 'lucide-react'
+import { X, CheckCircle, XCircle, Send, FileText, Eye, ChevronRight, File, Download, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
 
 export default function TaskDetail({ task, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false)
-    const [reports, setReports] = useState([])
-    const [selectedReport, setSelectedReport] = useState(null)
+    const [reports, setReports] = useState([]) // reports: chứa TẤT CẢ reports liên quan
+    const [selectedReport, setSelectedReport] = useState(null) // selectedReport: Report đang được hiển thị
     const [evidences, setEvidences] = useState([])
     const [currentPage, setCurrentPage] = useState(0)
     const [selectedFile, setSelectedFile] = useState(null)
@@ -18,7 +18,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     const [rejectionReason, setRejectionReason] = useState('')
     const [reviewLoading, setReviewLoading] = useState(false)
 
-    const itemsPerPage = 1
+    const itemsPerPage = 1 // Số lượng evidences hiển thị trên sidebar
 
     useEffect(() => {
         const role = localStorage.getItem('userRole') || ''
@@ -32,55 +32,35 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     }, [task])
 
     useEffect(() => {
-        if (selectedReport && selectedReport.criteriaId) {
-            loadEvidences(selectedReport.criteriaId)
+        // Tải evidences dựa trên tiêu chí của Task (vì Task chỉ liên quan đến 1 Tiêu chí/Tiêu chuẩn)
+        const criteriaId = task.criteriaId?._id || task.criteriaId
+        if (criteriaId) {
+            loadEvidences(criteriaId)
+        } else {
+            setEvidences([])
         }
-    }, [selectedReport])
+    }, [task])
 
     const loadTaskData = async () => {
         try {
             setLoading(true)
 
-            let reportsData = [];
-
-            // 1. Ưu tiên lấy Report được liên kết trực tiếp bằng task.reportId (Task đã có Report)
-            if (task.reportId) {
-                try {
-                    const response = await apiMethods.reports.getById(task.reportId);
-                    if (response.data.success) {
-                        reportsData = [response.data.data];
-                    }
-                } catch (e) {
-                    console.warn("Linked Report not found or error loading it:", e);
-                }
+            if (!task._id) {
+                setReports([])
+                setSelectedReport(null)
+                return
             }
 
-            // 2. Nếu Task chưa có reportId (hoặc Report cũ bị lỗi), tìm Report có taskId khớp với Task hiện tại
-            if (reportsData.length === 0) {
-                const response = await apiMethods.reports.getByTask({
-                    taskId: task._id,
-                    reportType: task.reportType,
-                    standardId: task.standardId?._id || task.standardId,
-                    criteriaId: task.criteriaId?._id || task.criteriaId
-                });
-                reportsData = response.data.data.reports || [];
-            }
+            // Dùng API getReportsByTask để lấy TẤT CẢ reports liên quan đến Task này
+            const response = await apiMethods.reports.getByTask({ taskId: task._id })
 
+            const reportsData = response.data.data.reports || []
+            setReports(reportsData)
 
-            // LỌC CUỐI CÙNG:
-            // - Phải là trạng thái hợp lệ (submitted/approved/published).
-            // - ⭐️ Phải có taskId khớp với Task hiện tại. (Đảm bảo tách biệt)
-            const allowedReports = reportsData.filter(r =>
-                ['submitted', 'approved', 'published'].includes(r.status) &&
-                String(r.taskId) === String(task._id)
-            )
-
-            setReports(allowedReports)
-
-            if (allowedReports.length > 0) {
-                // Ưu tiên chọn báo cáo 'submitted' đầu tiên
-                const submittedReport = allowedReports.find(r => r.status === 'submitted');
-                setSelectedReport(submittedReport || allowedReports[0]);
+            if (reportsData.length > 0) {
+                // Ưu tiên chọn Report chính của Task (task.reportId) hoặc Report đầu tiên
+                const primaryReport = reportsData.find(r => String(r._id) === String(task.reportId));
+                setSelectedReport(primaryReport || reportsData[0]);
             } else {
                 setSelectedReport(null);
             }
@@ -88,6 +68,8 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
         } catch (error) {
             console.error('Load task data error:', error)
             toast.error('Lỗi khi tải dữ liệu nhiệm vụ')
+            setReports([])
+            setSelectedReport(null)
         } finally {
             setLoading(false)
         }
@@ -95,7 +77,12 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
 
     const loadEvidences = async (criteriaId) => {
         try {
-            const evidenceData = await apiMethods.evidences.getAll({})
+            if (!criteriaId) {
+                setEvidences([])
+                return
+            }
+            // Tải tất cả evidences liên quan đến criteriaId này
+            const evidenceData = await apiMethods.evidences.getAll({ criteriaId })
             setEvidences(evidenceData.data.data.evidences || [])
             setCurrentPage(0)
         } catch (error) {
@@ -105,18 +92,24 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     }
 
     const handleApprove = async () => {
+        if (!selectedReport) return
+
         try {
             setReviewLoading(true)
 
-            // 1. Phê duyệt Báo cáo
+            // 1. Phê duyệt Báo cáo (backend sẽ cập nhật Report)
+            // Lưu ý: Cần đảm bảo TaskId được gửi trong body nếu API cần, nhưng Report API dùng ID trong URL.
+            // Task status được cập nhật trong Task Controller
             await apiMethods.reports.approve(selectedReport._id)
 
-            // 2. Cập nhật trạng thái Nhiệm vụ sang 'completed'
-            await apiMethods.tasks.update(task._id, { status: 'completed' })
+            // 2. Cập nhật Task status (chuyển Task sang Approved)
+            // Task Controller sẽ tự kiểm tra xem Report có phải Report chính của Task không
+            await apiMethods.tasks.reviewReport(task._id, { status: 'approved' })
+
 
             toast.success('Phê duyệt báo cáo và Task thành công')
-            onSuccess() // Cập nhật danh sách Task cha
-            loadTaskData() // Tải lại dữ liệu chi tiết Task
+            onSuccess()
+            loadTaskData()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Phê duyệt thất bại')
         } finally {
@@ -125,6 +118,8 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
     }
 
     const handleReject = async () => {
+        if (!selectedReport) return
+
         if (!rejectionReason.trim()) {
             toast.error('Vui lòng nhập lý do từ chối')
             return
@@ -133,17 +128,17 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
         try {
             setReviewLoading(true)
 
-            // 1. Từ chối Báo cáo
+            // 1. Từ chối Báo cáo (backend sẽ cập nhật Report)
             await apiMethods.reports.reject(selectedReport._id, {
                 feedback: rejectionReason
             })
 
-            // 2. Cập nhật trạng thái Nhiệm vụ sang 'rejected'
-            await apiMethods.tasks.update(task._id, { status: 'rejected' })
+            // 2. Cập nhật Task status (chuyển Task sang Rejected)
+            await apiMethods.tasks.reviewReport(task._id, { status: 'rejected', rejectionReason })
 
             toast.success('Từ chối báo cáo và Task thành công')
-            onSuccess() // Cập nhật danh sách Task cha
-            loadTaskData() // Tải lại dữ liệu chi tiết Task
+            onSuccess()
+            loadTaskData()
         } catch (error) {
             toast.error(error.response?.data?.message || 'Từ chối thất bại')
         } finally {
@@ -153,15 +148,44 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
         }
     }
 
+    const handleDownloadReportFile = async (report) => {
+        if (report.contentMethod === 'file_upload' && report.attachedFile) {
+            try {
+                // Tải file đính kèm
+                // NOTE: API downloadFile cần phải trả về blob để frontend xử lý tải xuống
+                const response = await apiMethods.reports.downloadFile(report._id);
+
+                // Logic để kích hoạt tải file từ blob/buffer (Cần axios responseType: 'blob')
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', report.attachedFile.originalName || 'report-file.pdf'); // Sử dụng tên gốc
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                toast.success('Tải file thành công');
+
+            } catch (error) {
+                console.error('Download error:', error);
+                toast.error(error.response?.data?.message || 'Lỗi khi tải file báo cáo');
+            }
+        } else {
+            toast.error('Báo cáo không có file đính kèm hoặc được soạn trực tuyến');
+        }
+    }
+
     const isTaskCreator = String(task.createdBy?._id || task.createdBy) === String(userId)
     const isAdmin = userRole === 'admin'
     const isManager = userRole === 'manager'
+    const isReporter = userRole === 'reporter'
 
-    // ĐÃ KHÔI PHỤC: Cho phép Admin, Manager hoặc Người tạo Task (theo logic động mới)
+    // Cho phép Admin, Manager hoặc Người tạo Task duyệt
     const canReview = (isAdmin || isManager || isTaskCreator)
 
-    // Điều kiện để hiển thị nút Duyệt báo cáo
-    const canShowReviewActions = canReview && selectedReport?.status === 'submitted'
+    // Điều kiện để hiển thị nút Duyệt báo cáo: Phải là Report chính VÀ trạng thái là submitted HOẶC public
+    const isPrimaryReport = String(selectedReport?._id) === String(task.reportId);
+    const canShowReviewActions = canReview && isPrimaryReport && ['submitted', 'public'].includes(selectedReport?.status);
 
     const paginatedEvidences = evidences.slice(
         currentPage * itemsPerPage,
@@ -176,7 +200,8 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
             'published': 'bg-purple-100 text-purple-800',
             'approved': 'bg-green-100 text-green-800',
             'rejected': 'bg-red-100 text-red-800',
-            'submitted': 'bg-cyan-100 text-cyan-800', // Thêm trạng thái submitted
+            'submitted': 'bg-cyan-100 text-cyan-800',
+            'in_progress': 'bg-sky-100 text-sky-800',
         }
         return colors[status] || 'bg-gray-100 text-gray-800'
     }
@@ -188,7 +213,8 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
             'published': 'Phát hành',
             'approved': 'Chấp thuận',
             'rejected': 'Từ chối',
-            'submitted': 'Đã nộp chờ duyệt', // Thêm trạng thái submitted
+            'submitted': 'Đã nộp chờ duyệt',
+            'in_progress': 'Đang thực hiện',
         }
         return labels[status] || status
     }
@@ -216,7 +242,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                 <div className="flex-1 overflow-hidden flex">
                     {/* Reports List Sidebar */}
                     <div className="w-64 border-r border-gray-200 overflow-y-auto bg-gray-50 p-4 space-y-2">
-                        <h3 className="text-sm font-bold text-gray-900 px-2 mb-3">Danh sách báo cáo</h3>
+                        <h3 className="text-sm font-bold text-gray-900 px-2 mb-3">Danh sách báo cáo ({reports.length})</h3>
 
                         {loading ? (
                             <div className="text-center py-8">
@@ -226,7 +252,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                         ) : reports.length === 0 ? (
                             <div className="text-center py-8">
                                 <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                                <p className="text-xs text-gray-500">Không có báo cáo</p>
+                                <p className="text-xs text-gray-500">Task chưa có báo cáo</p>
                             </div>
                         ) : (
                             reports.map((report) => (
@@ -247,10 +273,15 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                             <p className="text-xs text-gray-500 truncate">
                                                 {report.code}
                                             </p>
-                                            <div className="mt-1">
+                                            <div className="mt-1 flex items-center gap-1">
                                                 <span className={`inline-block text-xs px-2 py-0.5 rounded font-medium ${getStatusBadgeColor(report.status)}`}>
                                                     {getStatusLabel(report.status)}
                                                 </span>
+                                                {String(report._id) === String(task.reportId) && (
+                                                    <span className="text-xs text-green-700 font-bold bg-green-200 px-2 py-0.5 rounded-full">
+                                                        CHÍNH
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         {selectedReport?._id === report._id && (
@@ -299,6 +330,19 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                                             <label className="text-sm font-semibold text-gray-600">Ngày tạo</label>
                                             <p className="text-gray-900 font-medium">{formatDate(selectedReport.createdAt)}</p>
                                         </div>
+                                        {selectedReport.contentMethod === 'file_upload' && (
+                                            <div>
+                                                <label className="text-sm font-semibold text-gray-600">File đính kèm</label>
+                                                <button
+                                                    onClick={() => handleDownloadReportFile(selectedReport)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors mt-1"
+                                                    disabled={!selectedReport.attachedFile}
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                    {selectedReport.attachedFile?.originalName || 'Tải xuống'}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -332,7 +376,7 @@ export default function TaskDetail({ task, onClose, onSuccess }) {
                             <div className="flex items-center justify-center h-full text-center">
                                 <div>
                                     <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                    <p className="text-gray-500">Chọn báo cáo để xem chi tiết</p>
+                                    <p className="text-gray-500">Chưa có báo cáo liên kết với Task này</p>
                                 </div>
                             </div>
                         )}
