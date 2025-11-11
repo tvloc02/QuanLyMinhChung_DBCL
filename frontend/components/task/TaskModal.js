@@ -4,7 +4,6 @@ import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { apiMethods } from '../../services/api'
 
-// Khai báo các màu mới (Blue/Cyan/Indigo)
 const PRIMARY_COLOR = 'indigo-600';
 const SECONDARY_COLOR = 'blue-600';
 const RING_COLOR = 'blue-500';
@@ -33,6 +32,9 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
     })
     const [errors, setErrors] = useState({})
 
+    const isEditingTask = !!task
+    const isPrefilled = !!programId || !!organizationId || !!standardId || !!criteriaId
+
     useEffect(() => {
         loadPrograms()
         loadOrganizations()
@@ -49,28 +51,31 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                 dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                 reportType: task.reportType || 'criteria'
             })
+        } else {
+            setFormData({
+                description: '',
+                programId: programId || '',
+                organizationId: organizationId || '',
+                standardId: standardId || '',
+                criteriaId: criteriaId || '',
+                assignedTo: [],
+                dueDate: '',
+                reportType: 'criteria'
+            })
         }
     }, [task, criteriaId, standardId, programId, organizationId])
 
     useEffect(() => {
-        // Tải Standards khi Program và Organization thay đổi
         if (formData.programId && formData.organizationId) {
             loadStandards()
         } else {
             setStandards([])
-            setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
+            if (!isEditingTask) {
+                setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
+            }
         }
     }, [formData.programId, formData.organizationId])
 
-    useEffect(() => {
-        // Tải Criteria khi Standard thay đổi
-        if (formData.standardId) {
-            loadCriteria(formData.standardId)
-        } else {
-            setCriteria([])
-            setFormData(prev => ({ ...prev, criteriaId: '' }))
-        }
-    }, [formData.standardId])
 
     useEffect(() => {
         if (userSearch.trim()) {
@@ -169,16 +174,14 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                 newState.criteriaId = '';
             }
 
-            // Nếu chuyển loại báo cáo sang non-criteria, xóa criteriaId
             if (name === 'reportType') {
                 if (value !== 'criteria') {
                     newState.criteriaId = '';
                 }
 
-                // Nếu chuyển sang overall_tdg, xóa standardId
                 if (value === 'overall_tdg') {
-                    newState.standardId = '';
-                    newState.criteriaId = '';
+                    // newState.standardId = '';
+                    // newState.criteriaId = '';
                 }
             }
 
@@ -209,7 +212,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
             newErrors.description = 'Mô tả là bắt buộc'
         }
 
-        // Kiểm tra Program/Org (Cấp 2)
         if (!formData.programId) {
             newErrors.programId = 'Chương trình là bắt buộc'
         }
@@ -219,15 +221,7 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
         }
 
         if (formData.reportType !== 'overall_tdg') {
-            // Kiểm tra Standard (Cấp 3 - Bắt buộc cho Standard/Criteria)
-            if (!formData.standardId) {
-                newErrors.standardId = 'Tiêu chuẩn là bắt buộc'
-            }
 
-            // Kiểm tra Criteria (Cấp 4 - Chỉ bắt buộc cho Criteria)
-            if (formData.reportType === 'criteria' && !formData.criteriaId) {
-                newErrors.criteriaId = 'Tiêu chí là bắt buộc'
-            }
         }
 
         if (formData.assignedTo.length === 0) {
@@ -250,15 +244,24 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                 description: formData.description,
                 programId: formData.programId,
                 organizationId: formData.organizationId,
-                standardId: formData.reportType !== 'overall_tdg' ? formData.standardId : null,
-                criteriaId: formData.reportType === 'criteria' ? formData.criteriaId : null,
                 assignedTo: formData.assignedTo,
-                reportType: formData.reportType,
-                dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined
+                reportType: formData.reportType
+            }
+
+            if (formData.reportType === 'overall_tdg') {
+            } else if (formData.reportType === 'standard') {
+                submitData.standardId = formData.standardId
+                submitData.criteriaId = null
+            } else if (formData.reportType === 'criteria') {
+                submitData.standardId = formData.standardId
+                submitData.criteriaId = formData.criteriaId
+            }
+
+            if (formData.dueDate) {
+                submitData.dueDate = formData.dueDate
             }
 
             if (task) {
-                // Task update không cần gửi lại Program/Org ID, nhưng ở đây ta gửi để đảm bảo nhất quán nếu model yêu cầu
                 await apiMethods.tasks.update(task._id, submitData)
                 toast.success('Cập nhật nhiệm vụ thành công')
             } else {
@@ -307,7 +310,6 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-220px)]">
 
-                    {/* Hàng 1: Loại báo cáo (Cao nhất) */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-800 mb-2">
                             Loại báo cáo <span className="text-red-500">*</span>
@@ -316,16 +318,14 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                             name="reportType"
                             value={formData.reportType}
                             onChange={handleChange}
-                            disabled={!!task}
-                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all border-${BORDER_COLOR} ${task ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                            disabled={isEditingTask || isPrefilled}
+                            className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all border-${BORDER_COLOR} ${(isEditingTask || isPrefilled) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         >
                             <option value="criteria">Báo cáo Tiêu chí</option>
                             <option value="standard">Báo cáo Tiêu chuẩn</option>
-                            <option value="overall_tdg">Báo cáo Tổng hợp TĐG</option>
                         </select>
                     </div>
 
-                    {/* Hàng 2: Chương trình & Tổ chức (Cấp 2 - Bắt buộc) */}
                     <div className='grid grid-cols-2 gap-4'>
                         <div>
                             <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -335,10 +335,10 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                                 name="programId"
                                 value={formData.programId}
                                 onChange={handleChange}
-                                disabled={!!task}
+                                disabled={isEditingTask || !!programId}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all ${
                                     errors.programId ? 'border-red-300 bg-red-50' : `border-${BORDER_COLOR} bg-white`
-                                } ${task ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${(isEditingTask || programId) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn Chương trình</option>
                                 {programs.map(p => (
@@ -358,10 +358,10 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                                 name="organizationId"
                                 value={formData.organizationId}
                                 onChange={handleChange}
-                                disabled={!!task}
+                                disabled={isEditingTask || !!organizationId}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all ${
                                     errors.organizationId ? 'border-red-300 bg-red-50' : `border-${BORDER_COLOR} bg-white`
-                                } ${task ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${(isEditingTask || organizationId) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn Tổ chức</option>
                                 {organizations.map(o => (
@@ -374,33 +374,8 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                         </div>
                     </div>
 
-                    {/* Hàng 3: Tiêu chuẩn (Cấp 3 - Ẩn nếu là Báo cáo TĐG tổng hợp) */}
-                    {formData.reportType !== 'overall_tdg' && (
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-800 mb-2">
-                                Tiêu chuẩn <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="standardId"
-                                value={formData.standardId}
-                                onChange={handleChange}
-                                disabled={!!task || !formData.programId || !formData.organizationId}
-                                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all ${
-                                    errors.standardId ? 'border-red-300 bg-red-50' : `border-${BORDER_COLOR} bg-white`
-                                } ${task || !formData.programId || !formData.organizationId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            >
-                                <option value="">Chọn tiêu chuẩn</option>
-                                {standards.map(s => (
-                                    <option key={s._id} value={s._id}>
-                                        {s.code} - {s.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.standardId && <p className="mt-1 text-sm text-red-600">{errors.standardId}</p>}
-                        </div>
-                    )}
+                    {formData.reportType !== 'overall_tdg'}
 
-                    {/* Hàng 4: Tiêu chí (Cấp 4 - Chỉ hiện khi chọn loại báo cáo Tiêu chí) */}
                     {formData.reportType === 'criteria' && (
                         <div>
                             <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -410,10 +385,10 @@ export default function TaskModal({ task, onClose, onSuccess, criteriaId = null,
                                 name="criteriaId"
                                 value={formData.criteriaId}
                                 onChange={handleChange}
-                                disabled={!!task || !formData.standardId}
+                                disabled={isEditingTask || !!criteriaId || !formData.standardId}
                                 className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-${RING_COLOR} transition-all ${
                                     errors.criteriaId ? 'border-red-300 bg-red-50' : `border-${BORDER_COLOR} bg-white`
-                                } ${task || !formData.standardId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                } ${(isEditingTask || criteriaId || !formData.standardId) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                             >
                                 <option value="">Chọn tiêu chí</option>
                                 {criteria.map(c => (

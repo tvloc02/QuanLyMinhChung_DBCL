@@ -22,24 +22,25 @@ const taskSchema = new mongoose.Schema({
     standardId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Standard',
-        required: true
+        sparse: true
     },
 
     criteriaId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Criteria'
+        ref: 'Criteria',
+        sparse: true
     },
 
     programId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Program',
-        required: true
+        sparse: true
     },
 
     organizationId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Organization',
-        required: true
+        sparse: true
     },
 
     assignedTo: [{
@@ -127,11 +128,11 @@ const taskSchema = new mongoose.Schema({
 });
 
 taskSchema.index({ academicYearId: 1, taskCode: 1 }, { unique: true });
-taskSchema.index({ academicYearId: 1, criteriaId: 1 });
+taskSchema.index({ academicYearId: 1, criteriaId: 1, reportType: 1 }, { sparse: true });
 taskSchema.index({ assignedTo: 1, academicYearId: 1 });
 taskSchema.index({ status: 1, academicYearId: 1 });
 taskSchema.index({ reportType: 1, academicYearId: 1 });
-taskSchema.index({ standardId: 1, reportType: 1 });
+taskSchema.index({ standardId: 1, reportType: 1 }, { sparse: true });
 
 taskSchema.pre('save', function(next) {
     if (this.isModified() && !this.isNew) {
@@ -140,17 +141,14 @@ taskSchema.pre('save', function(next) {
     next();
 });
 
-// Dòng 144: Đã sửa lỗi TypeError bằng cách thêm kiểm tra điều kiện
 taskSchema.virtual('fullName').get(function() {
     const descriptionText = this.description;
 
     if (descriptionText && typeof descriptionText === 'string') {
-        // Cắt chuỗi và thêm '...' nếu chuỗi dài hơn 50 ký tự
         const truncatedDescription = descriptionText.substring(0, 50) + (descriptionText.length > 50 ? '...' : '');
         return `${this.taskCode}: ${truncatedDescription}`;
     }
 
-    // Xử lý trường hợp description bị null/undefined/không phải chuỗi
     return `${this.taskCode}: (No Description)`;
 });
 

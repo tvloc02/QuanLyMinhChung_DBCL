@@ -10,14 +10,23 @@ const getNotificationModel = () => {
     if (mongoose.models.Notification) {
         return mongoose.models.Notification;
     }
-      throw new Error("Notification Model not registered.");
+    throw new Error("Notification Model not registered.");
 }
 
-
 const generateTaskCode = async (academicYearId) => {
-    const count = await Task.countDocuments({ academicYearId });
     const year = new Date().getFullYear();
-    return `T${year}-${String(count + 1).padStart(5, '0')}`;
+    let count = 1;
+    let taskCode;
+    let exists = true;
+
+    while (exists) {
+        taskCode = `T${year}-${String(count).padStart(5, '0')}`;
+        const doc = await Task.findOne({ taskCode, academicYearId });
+        exists = !!doc;
+        if (exists) count++;
+    }
+
+    return taskCode;
 };
 
 const getTasksByFilter = async (req, res, customQuery = {}) => {
@@ -142,7 +151,7 @@ const getTaskById = async (req, res) => {
 
 const createTask = async (req, res) => {
     try {
-        const Notification = getNotificationModel(); // Lấy Model trong hàm
+        const Notification = getNotificationModel();
         const {
             description,
             standardId,
@@ -159,8 +168,8 @@ const createTask = async (req, res) => {
         if (userRole !== 'admin' && userRole !== 'manager') {
             const canAssign = await permissionService.canAssignReporters(
                 userId,
-                standardId,
-                criteriaId,
+                reportType !== 'overall_tdg' ? standardId : null,
+                reportType === 'criteria' ? criteriaId : null,
                 academicYearId
             );
 
@@ -172,10 +181,24 @@ const createTask = async (req, res) => {
             }
         }
 
-        if (!description || !standardId || !assignedTo || assignedTo.length === 0 || !reportType) {
+        if (!description || !assignedTo || assignedTo.length === 0 || !reportType) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng điền đầy đủ các trường bắt buộc'
+            });
+        }
+
+        if (reportType !== 'overall_tdg' && !standardId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tiêu chuẩn là bắt buộc'
+            });
+        }
+
+        if (reportType === 'criteria' && !criteriaId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tiêu chí là bắt buộc cho báo cáo tiêu chí'
             });
         }
 
@@ -183,29 +206,25 @@ const createTask = async (req, res) => {
         let organizationId = null;
         let standard = null;
 
-        standard = await Standard.findOne({ _id: standardId, academicYearId });
-        if (!standard) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tiêu chuẩn không tồn tại'
-            });
-        }
-        programId = standard.programId;
-        organizationId = standard.organizationId;
-
-        if (reportType === 'criteria') {
-            if (!criteriaId) {
+        if (reportType !== 'overall_tdg') {
+            standard = await Standard.findOne({ _id: standardId, academicYearId });
+            if (!standard) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Tiêu chí là bắt buộc cho báo cáo tiêu chí'
+                    message: 'Tiêu chuẩn không tồn tại'
                 });
             }
-            const criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
-            if (!criteria || criteria.standardId.toString() !== standardId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Tiêu chí không hợp lệ hoặc không thuộc tiêu chuẩn này'
-                });
+            programId = standard.programId;
+            organizationId = standard.organizationId;
+
+            if (reportType === 'criteria') {
+                const criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
+                if (!criteria || criteria.standardId.toString() !== standardId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Tiêu chí không hợp lệ hoặc không thuộc tiêu chuẩn này'
+                    });
+                }
             }
         }
 
@@ -215,10 +234,10 @@ const createTask = async (req, res) => {
             academicYearId,
             taskCode,
             description: description.trim(),
-            standardId,
-            criteriaId: criteriaId || null,
-            programId,
-            organizationId,
+            standardId: reportType !== 'overall_tdg' ? standardId : null,
+            criteriaId: reportType === 'criteria' ? criteriaId : null,
+            programId: programId,
+            organizationId: organizationId,
             assignedTo,
             dueDate: dueDate ? new Date(dueDate) : undefined,
             reportType,
@@ -228,7 +247,6 @@ const createTask = async (req, res) => {
 
         await task.save();
 
-        // ⭐️ TẠO THÔNG BÁO CHO NGƯỜI ĐƯỢC GIAO TASK
         const deadlineText = dueDate ? `Hạn chót: ${new Date(dueDate).toLocaleDateString('vi-VN')}` : 'Không có hạn chót.';
         const taskTitle = `Nhiệm vụ TĐG mới: ${task.taskCode}`;
         const taskMessage = `Bạn được giao Task "${task.description.substring(0, 100)}...". ${deadlineText}`;
@@ -238,7 +256,7 @@ const createTask = async (req, res) => {
             taskMessage,
             assignedTo,
             {
-                type: 'assignment_new', // Tái sử dụng loại thông báo assignment_new cho Task
+                type: 'assignment_new',
                 url: `/tasks/${task._id}`,
                 priority: 'high',
                 metadata: {
@@ -266,13 +284,20 @@ const createTask = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Create task error (CRASH):', error);
+        console.error('Create task error:', error);
 
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
                 success: false,
                 message: messages.join(', ')
+            });
+        }
+
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã nhiệm vụ đã tồn tại'
             });
         }
 
@@ -285,7 +310,7 @@ const createTask = async (req, res) => {
 
 const updateTask = async (req, res) => {
     try {
-        const Notification = getNotificationModel(); // Lấy Model trong hàm
+        const Notification = getNotificationModel();
         const { id } = req.params;
         const {
             description,
@@ -354,7 +379,6 @@ const updateTask = async (req, res) => {
 
         await task.save();
 
-        // ⭐️ THÔNG BÁO KHI CÓ THAY ĐỔI NGƯỜI ĐƯỢC GIAO
         if (addedAssignees.length > 0) {
             const deadlineText = dueDate ? `Hạn chót: ${new Date(dueDate).toLocaleDateString('vi-VN')}` : 'Không có hạn chót.';
             await Notification.createSystemNotification(
@@ -409,7 +433,7 @@ const updateTask = async (req, res) => {
 
 const deleteTask = async (req, res) => {
     try {
-        const Notification = getNotificationModel(); // Lấy Model trong hàm
+        const Notification = getNotificationModel();
         const { id } = req.params;
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
@@ -431,7 +455,6 @@ const deleteTask = async (req, res) => {
             });
         }
 
-        // ⭐️ THÔNG BÁO KHI XÓA TASK
         if (task.assignedTo.length > 0) {
             await Notification.createSystemNotification(
                 `Task đã bị hủy/xóa: ${task.taskCode}`,
@@ -445,8 +468,6 @@ const deleteTask = async (req, res) => {
             );
         }
 
-        // Cập nhật Report liên quan (nếu có)
-        // Nếu Report được gán cho Task này, gỡ liên kết
         if (task.reportId) {
             await ReportModel.updateOne(
                 { _id: task.reportId },
@@ -454,7 +475,6 @@ const deleteTask = async (req, res) => {
             );
         }
 
-        // Gỡ taskId khỏi các Report khác cũng liên kết với Task này (nếu có)
         await ReportModel.updateMany(
             { taskId: id },
             { taskId: null, updatedBy: userId, updatedAt: new Date() }
@@ -478,7 +498,7 @@ const deleteTask = async (req, res) => {
 
 const reviewReport = async (req, res) => {
     try {
-        const Notification = getNotificationModel(); // Lấy Model trong hàm
+        const Notification = getNotificationModel();
         const { taskId } = req.params;
         const { status, rejectionReason } = req.body;
         const academicYearId = req.academicYearId;
@@ -513,7 +533,6 @@ const reviewReport = async (req, res) => {
         task.updatedAt = new Date();
         await task.save();
 
-        // ⭐️ THÔNG BÁO CHO NGƯỜI THỰC HIỆN TASK
         const notifTitle = status === 'completed' ? `Task ${task.taskCode} đã HOÀN THÀNH` : `Task ${task.taskCode} đã bị TỪ CHỐI`;
         const notifMessage = status === 'completed' ?
             `Báo cáo liên kết với Task ${task.taskCode} đã được duyệt và Task đã hoàn thành.` :
