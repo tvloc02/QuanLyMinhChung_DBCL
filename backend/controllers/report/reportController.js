@@ -2144,6 +2144,15 @@ const getInsertableReports = async (req, res) => {
             }
             query.type = 'criteria';
             query.standardId = standardId;
+
+            // Thêm programId và organizationId nếu có để lọc chính xác hơn
+            if (programId) {
+                query.programId = programId;
+            }
+            if (organizationId) {
+                query.organizationId = organizationId;
+            }
+
         } else if (reportType === 'criteria') {
             return res.json({
                 success: true,

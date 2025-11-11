@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 import {
     FileText, Save, ArrowLeft, Upload, Eye, BookOpen, Building,
     Layers, Hash, FileType, AlignLeft, Tag, X, File, AlertCircle,
-    RefreshCw, Plus, FilePlus, Lock
+    RefreshCw, Plus, FilePlus, Lock, Check
 } from 'lucide-react'
 import reportService from '../../services/reportService'
 import { apiMethods } from '../../services/api'
@@ -490,6 +490,7 @@ export default function CreateReportPage() {
     const handleCreateNewReport = () => {
         setShowReportSelectionModal(false)
         setHasHandledInitialModal(true)
+        setHasHandledInitialModal(true)
 
         // Reset form data to context/initial values
         setFormData(prev => ({
@@ -571,7 +572,12 @@ export default function CreateReportPage() {
         formData.programId && formData.organizationId
     );
 
-    const isEvidencePickerContextReady = formData.criteriaId || (formData.type === 'overall_tdg' && formData.programId && formData.organizationId);
+    // SỬA ĐỔI LOGIC TẠI ĐÂY
+    const isEvidencePickerContextReady =
+        formData.criteriaId || // 1. Báo cáo tiêu chí (luôn cần CriteriaId)
+        (formData.type === 'standard' && formData.standardId) || // 2. Báo cáo tiêu chuẩn (chỉ cần StandardId)
+        (formData.type === 'overall_tdg' && formData.programId && formData.organizationId); // 3. Báo cáo TĐG tổng thể
+
 
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
@@ -760,122 +766,169 @@ export default function CreateReportPage() {
                                         </select>
                                     </div>
 
-                                    {/* Chương trình */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <BookOpen className="w-4 h-4 inline mr-1" />
-                                            Chương trình <span className="text-red-500">*</span>
-                                            {isLocked.programId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
-                                        </label>
-                                        <select
-                                            value={formData.programId}
-                                            onChange={(e) => {
-                                                handleChange('programId', e.target.value)
-                                                setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
-                                            }}
-                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                                formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                            }`}
-                                            disabled={isLocked.programId}
-                                        >
-                                            <option value="">Chọn chương trình</option>
-                                            {programs.map(program => (
-                                                <option key={program._id} value={program._id}>
-                                                    {program.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {formErrors.programId && (
-                                            <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Tổ chức */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <Building className="w-4 h-4 inline mr-1" />
-                                            Tổ chức <span className="text-red-500">*</span>
-                                            {isLocked.organizationId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
-                                        </label>
-                                        <select
-                                            value={formData.organizationId}
-                                            onChange={(e) => handleChange('organizationId', e.target.value)}
-                                            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                                formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                                            }`}
-                                            disabled={isLocked.organizationId}
-                                        >
-                                            <option value="">Chọn tổ chức</option>
-                                            {organizations.map(org => (
-                                                <option key={org._id} value={org._id}>
-                                                    {org.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {formErrors.organizationId && (
-                                            <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Tiêu chuẩn - Ẩn khi là overall_tdg */}
-                                    {formData.type !== 'overall_tdg' && (
+                                    {/* Chương trình - CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA (TẠO ĐỘC LẬP) */}
+                                    {/* Nếu bị khóa, chỉ hiển thị tên chương trình đã chọn (nếu có) */}
+                                    {isLocked.programId ? (
+                                        <div className="col-span-1">
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <BookOpen className="w-4 h-4 inline mr-1" />
+                                                Chương trình
+                                                <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />
+                                            </label>
+                                            <div className="px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-800">
+                                                {programs.find(p => p._id === formData.programId)?.name || 'Đang tải...'}
+                                            </div>
+                                        </div>
+                                    ) : (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                <Layers className="w-4 h-4 inline mr-1" />
-                                                Tiêu chuẩn <span className="text-red-500">*</span>
-                                                {isLocked.standardId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
+                                                <BookOpen className="w-4 h-4 inline mr-1" />
+                                                Chương trình <span className="text-red-500">*</span>
                                             </label>
                                             <select
-                                                value={formData.standardId}
+                                                value={formData.programId}
                                                 onChange={(e) => {
-                                                    handleChange('standardId', e.target.value)
-                                                    setFormData(prev => ({ ...prev, criteriaId: '' }))
+                                                    handleChange('programId', e.target.value)
+                                                    setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }))
                                                 }}
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                                    formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                    formErrors.programId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.programId || !formData.organizationId || isLocked.standardId}
                                             >
-                                                <option value="">Chọn tiêu chuẩn</option>
-                                                {standards.map(standard => (
-                                                    <option key={standard._id} value={standard._id}>
-                                                        {standard.code} - {standard.name}
+                                                <option value="">Chọn chương trình</option>
+                                                {programs.map(program => (
+                                                    <option key={program._id} value={program._id}>
+                                                        {program.name}
                                                     </option>
                                                 ))}
                                             </select>
-                                            {formErrors.standardId && (
-                                                <p className="mt-1 text-sm text-red-600">{formErrors.standardId}</p>
+                                            {formErrors.programId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.programId}</p>
                                             )}
                                         </div>
                                     )}
 
-                                    {/* Tiêu chí - Chỉ hiển thị khi là criteria */}
-                                    {formData.type === 'criteria' && (
+                                    {/* Tổ chức - CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA (TẠO ĐỘC LẬP) */}
+                                    {isLocked.organizationId ? (
+                                        <div className="col-span-1">
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <Building className="w-4 h-4 inline mr-1" />
+                                                Tổ chức
+                                                <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />
+                                            </label>
+                                            <div className="px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-800">
+                                                {organizations.find(o => o._id === formData.organizationId)?.name || 'Đang tải...'}
+                                            </div>
+                                        </div>
+                                    ) : (
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                                <Hash className="w-4 h-4 inline mr-1" />
-                                                Tiêu chí <span className="text-red-500">*</span>
-                                                {isLocked.criteriaId && <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />}
+                                                <Building className="w-4 h-4 inline mr-1" />
+                                                Tổ chức <span className="text-red-500">*</span>
                                             </label>
                                             <select
-                                                value={formData.criteriaId}
-                                                onChange={(e) => handleChange('criteriaId', e.target.value)}
+                                                value={formData.organizationId}
+                                                onChange={(e) => handleChange('organizationId', e.target.value)}
                                                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                                    formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                    formErrors.organizationId ? 'border-red-300 bg-red-50' : 'border-gray-200'
                                                 }`}
-                                                disabled={!formData.standardId || isLocked.criteriaId}
                                             >
-                                                <option value="">Chọn tiêu chí</option>
-                                                {criteria.map(criterion => (
-                                                    <option key={criterion._id} value={criterion._id}>
-                                                        {criterion.code} - {criterion.name}
+                                                <option value="">Chọn tổ chức</option>
+                                                {organizations.map(org => (
+                                                    <option key={org._id} value={org._id}>
+                                                        {org.name}
                                                     </option>
                                                 ))}
                                             </select>
-                                            {formErrors.criteriaId && (
-                                                <p className="mt-1 text-sm text-red-600">{formErrors.criteriaId}</p>
+                                            {formErrors.organizationId && (
+                                                <p className="mt-1 text-sm text-red-600">{formErrors.organizationId}</p>
                                             )}
                                         </div>
+                                    )}
+
+                                    {/* Tiêu chuẩn - Ẩn khi là overall_tdg VÀ CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA */}
+                                    {formData.type !== 'overall_tdg' && (
+                                        isLocked.standardId ? (
+                                            <div className="col-span-1">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <Layers className="w-4 h-4 inline mr-1" />
+                                                    Tiêu chuẩn
+                                                    <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />
+                                                </label>
+                                                <div className="px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-800">
+                                                    {standards.find(s => s._id === formData.standardId)?.code} - {standards.find(s => s._id === formData.standardId)?.name || 'Đang tải...'}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <Layers className="w-4 h-4 inline mr-1" />
+                                                    Tiêu chuẩn <span className="text-red-500">*</span>
+                                                </label>
+                                                <select
+                                                    value={formData.standardId}
+                                                    onChange={(e) => {
+                                                        handleChange('standardId', e.target.value)
+                                                        setFormData(prev => ({ ...prev, criteriaId: '' }))
+                                                    }}
+                                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                                        formErrors.standardId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                    }`}
+                                                    disabled={!formData.programId || !formData.organizationId}
+                                                >
+                                                    <option value="">Chọn tiêu chuẩn</option>
+                                                    {standards.map(standard => (
+                                                        <option key={standard._id} value={standard._id}>
+                                                            {standard.code} - {standard.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {formErrors.standardId && (
+                                                    <p className="mt-1 text-sm text-red-600">{formErrors.standardId}</p>
+                                                )}
+                                            </div>
+                                        )
+                                    )}
+
+                                    {/* Tiêu chí - Chỉ hiển thị khi là criteria VÀ CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA */}
+                                    {formData.type === 'criteria' && (
+                                        isLocked.criteriaId ? (
+                                            <div className="col-span-1">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <Hash className="w-4 h-4 inline mr-1" />
+                                                    Tiêu chí
+                                                    <Lock className="w-4 h-4 inline ml-1 text-blue-500" title="Đã khóa từ yêu cầu" />
+                                                </label>
+                                                <div className="px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-800">
+                                                    {criteria.find(c => c._id === formData.criteriaId)?.code} - {criteria.find(c => c._id === formData.criteriaId)?.name || 'Đang tải...'}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <Hash className="w-4 h-4 inline mr-1" />
+                                                    Tiêu chí <span className="text-red-500">*</span>
+                                                </label>
+                                                <select
+                                                    value={formData.criteriaId}
+                                                    onChange={(e) => handleChange('criteriaId', e.target.value)}
+                                                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                                        formErrors.criteriaId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                                    }`}
+                                                    disabled={!formData.standardId}
+                                                >
+                                                    <option value="">Chọn tiêu chí</option>
+                                                    {criteria.map(criterion => (
+                                                        <option key={criterion._id} value={criterion._id}>
+                                                            {criterion.code} - {criterion.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {formErrors.criteriaId && (
+                                                    <p className="mt-1 text-sm text-red-600">{formErrors.criteriaId}</p>
+                                                )}
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -1137,7 +1190,6 @@ export default function CreateReportPage() {
                                 <button
                                     onClick={handleOpenNewEvidenceModal}
                                     className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
-                                    // Vô hiệu hóa nếu chưa chọn tiêu chí (vì tạo minh chứng phải gắn với tiêu chí)
                                     disabled={!formData.criteriaId}
                                 >
                                     <FilePlus className="h-5 w-5" />

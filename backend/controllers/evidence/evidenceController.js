@@ -666,7 +666,7 @@ const importEvidences = async (req, res) => {
             });
         }
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        if (req.user.role !== 'admin' && req.user.role !== 'manager'&& req.user.role !== 'reporter') {
             return res.status(403).json({
                 success: false,
                 message: 'Chỉ quản lý mới có quyền import minh chứng'

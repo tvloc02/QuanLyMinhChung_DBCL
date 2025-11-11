@@ -7,15 +7,12 @@ const normalizeParam = (value) => {
     return (value === '' || value === undefined) ? null : value;
 };
 
-// Giả định userAuth được lấy từ context/localStorage
 const useAuth = () => {
     const [user, setUser] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
-                // Giả định ID user hiện tại được lấy từ localStorage
                 const userId = localStorage.getItem('userId') || 'temp-user-id-reporter';
                 const userRole = localStorage.getItem('userRole') || 'reporter';
-                // Đảm bảo ID là chuỗi để so sánh
                 return { _id: String(userId), role: userRole, fullName: 'Current User' };
             } catch (error) {
                 return { _id: 'temp-user-id-reporter', role: 'reporter', fullName: 'Current User' };
@@ -101,12 +98,10 @@ export default function ReportSelectionModal({
             }
 
             const newReports = reportsData.map(report => {
-                // Các trường này đã được tính toán chính xác ở Controller (backend)
                 const isCreatedByMe = report.isCreatedByMe;
                 const isAssignedToMe = report.isAssignedToMe;
                 let canEdit = report.canEdit;
 
-                // CẢI THIỆN ĐỒNG BỘ: Nếu backend trả về isAssignedToMe=true, phải có quyền sửa.
                 if (isAssignedToMe || isCreatedByMe) {
                     canEdit = true;
                 }
@@ -159,12 +154,9 @@ export default function ReportSelectionModal({
         }
 
         const report = reports.find(r => r._id === reportId);
-
-        // 🚨 Chặn: Nếu canEdit là TRUE, KHÔNG gửi request.
         if (report.canEdit) {
             toast.error('Bạn đã có quyền chỉnh sửa báo cáo này. Vui lòng bấm "Tiếp tục sửa".');
 
-            // Buộc cập nhật UI để chuyển nút về "Tiếp tục sửa"
             setReports(prev => prev.map(r => r._id === reportId ? { ...r, canEdit: true } : r));
 
             return;
@@ -288,7 +280,6 @@ export default function ReportSelectionModal({
         const myRequestStatus = report.myEditRequestStatus;
         const hasPendingRequest = report.pendingEditRequests?.length > 0;
 
-        // 1. NGƯỜI CÓ QUYỀN CHỈNH SỬA (Tác giả, Được giao, Admin/Manager)
         if (report.canEdit) {
             return {
                 label: 'Tiếp tục sửa',
@@ -296,15 +287,11 @@ export default function ReportSelectionModal({
                 onClick: () => handleSelectReport(report._id),
                 disabled: false,
                 className: 'bg-blue-600 hover:bg-blue-700',
-                // 🚨 SỬA LỖI: Luôn hiện nút Phân quyền nếu là người tạo báo cáo
                 showGrantPermission: report.isCreatedByMe,
                 grantPermissionLabel: `Phân quyền (${report.pendingEditRequests.length})`
             };
         }
 
-        // 2. NGƯỜI KHÔNG CÓ QUYỀN CHỈNH SỬA
-
-        // 2a. Báo cáo đã hoàn thành/Phát hành -> chỉ xem
         if (report.status !== 'draft') {
             return {
                 label: 'Xem',
@@ -315,9 +302,6 @@ export default function ReportSelectionModal({
             };
         }
 
-        // 2b. Báo cáo nháp nhưng không có quyền
-
-        // Đã gửi yêu cầu và đang chờ duyệt
         if (myRequestStatus === 'pending' || myRequestStatus === 'requesting') {
             return {
                 label: myRequestStatus === 'pending' ? 'Đã yêu cầu' : 'Đang gửi...',
@@ -327,7 +311,6 @@ export default function ReportSelectionModal({
             };
         }
 
-        // 🚨 SỬA LỖI: Yêu cầu đã bị từ chối -> Cho phép thử lại (không disabled)
         if (myRequestStatus === 'rejected') {
             return {
                 label: 'Yêu cầu sửa (Thử lại)',
@@ -338,7 +321,6 @@ export default function ReportSelectionModal({
             };
         }
 
-        // Chưa có yêu cầu
         return {
             label: 'Yêu cầu sửa',
             icon: Lock,
@@ -353,7 +335,7 @@ export default function ReportSelectionModal({
     return (
         <>
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                     {/* Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-6 text-white flex items-center justify-between">
                         <div>
