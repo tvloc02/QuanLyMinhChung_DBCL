@@ -572,7 +572,7 @@ export default function CreateReportPage() {
         formData.programId && formData.organizationId
     );
 
-    // SỬA ĐỔI LOGIC TẠI ĐÂY
+    // Logic kiểm tra ngữ cảnh đã sẵn sàng để tải minh chứng hay chưa
     const isEvidencePickerContextReady =
         formData.criteriaId || // 1. Báo cáo tiêu chí (luôn cần CriteriaId)
         (formData.type === 'standard' && formData.standardId) || // 2. Báo cáo tiêu chuẩn (chỉ cần StandardId)
@@ -628,72 +628,149 @@ export default function CreateReportPage() {
                 />
             )}
 
+            {/* MESSAGE ALERT */}
+            {message.text && (
+                <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 mb-6 ${
+                    message.type === 'success'
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                        : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+                }`}>
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+                            }`}>
+                                <AlertCircle className={`w-7 h-7 ${
+                                    message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                                }`} />
+                            </div>
+                        </div>
+                        <div className="ml-4 flex-1">
+                            <h3 className={`font-bold text-lg mb-1 ${
+                                message.type === 'success' ? 'text-green-900' : 'text-red-900'
+                            }`}>
+                                {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
+                            </h3>
+                            <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                                {message.text}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setMessage({ type: '', text: '' })}
+                            className="ml-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
-            <div className="flex gap-6">
-                {/* Main Form */}
-                <div className="flex-1 space-y-6">
-                    {/* Message Alert */}
-                    {message.text && (
-                        <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
-                            message.type === 'success'
-                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                                : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
-                        }`}>
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                        message.type === 'success' ? 'bg-green-100' : 'bg-red-100'
-                                    }`}>
-                                        <AlertCircle className={`w-7 h-7 ${
-                                            message.type === 'success' ? 'text-green-600' : 'text-red-600'
-                                        }`} />
-                                    </div>
-                                </div>
-                                <div className="ml-4 flex-1">
-                                    <h3 className={`font-bold text-lg mb-1 ${
-                                        message.type === 'success' ? 'text-green-900' : 'text-red-900'
-                                    }`}>
-                                        {message.type === 'success' ? 'Thành công!' : 'Có lỗi xảy ra'}
-                                    </h3>
-                                    <p className={message.type === 'success' ? 'text-green-800' : 'text-red-800'}>
-                                        {message.text}
-                                    </p>
-                                </div>
+            {/* HEADER - Tiêu đề chính */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white mb-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
+                            <FileText className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold mb-1">
+                                {formData.taskId ? 'Viết báo cáo từ nhiệm vụ' : 'Tạo báo cáo mới'}
+                            </h1>
+                            <p className="text-blue-100">
+                                {formData.taskId ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí/tổng hợp'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => router.push('/reports/reports')}
+                        className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        <span>Quay lại</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* BỐ CỤC CHÍNH: MAIN FORM VÀ SIDEBAR MINH CHỨNG */}
+            <div className="flex gap-6 relative">
+
+                {/* CỘT PHẢI - Evidence Picker (Chỉ hiện trên desktop) */}
+                {showEvidencePicker && (
+                    <div className="w-96 flex-shrink-0 md:order-2 md:block hidden">
+                        <div className="sticky top-6">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
                                 <button
-                                    onClick={() => setMessage({ type: '', text: '' })}
-                                    className="ml-4 text-gray-400 hover:text-gray-600"
+                                    onClick={handleOpenNewEvidenceModal}
+                                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
+                                    disabled={!formData.criteriaId}
                                 >
-                                    <X className="w-5 h-5" />
+                                    <FilePlus className="h-5 w-5" />
+                                    Tạo Minh chứng Mới
                                 </button>
+
+                                {isEvidencePickerContextReady ? (
+                                    <ReportEvidencePicker
+                                        // Truyền cả 4 ID để có thể lọc scope rộng nhất có thể
+                                        standardId={formData.standardId}
+                                        criteriaId={formData.criteriaId}
+                                        programId={formData.programId}
+                                        organizationId={formData.organizationId}
+                                        onSelect={handleInsertEvidence}
+                                        onViewEvidence={(code) => {
+                                            setSelectedEvidenceCode(code)
+                                            setShowEvidenceViewer(true)
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                                        Vui lòng chọn Chương trình & Tổ chức (và Tiêu chuẩn/Tiêu chí nếu cần) để tải danh sách minh chứng.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* CỘT CHÍNH - Main Form (chiếm phần còn lại) */}
+                <div className="flex-1 md:order-1">
+                    {showEvidencePicker && (
+                        <div className="block md:hidden">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <Eye className="h-5 w-5 text-cyan-600" />
+                                    Công cụ Minh chứng
+                                </h3>
+                                {/* Nút Tạo Minh Chứng Mới */}
+                                <button
+                                    onClick={handleOpenNewEvidenceModal}
+                                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
+                                    disabled={!formData.criteriaId}
+                                >
+                                    <FilePlus className="h-5 w-5" />
+                                    Tạo Minh chứng Mới
+                                </button>
+                                {isEvidencePickerContextReady ? (
+                                    <ReportEvidencePicker
+                                        standardId={formData.standardId}
+                                        criteriaId={formData.criteriaId}
+                                        programId={formData.programId}
+                                        organizationId={formData.organizationId}
+                                        onSelect={handleInsertEvidence}
+                                        onViewEvidence={(code) => {
+                                            setSelectedEvidenceCode(code)
+                                            setShowEvidenceViewer(true)
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                                        Vui lòng chọn Chương trình & Tổ chức (và Tiêu chuẩn/Tiêu chí nếu cần) để tải danh sách minh chứng.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
 
-                    {/* Header - Chuyển sang Blue/Indigo */}
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                                <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                    <FileText className="w-8 h-8" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold mb-1">
-                                        {formData.taskId ? 'Viết báo cáo từ nhiệm vụ' : 'Tạo báo cáo mới'}
-                                    </h1>
-                                    <p className="text-blue-100">
-                                        {formData.taskId ? 'Hoàn thành báo cáo từ nhiệm vụ được giao' : 'Tạo báo cáo phân tích tiêu chuẩn/tiêu chí/tổng hợp'}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => router.push('/reports/reports')}
-                                className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-medium"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                                <span>Quay lại</span>
-                            </button>
-                        </div>
-                    </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Thông tin cơ bản */}
@@ -1180,44 +1257,6 @@ export default function CreateReportPage() {
                     </form>
                 </div>
 
-                {/* Sidebar - Evidence Picker (Sổ ra khi có Program/Org) */}
-                {showEvidencePicker && (
-                    <div className="w-96 flex-shrink-0">
-                        <div className="sticky top-6">
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-
-                                {/* Nút Tạo Minh Chứng Mới */}
-                                <button
-                                    onClick={handleOpenNewEvidenceModal}
-                                    className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
-                                    disabled={!formData.criteriaId}
-                                >
-                                    <FilePlus className="h-5 w-5" />
-                                    Tạo Minh chứng Mới
-                                </button>
-
-                                {isEvidencePickerContextReady ? (
-                                    <ReportEvidencePicker
-                                        // Truyền cả 4 ID để có thể lọc scope rộng nhất có thể
-                                        standardId={formData.standardId}
-                                        criteriaId={formData.criteriaId}
-                                        programId={formData.programId}
-                                        organizationId={formData.organizationId}
-                                        onSelect={handleInsertEvidence}
-                                        onViewEvidence={(code) => {
-                                            setSelectedEvidenceCode(code)
-                                            setShowEvidenceViewer(true)
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                                        Vui lòng chọn Chương trình & Tổ chức (và Tiêu chuẩn/Tiêu chí nếu cần) để tải danh sách minh chứng.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {showEvidenceViewer && selectedEvidenceCode && (
@@ -1344,9 +1383,9 @@ function CriteriaReportPickerModal({ isOpen, reportType, standardId, programId, 
             };
 
             // API getInsertableReports đã được chỉnh sửa để fetch các báo cáo cấp thấp hơn
-            const response = await apiMethods.reports.getInsertableReports(params);
+            const response = await apiMethods.reports.getInsertable(params);
 
-            const fetchedReports = response.data?.reports || [];
+            const fetchedReports = response.data?.data?.reports || [];
 
             // Loại bỏ các báo cáo đã chọn ban đầu khỏi danh sách hiển thị
             const availableReports = fetchedReports.filter(fr => !initialReports.some(ir => ir._id === fr._id));

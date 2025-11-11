@@ -1,4 +1,3 @@
-// fileName: [id].js
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
-// Component Modal cho danh sách Người được giao
 const AssignedReportersModal = ({ isOpen, reporters, onClose }) => {
     if (!isOpen) return null
 
@@ -135,33 +133,37 @@ export default function ReportDetail() {
         }
     }
 
-    const getPermissions = () => {
-        if (!report || !user) return {}
+    const getPermissions = (currentReport, currentUser) => {
+        if (!currentReport || !currentUser) return {}
 
-        const isCreator = String(report.createdBy?._id) === String(user._id)
-        const isAssignee = report.assignedReporters?.some(r => String(r._id) === String(user._id))
-        const isManager = user.role === 'manager'
-        const isAdmin = user.role === 'admin'
+        const isCreator = String(currentReport.createdBy?._id) === String(currentUser._id)
+        const isAssignee = currentReport.assignedReporters?.some(r => String(r._id) === String(currentUser._id))
+        const isManager = currentUser.role === 'manager'
+        const isAdmin = currentUser.role === 'admin'
 
         // Sử dụng canEdit từ model (Admin/Manager hoặc người được giao/người tạo)
-        const canEdit = report.canEdit(user._id, user.role)
+        // Lưu ý: Cần đảm bảo report.canEdit có sẵn, nếu không sẽ dùng logic fallback
+        const canEdit = currentReport.canEdit ? currentReport.canEdit(currentUser._id, currentUser.role) : (isCreator || isAssignee || isManager || isAdmin)
 
         // Reporter chỉ được Xóa khi là người tạo VÀ trạng thái draft/in_progress/rejected
-        const canDelete = (isCreator || isAdmin) && ['draft', 'in_progress', 'rejected'].includes(report.status)
+        const canDelete = (isCreator || isAdmin) && ['draft', 'in_progress', 'rejected'].includes(currentReport.status)
 
-        const canMakePublic = canEdit && ['draft', 'in_progress', 'rejected'].includes(report.status)
-        const canRetractPublic = canEdit && report.status === 'public'
+        const canMakePublic = canEdit && ['draft', 'in_progress', 'rejected'].includes(currentReport.status)
+        const canRetractPublic = canEdit && currentReport.status === 'public'
 
-        const canPublish = (isManager || isAdmin) && report.status === 'approved'
-        const canUnpublish = (isManager || isAdmin) && report.status === 'published'
+        const canPublish = (isManager || isAdmin) && currentReport.status === 'approved'
+        const canUnpublish = (isManager || isAdmin) && currentReport.status === 'published'
 
         // Quyền duyệt
-        const canApproveOrRejectReport = (isManager || isAdmin) && ['submitted', 'public'].includes(report.status)
+        const canApproveOrRejectReport = (isManager || isAdmin) && ['submitted', 'public'].includes(currentReport.status)
 
         // Cần có Task ID để điều hướng phân công đánh giá
-        const canNavigateToAssignment = (isManager || isAdmin) && report.status === 'approved'
+        const canNavigateToAssignment = (isManager || isAdmin) && currentReport.status === 'approved'
 
-        const canRequestEditPermission = !canEdit && report.status !== 'approved' && report.status !== 'published' && !report.editRequests?.some(r => String(r.requesterId) === String(user._id) && r.status === 'pending');
+        // Kiểm tra đã có request pending chưa
+        const hasPendingRequest = currentReport.editRequests?.some(r => String(r.requesterId) === String(currentUser._id) && r.status === 'pending')
+
+        const canRequestEditPermission = !canEdit && currentReport.status !== 'approved' && currentReport.status !== 'published' && !hasPendingRequest;
 
         return {
             canView: true,
@@ -182,7 +184,26 @@ export default function ReportDetail() {
         }
     }
 
-    const permissions = getPermissions()
+    // --- CHECK LOADING VÀ RENDER SỚM ---
+    if (loading || !report || !user) {
+        return (
+            <Layout title="Đang tải báo cáo...">
+                <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                    <p className="ml-3 text-gray-600">Đang tải dữ liệu báo cáo...</p>
+                </div>
+            </Layout>
+        );
+    }
+    // --- END CHECK LOADING ---
+
+
+    // CÁC BIẾN SAU KHI DỮ LIỆU ĐÃ SẴN SÀNG
+    const permissions = getPermissions(report, user)
+
+    // Kiểm tra xem người dùng có pending request nào không
+    const pendingRequest = report.editRequests?.find(r => String(r.requesterId) === String(user._id) && r.status === 'pending');
+
 
     const handleEdit = () => {
         // Chuyển hướng đến trang edit/tạo mới với ID báo cáo hiện tại
@@ -377,9 +398,6 @@ export default function ReportDetail() {
         }
         return labels[status] || status
     }
-
-    // Kiểm tra xem người dùng có pending request nào không
-    const pendingRequest = report.editRequests?.find(r => String(r.requesterId) === String(user._id) && r.status === 'pending');
 
     return (
         <Layout title={`Chi tiết báo cáo: ${report.code}`}>
