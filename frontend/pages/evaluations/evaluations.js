@@ -16,7 +16,8 @@ import {
     MessageSquare,
     Award,
     User,
-    ClipboardCheck
+    ClipboardCheck,
+    Send
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -96,7 +97,6 @@ export default function ReportEvaluations() {
             const response = await apiMethods.evaluations.getAll(params)
             const data = response.data?.data || response.data
 
-            // Chỉ hiển thị các bản đã nộp trở lên (submitted, supervised, final)
             setEvaluations(data?.evaluations?.filter(e => e.status !== 'draft') || [])
 
         } catch (error) {
@@ -156,7 +156,6 @@ export default function ReportEvaluations() {
         return labels[rating] || rating
     }
 
-    // Chỉ cho phép admin/manager/reporter xem danh sách đánh giá đã nộp
     if (user && !['admin', 'manager', 'reporter'].includes(user.role)) {
         return (
             <Layout title="Đánh giá Báo cáo TĐG" breadcrumbItems={breadcrumbItems}>
@@ -177,9 +176,9 @@ export default function ReportEvaluations() {
                             <ClipboardCheck className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Đánh giá Báo cáo TĐG</h1>
+                            <h1 className="text-3xl font-bold mb-1">Tổng hợp Đánh giá</h1>
                             <p className="text-blue-200">
-                                Xem các đánh giá của người đánh giá dành cho báo cáo: <span className="font-semibold">{reportTitle}</span>
+                                Báo cáo: <span className="font-semibold">{reportTitle}</span>
                             </p>
                         </div>
                     </div>

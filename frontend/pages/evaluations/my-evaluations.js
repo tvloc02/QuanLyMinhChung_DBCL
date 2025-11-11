@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
 import api, { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
-import { ActionButton } from '../../components/ActionButtons'
 import {
     FileText,
     Search,
@@ -23,7 +22,8 @@ import {
     Calendar,
     Star,
     MessageSquare,
-    Award
+    Award,
+    Send
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -42,9 +42,10 @@ export default function MyEvaluations() {
         current: 1,
         pages: 1,
         total: 0,
-        hasNext: false, // Bổ sung để khớp với API
-        hasPrev: false  // Bổ sung để khớp với API
+        hasNext: false,
+        hasPrev: false
     })
+    const [stats, setStats] = useState(null)
 
     const [filters, setFilters] = useState({
         search: '',
@@ -66,10 +67,21 @@ export default function MyEvaluations() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user && user.role === 'expert') {
+        if (user && user.role === 'evaluator' && user.role === 'manager') {
             fetchMyEvaluations()
+            fetchMyStats()
         }
     }, [filters, user])
+
+    const fetchMyStats = async () => {
+        try {
+            const res = await apiMethods.evaluations.getEvaluatorStats(user.id)
+            setStats(res.data.data)
+        } catch (error) {
+            console.error('Fetch stats error:', error)
+            setStats(null)
+        }
+    }
 
     const fetchMyEvaluations = async () => {
         try {
@@ -90,7 +102,6 @@ export default function MyEvaluations() {
             const data = response.data?.data || response.data
 
             setEvaluations(data?.evaluations || [])
-            // Sửa lỗi logic: Đảm bảo pagination có hasNext/hasPrev cho phân trang
             setPagination(data?.pagination || {
                 current: 1,
                 pages: 1,
@@ -195,14 +206,14 @@ export default function MyEvaluations() {
 
     const hasActiveFilters = filters.search || filters.status || filters.rating
 
-    const stats = {
-        total: pagination.total,
-        // Lưu ý: stats này chỉ tính trên evaluations của trang hiện tại (lỗi logic nhỏ),
-        // nhưng ta giữ nguyên vì nó không ảnh hưởng đến lỗi chính.
-        draft: evaluations.filter(e => e.status === 'draft').length,
-        submitted: evaluations.filter(e => e.status === 'submitted').length,
-        supervised: evaluations.filter(e => e.status === 'supervised').length,
-        final: evaluations.filter(e => e.status === 'final').length
+    const statsData = stats || {
+        total: 0,
+        draft: 0,
+        submitted: 0,
+        supervised: 0,
+        final: 0,
+        averageScore: 0,
+        totalTimeSpentHours: 0
     }
 
     if (isLoading) {
@@ -218,7 +229,7 @@ export default function MyEvaluations() {
         )
     }
 
-    if (!user || user.role !== 'expert') {
+    if (!user || user.role !== 'evaluator') {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
@@ -232,7 +243,6 @@ export default function MyEvaluations() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header - Màu xanh lam */}
                 <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -245,31 +255,30 @@ export default function MyEvaluations() {
                     </div>
                 </div>
 
-                {/* Stats - Màu xanh lam */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
                         <p className="text-blue-600 text-sm font-semibold mb-2">Tổng cộng</p>
-                        <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
+                        <p className="text-3xl font-bold text-blue-900">{statsData.total}</p>
+                        <p className="text-xs text-gray-500 mt-1">Giờ làm: {statsData.totalTimeSpentHours}h</p>
                     </div>
                     <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border-2 border-yellow-200">
                         <p className="text-yellow-600 text-sm font-semibold mb-2">Bản nháp</p>
-                        <p className="text-3xl font-bold text-yellow-900">{stats.draft}</p>
+                        <p className="text-3xl font-bold text-yellow-900">{statsData.draft}</p>
                     </div>
                     <div className="bg-gradient-to-br from-sky-50 to-sky-100 rounded-xl p-6 border-2 border-sky-200">
                         <p className="text-sky-600 text-sm font-semibold mb-2">Đã nộp</p>
-                        <p className="text-3xl font-bold text-sky-900">{stats.submitted}</p>
+                        <p className="text-3xl font-bold text-sky-900">{statsData.submitted}</p>
                     </div>
                     <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-6 border-2 border-cyan-200">
-                        <p className="text-cyan-600 text-sm font-semibold mb-2">Đã giám sát</p>
-                        <p className="text-3xl font-bold text-cyan-900">{stats.supervised}</p>
+                        <p className="text-cyan-600 text-sm font-semibold mb-2">Hoàn tất (Final)</p>
+                        <p className="text-3xl font-bold text-cyan-900">{statsData.final}</p>
                     </div>
                     <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
-                        <p className="text-indigo-600 text-sm font-semibold mb-2">Hoàn tất</p>
-                        <p className="text-3xl font-bold text-indigo-900">{stats.final}</p>
+                        <p className="text-indigo-600 text-sm font-semibold mb-2">Điểm TB</p>
+                        <p className="text-3xl font-bold text-indigo-900">{statsData.averageScore.toFixed(2)}/10</p>
                     </div>
                 </div>
 
-                {/* Search & Filters - Màu xanh lam */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex flex-col lg:flex-row gap-4">
                         <div className="flex-1">
@@ -365,7 +374,6 @@ export default function MyEvaluations() {
                     )}
                 </div>
 
-                {/* Table - Màu xanh lam */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-6 py-4 border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                         <h2 className="text-lg font-bold text-gray-900">
@@ -526,59 +534,57 @@ export default function MyEvaluations() {
                                 </table>
                             </div>
 
-                            {pagination.pages > 1 && (
-                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-t-2 border-blue-200">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm text-gray-700">
-                                            Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
-                                            <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
-                                            <strong className="text-blue-600">{pagination.total}</strong> kết quả
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => handlePageChange(pagination.current - 1)}
-                                                disabled={!pagination.hasPrev}
-                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
-                                            >
-                                                Trước
-                                            </button>
-                                            {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
-                                                let pageNum;
-                                                if (pagination.pages <= 7) {
-                                                    pageNum = i + 1
-                                                } else if (pagination.current <= 4) {
-                                                    pageNum = i + 1
-                                                } else if (pagination.current >= pagination.pages - 3) {
-                                                    pageNum = pagination.pages - 6 + i
-                                                } else {
-                                                    pageNum = pagination.current - 3 + i
-                                                }
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-t-2 border-blue-200">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm text-gray-700">
+                                        Hiển thị <strong className="text-blue-600">{((pagination.current - 1) * filters.limit) + 1}</strong> đến{' '}
+                                        <strong className="text-blue-600">{Math.min(pagination.current * filters.limit, pagination.total)}</strong> trong tổng số{' '}
+                                        <strong className="text-blue-600">{pagination.total}</strong> kết quả
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current - 1)}
+                                            disabled={!pagination.hasPrev}
+                                            className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
+                                        >
+                                            Trước
+                                        </button>
+                                        {[...Array(Math.min(pagination.pages, 7))].map((_, i) => {
+                                            let pageNum
+                                            if (pagination.pages <= 7) {
+                                                pageNum = i + 1
+                                            } else if (pagination.current <= 4) {
+                                                pageNum = i + 1
+                                            } else if (pagination.current >= pagination.pages - 3) {
+                                                pageNum = pagination.pages - 6 + i
+                                            } else {
+                                                pageNum = pagination.current - 3 + i
+                                            }
 
-                                                return (
-                                                    <button
-                                                        key={pageNum}
-                                                        onClick={() => handlePageChange(pageNum)}
-                                                        className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
-                                                            pagination.current === pageNum
-                                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                                                                : 'border-2 border-blue-200 hover:bg-white text-gray-700'
-                                                        }`}
-                                                    >
-                                                        {pageNum}
-                                                    </button>
-                                                )
-                                            })}
-                                            <button
-                                                onClick={() => handlePageChange(pagination.current + 1)}
-                                                disabled={!pagination.hasNext}
-                                                className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
-                                            >
-                                                Sau
-                                            </button>
-                                        </div>
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    onClick={() => handlePageChange(pageNum)}
+                                                    className={`px-4 py-2 text-sm rounded-xl transition-all font-semibold ${
+                                                        pagination.current === pageNum
+                                                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                                                            : 'border-2 border-blue-200 hover:bg-white text-gray-700'
+                                                    }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            )
+                                        })}
+                                        <button
+                                            onClick={() => handlePageChange(pagination.current + 1)}
+                                            disabled={!pagination.hasNext}
+                                            className="px-4 py-2 text-sm border-2 border-blue-300 rounded-xl hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold text-gray-700"
+                                        >
+                                            Sau
+                                        </button>
                                     </div>
                                 </div>
-                            )}
+                            </div>
                         </>
                     )}
                 </div>

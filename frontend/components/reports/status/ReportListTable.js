@@ -85,7 +85,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                     }
                     break;
                 case 'assignReview':
-                    router.push(`/reports/assign-reviewers?reportIds=${reportId}`);
+                    await router.push(`/assignments/assign-reviewers?reportIds=${reportId}`);
                     break;
                 case 'publish':
                     if (confirm('Xác nhận Phát hành báo cáo này?')) {

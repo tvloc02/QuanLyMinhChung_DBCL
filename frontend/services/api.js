@@ -235,24 +235,32 @@ export const apiMethods = {
     files: {
         upload: (file, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
-            formData.append('files', file)
+            // Đảm bảo tên file được gửi đúng encoding UTF-8
+            formData.append('files', file, file.name)
             if (parentFolderId) {
                 formData.append('parentFolderId', parentFolderId)
             }
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 
+                    'Content-Type': 'multipart/form-data',
+                    'Accept-Charset': 'utf-8'
+                }
             })
         },
         uploadMultiple: (files, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
             files.forEach(file => {
-                formData.append('files', file)
+                // Đảm bảo tên file được gửi đúng encoding UTF-8
+                formData.append('files', file, file.name)
             })
             if (parentFolderId) {
                 formData.append('parentFolderId', parentFolderId)
             }
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 
+                    'Content-Type': 'multipart/form-data',
+                    'Accept-Charset': 'utf-8'
+                }
             })
         },
         download: (fileId) => api.get(`/api/files/download/${fileId}`, { responseType: 'blob' }),

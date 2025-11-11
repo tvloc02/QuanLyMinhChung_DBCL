@@ -1,3 +1,5 @@
+// file: assign-reviewers.js
+
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -13,7 +15,10 @@ import {
     X,
     Loader2,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    FileText,
+    ExternalLink,
+    Clock
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -59,10 +64,14 @@ export default function AssignReviewersPage() {
         if (!isLoading && !user) {
             router.replace('/login')
         }
+        if (!isLoading && user && !['admin', 'manager'].includes(user.role)) {
+            toast.error('Bạn không có quyền truy cập trang phân quyền đánh giá.')
+            setTimeout(() => router.replace('/reports'), 1500)
+        }
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (router.isReady && user) {
+        if (router.isReady && user && ['admin', 'manager'].includes(user.role)) {
             const ids = normalizeReportIds()
 
             if (ids.length === 0) {
@@ -122,6 +131,13 @@ export default function AssignReviewersPage() {
             const validReports = reportsData
                 .map(res => res?.data?.data || res?.data)
                 .filter(Boolean)
+                .filter(report => {
+                    if (!['approved', 'published'].includes(report.status)) {
+                        console.warn(`Report ${report.code} status is ${report.status}, skipping assignment.`)
+                        return false
+                    }
+                    return true
+                })
 
             setReports(validReports)
 
@@ -131,8 +147,14 @@ export default function AssignReviewersPage() {
             })
             setAssignments(initialAssignments)
 
+            if (validReports.length === 0 && normalizeReportIds().length > 0) {
+                toast.error('Các báo cáo được chọn không hợp lệ (Cần trạng thái Đã Phê duyệt/Phát hành).')
+                setTimeout(() => router.push('/reports'), 1000)
+                return
+            }
+
             if (validReports.length === 0) {
-                toast.error('Không tìm thấy báo cáo nào hợp lệ. Vui lòng chọn lại.')
+                toast.error('Không tìm thấy báo cáo nào hợp lệ.')
                 setTimeout(() => router.push('/reports'), 1000)
                 return
             }
@@ -219,7 +241,7 @@ export default function AssignReviewersPage() {
             const response = await api.get('/api/users', { params })
 
             if (response.data.success) {
-                setEvaluators(response.data.data.users.filter(u => u.role === 'evaluator')) // Chỉ lấy user có role evaluator
+                setEvaluators(response.data.data.users.filter(u => u.role === 'evaluator'))
                 setPagination(response.data.data.pagination)
             }
         } catch (error) {
@@ -280,7 +302,6 @@ export default function AssignReviewersPage() {
             const assignment = updated[reportId][assignmentIdx]
 
             if (assignment.selectedEvaluators.some(e => e._id === evaluator._id)) {
-                toast.error('Người đánh giá này đã được chọn')
                 return prev
             }
 
@@ -326,6 +347,10 @@ export default function AssignReviewersPage() {
                     const report = reports.find(r => r._id === reportId)
                     toast.error(`Chọn hạn chót cho báo cáo ${report?.code}`)
                     hasErrors = true
+                } else if (new Date(assignment.deadline) <= new Date()) {
+                    const report = reports.find(r => r._id === reportId)
+                    toast.error(`Hạn chót cho báo cáo ${report?.code} phải lớn hơn ngày hiện tại.`)
+                    hasErrors = true
                 }
             })
         })
@@ -341,7 +366,7 @@ export default function AssignReviewersPage() {
                         const deadline = new Date(assignment.deadline).toISOString()
                         return assignment.selectedEvaluators.map(evaluator => ({
                             reportId,
-                            evaluatorId: evaluator._id, // Cập nhật key từ expertId
+                            evaluatorId: evaluator._id,
                             deadline,
                             priority: assignment.priority,
                             assignmentNote: assignment.assignmentNote,
@@ -358,21 +383,26 @@ export default function AssignReviewersPage() {
 
             let successCount = 0
             let failCount = 0
+            const failedDetails = []
 
             for (let i = 0; i < finalAssignments.length; i++) {
                 const assignment = finalAssignments[i]
                 try {
-                    await apiMethods.assignments.create({
-                        reportId: assignment.reportId,
-                        evaluatorId: assignment.evaluatorId,
-                        deadline: assignment.deadline,
-                        priority: assignment.priority,
-                        assignmentNote: assignment.assignmentNote,
-                        evaluationCriteria: assignment.evaluationCriteria
-                    })
+                    // SỬA ĐỔI: Gửi request API
+                    await apiMethods.assignments.create(assignment)
                     successCount++
                 } catch (err) {
                     failCount++
+                    // Sửa đổi: Bắt lỗi validation chi tiết hơn từ API response
+                    const apiMessage = err.response?.data?.message || 'Lỗi không xác định'
+                    const reportCode = reports.find(r => r._id === assignment.reportId)?.code || assignment.reportId
+                    const evaluatorName = evaluators.find(e => e._id === assignment.evaluatorId)?.fullName || assignment.evaluatorId
+
+                    if (err.response?.status === 400) {
+                        failedDetails.push(`Báo cáo ${reportCode} cho ${evaluatorName}: ${apiMessage}`)
+                    } else {
+                        failedDetails.push(`Lỗi máy chủ cho ${reportCode}: ${apiMessage}`)
+                    }
                     console.error(`Failed: ${i + 1}`, err)
                 }
             }
@@ -381,7 +411,8 @@ export default function AssignReviewersPage() {
                 toast.success(`Phân quyền ${successCount} đánh giá thành công`)
             }
             if (failCount > 0) {
-                toast.error(`Có ${failCount} lỗi khi tạo phân quyền`)
+                toast.error(`Có ${failCount} lỗi khi tạo phân quyền. Xem console để biết chi tiết.`, { duration: 6000 })
+                console.error("CHI TIẾT LỖI TỪ API (Lỗi 400):", failedDetails)
             }
 
             if (successCount > 0) {
@@ -471,27 +502,25 @@ export default function AssignReviewersPage() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center space-x-4">
                         <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
                             <Users className="w-8 h-8" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold mb-1">Phân quyền đánh giá</h1>
-                            <p className="text-blue-100">Giao báo cáo cho người đánh giá (Evaluator)</p>
+                            <p className="text-blue-100">Giao {reports.length} báo cáo cho người đánh giá (Evaluator)</p>
                         </div>
                     </div>
                 </div>
 
                 {reports.length === 0 ? (
                     <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded">
-                        <p className="text-yellow-800">Không có báo cáo để hiển thị</p>
+                        <p className="text-yellow-800">Không có báo cáo hợp lệ để hiển thị</p>
                     </div>
                 ) : (
                     reports.map((report) => (
                         <div key={report._id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                            {/* Report Header */}
                             <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-4 border-b-2 border-blue-200">
                                 <button
                                     onClick={() => setExpandedReports(prev => ({
@@ -507,17 +536,20 @@ export default function AssignReviewersPage() {
                                             <ChevronRight className="h-5 w-5 text-gray-500 flex-shrink-0 mt-1" />
                                         )}
                                         <div className="flex-1">
-                                            <h2 className="text-xl font-bold text-gray-900">{report.title}</h2>
+                                            <h2 className="text-xl font-bold text-gray-900 line-clamp-1">{report.title}</h2>
                                             <div className="flex items-center space-x-3 mt-2 flex-wrap gap-2">
                                                 <span className="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded border border-blue-300">
                                                     {report.code}
                                                 </span>
-                                                <span className="text-sm text-gray-600">
-                                                    {report.typeText || report.type}
+                                                <span className="text-sm font-semibold text-green-700 bg-green-50 px-2 py-1 rounded">
+                                                    {report.status}
                                                 </span>
-                                                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded">
-                                                    Người tạo: {report.createdBy?.fullName || 'N/A'}
-                                                </span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); router.push(`/reports/${report._id}`) }}
+                                                    className="text-xs text-indigo-600 hover:underline flex items-center"
+                                                >
+                                                    Xem chi tiết <ExternalLink className="w-3 h-3 ml-1" />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -526,7 +558,6 @@ export default function AssignReviewersPage() {
 
                             {expandedReports[report._id] && (
                                 <div className="px-6 py-4">
-                                    {/* Existing Assignments */}
                                     {existingAssignments[report._id]?.length > 0 && (
                                         <div className="mb-6">
                                             <div className="flex items-center gap-2 mb-3">
@@ -549,12 +580,18 @@ export default function AssignReviewersPage() {
                                                                 <span className={`text-xs px-2 py-1 rounded border ${getPriorityColor(assignment.priority)}`}>
                                                                     {getPriorityLabel(assignment.priority)}
                                                                 </span>
-                                                                <span className="text-xs text-gray-600">
-                                                                    Hạn: {new Date(assignment.deadline).toLocaleDateString('vi-VN')}
+                                                                <span className="text-xs text-gray-600 flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3"/> Hạn: {new Date(assignment.deadline).toLocaleDateString('vi-VN')}
                                                                 </span>
                                                                 <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 font-semibold">
                                                                     {assignment.status}
                                                                 </span>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); router.push(`/assignments/${assignment._id}`) }}
+                                                                    className="text-xs text-blue-600 hover:underline flex items-center"
+                                                                >
+                                                                    Xem <ExternalLink className="w-3 h-3 ml-1" />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -563,7 +600,6 @@ export default function AssignReviewersPage() {
                                         </div>
                                     )}
 
-                                    {/* New Assignments Form */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
                                             <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
@@ -587,7 +623,6 @@ export default function AssignReviewersPage() {
                                                                     Phân quyền #{idx + 1}
                                                                 </p>
 
-                                                                {/* Evaluators Selection */}
                                                                 <div className="mb-3">
                                                                     <p className="text-xs font-semibold text-gray-700 mb-2">
                                                                         Người đánh giá <span className="text-red-500">*</span>
@@ -632,7 +667,6 @@ export default function AssignReviewersPage() {
                                                                     </button>
                                                                 </div>
 
-                                                                {/* Deadline */}
                                                                 <div className="mb-3">
                                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                                                                         Hạn chót <span className="text-red-500">*</span>
@@ -645,7 +679,6 @@ export default function AssignReviewersPage() {
                                                                     />
                                                                 </div>
 
-                                                                {/* Priority */}
                                                                 <div className="mb-3">
                                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                                                                         Ưu tiên
@@ -662,7 +695,6 @@ export default function AssignReviewersPage() {
                                                                     </select>
                                                                 </div>
 
-                                                                {/* Note */}
                                                                 <div>
                                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                                                                         Ghi chú
@@ -703,7 +735,6 @@ export default function AssignReviewersPage() {
                     ))
                 )}
 
-                {/* Evaluator Search Modal */}
                 {showEvaluatorSearch && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
@@ -803,20 +834,13 @@ export default function AssignReviewersPage() {
                     </div>
                 )}
 
-                {/* Bottom Action Bar */}
-                <div className="sticky bottom-0 bg-gradient-to-r from-blue-500 to-blue-400 rounded-2xl shadow-xl p-6 flex items-center justify-between text-white">
-                    <div className="flex items-center space-x-4">
-                        <AlertCircle className="h-6 w-6 flex-shrink-0" />
-                        <div>
-                            <p className="text-sm font-semibold">
-                                Phân quyền hiện tại: <span className="text-lg text-blue-900">{getTotalExistingAssignments()}</span> | Mới: <span className="text-lg text-blue-100">{getTotalAssignments()}</span>
-                            </p>
-                            <p className="text-xs text-blue-100">
-                                {getTotalAssignments() === 0 ? 'Thêm phân quyền mới để tiếp tục' : 'Kiểm tra trước khi lưu'}
-                            </p>
-                        </div>
+                <div className="sticky bottom-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-2xl p-6 flex items-center justify-between text-white">
+                    <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-6 w-6" />
+                        <span className="font-semibold">
+                            Phân quyền hiện tại: <span className="text-lg text-blue-900">{getTotalExistingAssignments()}</span> | Mới: <span className="text-lg text-blue-100">{getTotalAssignments()}</span>
+                        </span>
                     </div>
-
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={() => router.back()}
