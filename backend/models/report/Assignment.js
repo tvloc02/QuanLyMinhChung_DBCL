@@ -360,8 +360,22 @@ assignmentSchema.post('save', async function(doc, next) {
                     severity: 'medium',
                     result: 'success'
                 });
+
+            // Tự động chuyển report sang trạng thái 'in_evaluation' khi tạo assignment
+            if (this.reportId) {
+                const Report = mongoose.model('Report');
+                const report = await Report.findById(this.reportId);
+                
+                if (report && report.status === 'approved') {
+                    report.status = 'in_evaluation';
+                    report.updatedBy = this.assignedBy;
+                    await report.save();
+                    
+                    console.log(`Report ${report._id} chuyển sang trạng thái in_evaluation`);
+                }
+            }
         } catch (error) {
-            console.error('Failed to log activity:', error);
+            console.error('Failed to log activity or update report status:', error);
         }
     }
     next();

@@ -208,10 +208,10 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        if (report.status !== 'published') {
+        if (report.status !== 'approved') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể phân quyền đánh giá báo cáo đã xuất bản'
+                message: 'Chỉ có thể phân công đánh giá báo cáo đã được chấp thuận'
             });
         }
 
@@ -243,19 +243,31 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        const assignment = new Assignment({
+        const assignmentData = {
             academicYearId,
             reportId,
             evaluatorId,
             assignedBy: req.user.id,
-            assignmentNote: assignmentNote?.trim(),
             deadline: new Date(deadline),
             priority: priority || 'normal',
-            evaluationCriteria: evaluationCriteria || [],
-            // Thiết lập trạng thái ban đầu là accepted (Đã phân công/Chấp nhận tự động)
             status: 'accepted',
             respondedAt: new Date()
-        });
+        };
+
+        // Chỉ thêm assignmentNote nếu có giá trị
+        if (assignmentNote && assignmentNote.trim()) {
+            assignmentData.assignmentNote = assignmentNote.trim();
+        }
+
+        // Chỉ thêm evaluationCriteria nếu có items hợp lệ
+        if (evaluationCriteria && Array.isArray(evaluationCriteria) && evaluationCriteria.length > 0) {
+            const validCriteria = evaluationCriteria.filter(c => c.name && c.name.trim());
+            if (validCriteria.length > 0) {
+                assignmentData.evaluationCriteria = validCriteria;
+            }
+        }
+
+        const assignment = new Assignment(assignmentData);
 
         await assignment.save();
 
@@ -265,20 +277,26 @@ const createAssignment = async (req, res) => {
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
-        const Notification = mongoose.model('Notification');
-        await Notification.create({
-            recipientId: evaluatorId,
-            senderId: req.user.id,
-            type: 'assignment_new',
-            title: 'Phân công đánh giá mới',
-            message: `Bạn được phân công đánh giá báo cáo: ${report.title}. Hạn chót: ${new Date(deadline).toLocaleDateString()}`,
-            data: {
-                assignmentId: assignment._id,
-                reportId: report._id,
-                url: `/reports/assignments/${assignment._id}`
-            },
-            priority: priority === 'urgent' ? 'high' : 'normal'
-        });
+        // Tạo notification (không throw error nếu thất bại)
+        try {
+            const Notification = mongoose.model('Notification');
+            await Notification.create({
+                recipientId: evaluatorId,
+                senderId: req.user.id,
+                type: 'assignment_new',
+                title: 'Phân công đánh giá mới',
+                message: `Bạn được phân công đánh giá báo cáo: ${report.title}. Hạn chót: ${new Date(deadline).toLocaleDateString()}`,
+                data: {
+                    assignmentId: assignment._id,
+                    reportId: report._id,
+                    url: `/reports/assignments/${assignment._id}`
+                },
+                priority: priority === 'urgent' ? 'high' : 'normal'
+            });
+        } catch (notifError) {
+            console.error('Failed to create notification:', notifError.message);
+            // Không throw error, tiếp tục xử lý
+        }
 
         res.status(201).json({
             success: true,
@@ -287,13 +305,29 @@ const createAssignment = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Create assignment error:', error);
+        console.error('=== CREATE ASSIGNMENT ERROR ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error code:', error.code);
+        console.error('Full error:', error);
 
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
             return res.status(400).json({
                 success: false,
-                message: messages.join(', ')
+                message: messages.join(', '),
+                errors: Object.values(error.errors).map(e => ({
+                    field: e.path,
+                    message: e.message
+                }))
+            });
+        }
+
+        if (error.code === 121) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lỗi validation MongoDB. Vui lòng kiểm tra dữ liệu đầu vào.',
+                details: error.errInfo
             });
         }
 
@@ -643,7 +677,7 @@ const bulkCreateAssignments = async (req, res) => {
         const reports = await Report.find({
             _id: { $in: reportIds },
             academicYearId,
-            status: 'published'
+            status: 'approved'
         });
 
         const evaluators = await User.find({
@@ -657,7 +691,7 @@ const bulkCreateAssignments = async (req, res) => {
         const validationErrors = [];
         for (const assignment of validatedAssignments) {
             if (!reportMap.has(assignment.data.reportId.toString())) {
-                validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại hoặc chưa xuất bản`);
+                validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại hoặc chưa được chấp thuận`);
             }
             if (!evaluatorMap.has(assignment.data.evaluatorId.toString())) {
                 validationErrors.push(`Người đánh giá ${assignment.data.evaluatorId} không tồn tại hoặc không có vai trò evaluator`);

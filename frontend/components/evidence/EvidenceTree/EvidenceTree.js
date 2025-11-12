@@ -344,25 +344,63 @@ export default function EvidenceTree() {
                 toast.error('Vui lòng chọn Chương trình và Tổ chức')
                 return
             }
+            
             toast.loading('Đang xuất dữ liệu...')
+            
+            // Add validation for selectedProgram and selectedOrganization
+            if (typeof selectedProgram !== 'string' || typeof selectedOrganization !== 'string') {
+                toast.dismiss()
+                toast.error('Dữ liệu không hợp lệ. Vui lòng thử lại.')
+                console.error('Invalid programId or organizationId:', { selectedProgram, selectedOrganization })
+                return
+            }
 
-            const response = await apiMethods.evidences.exportTree({
-                programId: selectedProgram,
-                organizationId: selectedOrganization
-            })
+            try {
+                const response = await apiMethods.evidences.exportTree({
+                    programId: selectedProgram,
+                    organizationId: selectedOrganization
+                })
 
-            const blob = new Blob([response.data], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            })
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `cay-minh-chung-${Date.now()}.xlsx`)
-            document.body.appendChild(link)
-            link.click()
-            link.remove()
-            window.URL.revokeObjectURL(url)
-            toast.dismiss()
+                if (!response || !response.data) {
+                    throw new Error('Không nhận được dữ liệu từ máy chủ')
+                }
+
+                const blob = new Blob([response.data], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                })
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.setAttribute('download', `cay-minh-chung-${new Date().toISOString().split('T')[0]}.xlsx`)
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(url)
+                
+                toast.dismiss()
+                toast.success('Xuất dữ liệu thành công!')
+            } catch (error) {
+                console.error('Export error details:', {
+                    error,
+                    response: error.response,
+                    message: error.message
+                })
+                
+                let errorMessage = 'Có lỗi xảy ra khi xuất dữ liệu'
+                
+                if (error.response) {
+                    if (error.response.status === 500) {
+                        errorMessage = 'Lỗi máy chủ nội bộ. Vui lòng thử lại sau.'
+                    } else if (error.response.data?.message) {
+                        errorMessage = error.response.data.message
+                    }
+                } else if (error.request) {
+                    errorMessage = 'Không nhận được phản hồi từ máy chủ'
+                }
+                
+                toast.dismiss()
+                toast.error(errorMessage)
+            }
             toast.success('Export thành công!')
         } catch (error) {
             console.error('Export error:', error)

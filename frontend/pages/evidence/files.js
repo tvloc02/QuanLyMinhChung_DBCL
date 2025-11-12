@@ -278,16 +278,11 @@ export default function FilesPage() {
                 <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center space-x-4">
-                            <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
-                                <File className="w-8 h-8" />
+                            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                                <File className="h-8 w-8" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold mb-1">Quản lý files minh chứng</h1>
-                                {evidence && (
-                                    <p className="text-blue-100">
-                                        <span className="font-semibold">{evidence.code}</span> - {evidence.name}
-                                    </p>
-                                )}
+                                <h2 className="text-2xl font-bold">Quản lý Files</h2>
                             </div>
                         </div>
 
@@ -332,49 +327,6 @@ export default function FilesPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-                            <div className="bg-gradient-to-br from-blue-50 to-cyan-100 rounded-xl shadow-sm border-2 border-blue-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-blue-700 mb-1">Tổng files</p>
-                                        <p className="text-4xl font-bold text-blue-900">{files.length}</p>
-                                    </div>
-                                    <File className="h-8 w-8 text-blue-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-xl shadow-sm border-2 border-yellow-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-yellow-700 mb-1">Chờ duyệt</p>
-                                        <p className="text-4xl font-bold text-yellow-900">{pendingFilesCount}</p>
-                                    </div>
-                                    <Clock className="h-8 w-8 text-yellow-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-sm border-2 border-green-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-green-700 mb-1">Đã duyệt</p>
-                                        <p className="text-4xl font-bold text-green-900">{approvedFilesCount}</p>
-                                    </div>
-                                    <CheckCircle className="h-8 w-8 text-green-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-xl shadow-sm border-2 border-red-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-red-700 mb-1">Từ chối</p>
-                                        <p className="text-4xl font-bold text-red-900">{rejectedFilesCount}</p>
-                                    </div>
-                                    <XCircle className="h-8 w-8 text-red-600" />
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Files Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                             <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
@@ -392,14 +344,13 @@ export default function FilesPage() {
                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase min-w-[100px]">Kích thước</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase min-w-[150px]">Người Upload</th>
                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase min-w-[150px]">Ngày giờ Upload</th>
-                                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase min-w-[100px]">Trạng thái</th>
                                     <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase min-w-[150px]">Hành động</th>
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                 {files.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-16 text-center text-gray-500">
+                                        <td colSpan={6} className="p-16 text-center text-gray-500">
                                             Chưa có file nào được upload.
                                         </td>
                                     </tr>
@@ -433,9 +384,6 @@ export default function FilesPage() {
                                                 </td>
                                                 <td className="px-3 py-4 text-center text-xs font-medium text-gray-600">
                                                     {formatDate(file.uploadedAt, 'dd/MM/yyyy HH:mm')}
-                                                </td>
-                                                <td className="px-3 py-4 text-center">
-                                                    {getApprovalStatusBadge(file.approvalStatus)}
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center justify-center gap-2">

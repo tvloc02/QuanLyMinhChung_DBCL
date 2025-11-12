@@ -166,7 +166,7 @@ const reportSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['draft', 'public', 'approved', 'rejected', 'published', 'in_progress', 'submitted'],
+        enum: ['draft', 'public', 'rejected', 'approved', 'in_evaluation', 'published'],
         default: 'draft'
     },
 
@@ -306,11 +306,10 @@ reportSchema.virtual('statusText').get(function() {
     const statusMap = {
         'draft': 'Bản nháp',
         'public': 'Công khai',
-        'approved': 'Chấp thuận',
         'rejected': 'Từ chối',
-        'published': 'Phát hành',
-        'in_progress': 'Đang thực hiện',
-        'submitted': 'Đã nộp chờ duyệt'
+        'approved': 'Chấp thuận',
+        'in_evaluation': 'Đang đánh giá',
+        'published': 'Phát hành'
     };
     return statusMap[this.status] || this.status;
 });
@@ -351,7 +350,7 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
 
     if (String(this.createdBy) === String(userId)) return true;
 
-    if (['public', 'published'].includes(this.status)) return true;
+    if (['public', 'approved', 'in_evaluation', 'published'].includes(this.status)) return true;
 
     if (userRole === 'manager') return true;
 
@@ -384,6 +383,72 @@ reportSchema.methods.incrementDownload = async function(userId) {
     return this;
 };
 
+reportSchema.methods.approve = async function(userId, feedback = '') {
+    const oldStatus = this.status;
+    this.status = 'approved';
+    this.approvedBy = userId;
+    this.approvedAt = new Date();
+    this.approvalFeedback = feedback;
+    this.updatedBy = userId;
+
+    await this.save();
+
+    await this.addActivityLog('report_approve', userId,
+        `Chấp thuận báo cáo: ${this.title}`, {
+            severity: 'high',
+            oldData: { status: oldStatus },
+            newData: { status: 'approved' },
+            isAuditRequired: true
+        });
+
+    return this;
+};
+
+reportSchema.methods.reject = async function(userId, reason) {
+    const oldStatus = this.status;
+    this.status = 'rejected';
+    this.rejectedBy = userId;
+    this.rejectedAt = new Date();
+    this.rejectionFeedback = reason;
+    this.updatedBy = userId;
+
+    this.rejectionHistory.push({
+        reason,
+        rejectedBy: userId,
+        rejectedAt: new Date()
+    });
+
+    await this.save();
+
+    await this.addActivityLog('report_reject', userId,
+        `Từ chối báo cáo: ${this.title}`, {
+            severity: 'high',
+            oldData: { status: oldStatus },
+            newData: { status: 'rejected' },
+            isAuditRequired: true,
+            metadata: { reason }
+        });
+
+    return this;
+};
+
+reportSchema.methods.makePublic = async function(userId) {
+    const oldStatus = this.status;
+    this.status = 'public';
+    this.updatedBy = userId;
+
+    await this.save();
+
+    await this.addActivityLog('report_make_public', userId,
+        `Công khai báo cáo: ${this.title}`, {
+            severity: 'medium',
+            oldData: { status: oldStatus },
+            newData: { status: 'public' }
+        });
+
+    return this;
+};
+
 reportSchema.methods.publish = async function(userId) {
     const oldStatus = this.status;
     this.status = 'published';
@@ -392,7 +457,7 @@ reportSchema.methods.publish = async function(userId) {
     await this.save();
 
     await this.addActivityLog('report_publish', userId,
-        `Xuất bản báo cáo: ${this.title}`, {
+        `Phát hành báo cáo: ${this.title}`, {
             severity: 'high',
             oldData: { status: oldStatus },
             newData: { status: 'published' },

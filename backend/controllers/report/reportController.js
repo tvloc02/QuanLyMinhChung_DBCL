@@ -48,6 +48,8 @@ const getReports = async (req, res) => {
                 $or: [
                     { createdBy: req.user.id },
                     { status: 'public' },
+                    { status: 'approved' },
+                    { status: 'in_evaluation' },
                     { status: 'published' },
                     { assignedReporters: req.user.id }
                 ]
@@ -497,7 +499,7 @@ const getReportsByStandardCriteria = async (req, res) => {
             academicYearId,
             type: reportType,
             standardId,
-            status: { $in: ['draft', 'public', 'published'] }
+            status: { $in: ['draft', 'public', 'approved', 'in_evaluation', 'published'] }
         };
 
         if (criteriaId && reportType === 'criteria') {
@@ -590,10 +592,10 @@ const getReportsByTask = async (req, res) => {
             taskId: taskId
         };
 
-        let statusFilter = ['draft', 'in_progress', 'submitted', 'rejected', 'public', 'approved', 'published'];
+        let statusFilter = ['draft', 'rejected', 'public', 'approved', 'in_evaluation', 'published'];
 
         if (isTaskCreator) {
-            statusFilter = ['submitted', 'rejected', 'public', 'approved', 'published'];
+            statusFilter = ['rejected', 'public', 'approved', 'in_evaluation', 'published'];
         }
 
         let mainQuery = {
@@ -761,14 +763,28 @@ const publishReport = async (req, res) => {
         if (report.status === 'published') {
             return res.status(400).json({
                 success: false,
-                message: 'Báo cáo đã được xuất bản'
+                message: 'Báo cáo đã được phát hành'
             });
         }
 
-        if (report.status !== 'approved') {
+        if (report.status !== 'in_evaluation') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể phát hành báo cáo đã được phê duyệt'
+                message: 'Chỉ có thể phát hành báo cáo đang trong quá trình đánh giá'
+            });
+        }
+
+        // Kiểm tra xem đã có đánh giá hoàn thành chưa
+        const Assignment = mongoose.model('Assignment');
+        const completedAssignments = await Assignment.countDocuments({
+            reportId: report._id,
+            status: 'completed'
+        });
+
+        if (completedAssignments === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Báo cáo phải có ít nhất một đánh giá hoàn thành trước khi phát hành'
             });
         }
 
@@ -874,22 +890,14 @@ const approveReport = async (req, res) => {
             });
         }
 
-        if (report.status !== 'submitted' && report.status !== 'public') {
+        if (report.status !== 'public') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể phê duyệt báo cáo ở trạng thái đã nộp hoặc công khai'
+                message: 'Chỉ có thể phê duyệt báo cáo ở trạng thái công khai'
             });
         }
 
-        report.status = 'approved';
-        report.approvedBy = req.user.id;
-        report.approvedAt = new Date();
-        if (feedback) {
-            report.approvalFeedback = feedback;
-        }
-        report.updatedBy = req.user.id;
-
-        await report.save();
+        await report.approve(req.user.id, feedback);
 
         if (report.taskId) {
             await Task.updateOne(
@@ -949,14 +957,22 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        if (report.status !== 'submitted' && report.status !== 'public') {
+        if (report.status !== 'public') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể từ chối báo cáo ở trạng thái đã nộp hoặc công khai'
+                message: 'Chỉ có thể từ chối báo cáo ở trạng thái công khai'
             });
         }
 
-        await report.recordRejection(req.user.id, feedback);
+        if (!feedback || feedback.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lý do từ chối là bắt buộc'
+            });
+        }
+
+        // Sử dụng method reject từ Report model
+        await report.reject(req.user.id, feedback);
 
         if (report.taskId) {
             await Task.updateOne(
@@ -1071,17 +1087,15 @@ const makePublic = async (req, res) => {
             });
         }
 
-        if (report.status !== 'draft' && report.status !== 'in_progress' && report.status !== 'rejected') {
+        if (report.status !== 'draft' && report.status !== 'rejected') {
             return res.status(400).json({
                 success: false,
-                message: `Chỉ có thể công khai báo cáo ở trạng thái nháp, bị từ chối hoặc đang thực hiện. Trạng thái hiện tại: ${report.status}`
+                message: `Chỉ có thể công khai báo cáo ở trạng thái nháp hoặc bị từ chối. Trạng thái hiện tại: ${report.status}`
             });
         }
 
-        report.status = 'public';
-        report.updatedBy = req.user.id;
-
-        await report.save();
+        // Sử dụng method makePublic từ Report model
+        await report.makePublic(req.user.id);
 
         res.json({
             success: true,
@@ -2124,7 +2138,7 @@ const getInsertableReports = async (req, res) => {
 
         let query = {
             academicYearId,
-            status: { $in: ['public', 'published'] }
+            status: { $in: ['public', 'approved', 'in_evaluation', 'published'] }
         };
 
         if (reportType === 'overall_tdg') {

@@ -364,16 +364,36 @@ export default function AssignReviewersPage() {
                 .flatMap(([reportId, reportsAssignments]) =>
                     reportsAssignments.flatMap(assignment => {
                         const deadline = new Date(assignment.deadline).toISOString()
-                        return assignment.selectedEvaluators.map(evaluator => ({
-                            reportId,
-                            evaluatorId: evaluator._id,
-                            deadline,
-                            priority: assignment.priority,
-                            assignmentNote: assignment.assignmentNote,
-                            evaluationCriteria: assignment.evaluationCriteria || []
-                        }))
+                        return assignment.selectedEvaluators.map(evaluator => {
+                            const assignmentData = {
+                                reportId,
+                                evaluatorId: evaluator._id,
+                                deadline,
+                                priority: assignment.priority || 'normal'
+                            }
+                            
+                            // Chỉ thêm assignmentNote nếu có giá trị
+                            if (assignment.assignmentNote && assignment.assignmentNote.trim()) {
+                                assignmentData.assignmentNote = assignment.assignmentNote.trim()
+                            }
+                            
+                            // Chỉ thêm evaluationCriteria nếu có items và items hợp lệ
+                            if (assignment.evaluationCriteria && assignment.evaluationCriteria.length > 0) {
+                                const validCriteria = assignment.evaluationCriteria.filter(c => c.name && c.name.trim())
+                                if (validCriteria.length > 0) {
+                                    assignmentData.evaluationCriteria = validCriteria
+                                }
+                            }
+                            
+                            return assignmentData
+                        })
                     })
                 )
+
+            // DEBUG: Log tổng quan về assignments sẽ tạo
+            console.log('=== BẮT ĐẦU TẠO ASSIGNMENTS ===')
+            console.log(`Tổng số assignments sẽ tạo: ${finalAssignments.length}`)
+            console.log('Danh sách assignments:', finalAssignments)
 
             if (finalAssignments.length === 0) {
                 toast.error('Không có phân quyền nào để tạo')
@@ -388,9 +408,19 @@ export default function AssignReviewersPage() {
             for (let i = 0; i < finalAssignments.length; i++) {
                 const assignment = finalAssignments[i]
                 try {
-                    // SỬA ĐỔI: Gửi request API
+                    // DEBUG: Log dữ liệu đang gửi
+                    console.log(`[${i + 1}/${finalAssignments.length}] Đang tạo assignment:`, {
+                        reportId: assignment.reportId,
+                        evaluatorId: assignment.evaluatorId,
+                        deadline: assignment.deadline,
+                        priority: assignment.priority,
+                        assignmentNote: assignment.assignmentNote,
+                        evaluationCriteria: assignment.evaluationCriteria
+                    })
+                    
                     await apiMethods.assignments.create(assignment)
                     successCount++
+                    console.log(`✓ Thành công: ${i + 1}/${finalAssignments.length}`)
                 } catch (err) {
                     failCount++
                     // Sửa đổi: Bắt lỗi validation chi tiết hơn từ API response
@@ -398,21 +428,37 @@ export default function AssignReviewersPage() {
                     const reportCode = reports.find(r => r._id === assignment.reportId)?.code || assignment.reportId
                     const evaluatorName = evaluators.find(e => e._id === assignment.evaluatorId)?.fullName || assignment.evaluatorId
 
+                    // DEBUG: Log chi tiết lỗi
+                    console.error(`✗ Lỗi assignment ${i + 1}:`, {
+                        assignment,
+                        status: err.response?.status,
+                        message: apiMessage,
+                        errors: err.response?.data?.errors,
+                        fullResponse: err.response?.data
+                    })
+
                     if (err.response?.status === 400) {
-                        failedDetails.push(`Báo cáo ${reportCode} cho ${evaluatorName}: ${apiMessage}`)
+                        const errorDetails = err.response?.data?.errors 
+                            ? err.response.data.errors.map(e => `${e.field}: ${e.message}`).join(', ')
+                            : apiMessage
+                        failedDetails.push(`Báo cáo ${reportCode} cho ${evaluatorName}: ${errorDetails}`)
                     } else {
                         failedDetails.push(`Lỗi máy chủ cho ${reportCode}: ${apiMessage}`)
                     }
-                    console.error(`Failed: ${i + 1}`, err)
                 }
             }
 
+            // DEBUG: Log tổng kết
+            console.log('=== KẾT QUẢ TẠO ASSIGNMENTS ===')
+            console.log(`✓ Thành công: ${successCount}/${finalAssignments.length}`)
+            console.log(`✗ Thất bại: ${failCount}/${finalAssignments.length}`)
+            
             if (successCount > 0) {
                 toast.success(`Phân quyền ${successCount} đánh giá thành công`)
             }
             if (failCount > 0) {
                 toast.error(`Có ${failCount} lỗi khi tạo phân quyền. Xem console để biết chi tiết.`, { duration: 6000 })
-                console.error("CHI TIẾT LỖI TỪ API (Lỗi 400):", failedDetails)
+                console.error("CHI TIẾT LỖI TỪ API:", failedDetails)
             }
 
             if (successCount > 0) {
@@ -426,7 +472,9 @@ export default function AssignReviewersPage() {
             }
 
         } catch (error) {
+            console.error('=== LỖI NGHIÊM TRỌNG ===')
             console.error('Error during submission:', error)
+            console.error('Error response:', error.response?.data)
             toast.error('Lỗi khi phân quyền: ' + (error.response?.data?.message || error.message))
         } finally {
             setSaving(false)

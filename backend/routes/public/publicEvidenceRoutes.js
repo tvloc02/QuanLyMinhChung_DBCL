@@ -1,85 +1,36 @@
+// backend/routes/public/publicEvidenceRoutes.js - FULL CODE
+
 const express = require('express');
 const router = express.Router();
-const { param } = require('express-validator');
+const { param, query } = require('express-validator');
 const validation = require('../../middleware/validation');
-const Evidence = require('../../models/Evidence/Evidence');
+const {
+    getEvidenceByCode,
+    getEvidenceById,
+    getPublicHierarchy,
+    getEvidencesByHierarchy
+} = require('../../controllers/public/publicEvidenceController');
 
-// ✅ GET /api/public/evidences/:code
-// Lấy minh chứng theo code (công khai)
+// ✅ GET /api/public/evidences/hierarchy - Lấy toàn bộ cấu trúc phân cấp
+router.get('/hierarchy', getPublicHierarchy);
+
+// ✅ GET /api/public/evidences/hierarchy/search - Lấy minh chứng theo lọc
+router.get('/hierarchy/search', [
+    query('academicYearId').optional().isMongoId(),
+    query('programId').optional().isMongoId(),
+    query('organizationId').optional().isMongoId(),
+    query('standardId').optional().isMongoId(),
+    query('criteriaId').optional().isMongoId()
+], validation, getEvidencesByHierarchy);
+
+// ✅ GET /api/public/evidences/id/:id - Lấy minh chứng theo ID (phải đặt TRƯỚC /:code)
+router.get('/id/:id', [
+    param('id').isMongoId().withMessage('ID không hợp lệ')
+], validation, getEvidenceById);
+
+// ✅ GET /api/public/evidences/:code - Lấy minh chứng theo code (đặt CUỐI CÙNG)
 router.get('/:code', [
     param('code').notEmpty().trim().toUpperCase()
-], validation, async (req, res) => {
-    try {
-        const { code } = req.params;
-
-        console.log('Fetching public evidence with code:', code.toUpperCase());
-
-        // Tìm minh chứng theo code (không cần kiểm tra academic year)
-        const evidence = await Evidence.findOne({ code: code.toUpperCase() })
-            .populate('createdBy', 'fullName email')
-            .populate('standardId', 'name code')
-            .populate('criteriaId', 'name code')
-            .populate({
-                path: 'files',
-                select: 'originalName size mimeType uploadedAt'
-            });
-
-        if (!evidence) {
-            console.log('Evidence not found for code:', code.toUpperCase());
-            return res.status(404).json({
-                success: false,
-                message: 'Minh chứng không tồn tại'
-            });
-        }
-
-        console.log('Evidence found:', evidence.code);
-
-        res.json({
-            success: true,
-            data: evidence
-        });
-    } catch (error) {
-        console.error('Get public evidence by code error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống: ' + error.message
-        });
-    }
-});
-
-// ✅ GET /api/public/evidences/id/:id
-// Lấy minh chứng theo ID (công khai)
-router.get('/id/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const evidence = await Evidence.findById(id)
-            .populate('createdBy', 'fullName email')
-            .populate('standardId', 'name code')
-            .populate('criteriaId', 'name code')
-            .populate({
-                path: 'files',
-                select: 'originalName size mimeType uploadedAt'
-            });
-
-        if (!evidence) {
-            return res.status(404).json({
-                success: false,
-                message: 'Minh chứng không tồn tại'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: evidence
-        });
-    } catch (error) {
-        console.error('Get public evidence by ID error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống'
-        });
-    }
-});
+], validation, getEvidenceByCode);
 
 module.exports = router;

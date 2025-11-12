@@ -46,7 +46,8 @@ const activityLogSchema = new mongoose.Schema({
             'file_upload', 'file_download', 'file_delete', 'file_view',
 
             // Report actions
-            'report_create', 'report_update', 'report_delete', 'report_publish',
+            'report_create', 'report_update', 'report_delete', 
+            'report_make_public', 'report_approve', 'report_reject', 'report_publish',
             'report_view', 'report_download', 'report_copy',
 
             // Assignment actions
@@ -272,7 +273,10 @@ activityLogSchema.virtual('actionText').get(function() {
         'report_create': 'Tạo báo cáo',
         'report_update': 'Cập nhật báo cáo',
         'report_delete': 'Xóa báo cáo',
-        'report_publish': 'Xuất bản báo cáo',
+        'report_make_public': 'Công khai báo cáo',
+        'report_approve': 'Chấp thuận báo cáo',
+        'report_reject': 'Từ chối báo cáo',
+        'report_publish': 'Phát hành báo cáo',
         'report_view': 'Xem báo cáo',
         'report_download': 'Tải xuống báo cáo',
         'report_copy': 'Sao chép báo cáo',
