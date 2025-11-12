@@ -63,7 +63,6 @@ const rejectionHistorySubSchema = new mongoose.Schema({
     submittedAgainAt: Date
 }, { _id: false });
 
-// New Sub Schema for Edit Requests
 const editRequestSubSchema = new mongoose.Schema({
     requesterId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -166,7 +165,7 @@ const reportSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['draft', 'public', 'rejected', 'approved', 'in_evaluation', 'published'],
+        enum: ['draft', 'public', 'rejected', 'approved', 'in_evaluation', 'published', 'submitted'],
         default: 'draft'
     },
 
@@ -198,7 +197,6 @@ const reportSchema = new mongoose.Schema({
         ref: 'User'
     }],
 
-    // New field for edit requests
     editRequests: [editRequestSubSchema],
 
     approvedBy: {
@@ -309,9 +307,14 @@ reportSchema.virtual('statusText').get(function() {
         'rejected': 'Từ chối',
         'approved': 'Chấp thuận',
         'in_evaluation': 'Đang đánh giá',
-        'published': 'Phát hành'
+        'published': 'Phát hành',
+        'submitted': 'Đã nộp chờ duyệt'
     };
     return statusMap[this.status] || this.status;
+});
+
+reportSchema.virtual('rejectionCount').get(function() {
+    return this.rejectionHistory.length;
 });
 
 reportSchema.virtual('url').get(function() {
@@ -332,11 +335,9 @@ reportSchema.methods.addActivityLog = async function(action, userId, description
     });
 };
 
-// Logic canEdit củng cố so sánh ID
 reportSchema.methods.canEdit = function(userId, userRole) {
     if (userRole === 'admin' || userRole === 'manager') return true;
 
-    // So sánh chuỗi ID để đảm bảo tính nhất quán (userId có thể là String hoặc ObjectId)
     const currentUserIdStr = String(userId);
 
     const isCreator = String(this.createdBy) === currentUserIdStr;
@@ -350,7 +351,7 @@ reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [
 
     if (String(this.createdBy) === String(userId)) return true;
 
-    if (['public', 'approved', 'in_evaluation', 'published'].includes(this.status)) return true;
+    if (['public', 'approved', 'in_evaluation', 'published', 'submitted'].includes(this.status)) return true;
 
     if (userRole === 'manager') return true;
 
@@ -520,7 +521,6 @@ reportSchema.methods.resubmitAfterRejection = async function(userId) {
     if (this.rejectionHistory.length > 0) {
         this.rejectionHistory[this.rejectionHistory.length - 1].submittedAgainAt = new Date();
     }
-    this.status = 'draft';
     this.updatedBy = userId;
     return this.save();
 };

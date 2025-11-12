@@ -77,24 +77,16 @@ const fileSchema = new mongoose.Schema({
         author: String,
         title: String,
         subject: String,
-
         dimensions: {
             width: Number,
             height: Number
         },
-
         hash: String
     },
 
     extractedContent: {
         type: String,
         index: 'text'
-    },
-
-    status: {
-        type: String,
-        enum: ['active', 'deleted', 'processing', 'failed'],
-        default: 'active'
     },
 
     virusScanResult: {
@@ -120,14 +112,12 @@ const fileSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-
 });
 
 fileSchema.index({ evidenceId: 1 });
 fileSchema.index({ uploadedBy: 1 });
 fileSchema.index({ originalName: 'text', extractedContent: 'text' });
 fileSchema.index({ uploadedAt: -1 });
-fileSchema.index({ status: 1 });
 fileSchema.index({ type: 1 });
 
 fileSchema.pre('save', function(next) {
@@ -184,16 +174,11 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
 
 fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
     const ext = path.extname(originalName);
-
     let baseName = path.basename(originalName, ext);
-
-    // FIX: Chỉ remove special characters, GIỮ nguyên tiếng Việt
     let fileName = `${evidenceCode}-${baseName}${ext}`;
-
-    // Remove only dangerous characters, nhưng giữ tiếng Việt, space, dash
     fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '') // Chỉ remove dangerous chars
-        .replace(/\s+/g, '-')          // Convert space to dash
+        .replace(/[<>:"/\\|?*]/g, '')
+        .replace(/\s+/g, '-')
         .trim();
 
     const maxNameLength = 255;
@@ -213,26 +198,21 @@ fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, ori
 fileSchema.methods.incrementDownloadCount = async function() {
     this.downloadCount += 1;
     this.lastDownloaded = new Date();
-
     await this.save();
-
     await this.addActivityLog('file_download', this.uploadedBy,
         `Tải xuống file ${this.originalName}`, {
             severity: 'low',
             metadata: { downloadCount: this.downloadCount }
         });
-
     return this;
 };
 
 fileSchema.methods.getFormattedSize = function() {
     const bytes = this.size;
     if (bytes === 0) return '0 Bytes';
-
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
@@ -247,21 +227,6 @@ fileSchema.post('save', async function(doc, next) {
                         fileSize: this.size,
                         mimeType: this.mimeType
                     }
-                });
-        } catch (error) {
-            console.error('Failed to log activity:', error);
-        }
-    }
-    next();
-});
-
-fileSchema.post('findOneAndUpdate', async function(result, next) {
-    if (result && result.uploadedBy) {
-        try {
-            await result.addActivityLog('file_update', result.updatedBy,
-                `Cập nhật file: ${result.originalName}`, {
-                    severity: 'low',
-                    result: 'success'
                 });
         } catch (error) {
             console.error('Failed to log activity:', error);
@@ -289,4 +254,6 @@ fileSchema.post('findOneAndDelete', async function(doc, next) {
 fileSchema.set('toJSON', { virtuals: true });
 fileSchema.set('toObject', { virtuals: true });
 
-module.exports = mongoose.model('File', fileSchema);
+const File = mongoose.models.File || mongoose.model('File', fileSchema);
+
+module.exports = File;

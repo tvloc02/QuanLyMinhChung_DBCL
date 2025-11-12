@@ -288,19 +288,21 @@ router.post('/:id/unpublish',
     reportController.unpublishReport
 );
 
-router.post('/:id/approve',
-    requireManager, // Giữ requireManager cho việc duyệt
-    approvalValidation,
-    validation,
-    reportController.approveReport
-);
+// XÓA CÁC ROUTE DUYỆT BÁO CÁO ĐỘC LẬP - DUYỆT QUA TASK
+// router.post('/:id/approve',
+//     requireManager,
+//     approvalValidation,
+//     validation,
+//     reportController.approveReport
+// );
 
-router.post('/:id/reject',
-    requireManager, // Giữ requireManager cho việc từ chối
-    approvalValidation,
-    validation,
-    reportController.rejectReport
-);
+// router.post('/:id/reject',
+//     requireManager,
+//     approvalValidation,
+//     validation,
+//     reportController.rejectReport
+// );
+// KẾT THÚC PHẦN XÓA
 
 router.post('/:id/make-public',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const Report = require('../../models/report/Report');
-const Task = require("../../models/Task/Task");
+const Report = mongoose.model('Report');
+const Task = mongoose.model('Task');
 
 const canReviewReport = async (req, report) => {
     if (req.user.role === 'admin' || req.user.role === 'manager') {
@@ -216,7 +216,8 @@ const createReport = async (req, res) => {
 
         let existingTask = null;
         if (taskId) {
-            existingTask = await Task.findOne({ _id: taskId, academicYearId });
+            const TaskModel = mongoose.model('Task');
+            existingTask = await TaskModel.findOne({ _id: taskId, academicYearId });
             if (!existingTask) {
                 return res.status(404).json({
                     success: false,
@@ -228,7 +229,6 @@ const createReport = async (req, res) => {
         let standardCode = '';
         let criteriaCode = '';
 
-        // ĐIỀU CHỈNH LOGIC Ở ĐÂY: Chỉ kiểm tra và lấy code nếu type KHÔNG phải là overall_tdg
         if (type !== 'overall_tdg') {
             if (type !== 'overall_tdg' && !standardId) {
                 return res.status(400).json({
@@ -290,7 +290,6 @@ const createReport = async (req, res) => {
             taskId: taskId || null
         };
 
-        // Chỉ thêm standardId và criteriaId nếu type KHÔNG phải overall_tdg
         if (type !== 'overall_tdg') {
             if (standardId) {
                 reportData.standardId = standardId;
@@ -318,7 +317,8 @@ const createReport = async (req, res) => {
         await report.save();
 
         if (taskId && existingTask && existingTask.status === 'pending') {
-            await Task.updateOne(
+            const TaskModel = mongoose.model('Task');
+            await TaskModel.updateOne(
                 { _id: taskId },
                 {
                     status: 'in_progress',
@@ -413,7 +413,8 @@ const updateReport = async (req, res) => {
         if (taskId !== undefined && String(taskId) !== String(report.taskId)) {
             let existingTask = null;
             if (taskId) {
-                existingTask = await Task.findOne({ _id: taskId, academicYearId });
+                const TaskModel = mongoose.model('Task');
+                existingTask = await TaskModel.findOne({ _id: taskId, academicYearId });
                 if (!existingTask) {
                     return res.status(404).json({
                         success: false,
@@ -426,14 +427,16 @@ const updateReport = async (req, res) => {
             report.taskId = taskId || null;
 
             if (oldTaskId && String(oldTaskId) !== String(taskId)) {
-                await Task.updateOne(
+                const TaskModel = mongoose.model('Task');
+                await TaskModel.updateOne(
                     { _id: oldTaskId, reportId: report._id },
                     { reportId: null, status: 'in_progress', updatedBy: userId, updatedAt: new Date() }
                 );
             }
 
             if (taskId && existingTask.status === 'pending') {
-                await Task.updateOne(
+                const TaskModel = mongoose.model('Task');
+                await TaskModel.updateOne(
                     { _id: taskId },
                     { status: 'in_progress', updatedBy: userId, updatedAt: new Date() }
                 );
@@ -592,10 +595,10 @@ const getReportsByTask = async (req, res) => {
             taskId: taskId
         };
 
-        let statusFilter = ['draft', 'rejected', 'public', 'approved', 'in_evaluation', 'published'];
+        let statusFilter = ['draft', 'rejected', 'public', 'approved', 'in_evaluation', 'published', 'submitted'];
 
         if (isTaskCreator) {
-            statusFilter = ['rejected', 'public', 'approved', 'in_evaluation', 'published'];
+            statusFilter = ['rejected', 'public', 'approved', 'in_evaluation', 'published', 'submitted'];
         }
 
         let mainQuery = {
@@ -716,7 +719,8 @@ const deleteReport = async (req, res) => {
         report.updatedBy = req.user.id;
 
         if (report.taskId) {
-            await Task.updateOne(
+            const TaskModel = mongoose.model('Task');
+            await TaskModel.updateOne(
                 { _id: report.taskId, reportId: id },
                 { reportId: null, status: 'in_progress', updatedBy: req.user.id, updatedAt: new Date() }
             );
@@ -774,7 +778,6 @@ const publishReport = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem đã có đánh giá hoàn thành chưa
         const Assignment = mongoose.model('Assignment');
         const completedAssignments = await Assignment.countDocuments({
             reportId: report._id,
@@ -890,19 +893,20 @@ const approveReport = async (req, res) => {
             });
         }
 
-        if (report.status !== 'public') {
+        if (report.status !== 'public' && report.status !== 'submitted') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể phê duyệt báo cáo ở trạng thái công khai'
+                message: 'Chỉ có thể phê duyệt báo cáo ở trạng thái công khai hoặc đã nộp'
             });
         }
 
         await report.approve(req.user.id, feedback);
 
         if (report.taskId) {
-            await Task.updateOne(
+            const TaskModel = mongoose.model('Task');
+            await TaskModel.updateOne(
                 { _id: report.taskId },
-                { status: 'approved', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), updatedAt: new Date() }
+                { status: 'completed', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), updatedAt: new Date() }
             );
         }
 
@@ -957,10 +961,10 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        if (report.status !== 'public') {
+        if (report.status !== 'public' && report.status !== 'submitted') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể từ chối báo cáo ở trạng thái công khai'
+                message: 'Chỉ có thể từ chối báo cáo ở trạng thái công khai hoặc đã nộp'
             });
         }
 
@@ -971,11 +975,11 @@ const rejectReport = async (req, res) => {
             });
         }
 
-        // Sử dụng method reject từ Report model
         await report.reject(req.user.id, feedback);
 
         if (report.taskId) {
-            await Task.updateOne(
+            const TaskModel = mongoose.model('Task');
+            await TaskModel.updateOne(
                 { _id: report.taskId },
                 { status: 'rejected', reportId: report._id, reviewedBy: req.user.id, reviewedAt: new Date(), rejectionReason: feedback, updatedAt: new Date() }
             );
@@ -1094,7 +1098,10 @@ const makePublic = async (req, res) => {
             });
         }
 
-        // Sử dụng method makePublic từ Report model
+        if (report.status === 'rejected') {
+            await report.resubmitAfterRejection(req.user.id);
+        }
+
         await report.makePublic(req.user.id);
 
         res.json({
@@ -2159,7 +2166,6 @@ const getInsertableReports = async (req, res) => {
             query.type = 'criteria';
             query.standardId = standardId;
 
-            // Thêm programId và organizationId nếu có để lọc chính xác hơn
             if (programId) {
                 query.programId = programId;
             }
@@ -2232,13 +2238,14 @@ const submitReportToTask = async (req, res) => {
         const academicYearId = req.academicYearId;
         const userId = req.user.id;
         const ReportModel = mongoose.model('Report');
+        const TaskModel = mongoose.model('Task');
 
         const report = await ReportModel.findOne({ _id: id, academicYearId });
         if (!report) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy báo cáo' });
         }
 
-        const task = await Task.findOne({ _id: taskId, academicYearId });
+        const task = await TaskModel.findOne({ _id: taskId, academicYearId });
         if (!task) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy nhiệm vụ đích' });
         }
@@ -2247,12 +2254,16 @@ const submitReportToTask = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Bạn không được giao nhiệm vụ này' });
         }
 
-        if (report.status !== 'draft' && report.status !== 'rejected' && report.status !== 'in_progress' && report.status !== 'public') {
+        if (!['draft', 'rejected', 'in_progress', 'public'].includes(report.status)) {
             return res.status(400).json({ success: false, message: `Báo cáo phải ở trạng thái nháp, bị từ chối, đang thực hiện hoặc công khai để được nộp.` });
         }
 
         if (task.status === 'completed' || task.status === 'cancelled') {
             return res.status(400).json({ success: false, message: `Không thể nộp báo cáo cho Task ở trạng thái ${task.status}.` });
+        }
+
+        if (report.status === 'rejected') {
+            await report.resubmitAfterRejection(userId);
         }
 
         report.taskId = taskId;

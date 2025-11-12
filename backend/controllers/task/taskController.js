@@ -4,6 +4,7 @@ const Criteria = mongoose.model('Criteria');
 const Standard = mongoose.model('Standard');
 const Program = mongoose.model('Program');
 const Organization = mongoose.model('Organization');
+const Report = require('../../models/report/Report');
 const permissionService = require('../../services/permissionService');
 
 const getNotificationModel = () => {
@@ -207,7 +208,8 @@ const createTask = async (req, res) => {
         let standard = null;
 
         if (reportType !== 'overall_tdg') {
-            standard = await Standard.findOne({ _id: standardId, academicYearId });
+            const StandardModel = mongoose.model('Standard');
+            standard = await StandardModel.findOne({ _id: standardId, academicYearId });
             if (!standard) {
                 return res.status(400).json({
                     success: false,
@@ -218,7 +220,8 @@ const createTask = async (req, res) => {
             organizationId = standard.organizationId;
 
             if (reportType === 'criteria') {
-                const criteria = await Criteria.findOne({ _id: criteriaId, academicYearId });
+                const CriteriaModel = mongoose.model('Criteria');
+                const criteria = await CriteriaModel.findOne({ _id: criteriaId, academicYearId });
                 if (!criteria || criteria.standardId.toString() !== standardId) {
                     return res.status(400).json({
                         success: false,
@@ -513,10 +516,6 @@ const reviewReport = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Cần quyền Manager/Admin hoặc là người tạo Task để duyệt báo cáo' });
         }
 
-        if (task.status !== 'submitted') {
-            return res.status(400).json({ success: false, message: `Chỉ có thể duyệt báo cáo ở trạng thái submitted. Trạng thái hiện tại: ${task.status}` });
-        }
-
         if (status !== 'completed' && status !== 'rejected') {
             return res.status(400).json({ success: false, message: 'Trạng thái duyệt không hợp lệ' });
         }
@@ -525,7 +524,35 @@ const reviewReport = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do từ chối' });
         }
 
-        task.status = status;
+        let report = null;
+        if (task.reportId) {
+            report = await Report.findById(task.reportId);
+        }
+
+        const canReview = task.status === 'submitted' || (report && report.status === 'public' && String(task.reportId) === String(report._id));
+
+        if (!canReview) {
+            return res.status(400).json({ success: false, message: `Chỉ có thể duyệt Task khi trạng thái là 'submitted' hoặc Report liên kết là 'public'. Trạng thái Task hiện tại: ${task.status}` });
+        }
+
+        if (report) {
+            if (status === 'completed') {
+                report.status = 'approved';
+                report.rejectionFeedback = undefined;
+                await report.save();
+                task.status = 'completed';
+            } else if (status === 'rejected') {
+                await report.reject(userId, rejectionReason);
+                task.status = 'rejected';
+            }
+        } else {
+            if (status === 'completed') {
+                task.status = 'completed';
+            } else if (status === 'rejected') {
+                task.status = 'rejected';
+            }
+        }
+
         task.reviewedBy = userId;
         task.reviewedAt = new Date();
         task.rejectionReason = status === 'rejected' ? rejectionReason.trim() : undefined;
@@ -543,7 +570,7 @@ const reviewReport = async (req, res) => {
             notifMessage,
             task.assignedTo,
             {
-                type: status === 'completed' ? 'report_published' : 'report_review_requested',
+                type: status === 'completed' ? 'report_approved' : 'report_rejected',
                 url: `/tasks/${task._id}`,
                 priority: 'high'
             }
@@ -573,7 +600,8 @@ const getTaskByCriteria = async (req, res) => {
             });
         }
 
-        const criteria = await Criteria.findById(criteriaId).select('standardId');
+        const CriteriaModel = mongoose.model('Criteria');
+        const criteria = await CriteriaModel.findById(criteriaId).select('standardId');
         if (!criteria) {
             return res.status(404).json({
                 success: false,

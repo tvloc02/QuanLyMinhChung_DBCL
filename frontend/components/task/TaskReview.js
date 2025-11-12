@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, CheckCircle, XCircle, FileText, Eye, ChevronRight, Download } from 'lucide-react'
+import { X, CheckCircle, XCircle, FileText, Eye, ChevronRight, Download, History } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import { formatDate } from '../../utils/helpers'
@@ -14,9 +14,8 @@ export default function TaskReview({ task, onClose, onSuccess }) {
     const [currentPage, setCurrentPage] = useState(0)
     const [selectedFile, setSelectedFile] = useState(null)
     const [rejectMode, setRejectMode] = useState(false)
-    const [rejectionReason, setRejectionReason] = useState('')
+    const [rejectionReason, setRejectionReason] = useState(task.rejectionReason || '')
     const [reviewLoading, setReviewLoading] = useState(false)
-    const [reviewApproved, setReviewApproved] = useState(false)
 
     const itemsPerPage = 1
 
@@ -45,6 +44,7 @@ export default function TaskReview({ task, onClose, onSuccess }) {
             if (reportsData.length > 0) {
                 const primaryReport = reportsData.find(r => String(r._id) === String(task.reportId));
                 setSelectedReport(primaryReport || reportsData[0]);
+                setRejectionReason(primaryReport?.rejectionFeedback || reportsData[0]?.rejectionFeedback || task.rejectionReason || '')
             } else {
                 setSelectedReport(null);
             }
@@ -81,12 +81,10 @@ export default function TaskReview({ task, onClose, onSuccess }) {
         try {
             setReviewLoading(true)
 
-            await apiMethods.reports.approve(selectedReport._id)
-            await apiMethods.tasks.reviewReport(task._id, { status: 'completed' })
+            const response = await apiMethods.tasks.reviewReport(task._id, { status: 'completed' })
 
-            toast.success('Phê duyệt báo cáo thành công')
-            setReviewApproved(true)
-            loadTaskData()
+            toast.success('Phê duyệt báo cáo và Task thành công')
+            onSuccess(response.data.data)
         } catch (error) {
             toast.error(error.response?.data?.message || 'Phê duyệt thất bại')
         } finally {
@@ -97,7 +95,8 @@ export default function TaskReview({ task, onClose, onSuccess }) {
     const handleReject = async () => {
         if (!selectedReport) return
 
-        if (!rejectionReason.trim()) {
+        const reason = rejectionReason.trim()
+        if (!reason) {
             toast.error('Vui lòng nhập lý do từ chối')
             return
         }
@@ -107,19 +106,14 @@ export default function TaskReview({ task, onClose, onSuccess }) {
         try {
             setReviewLoading(true)
 
-            await apiMethods.reports.reject(selectedReport._id, {
-                feedback: rejectionReason
-            })
+            const response = await apiMethods.tasks.reviewReport(task._id, { status: 'rejected', rejectionReason: reason })
 
-            await apiMethods.tasks.reviewReport(task._id, { status: 'rejected', rejectionReason })
-
-            toast.success('Từ chối báo cáo thành công')
-            onSuccess()
+            toast.success('Từ chối báo cáo và Task thành công')
+            onSuccess(response.data.data)
         } catch (error) {
             toast.error(error.response?.data?.message || 'Từ chối thất bại')
         } finally {
             setReviewLoading(false)
-            setRejectionReason('')
             setRejectMode(false)
         }
     }
@@ -169,6 +163,7 @@ export default function TaskReview({ task, onClose, onSuccess }) {
             rejected: 'bg-red-100 text-red-800',
             submitted: 'bg-cyan-100 text-cyan-800',
             in_progress: 'bg-sky-100 text-sky-800',
+            completed: 'bg-green-500 text-white',
         }
         return colors[status] || 'bg-gray-100 text-gray-800'
     }
@@ -182,9 +177,14 @@ export default function TaskReview({ task, onClose, onSuccess }) {
             rejected: 'Từ chối',
             submitted: 'Đã nộp chờ duyệt',
             in_progress: 'Đang thực hiện',
+            completed: 'Đã hoàn thành',
         }
         return labels[status] || status
     }
+
+    const isReportReadyForReview = selectedReport && ['submitted', 'public'].includes(selectedReport.status)
+
+    const canReview = isReportReadyForReview && ['submitted', 'in_progress', 'rejected'].includes(task.status)
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -246,6 +246,11 @@ export default function TaskReview({ task, onClose, onSuccess }) {
                                                         CHÍNH
                                                     </span>
                                                 )}
+                                                {report.rejectionCount > 0 && (
+                                                    <span className="text-xs text-red-700 font-bold bg-red-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                        <History className='w-3 h-3'/> {report.rejectionCount}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         {selectedReport?._id === report._id && (
@@ -283,6 +288,11 @@ export default function TaskReview({ task, onClose, onSuccess }) {
                                             <span className={`inline-block text-sm px-3 py-1 rounded-full font-medium ${getStatusBadgeColor(selectedReport.status)}`}>
                                                 {getStatusLabel(selectedReport.status)}
                                             </span>
+                                            {selectedReport.rejectionCount > 0 && (
+                                                <span className="ml-3 text-sm text-red-700 font-bold bg-red-200 px-3 py-1 rounded-full flex items-center gap-1 w-fit">
+                                                    <History className='w-4 h-4'/> Đã bị từ chối: {selectedReport.rejectionCount} lần
+                                                </span>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="text-sm font-semibold text-gray-600">Người tạo</label>
@@ -326,7 +336,7 @@ export default function TaskReview({ task, onClose, onSuccess }) {
                                     <div className="bg-red-50 rounded-xl p-5 border border-red-200">
                                         <h3 className="text-lg font-bold text-red-900 mb-2 flex items-center gap-2">
                                             <XCircle size={20} />
-                                            Lý do từ chối
+                                            Lý do từ chối gần nhất
                                         </h3>
                                         <p className="text-red-800">{selectedReport.rejectionFeedback}</p>
                                     </div>
@@ -402,7 +412,7 @@ export default function TaskReview({ task, onClose, onSuccess }) {
                 </div>
 
                 <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-blue-50 to-blue-100">
-                    {rejectMode && (
+                    {canReview && rejectMode && (
                         <textarea
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
@@ -418,49 +428,52 @@ export default function TaskReview({ task, onClose, onSuccess }) {
                         >
                             Đóng
                         </button>
-                        {!reviewApproved && (
+                        {canReview && (
                             <>
-                                {rejectMode && (
-                                    <button
-                                        onClick={() => {
-                                            setRejectMode(false)
-                                            setRejectionReason('')
-                                        }}
-                                        className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all font-medium"
-                                    >
-                                        Hủy
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setRejectMode(!rejectMode)}
-                                    disabled={reviewLoading}
-                                    className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
-                                >
-                                    <XCircle size={18} />
-                                    {rejectMode ? 'Xác nhận từ chối' : 'Từ chối'}
-                                </button>
-                                {rejectMode && (
-                                    <button
-                                        onClick={handleReject}
-                                        disabled={reviewLoading}
-                                        className="px-6 py-3 bg-red-700 text-white rounded-xl hover:bg-red-800 disabled:opacity-50 transition-all font-medium"
-                                    >
-                                        Gửi
-                                    </button>
-                                )}
-                                {!rejectMode && (
-                                    <button
-                                        onClick={handleApprove}
-                                        disabled={reviewLoading}
-                                        className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all font-medium"
-                                    >
-                                        <CheckCircle size={18} />
-                                        Phê duyệt
-                                    </button>
+                                {rejectMode ? (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setRejectMode(false)
+                                                setRejectionReason(selectedReport?.rejectionFeedback || task.rejectionReason || '')
+                                            }}
+                                            className="px-6 py-3 text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 rounded-xl transition-all font-medium"
+                                            disabled={reviewLoading}
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={handleReject}
+                                            disabled={reviewLoading || !rejectionReason.trim()}
+                                            className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                                        >
+                                            <XCircle size={18} />
+                                            Xác nhận từ chối
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => setRejectMode(true)}
+                                            disabled={reviewLoading}
+                                            className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                                        >
+                                            <XCircle size={18} />
+                                            Từ chối
+                                        </button>
+                                        <button
+                                            onClick={handleApprove}
+                                            disabled={reviewLoading}
+                                            className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all font-medium"
+                                        >
+                                            <CheckCircle size={18} />
+                                            Phê duyệt
+                                        </button>
+                                    </>
                                 )}
                             </>
                         )}
-                        {reviewApproved && (
+                        {task.status === 'completed' && (
                             <button
                                 onClick={handleAssignReviewers}
                                 className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium"
