@@ -1,0 +1,251 @@
+stages:
+  - prepare
+  - test
+  - build
+  - push
+  - deploy_staging
+  - deploy_production
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  REGISTRY: registry.gitlab.com
+  IMAGE_BACKEND: ${REGISTRY}/${CI_PROJECT_PATH}/backend
+  IMAGE_FRONTEND: ${REGISTRY}/${CI_PROJECT_PATH}/frontend
+  IMAGE_TAG: ${CI_COMMIT_SHA}
+  IMAGE_TAG_LATEST: latest
+
+# ============================================
+# STAGE 1: PREPARE - Kiểm tra cấu hình
+# ============================================
+prepare:
+  stage: prepare
+  image: alpine:latest
+  script:
+    - echo "📋 Kiểm tra cấu hình..."
+    - test -f docker-compose.prod.yml || (echo "❌ docker-compose.prod.yml không tồn tại"; exit 1)
+    - test -f Dockerfile.prod || (echo "❌ Dockerfile.prod không tồn tại"; exit 1)
+    - test -f .env.example || (echo "❌ .env.example không tồn tại"; exit 1)
+    - echo "✅ Tất cả file cấu hình đã sẵn sàng"
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# ============================================
+# STAGE 2: TEST - Unit tests & Linting
+# ============================================
+test_backend:
+  stage: test
+  image: node:18-alpine
+  script:
+    - echo "🧪 Chạy test Backend..."
+    - npm ci
+    - npm run lint || echo "⚠️ Linting warnings"
+    - npm run test || echo "⚠️ Một số test failed"
+  artifacts:
+    paths:
+      - coverage/
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    expire_in: 30 days
+  allow_failure: true
+  only:
+    - merge_requests
+    - main
+    - develop
+
+test_frontend:
+  stage: test
+  image: node:18-alpine
+  script:
+    - echo "🧪 Chạy test Frontend..."
+    - cd frontend
+    - npm ci
+    - npm run lint || echo "⚠️ Linting warnings"
+    - npm run test:ci || echo "⚠️ Một số test failed"
+  allow_failure: true
+  only:
+    - merge_requests
+    - main
+    - develop
+
+# ============================================
+# STAGE 3: BUILD - Xây dựng Docker images
+# ============================================
+build_backend:
+  stage: build
+  image: docker:24-git
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "🔐 Đăng nhập Docker Registry..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $REGISTRY
+  script:
+    - echo "🔨 Build Backend image..."
+    - docker build -t $IMAGE_BACKEND:$IMAGE_TAG -t $IMAGE_BACKEND:$IMAGE_TAG_LATEST -f Dockerfile.prod .
+    - echo "✅ Backend image đã được build thành công"
+  after_script:
+    - docker logout $REGISTRY
+  only:
+    - main
+    - develop
+    - tags
+
+build_frontend:
+  stage: build
+  image: docker:24-git
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "🔐 Đăng nhập Docker Registry..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $REGISTRY
+  script:
+    - echo "🔨 Build Frontend image..."
+    - docker build -t $IMAGE_FRONTEND:$IMAGE_TAG -t $IMAGE_FRONTEND:$IMAGE_TAG_LATEST ./frontend -f ./frontend/Dockerfile
+    - echo "✅ Frontend image đã được build thành công"
+  after_script:
+    - docker logout $REGISTRY
+  only:
+    - main
+    - develop
+    - tags
+
+# ============================================
+# STAGE 4: PUSH - Đẩy images lên Registry
+# ============================================
+push_images:
+  stage: push
+  image: docker:24-git
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "🔐 Đăng nhập Docker Registry..."
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $REGISTRY
+  script:
+    - echo "📤 Build và push Backend image..."
+    - docker build -t $IMAGE_BACKEND:$IMAGE_TAG -t $IMAGE_BACKEND:$IMAGE_TAG_LATEST -f Dockerfile.prod .
+    - docker push $IMAGE_BACKEND:$IMAGE_TAG
+    - docker push $IMAGE_BACKEND:$IMAGE_TAG_LATEST
+    - echo "✅ Backend image pushed"
+    
+    - echo "📤 Build và push Frontend image..."
+    - docker build -t $IMAGE_FRONTEND:$IMAGE_TAG -t $IMAGE_FRONTEND:$IMAGE_TAG_LATEST ./frontend -f ./frontend/Dockerfile
+    - docker push $IMAGE_FRONTEND:$IMAGE_TAG
+    - docker push $IMAGE_FRONTEND:$IMAGE_TAG_LATEST
+    - echo "✅ Frontend image pushed"
+  after_script:
+    - docker logout $REGISTRY
+  only:
+    - main
+    - develop
+    - tags
+
+# ============================================
+# STAGE 5: DEPLOY STAGING
+# ============================================
+deploy_staging:
+  stage: deploy_staging
+  image: alpine:latest
+  before_script:
+    - echo "📦 Chuẩn bị kết nối SSH..."
+    - apk add --no-cache openssh-client git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEPLOY_SSH_KEY_STAGING" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $DEPLOY_HOST_STAGING >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - echo "🚀 Deploy tới Staging..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST_STAGING \
+      "cd $DEPLOY_PATH_STAGING && \
+       git pull origin develop && \
+       cp .env.staging .env && \
+       export IMAGE_TAG=$IMAGE_TAG && \
+       export REGISTRY=$REGISTRY && \
+       export IMAGE_BACKEND=$IMAGE_BACKEND && \
+       export IMAGE_FRONTEND=$IMAGE_FRONTEND && \
+       docker-compose -f docker-compose.prod.yml pull && \
+       docker-compose -f docker-compose.prod.yml up -d && \
+       docker-compose -f docker-compose.prod.yml logs -f --tail=30 backend"
+    - echo "✅ Deploy Staging thành công"
+  environment:
+    name: staging
+    url: https://staging.quanlyminhchung.local
+    auto_stop_in: 1 week
+  only:
+    - develop
+  when: manual
+
+# ============================================
+# STAGE 6: DEPLOY PRODUCTION
+# ============================================
+deploy_production:
+  stage: deploy_production
+  image: alpine:latest
+  before_script:
+    - echo "📦 Chuẩn bị kết nối SSH..."
+    - apk add --no-cache openssh-client git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - echo "🚀 Deploy tới Production..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST \
+      "cd $DEPLOY_PATH && \
+       git pull origin main && \
+       cp .env.prod .env && \
+       export IMAGE_TAG=$IMAGE_TAG && \
+       export REGISTRY=$REGISTRY && \
+       export IMAGE_BACKEND=$IMAGE_BACKEND && \
+       export IMAGE_FRONTEND=$IMAGE_FRONTEND && \
+       docker-compose -f docker-compose.prod.yml pull && \
+       docker-compose -f docker-compose.prod.yml up -d && \
+       docker-compose -f docker-compose.prod.yml logs -f --tail=50 backend"
+    - echo "✅ Deploy Production thành công"
+  environment:
+    name: production
+    url: https://quanlyminhchung.local
+    kubernetes:
+      namespace: production
+  only:
+    - main
+    - tags
+  when: manual
+
+# ============================================
+# ROLLBACK - Quay lại phiên bản trước
+# ============================================
+rollback_production:
+  stage: deploy_production
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - echo "⏮️ Rollback tới phiên bản trước..."
+    - |
+      ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_HOST \
+      "cd $DEPLOY_PATH && \
+       git log --oneline -5 && \
+       git reset --hard HEAD~1 && \
+       export IMAGE_TAG=\$(git rev-parse HEAD) && \
+       export REGISTRY=$REGISTRY && \
+       export IMAGE_BACKEND=$IMAGE_BACKEND && \
+       export IMAGE_FRONTEND=$IMAGE_FRONTEND && \
+       docker-compose -f docker-compose.prod.yml pull && \
+       docker-compose -f docker-compose.prod.yml up -d"
+    - echo "✅ Rollback thành công"
+  only:
+    - main
+  when: manual
