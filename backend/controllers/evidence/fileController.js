@@ -34,14 +34,28 @@ const updateFolderMetadata = async (folderId) => {
 const sanitizeFileName = (evidenceCode, originalName) => {
     const ext = path.extname(originalName);
     let baseName = path.basename(originalName, ext);
+    
+    // Tạo timestamp chi tiết: YYYYMMDD_HHMMSS
+    const now = new Date();
+    const timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0')
+    ].join('');
 
-    // GIỮ nguyên tiếng Việt, chỉ remove dangerous chars
-    let fileName = `${evidenceCode}-${baseName}${ext}`;
+    // Tạo tên file mới với timestamp
+    let fileName = `${evidenceCode}_${timestamp}_${baseName}${ext}`;
+    
+    // Remove các ký tự đặc biệt nguy hiểm
     fileName = fileName
         .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, '-')
-        .trim();
+        .replace(/\s+/g, '_')
+        .replace(/[\u{0080}-\u{FFFF}]/gu, '');
 
+    // Giới hạn độ dài tên file
     if (fileName.length > 200) {
         const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
         const truncated = nameWithoutExt.substring(0, 200 - ext.length);
@@ -135,6 +149,7 @@ const uploadFiles = async (req, res) => {
                 extension: path.extname(originalNameUtf8).toLowerCase(),
                 evidenceId,
                 uploadedBy: userId,
+                uploadedAt: new Date(), // Sẽ tự động lưu với thời gian hiện tại đầy đủ giờ phút giây
                 url: `/uploads/evidences/${storedName}`,
                 type: 'file',
                 parentFolder: parentFolderId || null,
