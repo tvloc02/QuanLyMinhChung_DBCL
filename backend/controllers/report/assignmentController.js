@@ -208,7 +208,7 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        if (report.reportType !== 'overall_tdg') {
+        if (report.type !== 'overall_tdg') {
             return res.status(400).json({
                 success: false,
                 message: 'Chỉ có thể phân công đánh giá cho Báo cáo Tổng hợp TĐG (overall_tdg).'
@@ -261,12 +261,10 @@ const createAssignment = async (req, res) => {
             respondedAt: new Date()
         };
 
-        // Chỉ thêm assignmentNote nếu có giá trị
         if (assignmentNote && assignmentNote.trim()) {
             assignmentData.assignmentNote = assignmentNote.trim();
         }
 
-        // Chỉ thêm evaluationCriteria nếu có items hợp lệ
         if (evaluationCriteria && Array.isArray(evaluationCriteria) && evaluationCriteria.length > 0) {
             const validCriteria = evaluationCriteria.filter(c => c.name && c.name.trim());
             if (validCriteria.length > 0) {
@@ -284,7 +282,6 @@ const createAssignment = async (req, res) => {
             { path: 'assignedBy', select: 'fullName email' }
         ]);
 
-        // Tạo notification (không throw error nếu thất bại)
         try {
             const Notification = mongoose.model('Notification');
             await Notification.create({
@@ -302,7 +299,6 @@ const createAssignment = async (req, res) => {
             });
         } catch (notifError) {
             console.error('Failed to create notification:', notifError.message);
-            // Không throw error, tiếp tục xử lý
         }
 
         res.status(201).json({
@@ -366,7 +362,6 @@ const updateAssignment = async (req, res) => {
             });
         }
 
-        // Chỉ cho phép update nếu chưa chuyển sang trạng thái đang thực hiện hoặc hoàn thành
         if(['in_progress', 'completed'].includes(assignment.status) && req.user.role !== 'admin') {
             return res.status(400).json({
                 success: false,
@@ -526,28 +521,12 @@ const getAssignmentStats = async (req, res) => {
         const academicYearId = req.academicYearId;
         const { evaluatorId } = req.query;
 
-        let matchQuery = {
-            academicYearId: mongoose.Types.ObjectId(academicYearId)
-        };
-
+        const filters = {};
         if (evaluatorId) {
-            matchQuery.evaluatorId = mongoose.Types.ObjectId(evaluatorId);
+            filters.evaluatorId = evaluatorId;
         }
 
-        const stats = await Assignment.aggregate([
-            { $match: matchQuery },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: 1 },
-                    accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
-                    inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } },
-                    completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-                    overdue: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
-                    cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
-                }
-            }
-        ]);
+        const stats = await Assignment.getAssignmentStats(academicYearId, filters);
 
         const defaultStats = {
             total: 0, accepted: 0, inProgress: 0,
@@ -556,7 +535,7 @@ const getAssignmentStats = async (req, res) => {
 
         res.json({
             success: true,
-            data: stats[0] || defaultStats
+            data: stats || defaultStats
         });
 
     } catch (error) {
@@ -653,7 +632,7 @@ const bulkCreateAssignments = async (req, res) => {
                     deadline: new Date(deadline),
                     priority: priority || 'normal',
                     evaluationCriteria: evaluationCriteria || [],
-                    status: 'accepted', // Thiết lập trạng thái ban đầu
+                    status: 'accepted',
                     respondedAt: new Date()
                 }
             });
@@ -681,7 +660,7 @@ const bulkCreateAssignments = async (req, res) => {
             _id: { $in: reportIds },
             academicYearId,
             status: { $in: ['approved', 'published'] },
-            reportType: 'overall_tdg'
+            type: 'overall_tdg'
         });
 
         const evaluators = await User.find({

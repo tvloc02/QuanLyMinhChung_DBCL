@@ -135,13 +135,7 @@ assignmentSchema.pre('save', function(next) {
         if (this.status === 'in_progress' && !this.startedAt) {
             this.startedAt = new Date();
         }
-        if (['accepted', 'in_progress', 'completed'].includes(this.status) && !this.respondedAt) {
-            this.respondedAt = new Date();
-        }
     }
-
-    // Nếu chuyển từ 'pending' sang 'accepted', set respondedAt.
-    // Trong trường hợp này, chúng ta đã set default là 'accepted' ở trên.
 
     next();
 });
@@ -189,17 +183,6 @@ assignmentSchema.methods.addActivityLog = async function(action, userId, descrip
         ...additionalData
     });
 };
-
-// Loại bỏ accept/reject methods
-/*
-assignmentSchema.methods.accept = async function(responseNote = '') {
-    // ...
-};
-
-assignmentSchema.methods.reject = async function(responseNote = '') {
-    // ...
-};
-*/
 
 assignmentSchema.methods.start = function() {
     this.status = 'in_progress';
@@ -270,12 +253,9 @@ assignmentSchema.methods.addReminder = function(type = 'reminder', message = '')
 assignmentSchema.methods.canModify = function(userId, userRole) {
     if (userRole === 'admin') return true;
 
-    // Chỉ người phân công có thể modify khi status chưa phải là 'in_progress' hay 'completed'
     if (this.assignedBy.toString() === userId.toString() && !['in_progress', 'completed'].includes(this.status)) {
         return true;
     }
-
-    // Evaluator không được modify, chỉ được start/complete (thông qua Evaluation)
 
     return false;
 };
@@ -289,7 +269,7 @@ assignmentSchema.statics.getExpertWorkload = async function(evaluatorId, academi
     const assignments = await this.find({
         evaluatorId,
         academicYearId,
-        status: { $in: ['accepted', 'in_progress'] } // Chỉ tính accepted và in_progress
+        status: { $in: ['accepted', 'in_progress'] }
     });
 
     return {
@@ -301,10 +281,12 @@ assignmentSchema.statics.getExpertWorkload = async function(evaluatorId, academi
 };
 
 assignmentSchema.statics.getAssignmentStats = async function(academicYearId, filters = {}) {
-    let matchStage = { academicYearId: mongoose.Types.ObjectId(academicYearId) };
+    let matchStage = { academicYearId: new mongoose.Types.ObjectId(academicYearId) };
 
-    if (filters.assignedBy) matchStage.assignedBy = mongoose.Types.ObjectId(filters.assignedBy);
-    if (filters.evaluatorId) matchStage.evaluatorId = mongoose.Types.ObjectId(filters.evaluatorId);
+    // An toàn chuyển đổi ID cho aggregation
+    if (filters.assignedBy) matchStage.assignedBy = new mongoose.Types.ObjectId(filters.assignedBy);
+    if (filters.evaluatorId) matchStage.evaluatorId = new mongoose.Types.ObjectId(filters.evaluatorId);
+
     if (filters.status) matchStage.status = filters.status;
 
     const stats = await this.aggregate([
@@ -361,16 +343,15 @@ assignmentSchema.post('save', async function(doc, next) {
                     result: 'success'
                 });
 
-            // Tự động chuyển report sang trạng thái 'in_evaluation' khi tạo assignment
             if (this.reportId) {
                 const Report = mongoose.model('Report');
                 const report = await Report.findById(this.reportId);
-                
+
                 if (report && report.status === 'approved') {
                     report.status = 'in_evaluation';
                     report.updatedBy = this.assignedBy;
                     await report.save();
-                    
+
                     console.log(`Report ${report._id} chuyển sang trạng thái in_evaluation`);
                 }
             }
