@@ -5,7 +5,6 @@ import Layout from '../../components/common/Layout'
 import api, { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {
-    FileText,
     Search,
     Filter,
     Eye,
@@ -21,10 +20,12 @@ import {
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
+// Trang Tổng hợp Đánh giá cho MỘT BÁO CÁO CỤ THỂ (Dành cho Reporter/Admin/Manager)
 export default function ReportEvaluations() {
     const router = useRouter()
     const { user, isLoading } = useAuth()
 
+    // Lấy reportId từ URL (ví dụ: /reports/[reportId]/evaluations)
     const { reportId } = router.query
 
     const breadcrumbItems = [
@@ -36,6 +37,7 @@ export default function ReportEvaluations() {
     const [averageScore, setAverageScore] = useState(null)
     const [loading, setLoading] = useState(true)
     const [reportTitle, setReportTitle] = useState('Đang tải...')
+    const [isReportOverallTdg, setIsReportOverallTdg] = useState(false)
 
     const [filters, setFilters] = useState({
         status: '',
@@ -54,6 +56,13 @@ export default function ReportEvaluations() {
 
     useEffect(() => {
         if (router.isReady && reportId && user) {
+            // Kiểm tra quyền: Evaluator không nên truy cập trang này (họ có my-evaluations)
+            if (user.role === 'evaluator') {
+                toast.error('Chuyên gia đánh giá không có quyền xem trang tổng hợp này.')
+                router.replace('/evaluations/my-evaluations')
+                return
+            }
+
             fetchReportDetails()
             fetchEvaluationsForReport()
             fetchAverageScore()
@@ -63,7 +72,9 @@ export default function ReportEvaluations() {
     const fetchReportDetails = async () => {
         try {
             const reportRes = await apiMethods.reports.getById(reportId)
-            setReportTitle(reportRes.data?.data?.title || 'Báo cáo không tên')
+            const reportData = reportRes.data?.data
+            setReportTitle(reportData?.title || 'Báo cáo không tên')
+            setIsReportOverallTdg(reportData?.type === 'overall_tdg')
         } catch (error) {
             console.error('Fetch report details error:', error)
             setReportTitle('Lỗi tải tên báo cáo')
@@ -94,6 +105,7 @@ export default function ReportEvaluations() {
                 rating: filters.rating
             }
 
+            // Gỡ bỏ logic ẩn bản nháp: Backend đã tự lọc bản nháp trong getEvaluations nếu không phải evaluator request
             const response = await apiMethods.evaluations.getAll(params)
             const data = response.data?.data || response.data
 
@@ -156,12 +168,23 @@ export default function ReportEvaluations() {
         return labels[rating] || rating
     }
 
-    if (user && !['admin', 'manager', 'reporter'].includes(user.role)) {
+    if (user && user.role === 'evaluator') {
+        // Evaluator đã được chuyển hướng ở useEffect
+        return (
+            <Layout title="" breadcrumbItems={breadcrumbItems}>
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
+                    <h3 className="text-red-800 font-bold">Đang chuyển hướng...</h3>
+                </div>
+            </Layout>
+        )
+    }
+
+    if (!isReportOverallTdg) {
         return (
             <Layout title="Đánh giá Báo cáo TĐG" breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
-                    <h3 className="text-red-800 font-bold">Lỗi truy cập</h3>
-                    <p className="text-red-600">Bạn không có quyền xem trang này.</p>
+                    <h3 className="text-red-800 font-bold">Truy cập bị từ chối</h3>
+                    <p className="text-red-600">Chỉ Báo cáo Tổng hợp TĐG mới có chức năng đánh giá.</p>
                 </div>
             </Layout>
         )
@@ -176,7 +199,7 @@ export default function ReportEvaluations() {
                             <ClipboardCheck className="w-8 h-8" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Tổng hợp Đánh giá</h1>
+                            <h1 className="text-3xl font-bold mb-1">Tổng hợp Đánh giá Evaluator</h1>
                             <p className="text-blue-200">
                                 Báo cáo: <span className="font-semibold">{reportTitle}</span>
                             </p>

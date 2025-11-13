@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
+// Trang Tổng hợp Đánh giá của chính Evaluator
 export default function MyEvaluations() {
     const router = useRouter()
     const { user, isLoading } = useAuth()
@@ -67,7 +68,8 @@ export default function MyEvaluations() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (user && user.role === 'evaluator' && user.role === 'manager') {
+        // Chỉ fetch khi là evaluator
+        if (user && user.role === 'evaluator') {
             fetchMyEvaluations()
             fetchMyStats()
         }
@@ -91,7 +93,7 @@ export default function MyEvaluations() {
                 limit: filters.limit,
                 sortBy: filters.sortBy,
                 sortOrder: filters.sortOrder,
-                evaluatorId: user.id
+                evaluatorId: user.id // Khẳng định chỉ lấy đánh giá của mình
             }
 
             if (filters.search) params.search = filters.search
@@ -134,9 +136,12 @@ export default function MyEvaluations() {
         if (!confirm('Bạn có chắc chắn muốn xóa đánh giá này?')) return
 
         try {
-            await apiMethods.evaluations.delete(id)
+            // Đánh giá chỉ có thể bị xóa ở trạng thái draft (Logic nằm ở backend)
+            // apiMethods.evaluations.delete(id) cần được định nghĩa trong services/api
+            await api.delete(`/api/evaluations/${id}`)
             toast.success('Xóa đánh giá thành công')
             fetchMyEvaluations()
+            fetchMyStats()
         } catch (error) {
             console.error('Delete error:', error)
             toast.error(error.response?.data?.message || 'Lỗi khi xóa đánh giá')
@@ -229,6 +234,7 @@ export default function MyEvaluations() {
         )
     }
 
+    // Kiểm tra quyền: Chỉ cho phép Evaluator
     if (!user || user.role !== 'evaluator') {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>

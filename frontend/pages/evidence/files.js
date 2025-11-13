@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../contexts/AuthContext'
 import Layout from '../../components/common/Layout'
-import { formatDate, formatFileSize } from '../../utils/helpers'
+import { formatDate, formatFileSize, getLocalStorage } from '../../utils/helpers'
 import toast from 'react-hot-toast'
 import { apiMethods } from '../../services/api'
 import {
@@ -25,7 +25,13 @@ import {
     Eye
 } from 'lucide-react'
 
+import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer"
+import { pdfjs } from 'react-pdf';
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
 import { ActionButton } from '../../components/ActionButtons'
+
+const AllRenderers = DocViewerRenderers;
 
 export default function FilesPage() {
     const { user, isLoading } = useAuth()
@@ -39,10 +45,14 @@ export default function FilesPage() {
     const [showPreviewModal, setShowPreviewModal] = useState(false)
     const [previewFile, setPreviewFile] = useState(null)
     const [previewLoading, setPreviewLoading] = useState(false)
+    const [previewDataUri, setPreviewDataUri] = useState(null);
 
     const isAdmin = user?.role === 'admin'
     const isManager = user?.role === 'manager'
     const currentUserId = user?._id?.toString()
+
+    const authToken = typeof window !== 'undefined' ? getLocalStorage('token') : null;
+    const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -76,42 +86,76 @@ export default function FilesPage() {
         }
     }
 
-    const handlePreviewClick = (file) => {
-        setPreviewFile(file)
-        setShowPreviewModal(true)
-        setPreviewLoading(false)
-    }
+    const fetchAndDisplayFile = useCallback(async (file) => {
+        setPreviewDataUri(null);
+        setPreviewLoading(true);
+        setPreviewFile(file);
+        setShowPreviewModal(true);
 
-    const getPreviewUrl = (file) => {
-        if (!file) return null
+        const fileExtension = file.extension?.replace('.', '')?.toLowerCase() || file.originalName.split('.').pop()?.toLowerCase();
+        const isOfficeFile = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension);
 
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
-        const streamUrl = `${baseUrl}/files/stream/${file._id}`
-        const encodedStreamUrl = encodeURIComponent(streamUrl)
-
-        if (file.mimeType?.startsWith('image/')) {
-            return streamUrl
+        if (isOfficeFile) {
+            const streamUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/files/stream/${file._id}?token=${authToken}`;
+            setPreviewDataUri(streamUrl);
+            setPreviewLoading(false);
+            return;
         }
 
-        const officeMimes = [
+        try {
+            const response = await apiMethods.files.download(file._id);
+            const blob = new Blob([response.data], { type: file.mimeType });
+
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                setPreviewDataUri(reader.result);
+                setPreviewLoading(false);
+            };
+            reader.onerror = (e) => {
+                console.error("FileReader error:", e);
+                toast.error("Lỗi khi đọc file.");
+                setPreviewLoading(false);
+            }
+
+        } catch (error) {
+            console.error('File fetch for preview error:', error);
+            const errorMessage = error.response?.data?.message || "Không thể tải nội dung file để xem trước. Kiểm tra lại kết nối và trạng thái file.";
+            toast.error(errorMessage);
+            setPreviewLoading(false);
+            setPreviewFile(null);
+            setShowPreviewModal(false);
+        }
+    }, [authToken]);
+
+    const handlePreviewClick = (file) => {
+        fetchAndDisplayFile(file);
+    }
+
+    const isFileViewable = (file) => {
+        if (!file) return false;
+
+        const viewableMimes = [
+            'application/pdf',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        ]
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+            'text/csv',
+            'application/vnd.oasis.opendocument.text',
+            'application/vnd.oasis.opendocument.spreadsheet'
+        ];
 
-        if (file.mimeType === 'application/pdf') {
-            return `https://docs.google.com/gview?url=${encodedStreamUrl}&embedded=true`
-        }
+        if (file.mimeType?.startsWith('image/')) return true;
+        const extension = file.originalName.split('.').pop()?.toLowerCase();
+        if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf', 'txt', 'csv'].includes(extension)) return true;
 
-        if (officeMimes.includes(file.mimeType)) {
-            return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedStreamUrl}`
-        }
+        return viewableMimes.includes(file.mimeType);
+    };
 
-        return null
-    }
 
     const handleFileSelect = (e) => {
         const selectedFiles = Array.from(e.target.files)
@@ -137,12 +181,7 @@ export default function FilesPage() {
         setUploading(true)
 
         try {
-            const formData = new FormData()
-            filesToUpload.forEach(file => {
-                formData.append('files', file)
-            })
-
-            const response = await apiMethods.files.uploadMultiple(formData, evidenceId)
+            const response = await apiMethods.files.uploadMultiple(filesToUpload, evidenceId)
 
             if (response.data?.success) {
                 const savedFilesCount = response.data.data?.length || 0
@@ -274,7 +313,6 @@ export default function FilesPage() {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl shadow-lg p-8 text-white">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center space-x-4">
@@ -319,19 +357,17 @@ export default function FilesPage() {
                     </div>
                 </div>
 
-                {/* Loading State */}
                 {loading ? (
                     <div className="flex flex-col justify-center items-center py-16">
-                        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
                         <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
                     </div>
                 ) : (
                     <>
-                        {/* Files Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
                             <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                    <Sparkles className="h-5 w-5 mr-2 text-blue-600" />
+                                    <Sparkles className="h-5 w-5 mr-2" />
                                     Danh sách files ({files.length})
                                 </h3>
                             </div>
@@ -425,7 +461,6 @@ export default function FilesPage() {
                             </table>
                         </div>
 
-                        {/* Guide */}
                         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6">
                             <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
                                 <Sparkles className="h-5 w-5 mr-2" />
@@ -454,11 +489,9 @@ export default function FilesPage() {
                 )}
             </div>
 
-            {/* Preview Modal */}
             {showPreviewModal && previewFile && (
                 <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-                        {/* Modal Header */}
                         <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white flex items-center justify-between sticky top-0 z-10 flex-shrink-0">
                             <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 {getFileIcon(previewFile.mimeType)}
@@ -484,20 +517,21 @@ export default function FilesPage() {
                             </div>
                         </div>
 
-                        {/* Modal Content */}
-                        <div className="flex-1 overflow-y-auto bg-gray-100">
-                            {previewLoading ? (
-                                <div className="flex items-center justify-center h-full">
+                        <div className="flex-1 overflow-y-auto bg-gray-100 p-2 sm:p-4">
+                            {previewLoading || !previewDataUri ? (
+                                <div className="flex items-center justify-center w-full h-full min-h-[500px]">
                                     <div className="text-center">
                                         <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
-                                        <p className="text-gray-600">Đang tải...</p>
+                                        <p className="text-gray-600">Đang tải nội dung file...</p>
                                     </div>
                                 </div>
                             ) : (
                                 (() => {
-                                    const previewUrl = getPreviewUrl(previewFile)
+                                    const isSupported = isFileViewable(previewFile);
+                                    const fileExtension = previewFile.extension?.replace('.', '')?.toLowerCase() || previewFile.originalName.split('.').pop()?.toLowerCase();
+                                    const isOfficeFile = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension);
 
-                                    if (!previewUrl) {
+                                    if (!isSupported) {
                                         return (
                                             <div className="flex items-center justify-center h-full p-4">
                                                 <div className="text-center bg-white rounded-lg p-8">
@@ -517,35 +551,41 @@ export default function FilesPage() {
                                         )
                                     }
 
-                                    const isImage = previewFile.mimeType?.startsWith('image/')
+                                    const docs = [{
+                                        uri: previewDataUri,
+                                        fileName: previewFile.originalName,
+                                        fileType: previewFile.mimeType,
+                                    }];
 
-                                    if (isImage) {
-                                        return (
-                                            <div className="flex justify-center items-center min-h-full p-4 bg-gray-100">
-                                                <img
-                                                    src={previewUrl}
-                                                    alt={previewFile.originalName}
-                                                    className="max-w-full h-auto rounded-lg shadow-lg"
-                                                    style={{ maxHeight: 'calc(90vh - 120px)' }}
-                                                    onError={() => {
-                                                        toast.error('Lỗi khi tải ảnh')
-                                                    }}
-                                                />
-                                            </div>
-                                        )
-                                    }
+                                    const forceRemoteRender = isOfficeFile && !previewDataUri.startsWith('data:');
 
                                     return (
-                                        <div className="w-full h-full min-h-[500px] bg-white">
-                                            <iframe
-                                                src={previewUrl}
-                                                width="100%"
-                                                height="100%"
-                                                style={{ minHeight: '500px' }}
-                                                className="border-none"
-                                                allow="autoplay"
-                                                title="Document Preview"
-                                                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
+                                        <div className="w-full h-full min-h-[500px] bg-white shadow-lg">
+                                            <DocViewer
+                                                prefetchMethod="GET"
+                                                documents={docs}
+                                                pluginRenderers={AllRenderers}
+                                                config={{
+                                                    header: {
+                                                        disableFileName: true,
+                                                        disableHeader: true,
+                                                    },
+                                                    pdfVerticalScrollByDefault: true,
+                                                    pdfZoom: {
+                                                        defaultZoom: 0.8,
+                                                        zoomJump: 0.2,
+                                                    },
+                                                    csvDelimiter: ',',
+
+                                                    officeRenderer: { disableLocal: forceRemoteRender },
+                                                    docxRenderer: { disableLocal: forceRemoteRender },
+                                                    xlsxRenderer: { disableLocal: forceRemoteRender },
+                                                    pptxRenderer: { disableLocal: forceRemoteRender },
+
+                                                    csvRenderer: { disableRemote: true },
+
+                                                }}
+                                                style={{ height: "100%", width: "100%" }}
                                             />
                                         </div>
                                     )

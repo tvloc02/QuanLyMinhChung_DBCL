@@ -4,6 +4,20 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const permissionService = require('../../services/permissionService');
+const jwt = require('jsonwebtoken');
+
+const authenticateTokenFromQuery = (req) => {
+    const token = req.query.token;
+    if (!token) return false;
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_default_secret_key');
+        req.user = decoded;
+        return true;
+    } catch (error) {
+        return false;
+    }
+};
 
 const updateFolderMetadata = async (folderId) => {
     try {
@@ -34,8 +48,7 @@ const updateFolderMetadata = async (folderId) => {
 const sanitizeFileName = (evidenceCode, originalName) => {
     const ext = path.extname(originalName);
     let baseName = path.basename(originalName, ext);
-    
-    // Tạo timestamp chi tiết: YYYYMMDD_HHMMSS
+
     const now = new Date();
     const timestamp = [
         now.getFullYear(),
@@ -46,16 +59,13 @@ const sanitizeFileName = (evidenceCode, originalName) => {
         String(now.getSeconds()).padStart(2, '0')
     ].join('');
 
-    // Tạo tên file mới với timestamp
     let fileName = `${evidenceCode}_${timestamp}_${baseName}${ext}`;
-    
-    // Remove các ký tự đặc biệt nguy hiểm
+
     fileName = fileName
         .replace(/[<>:"/\\|?*]/g, '')
         .replace(/\s+/g, '_')
         .replace(/[\u{0080}-\u{FFFF}]/gu, '');
 
-    // Giới hạn độ dài tên file
     if (fileName.length > 200) {
         const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
         const truncated = nameWithoutExt.substring(0, 200 - ext.length);
@@ -120,10 +130,8 @@ const uploadFiles = async (req, res) => {
         const savedFiles = [];
 
         for (const file of files) {
-            // FIX: Lưu tên file gốc thô, không encode
             const originalNameUtf8 = file.originalname;
 
-            // Tạo stored name - sanitize nhưng GIỮ tiếng Việt
             const storedName = sanitizeFileName(evidence.code, originalNameUtf8);
 
             const permanentPath = path.join('uploads', 'evidences', storedName);
@@ -149,7 +157,7 @@ const uploadFiles = async (req, res) => {
                 extension: path.extname(originalNameUtf8).toLowerCase(),
                 evidenceId,
                 uploadedBy: userId,
-                uploadedAt: new Date(), // Sẽ tự động lưu với thời gian hiện tại đầy đủ giờ phút giây
+                uploadedAt: new Date(),
                 url: `/uploads/evidences/${storedName}`,
                 type: 'file',
                 parentFolder: parentFolderId || null,
@@ -209,7 +217,6 @@ const downloadFile = async (req, res) => {
 
         await file.incrementDownloadCount();
 
-        // FIX: Set header đúng cho tên file tiếng Việt
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
         res.download(file.filePath);
 
@@ -226,6 +233,16 @@ const streamFile = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!req.user) {
+            const isAuthenticated = authenticateTokenFromQuery(req);
+            if (!isAuthenticated) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Không có quyền truy cập file stream'
+                });
+            }
+        }
+
         const file = await File.findById(id);
         if (!file) {
             console.error('File not found in DB:', id);
@@ -234,13 +251,6 @@ const streamFile = async (req, res) => {
                 message: 'Không tìm thấy file'
             });
         }
-
-        console.log('Streaming file:', {
-            fileId: id,
-            filePath: file.filePath,
-            exists: fs.existsSync(file.filePath),
-            mimeType: file.mimeType
-        });
 
         if (!fs.existsSync(file.filePath)) {
             console.error('File path does not exist:', file.filePath);
@@ -254,7 +264,6 @@ const streamFile = async (req, res) => {
         const fileSize = stat.size;
         const range = req.headers.range;
 
-        // Set headers cho preview (inline)
         res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', 'inline');
         res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -272,7 +281,8 @@ const streamFile = async (req, res) => {
                 'Accept-Ranges': 'bytes',
                 'Content-Length': chunksize,
                 'Content-Type': file.mimeType || 'application/octet-stream',
-                'Content-Disposition': 'inline'
+                'Content-Disposition': 'inline',
+                'Access-Control-Allow-Origin': '*'
             });
 
             fs.createReadStream(file.filePath, { start, end }).pipe(res);
@@ -281,7 +291,8 @@ const streamFile = async (req, res) => {
                 'Content-Length': fileSize,
                 'Content-Type': file.mimeType || 'application/octet-stream',
                 'Accept-Ranges': 'bytes',
-                'Content-Disposition': 'inline'
+                'Content-Disposition': 'inline',
+                'Access-Control-Allow-Origin': '*'
             });
 
             fs.createReadStream(file.filePath).pipe(res);

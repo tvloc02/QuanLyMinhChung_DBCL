@@ -6,9 +6,37 @@ import {
     Plus,
     FileText,
     Loader2,
-    BarChart3
+    BarChart3,
+    ClipboardCheck,
+    ListTodo
 } from 'lucide-react'
 import ReportsStatusTabs from '../../components/reports/status/ReportsStatusTabs'
+
+// Định nghĩa cấu trúc tabs cho từng loại báo cáo
+const overallTdgTabs = [
+    { id: 'my_reports', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'type=overall_tdg&createdBy=me&status=' },
+    { id: 'tdg_needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=submitted,public' },
+    { id: 'tdg_approved', label: 'Đã duyệt', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=approved' },
+    { id: 'tdg_evaluated', label: 'Đang/Đã đánh giá', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=in_evaluation,published' },
+    { id: 'tdg_published', label: 'Đã Phát hành', roles: ['manager', 'admin', 'reporter'], statusQuery: 'type=overall_tdg&status=published' },
+    { id: 'tdg_all', label: 'Tất cả Báo cáo TĐG', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=' },
+];
+
+const standardCriteriaTabs = [
+    { id: 'my_reports_sc', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'type=standard,criteria&createdBy=me&status=' },
+    { id: 'sc_needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'type=standard,criteria&status=submitted,public' },
+    { id: 'sc_approved', label: 'Đã duyệt', roles: ['manager', 'admin'], statusQuery: 'type=standard,criteria&status=approved' },
+    { id: 'sc_rejected', label: 'Đã từ chối', roles: ['manager', 'admin', 'reporter'], statusQuery: 'type=standard,criteria&status=rejected' },
+    { id: 'sc_published', label: 'Đã Phát hành', roles: ['manager', 'admin', 'reporter'], statusQuery: 'type=standard,criteria&status=published' },
+    { id: 'sc_all', label: 'Tất cả Tiêu chuẩn/Tiêu chí', roles: ['manager', 'admin'], statusQuery: 'type=standard,criteria&status=' },
+];
+
+// Tabs cho Evaluator (chỉ xem Báo cáo Tổng hợp TĐG được giao)
+const evaluatorTabs = [
+    { id: 'tdg_assigned', label: 'Báo cáo được giao', roles: ['evaluator'], statusQuery: 'type=overall_tdg&assigned=true&status=' }, // Sẽ cần logic backend để lọc theo assignment
+    { id: 'tdg_undone', label: 'Chưa đánh giá', roles: ['evaluator'], statusQuery: 'type=overall_tdg&assigned=true&status=accepted,in_progress' }, // Giả định assignment status
+    { id: 'tdg_done', label: 'Đã hoàn thành', roles: ['evaluator'], statusQuery: 'type=overall_tdg&assigned=true&status=completed' }, // Giả định assignment status
+];
 
 export default function ReportsManagement() {
     const router = useRouter()
@@ -16,19 +44,29 @@ export default function ReportsManagement() {
 
     const userRole = user?.role
     const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin'
+    const isReporter = userRole === 'reporter'
 
-    const statusTabs = [
-        { id: 'my_reports', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'createdBy=me&status=' },
-        { id: 'needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'status=submitted,public' },
-        { id: 'approved', label: 'Đã duyệt', roles: ['manager', 'admin'], statusQuery: 'status=approved' },
-        { id: 'rejected', label: 'Đã từ chối', roles: ['manager', 'admin'], statusQuery: 'status=rejected' },
-        { id: 'assigned_review', label: 'Đã phân quyền đánh giá', roles: ['manager', 'admin'], statusQuery: 'evaluations=assigned' },
-        { id: 'evaluated', label: 'Đã đánh giá', roles: ['manager', 'admin'], statusQuery: 'evaluations=completed' },
-        { id: 'published', label: 'Đã Phát hành', roles: ['manager', 'admin', 'reporter'], statusQuery: 'status=published' },
-        { id: 'all_reports', label: 'Tất cả Báo cáo', roles: ['manager', 'admin'], statusQuery: 'status=' },
-    ].filter(tab => tab.roles.includes(userRole))
+    // Xác định bộ tabs chính
+    let primaryTabsConfig;
+    if (userRole === 'evaluator') {
+        primaryTabsConfig = [
+            { id: 'evaluations', label: 'Báo cáo Đánh giá TĐG', icon: ClipboardCheck, tabs: evaluatorTabs.filter(tab => tab.roles.includes(userRole)) }
+        ]
+    } else {
+        primaryTabsConfig = [
+            { id: 'overall_tdg', label: 'Báo cáo TĐG', icon: ClipboardCheck, tabs: overallTdgTabs.filter(tab => tab.roles.includes(userRole)) },
+            { id: 'standard_criteria', label: 'Tiêu chuẩn/Tiêu chí', icon: ListTodo, tabs: standardCriteriaTabs.filter(tab => tab.roles.includes(userRole)) }
+        ]
+    }
 
-    const [activeTab, setActiveTab] = useState(statusTabs[0]?.id || 'my_reports')
+    // Đặt tab chính đầu tiên là tab đang active
+    const [activePrimaryTab, setActivePrimaryTab] = useState(primaryTabsConfig[0]?.id || 'overall_tdg')
+
+    const currentPrimaryTab = primaryTabsConfig.find(tab => tab.id === activePrimaryTab);
+    const secondaryTabs = currentPrimaryTab?.tabs || [];
+
+    // Đặt tab phụ đầu tiên là tab đang active
+    const [activeSecondaryTab, setActiveSecondaryTab] = useState(secondaryTabs[0]?.id || 'my_reports')
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -37,10 +75,16 @@ export default function ReportsManagement() {
     }, [user, isLoading, router])
 
     useEffect(() => {
-        if (statusTabs.length > 0 && activeTab !== statusTabs[0].id) {
-            setActiveTab(statusTabs[0].id);
+        if (primaryTabsConfig.length > 0 && activePrimaryTab !== primaryTabsConfig[0].id) {
+            setActivePrimaryTab(primaryTabsConfig[0].id)
         }
-    }, [userRole, statusTabs.length])
+    }, [userRole])
+
+    useEffect(() => {
+        if (secondaryTabs.length > 0 && activeSecondaryTab !== secondaryTabs[0].id) {
+            setActiveSecondaryTab(secondaryTabs[0].id)
+        }
+    }, [activePrimaryTab])
 
 
     const breadcrumbItems = [
@@ -83,32 +127,46 @@ export default function ReportsManagement() {
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            {isManagerOrAdmin && (
+                            {(isManagerOrAdmin || isReporter) && (
                                 <button
-                                    onClick={() => router.push('/reports/evaluations')}
-                                    className="inline-flex items-center px-6 py-3 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all font-semibold"
+                                    onClick={() => router.push('/reports/create')}
+                                    className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
                                 >
-                                    <BarChart3 className="h-5 w-5 mr-2" />
-                                    Đánh giá
+                                    <Plus className="h-5 w-5 mr-2" />
+                                    Tạo báo cáo mới
                                 </button>
                             )}
-                            <button
-                                onClick={() => router.push('/reports/create')}
-                                className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
-                            >
-                                <Plus className="h-5 w-5 mr-2" />
-                                Tạo báo cáo mới
-                            </button>
                         </div>
                     </div>
                 </div>
 
+                {/* Primary Tabs: Loại báo cáo */}
+                <div className="flex border-b border-gray-200">
+                    {primaryTabsConfig.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActivePrimaryTab(tab.id)}
+                            className={`px-4 py-3 font-semibold transition-all text-base flex items-center space-x-2 ${
+                                activePrimaryTab === tab.id
+                                    ? 'text-blue-600 border-b-2 border-blue-500'
+                                    : 'text-gray-600 border-b-2 border-transparent hover:text-gray-900'
+                            }`}
+                        >
+                            <tab.icon className='h-5 w-5' />
+                            <span>{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+
                 <ReportsStatusTabs
-                    statusTabs={statusTabs}
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
+                    statusTabs={secondaryTabs}
+                    activeTab={activeSecondaryTab}
+                    setActiveTab={setActiveSecondaryTab}
                     userRole={userRole}
                     userId={user._id}
+                    // Thêm typeFilter vào đây
+                    typeFilter={activePrimaryTab === 'standard_criteria' ? 'standard,criteria' : 'overall_tdg'}
+                    isEvaluatorView={userRole === 'evaluator'}
                 />
 
             </div>

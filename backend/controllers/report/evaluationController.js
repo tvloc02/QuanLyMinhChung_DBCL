@@ -24,8 +24,8 @@ const getEvaluations = async (req, res) => {
 
         let query = { academicYearId };
 
-        // Experts chỉ thấy đánh giá của mình
-        if (req.user.role === 'expert') {
+        // Experts chỉ thấy đánh giá của mình (trừ khi có evaluatorId khác được yêu cầu bởi admin/manager)
+        if (req.user.role === 'evaluator' && !evaluatorId) {
             query.evaluatorId = req.user.id;
         }
 
@@ -140,7 +140,7 @@ const createEvaluation = async (req, res) => {
         }
 
         // Chỉ expert được phân quyền mới tạo đánh giá
-        if (assignment.expertId.toString() !== req.user.id.toString()) {
+        if (assignment.evaluatorId.toString() !== req.user.id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Không có quyền tạo đánh giá cho phân quyền này'

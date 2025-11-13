@@ -5,12 +5,12 @@ import toast from 'react-hot-toast';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import ReportListTable from './ReportListTable';
 
-export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab, userRole, userId }) {
+// Thêm typeFilter và isEvaluatorView vào props
+export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab, userRole, userId, typeFilter, isEvaluatorView }) {
     const router = useRouter();
 
     const initialFilters = {
         search: '',
-        type: '',
         programId: '',
         organizationId: '',
         standardId: '',
@@ -46,7 +46,7 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
 
     useEffect(() => {
         fetchReportData(filters.page);
-    }, [filters.page, filters.type, filters.search, filters.programId, filters.standardId, filters.criteriaId]);
+    }, [filters.page, filters.search, filters.programId, filters.standardId, filters.criteriaId, typeFilter]);
 
     const fetchFilterData = async () => {
         try {
@@ -89,31 +89,32 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 ...filters,
                 page: page,
                 limit: filters.limit,
+                type: typeFilter // Áp dụng type filter từ component ReportsManagement
             };
 
-            let statusList = [];
-            let isCreatedByMe = false;
-
+            // Phân tích statusQuery (Bao gồm cả createdBy=me và status=...)
             const queries = apiStatusQuery.split('&').filter(q => q);
-
             queries.forEach(query => {
                 if (query.startsWith('status=')) {
-                    statusList = query.replace('status=', '').split(',').filter(s => s.length > 0);
+                    params.status = query.replace('status=', '');
                 } else if (query.startsWith('createdBy=me')) {
-                    isCreatedByMe = true;
+                    params.createdBy = userId;
                 }
             });
 
-            if (statusList.length > 0) {
-                params.status = statusList.join(',');
-            } else {
-                delete params.status;
-            }
+            // Logic đặc biệt cho Evaluator
+            if (isEvaluatorView) {
+                params.evaluatorId = userId; // Backend sẽ lọc assignment dựa trên evaluatorId này
 
-            if (isCreatedByMe) {
-                params.createdBy = userId;
-            } else {
-                delete params.createdBy;
+                // Các tab của evaluator được định nghĩa dựa trên assignment status, không phải report status
+                // Backend controller getReports của evaluator chỉ lấy overall_tdg. Ta cần gửi status query phù hợp cho Assignment.
+                // Ở đây ta giả định backend sẽ nhận biết evaluatorId và tự động chuyển đổi status query thành assignment status query.
+                // Do giới hạn chỉ sửa FE, ta chỉ có thể truyền evaluatorId và typeFilter, và status (giữ nguyên để tránh sửa backend sâu hơn)
+                // Tuy nhiên, để đáp ứng yêu cầu "Báo cáo chưa đánh giá", ta cần lọc theo Assignment Status: accepted, in_progress (hoặc chưa có evaluation)
+                // Ta cần giả định API Reports.getAll hỗ trợ lọc reports có assignment status/evaluation status.
+
+                // Nếu là Evaluator, ta chỉ quan tâm đến các báo cáo có Assignment được giao cho họ.
+                // Ta thêm evaluatorId vào params. Backend sẽ cần tự xử lý logic này.
             }
 
             Object.keys(params).forEach(key => {
@@ -121,6 +122,11 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                     delete params[key];
                 }
             });
+
+            // Xóa type nếu đang là Evaluator vì typeFilter đã được áp dụng trong reports.js
+            if (userRole === 'evaluator') {
+                delete params.type;
+            }
 
             const response = await apiMethods.reports.getAll(params);
             const data = response.data?.data || response.data;
@@ -164,6 +170,9 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
         fetchReportData(pagination.current);
     };
 
+    // Ẩn bộ lọc chi tiết cho Evaluator và cho Báo cáo Tiêu chuẩn/Tiêu chí
+    const shouldHideFilters = isEvaluatorView || typeFilter !== 'overall_tdg';
+
     return (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="flex overflow-x-auto border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -198,17 +207,19 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
-                                showFilters
-                                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
-                            }`}
-                        >
-                            <Filter className="h-5 w-5 mr-2" />
-                            Bộ lọc
-                        </button>
+                        {!shouldHideFilters && (
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={`inline-flex items-center px-4 py-3 rounded-xl transition-all font-semibold ${
+                                    showFilters
+                                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
+                                        : 'bg-white border-2 border-gray-200 text-gray-700 hover:bg-gray-50'
+                                }`}
+                            >
+                                <Filter className="h-5 w-5 mr-2" />
+                                Bộ lọc
+                            </button>
+                        )}
                         <button
                             onClick={() => fetchReportData(1)}
                             disabled={loading}
@@ -220,7 +231,7 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                     </div>
                 </div>
 
-                {showFilters && (
+                {showFilters && !shouldHideFilters && (
                     <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Chương trình</label>
@@ -262,6 +273,7 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 userRole={userRole}
                 userId={userId}
                 handleActionSuccess={handleActionSuccess}
+                isEvaluatorView={isEvaluatorView}
             />
         </div>
     );

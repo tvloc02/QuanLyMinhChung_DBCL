@@ -37,8 +37,9 @@ router.get('/download/:id',
     downloadFile
 );
 
-// Stream file (for preview)
+// Stream file (for preview) - ÁP DỤNG AUTH ĐÃ SỬA
 router.get('/stream/:id',
+    auth,
     [
         param('id').isMongoId().withMessage('ID file không hợp lệ')
     ],
@@ -66,31 +67,18 @@ router.delete('/:id',
     deleteFile
 );
 
-// Move file
-router.post('/:id/move',
-    auth,
-    [
-        param('id').isMongoId().withMessage('ID file không hợp lệ')
-    ],
-    validation,
-    moveFile
-);
-
 // Get files by evidence
 router.get('/evidence/:evidenceId',
     auth,
     [
         param('evidenceId').isMongoId().withMessage('ID minh chứng không hợp lệ'),
-        query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
-        query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit phải từ 1-50')
+        query('page').optional().isInt({ min: 1 }).withMessage('Trang không hợp lệ'),
+        query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Giới hạn không hợp lệ')
     ],
     validation,
     async (req, res) => {
         try {
-            const File = require('../../models/Evidence/File');
-            const { evidenceId } = req.params;
-            const { page = 1, limit = 20 } = req.query;
-
+            const { evidenceId, page = 1, limit = 10 } = req.query;
             const pageNum = parseInt(page);
             const limitNum = parseInt(limit);
             const skip = (pageNum - 1) * limitNum;

@@ -84,6 +84,13 @@ export default function EvaluationForm() {
             const reportData = reportRes.data?.data
             setReport(reportData)
 
+            // Kiểm tra quyền: Chỉ evaluator được phân công mới có thể tạo/sửa
+            if (user?.role !== 'evaluator' || assignmentData.evaluatorId._id !== user.id) {
+                toast.error('Bạn không được phân công đánh giá báo cáo này.')
+                setTimeout(() => router.back(), 1000)
+                return
+            }
+
             try {
                 const evaluationsRes = await apiMethods.evaluations.getAll({
                     assignmentId,
@@ -98,7 +105,7 @@ export default function EvaluationForm() {
                         toast.info(`Đã tìm thấy bài đánh giá (Trạng thái: ${statusLabel}). Chuyển hướng đến trang chỉnh sửa/xem chi tiết.`, { duration: 4000 })
 
                         const targetPath = existingEval.status === 'draft'
-                            ? `/evaluations/${existingEval._id}/edit`
+                            ? `/evaluations/${existingEval._id}/edit` // Giữ nguyên để người dùng có thể tiếp tục
                             : `/evaluations/${existingEval._id}`
 
                         await router.replace(targetPath)
@@ -202,6 +209,11 @@ export default function EvaluationForm() {
             errors.push('Chất lượng minh chứng là bắt buộc và phải hợp lệ')
         }
 
+        // Thêm kiểm tra tiêu chí
+        if (evaluation?.criteriaScores?.length > 0 && evaluation.criteriaScores.some(c => typeof c.score !== 'number' || c.score < 0)) {
+            errors.push('Vui lòng nhập đầy đủ và hợp lệ điểm cho tất cả các tiêu chí')
+        }
+
         setValidationErrors(errors)
         return errors.length === 0
     }
@@ -212,7 +224,7 @@ export default function EvaluationForm() {
             try {
                 const updateRes = await apiMethods.evaluations.update(evaluation._id, {
                     ...formData,
-                    criteriaScores: evaluation.criteriaScores
+                    criteriaScores: evaluation.criteriaScores // Giữ nguyên criteriaScores khi update
                 })
                 setEvaluation(updateRes.data?.data)
                 if (!autoSave) toast.success('Đã cập nhật bản nháp')
@@ -230,6 +242,7 @@ export default function EvaluationForm() {
                 const evalRes = await apiMethods.evaluations.create({ assignmentId })
                 const newEval = evalRes.data?.data
 
+                // Cần lấy lại dữ liệu form sau khi tạo vì create sẽ trả về criteriaScores khởi tạo
                 setEvaluation(newEval)
                 setFormData(prev => ({
                     ...prev,
@@ -243,6 +256,7 @@ export default function EvaluationForm() {
 
                 toast.success('Đã tạo bản nháp mới')
 
+                // Chuyển hướng sang trang edit để cập nhật URL
                 await router.replace(`/evaluations/${newEval._id}/edit`)
                 return null
 
@@ -265,15 +279,18 @@ export default function EvaluationForm() {
 
         setSubmitting(true)
 
+        // B1: Lưu nháp cuối cùng trước khi nộp
         const updatedEval = await createOrUpdateEvaluation(true)
         if (!updatedEval) {
             setSubmitting(false)
             return
         }
 
+        // B2: Nộp
         try {
             await apiMethods.evaluations.submit(updatedEval._id)
             toast.success('Nộp đánh giá thành công')
+            // Chuyển hướng đến trang đánh giá của tôi
             setTimeout(() => router.push('/evaluations/my-evaluations'), 1500)
         } catch (error) {
             console.error('Submit error:', error)
@@ -284,6 +301,7 @@ export default function EvaluationForm() {
             } else {
                 toast.error(errorMessage)
             }
+            // Lấy lại dữ liệu nếu nộp thất bại
             fetchData()
 
         } finally {
@@ -295,6 +313,7 @@ export default function EvaluationForm() {
         await createOrUpdateEvaluation()
     }
 
+    // Logic tính tiến độ (chỉ cho phần tổng quan, chưa tính criteriaScores)
     const getProgress = () => {
         let completed = 0
         const total = 5
@@ -306,6 +325,15 @@ export default function EvaluationForm() {
         if (formData.evidenceAssessment?.quality) completed++
 
         const baseProgress = Math.round((completed / total) * 100)
+
+        // Thêm kiểm tra criteriaScores
+        if (evaluation?.criteriaScores?.length > 0) {
+            const totalCriteria = evaluation.criteriaScores.length
+            const completedCriteria = evaluation.criteriaScores.filter(c => typeof c.score === 'number' && c.score >= 0).length
+
+            const overallProgress = (baseProgress * 0.7) + (Math.round((completedCriteria / totalCriteria) * 100) * 0.3)
+            return Math.min(Math.round(overallProgress), 100)
+        }
 
         return Math.min(baseProgress, 100)
     }
@@ -323,12 +351,13 @@ export default function EvaluationForm() {
         )
     }
 
-    if (!user || user.role !== 'expert') {
+    // Kiểm tra quyền (giữ nguyên logic gốc, đã thêm kiểm tra chi tiết trong fetchData)
+    if (!user || user.role !== 'evaluator') {
         return (
             <Layout title="" breadcrumbItems={breadcrumbItems}>
                 <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
                     <h3 className="text-red-800 font-bold">Lỗi truy cập</h3>
-                    <p className="text-red-600">Chỉ chuyên gia đánh giá có thể tạo đánh giá</p>
+                    <p className="text-red-600">Chỉ chuyên gia đánh giá được phân công mới có thể tạo đánh giá</p>
                 </div>
             </Layout>
         )
@@ -427,6 +456,79 @@ export default function EvaluationForm() {
                     </div>
 
                     <div className="lg:col-span-3 space-y-6">
+
+                        <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                                <ClipboardCheck className="h-6 w-6 mr-2 text-blue-600" />
+                                Đánh giá tiêu chí <span className="text-red-500 ml-1">*</span>
+                            </h2>
+                            {evaluation?.criteriaScores?.length > 0 ? (
+                                <div className="space-y-4">
+                                    {evaluation.criteriaScores.map((criteria, idx) => (
+                                        <div key={idx} className="p-4 border-2 border-gray-200 rounded-xl bg-gray-50">
+                                            <p className="font-semibold text-sm text-gray-900 mb-2">
+                                                {criteria.criteriaName} (Max: {criteria.maxScore})
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                        Điểm <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max={criteria.maxScore}
+                                                        value={criteria.score || ''}
+                                                        onChange={(e) => setEvaluation(prev => {
+                                                            const newScores = [...prev.criteriaScores];
+                                                            newScores[idx].score = parseFloat(e.target.value) || 0;
+                                                            return { ...prev, criteriaScores: newScores };
+                                                        })}
+                                                        className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                        Mức đánh giá <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <select
+                                                        value={criteria.evaluationLevel || 'Không đạt'}
+                                                        onChange={(e) => setEvaluation(prev => {
+                                                            const newScores = [...prev.criteriaScores];
+                                                            newScores[idx].evaluationLevel = e.target.value;
+                                                            return { ...prev, criteriaScores: newScores };
+                                                        })}
+                                                        className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                    >
+                                                        <option value="Đạt">Đạt</option>
+                                                        <option value="Không đạt">Không đạt</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="mt-2">
+                                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                                    Bình luận
+                                                </label>
+                                                <textarea
+                                                    value={criteria.comment || ''}
+                                                    onChange={(e) => setEvaluation(prev => {
+                                                        const newScores = [...prev.criteriaScores];
+                                                        newScores[idx].comment = e.target.value;
+                                                        return { ...prev, criteriaScores: newScores };
+                                                    })}
+                                                    rows={2}
+                                                    placeholder="Bình luận tiêu chí..."
+                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500">Phân công này không có tiêu chí đánh giá cụ thể.</p>
+                            )}
+                        </div>
+
                         <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-100">
                             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
                                 <MessageSquare className="h-6 w-6 mr-2 text-blue-600" />
@@ -704,7 +806,7 @@ export default function EvaluationForm() {
                     <div className="flex items-center space-x-2">
                         <AlertCircle className="h-6 w-6" />
                         <span className="font-semibold">
-                            {getProgress() === 100 ? 'Đánh giá đã sẵn sàng' : 'Hoàn thành form để nộp'}
+                            {getProgress() === 100 ? 'Đánh giá đã sẵn sàng' : `Hoàn thành form để nộp (${getProgress()}%)`}
                         </span>
                     </div>
                     <div className="flex items-center space-x-3">

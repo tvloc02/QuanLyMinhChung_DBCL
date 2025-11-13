@@ -241,25 +241,24 @@ export const apiMethods = {
                 formData.append('parentFolderId', parentFolderId)
             }
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 
+                headers: {
                     'Content-Type': 'multipart/form-data',
-                    'Accept-Charset': 'utf-8'
+                    // ĐÃ XÓA 'Accept-Charset': 'utf-8'
                 }
             })
         },
         uploadMultiple: (files, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
             files.forEach(file => {
-                // Đảm bảo tên file được gửi đúng encoding UTF-8
                 formData.append('files', file, file.name)
             })
             if (parentFolderId) {
                 formData.append('parentFolderId', parentFolderId)
             }
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: { 
+                headers: {
                     'Content-Type': 'multipart/form-data',
-                    'Accept-Charset': 'utf-8'
+                    // ĐÃ XÓA 'Accept-Charset': 'utf-8'
                 }
             })
         },

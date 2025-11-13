@@ -43,27 +43,33 @@ const getReports = async (req, res) => {
 
         let query = { academicYearId };
 
-        if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+        if (req.user.role === 'reporter') {
             const userAccessQuery = {
                 $or: [
                     { createdBy: req.user.id },
+                    { assignedReporters: req.user.id },
                     { status: 'public' },
                     { status: 'approved' },
                     { status: 'in_evaluation' },
-                    { status: 'published' },
-                    { assignedReporters: req.user.id }
+                    { status: 'published' }
                 ]
             };
 
-            if (req.user.standardAccess && req.user.standardAccess.length > 0) {
-                userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
-            }
-            if (req.user.criteriaAccess && req.user.criteriaAccess.length > 0) {
-                userAccessQuery.$or.push({ criteriaId: { $in: req.user.criteriaAccess } });
-            }
+            // Remove standard/criteria access for reporter based on new requirement
+            // if (req.user.standardAccess && req.user.standardAccess.length > 0) {
+            //     userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
+            // }
+            // if (req.user.criteriaAccess && req.user.criteriaAccess.length > 0) {
+            //     userAccessQuery.$or.push({ criteriaId: { $in: req.user.criteriaAccess } });
+            // }
 
             query = { ...query, ...userAccessQuery };
+        } else if (req.user.role === 'evaluator') {
+            // Evaluator chỉ được thấy Báo cáo Tổng hợp TĐG đã được duyệt/phát hành
+            query.type = 'overall_tdg';
+            query.status = { $in: ['approved', 'published', 'in_evaluation'] };
         }
+
 
         if (search) {
             query.$and = query.$and || [];
@@ -177,6 +183,32 @@ const getReportById = async (req, res) => {
                 success: false,
                 message: 'Không tìm thấy báo cáo trong năm học này'
             });
+        }
+
+        // Kiểm tra quyền truy cập cho Evaluator và Reporter
+        const canView = report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess);
+
+        if (!canView) {
+            // Trường hợp đặc biệt: Evaluator chỉ xem được overall_tdg đã được phân quyền.
+            if (req.user.role === 'evaluator' && report.type === 'overall_tdg') {
+                const Assignment = mongoose.model('Assignment');
+                const assignment = await Assignment.findOne({
+                    reportId: id,
+                    evaluatorId: req.user.id
+                });
+
+                if (!assignment) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Bạn không có quyền xem báo cáo này'
+                    });
+                }
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Bạn không có quyền xem báo cáo này'
+                });
+            }
         }
 
         await report.incrementView(req.user.id);
@@ -709,10 +741,10 @@ const deleteReport = async (req, res) => {
             });
         }
 
-        if (['public', 'approved', 'published'].includes(report.status)) {
+        if (['public', 'approved', 'published', 'in_evaluation'].includes(report.status)) {
             return res.status(400).json({
                 success: false,
-                message: 'Không thể xóa báo cáo đã công khai hoặc được phê duyệt'
+                message: 'Không thể xóa báo cáo đã công khai, được phê duyệt hoặc đang được đánh giá'
             });
         }
 

@@ -208,10 +208,17 @@ const createAssignment = async (req, res) => {
             });
         }
 
-        if (report.status !== 'approved') {
+        if (report.reportType !== 'overall_tdg') {
             return res.status(400).json({
                 success: false,
-                message: 'Chỉ có thể phân công đánh giá báo cáo đã được chấp thuận'
+                message: 'Chỉ có thể phân công đánh giá cho Báo cáo Tổng hợp TĐG (overall_tdg).'
+            });
+        }
+
+        if (report.status !== 'approved' && report.status !== 'published') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể phân công đánh giá báo cáo đã được chấp thuận hoặc đã phát hành'
             });
         }
 
@@ -440,10 +447,6 @@ const deleteAssignment = async (req, res) => {
         });
     }
 };
-
-// Loại bỏ hàm acceptAssignment
-
-// Loại bỏ hàm rejectAssignment
 
 const cancelAssignment = async (req, res) => {
     try {
@@ -677,7 +680,8 @@ const bulkCreateAssignments = async (req, res) => {
         const reports = await Report.find({
             _id: { $in: reportIds },
             academicYearId,
-            status: 'approved'
+            status: { $in: ['approved', 'published'] },
+            reportType: 'overall_tdg'
         });
 
         const evaluators = await User.find({
@@ -690,8 +694,12 @@ const bulkCreateAssignments = async (req, res) => {
 
         const validationErrors = [];
         for (const assignment of validatedAssignments) {
-            if (!reportMap.has(assignment.data.reportId.toString())) {
-                validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại hoặc chưa được chấp thuận`);
+            const report = reportMap.get(assignment.data.reportId.toString());
+            if (!report) {
+                validationErrors.push(`Báo cáo ${assignment.data.reportId} không tồn tại, chưa được chấp thuận/phát hành, hoặc không phải là Báo cáo Tổng hợp TĐG`);
+            }
+            if (report && report.type !== 'overall_tdg') {
+                validationErrors.push(`Báo cáo ${report.code} không phải là Báo cáo Tổng hợp TĐG, không thể phân công đánh giá`);
             }
             if (!evaluatorMap.has(assignment.data.evaluatorId.toString())) {
                 validationErrors.push(`Người đánh giá ${assignment.data.evaluatorId} không tồn tại hoặc không có vai trò evaluator`);
