@@ -6,7 +6,7 @@ import { apiMethods } from '../../../services/api';
 import { formatDate } from '../../../utils/helpers';
 import {
     Eye, Edit2, Trash2, CheckCircle, XCircle, Send, RotateCcw, UserPlus,
-    Loader2, Upload, ChevronDown, ChevronRight, MessageSquare
+    Loader2, Upload, ChevronDown, ChevronRight, MessageSquare, ListTodo
 } from 'lucide-react';
 
 function ReportListTable({ reports, loading, pagination, handlePageChange, userRole, userId, handleActionSuccess, isEvaluatorView }) {
@@ -108,10 +108,24 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                     }
                     break;
                 case 'evaluate':
-                    // Chuyển hướng đến trang đánh giá của evaluator
-                    const myAssignment = report.assignments?.find(a => String(a.evaluatorId) === String(userId));
-                    if(myAssignment) {
-                        router.push(`/evaluations/create?assignmentId=${myAssignment._id}&reportId=${reportId}`);
+                    // Chuyển hướng đến trang tạo đánh giá mới (hoặc chỉnh sửa draft)
+                    // Cần giả định Report object chứa thông tin về assignment của evaluator (sẽ được populate trong controller)
+                    // Giả định report.evaluations được populate: {path: 'evaluations', select: 'assignmentId status'}
+
+                    const myEvaluation = report.evaluations?.find(e =>
+                        String(e.evaluatorId) === String(userId)
+                    );
+
+                    const assignmentId = report.assignments?.find(a =>
+                        String(a.evaluatorId) === String(userId)
+                    )?.assignmentId; // Giả sử assignmentId được populate/thêm vào report
+
+                    if (myEvaluation) {
+                        // Nếu đã có evaluation (draft), chuyển đến trang chỉnh sửa
+                        await router.push(`/evaluations/${myEvaluation._id}/edit`);
+                    } else if (assignmentId) {
+                        // Nếu chưa có evaluation nhưng có assignment, chuyển đến trang tạo mới
+                        await router.push(`/evaluations/create?assignmentId=${assignmentId}&reportId=${reportId}`);
                     } else {
                         toast.error('Không tìm thấy phân quyền hợp lệ để đánh giá.');
                     }
@@ -128,33 +142,52 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         const actions = [];
         const status = report.status;
         const userIdStr = String(userId);
+        const isOverallTdg = report.type === 'overall_tdg';
+        const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
         const createdByIdStr = String(report.createdBy?._id);
         const isMyReport = createdByIdStr === userIdStr;
-        const hasEvaluations = report.evaluations && report.evaluations.length > 0;
-        const isOverallTdg = report.type === 'overall_tdg';
 
-        if (isEvaluatorView) {
-            // Evaluator View: Chỉ cho phép Xem chi tiết và Đánh giá (nếu đang ở trạng thái phù hợp)
+        // Lấy thông tin Assignment và Evaluation của evaluator hiện tại
+        const evaluatorAssignment = report.evaluatorAssignment; // Được đính kèm từ backend
+        const myEvaluation = report.evaluations?.find(e =>
+            String(e.evaluatorId) === userIdStr
+        );
+
+        if (isEvaluatorView && isOverallTdg) {
+            // Evaluator View:
             actions.push({ icon: Eye, variant: "view", title: "Xem chi tiết", action: 'view' });
 
-            // Tìm assignment của chính evaluator đó (Giả định report có populate assignment status/id)
-            const myAssignment = report.assignments?.find(a => String(a.evaluatorId) === userIdStr);
+            if (evaluatorAssignment) {
+                // Đã có assignment, kiểm tra trạng thái Evaluation
 
-            if (myAssignment && ['accepted', 'in_progress'].includes(myAssignment.status)) {
-                actions.push({ icon: MessageSquare, variant: "blue", title: "Đánh giá", action: 'evaluate' });
+                const evaluationStatus = myEvaluation?.status;
+                const isCompleted = ['supervised', 'final'].includes(evaluationStatus);
+
+                if (!myEvaluation || evaluationStatus === 'draft') {
+                    // Chưa tạo Evaluation hoặc đang là Draft -> Cho phép tạo/tiếp tục đánh giá
+                    actions.push({ icon: ListTodo, variant: "blue", title: "Đánh giá", action: 'evaluate' });
+                } else if (evaluationStatus === 'submitted') {
+                    // Đã nộp, đang chờ giám sát/duyệt
+                    actions.push({ icon: MessageSquare, variant: "gray", title: "Đã nộp", action: 'view' });
+                } else if (isCompleted) {
+                    // Đã hoàn thành (supervised/final)
+                    actions.push({ icon: CheckCircle, variant: "success", title: "Hoàn tất", action: 'view' });
+                } else if (evaluationStatus === 'rejected') {
+                    // Nếu bị từ chối, cho phép chỉnh sửa lại (nếu assignment chưa hoàn thành)
+                    actions.push({ icon: ListTodo, variant: "warning", title: "Đánh giá lại", action: 'evaluate' });
+                }
             }
 
             return actions.slice(0, 4);
         }
 
-        // Manager/Admin/Reporter View
+        // Manager/Admin/Reporter View (Logic giữ nguyên)
         actions.push({ icon: Eye, variant: "view", title: "Xem chi tiết", action: 'view' });
 
         if (isMyReport && ['draft', 'rejected'].includes(status)) {
             actions.push({ icon: Edit2, variant: "edit", title: "Chỉnh sửa", action: 'edit' });
         }
 
-        // Reporter chỉ có thể công khai/rút lại báo cáo của chính mình (standard/criteria/overall_tdg)
         if (isMyReport && ['draft', 'rejected'].includes(status)) {
             actions.push({ icon: Send, variant: "blue", title: "Công khai", action: 'makePublic' });
         }
@@ -163,15 +196,15 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
             actions.push({ icon: RotateCcw, variant: "blue", title: "Rút lại", action: 'retractPublic' });
         }
 
-        // Chỉ Manager/Admin
         if (isManagerOrAdmin) {
+            const hasEvaluations = report.evaluations && report.evaluations.length > 0;
+
             if (['submitted', 'public'].includes(status)) {
                 actions.push({ icon: CheckCircle, variant: "success", title: "Phê duyệt", action: 'approve' });
                 actions.push({ icon: XCircle, variant: "delete", title: "Từ chối", action: 'reject' });
             }
 
-            // Chỉ phân quyền cho overall_tdg đã approved
-            if (isOverallTdg && status === 'approved') { // Dễ dàng hơn nếu không có check hasEvaluations
+            if (isOverallTdg && status === 'approved') {
                 actions.push({ icon: UserPlus, variant: "blue", title: "Phân quyền", action: 'assignReview' });
             }
 
@@ -201,7 +234,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
     // Xác định các cột sẽ hiển thị
     const showStandardCriteriaCols = !isEvaluatorView && (reports.length === 0 || reports[0].type !== 'overall_tdg');
 
-    let totalCols = 6; // STT, Task, Mã BC, Tiêu đề, Loại, Trạng thái, Người tạo, Hành động (4 cố định + 2 thay đổi + 2 cố định)
+    let totalCols = 6;
     if (showStandardCriteriaCols) {
         totalCols = 10;
     } else {
@@ -314,7 +347,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                                 )}
                                 <td className="px-3 py-3 text-center border-r border-gray-200">
                                         <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${getStatusColor(report.status)}`}>
-                                            {report.status}
+                                            {report.statusText || report.status}
                                         </span>
                                 </td>
                                 <td className="px-3 py-3 text-center border-r border-gray-200 text-xs font-medium text-gray-700">

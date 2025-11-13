@@ -17,7 +17,9 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
         page: 1,
         limit: 10,
         sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        status: '', // Đặt trạng thái ban đầu là rỗng
+        createdBy: '' // Đặt người tạo ban đầu là rỗng
     };
     const [filters, setFilters] = useState(initialFilters);
     const [reports, setReports] = useState([]);
@@ -31,12 +33,16 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
     const [criteria, setCriteria] = useState([]);
 
     const currentStatusConfig = statusTabs.find(tab => tab.id === activeTab);
-    const apiStatusQuery = currentStatusConfig?.statusQuery || '';
 
     useEffect(() => {
+        // Reset filters khi đổi tab chính
         setFilters(prev => ({ ...initialFilters, limit: prev.limit }));
         if (userRole) {
-            fetchReportData(1);
+            // Đảm bảo chạy fetchReportData sau khi filters được cập nhật
+            setTimeout(() => {
+                fetchReportData(1);
+            }, 0);
+
             if (userRole === 'manager' || userRole === 'admin') {
                 fetchFilterData();
             }
@@ -44,8 +50,10 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
     }, [activeTab, userRole]);
 
     useEffect(() => {
-        fetchReportData(filters.page);
-    }, [filters.page, filters.search, filters.programId, filters.standardId, filters.criteriaId, typeFilter]);
+        if (userRole) {
+            fetchReportData(filters.page);
+        }
+    }, [filters.page, filters.search, filters.programId, filters.standardId, filters.criteriaId, typeFilter, filters.limit]); // Thêm filters.limit
 
     const fetchFilterData = async () => {
         try {
@@ -81,6 +89,23 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
     };
 
     const fetchReportData = async (page = 1) => {
+        const currentConfig = statusTabs.find(tab => tab.id === activeTab);
+        if (!currentConfig) return;
+
+        let statusParam = '';
+        let createdByParam = '';
+
+        // Tách status và createdBy từ statusQuery của tab
+        const queries = currentConfig.statusQuery?.split('&').filter(q => q) || [];
+        queries.forEach(query => {
+            if (query.startsWith('status=')) {
+                statusParam = query.replace('status=', '');
+            } else if (query.startsWith('createdBy=me')) {
+                createdByParam = userId;
+            }
+        });
+
+
         try {
             setLoading(true);
 
@@ -88,29 +113,24 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 ...filters,
                 page: page,
                 limit: filters.limit,
-                type: typeFilter // Áp dụng type filter từ component ReportsManagement
+                type: typeFilter, // Áp dụng type filter
+                status: statusParam,
+                createdBy: createdByParam
             };
 
-            const queries = apiStatusQuery.split('&').filter(q => q);
-            queries.forEach(query => {
-                if (query.startsWith('status=')) {
-                    params.status = query.replace('status=', '');
-                } else if (query.startsWith('createdBy=me')) {
-                    params.createdBy = userId;
-                }
-            });
-
             if (isEvaluatorView) {
-                // Khi là evaluator, ta gửi evaluatorId. Backend cần tự xử lý việc lọc report có assignment cho evaluator này.
                 params.evaluatorId = userId;
-                delete params.type; // Backend đã tự lọc theo type=overall_tdg cho evaluator
+                delete params.type; // Loại bỏ type vì backend tự xử lý
             }
 
+            // Loại bỏ các tham số rỗng (bao gồm cả các tham số reset)
             Object.keys(params).forEach(key => {
                 if (params[key] === '' || params[key] === null || (Array.isArray(params[key]) && params[key].length === 0)) {
                     delete params[key];
                 }
             });
+
+            // Xử lý trường hợp "Tất cả" statusQuery='' -> không gửi status param
 
             const response = await apiMethods.reports.getAll(params);
             const data = response.data?.data || response.data;
@@ -119,8 +139,9 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
             setPagination(data?.pagination || { current: page, pages: 1, total: 0, limit: filters.limit, hasNext: page * filters.limit < data?.total, hasPrev: page > 1 });
         } catch (error) {
             console.error("Fetch reports error:", error.response?.data?.message || error.message);
-            toast.error('Không thể tải danh sách báo cáo');
+            toast.error(error.response?.data?.message || 'Không thể tải danh sách báo cáo');
             setReports([]);
+            setPagination({ current: page, pages: 1, total: 0, limit: filters.limit, hasNext: false, hasPrev: false });
         } finally {
             setLoading(false);
         }
@@ -154,7 +175,6 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
         fetchReportData(pagination.current);
     };
 
-    // Ẩn bộ lọc chi tiết cho Evaluator và cho Báo cáo Tiêu chuẩn/Tiêu chí
     const shouldHideFilters = isEvaluatorView || typeFilter === 'standard' || typeFilter === 'criteria';
 
     return (

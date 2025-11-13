@@ -63,6 +63,14 @@ const updateTaskValidation = [
         .withMessage('Ngày hết hạn không hợp lệ')
 ];
 
+router.get('/by-criteria', [
+    query('criteriaId')
+        .notEmpty()
+        .withMessage('ID tiêu chí là bắt buộc')
+        .isMongoId()
+        .withMessage('ID tiêu chí không hợp lệ')
+], validation, getTaskByCriteria);
+
 router.get('/created', [
     query('page').optional().isInt({ min: 1 }).withMessage('Trang phải là số nguyên dương'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit phải từ 1-100'),
@@ -97,14 +105,6 @@ router.get('/', [
     query('sortOrder').optional().isIn(['asc', 'desc'])
 ], validation, getTasks);
 
-router.get('/by-criteria', [
-    query('criteriaId')
-        .notEmpty()
-        .withMessage('ID tiêu chí là bắt buộc')
-        .isMongoId()
-        .withMessage('ID tiêu chí không hợp lệ')
-], validation, getTaskByCriteria);
-
 router.get('/:id', [
     param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ')
 ], validation, getTaskById);
@@ -129,10 +129,10 @@ router.delete('/:id',
 
 // ROUTE NỘP BÁO CÁO CŨ ĐÃ ĐƯỢC LOẠI BỎ.
 
-router.post('/:id/review-report',
+router.post('/:taskId/review-report',
     requireManager,
     [
-        param('id').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
+        param('taskId').isMongoId().withMessage('ID nhiệm vụ không hợp lệ'),
         body('status')
             .notEmpty()
             .withMessage('Trạng thái là bắt buộc')

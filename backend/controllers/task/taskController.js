@@ -393,11 +393,12 @@ const updateTask = async (req, res) => {
         }
 
         if (status && status !== task.status) {
+            // Định nghĩa trạng thái có thể chuyển đổi
             const allowedStatusChanges = {
                 'pending': ['in_progress', 'cancelled'],
                 'in_progress': ['submitted', 'cancelled'],
-                'submitted': ['in_progress', 'completed', 'rejected'],
-                'rejected': ['in_progress', 'cancelled'],
+                'submitted': ['in_progress', 'cancelled'],
+                'rejected': ['in_progress', 'cancelled'], // Có thể quay lại in_progress để sửa
                 'completed': ['in_progress'],
                 'cancelled': [],
             };
@@ -568,52 +569,65 @@ const reviewReport = async (req, res) => {
             report = await Report.findById(task.reportId);
         }
 
-        const canReview = task.status === 'submitted' || (report && report.status === 'public' && String(task.reportId) === String(report._id));
+        // Kiểm tra điều kiện có thể duyệt
+        // Task phải ở trạng thái 'submitted' HOẶC báo cáo ở trạng thái 'public'
+        const canReview = task.status === 'submitted' || (report && report.status === 'public');
 
         if (!canReview) {
-            return res.status(400).json({ success: false, message: `Chỉ có thể duyệt Task khi trạng thái là 'submitted' hoặc Report liên kết là 'public'. Trạng thái Task hiện tại: ${task.status}` });
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ có thể duyệt Task khi trạng thái Task là 'submitted' hoặc báo cáo là 'public'. Trạng thái Task hiện tại: ${task.status}, trạng thái báo cáo: ${report?.status || 'không có báo cáo'}`
+            });
         }
 
-        if (report) {
-            if (status === 'completed') {
+        if (status === 'completed') {
+            // Duyệt được - Task hoàn thành
+            if (report) {
                 report.status = 'approved';
                 report.rejectionFeedback = undefined;
                 await report.save();
-                task.status = 'completed';
-            } else if (status === 'rejected') {
+            }
+            task.status = 'completed';
+            task.rejectionReason = undefined;
+            task.reviewedBy = userId;
+            task.reviewedAt = new Date();
+
+            await Notification.createSystemNotification(
+                `Task ${task.taskCode} đã HOÀN THÀNH ✓`,
+                `Báo cáo liên kết với Task ${task.taskCode} đã được duyệt và chấp thuận. Công việc hoàn thành!`,
+                task.assignedTo,
+                {
+                    type: 'report_approved',
+                    url: `/tasks/${task._id}`,
+                    priority: 'high'
+                }
+            );
+
+        } else if (status === 'rejected') {
+            // Từ chối - Task quay lại rejected để có thể sửa lại
+            if (report) {
                 await report.reject(userId, rejectionReason);
-                task.status = 'rejected';
             }
-        } else {
-            if (status === 'completed') {
-                task.status = 'completed';
-            } else if (status === 'rejected') {
-                task.status = 'rejected';
-            }
+            task.status = 'rejected';
+            task.rejectionReason = rejectionReason.trim();
+            task.reviewedBy = userId;
+            task.reviewedAt = new Date();
+
+            await Notification.createSystemNotification(
+                `Task ${task.taskCode} đã bị TỪ CHỐI - Cần sửa lại`,
+                `Báo cáo liên kết với Task ${task.taskCode} đã bị từ chối.\n\nLý do: ${task.rejectionReason}\n\nVui lòng chỉnh sửa báo cáo và nộp lại để duyệt tiếp.`,
+                task.assignedTo,
+                {
+                    type: 'report_rejected',
+                    url: `/tasks/${task._id}`,
+                    priority: 'high'
+                }
+            );
         }
 
-        task.reviewedBy = userId;
-        task.reviewedAt = new Date();
-        task.rejectionReason = status === 'rejected' ? rejectionReason.trim() : undefined;
         task.updatedBy = userId;
         task.updatedAt = new Date();
         await task.save();
-
-        const notifTitle = status === 'completed' ? `Task ${task.taskCode} đã HOÀN THÀNH` : `Task ${task.taskCode} đã bị TỪ CHỐI`;
-        const notifMessage = status === 'completed' ?
-            `Báo cáo liên kết với Task ${task.taskCode} đã được duyệt và Task đã hoàn thành.` :
-            `Báo cáo liên kết với Task ${task.taskCode} đã bị từ chối. Lý do: ${task.rejectionReason}. Vui lòng chỉnh sửa và nộp lại.`;
-
-        await Notification.createSystemNotification(
-            notifTitle,
-            notifMessage,
-            task.assignedTo,
-            {
-                type: status === 'completed' ? 'report_approved' : 'report_rejected',
-                url: `/tasks/${task._id}`,
-                priority: 'high'
-            }
-        );
 
         res.json({
             success: true,

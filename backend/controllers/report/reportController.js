@@ -33,7 +33,8 @@ const getReports = async (req, res) => {
             criteriaId,
             createdBy,
             sortBy = 'createdAt',
-            sortOrder = 'desc'
+            sortOrder = 'desc',
+            evaluatorId
         } = req.query;
 
         const academicYearId = req.academicYearId;
@@ -54,20 +55,25 @@ const getReports = async (req, res) => {
                     { status: 'published' }
                 ]
             };
-
-            // Remove standard/criteria access for reporter based on new requirement
-            // if (req.user.standardAccess && req.user.standardAccess.length > 0) {
-            //     userAccessQuery.$or.push({ standardId: { $in: req.user.standardAccess } });
-            // }
-            // if (req.user.criteriaAccess && req.user.criteriaAccess.length > 0) {
-            //     userAccessQuery.$or.push({ criteriaId: { $in: req.user.criteriaAccess } });
-            // }
-
             query = { ...query, ...userAccessQuery };
-        } else if (req.user.role === 'evaluator') {
-            // Evaluator chỉ được thấy Báo cáo Tổng hợp TĐG đã được duyệt/phát hành
+        } else if (req.user.role === 'evaluator' || evaluatorId) {
+            // LOGIC CHO EVALUATOR: Chỉ thấy báo cáo được giao
+            const expertId = evaluatorId || req.user.id;
             query.type = 'overall_tdg';
             query.status = { $in: ['approved', 'published', 'in_evaluation'] };
+
+            const Assignment = mongoose.model('Assignment');
+            const assignments = await Assignment.find({
+                evaluatorId: expertId,
+                academicYearId,
+                status: { $in: ['accepted', 'in_progress', 'completed'] }
+            }).select('reportId status _id');
+
+            const reportIds = assignments.map(a => a.reportId);
+            query._id = { $in: reportIds };
+
+            // LƯU THÔNG TIN ASSIGNMENT CỦA EVALUATOR ĐỂ DÙNG SAU
+            req.assignmentsMap = new Map(assignments.map(a => [a.reportId.toString(), a]));
         }
 
 
@@ -87,7 +93,11 @@ const getReports = async (req, res) => {
         if (status) {
             const statusArray = status.split(',').map(s => s.trim()).filter(s => s.length > 0);
             if (statusArray.length > 0) {
-                query.status = { $in: statusArray };
+                if (query.status && query.status.$in) {
+                    query.status.$in = query.status.$in.filter(s => statusArray.includes(s));
+                } else {
+                    query.status = { $in: statusArray };
+                }
             }
         }
 
@@ -113,7 +123,7 @@ const getReports = async (req, res) => {
                 .populate('taskId', 'taskCode')
                 .populate({
                     path: 'evaluations',
-                    select: 'averageScore rating status',
+                    select: 'averageScore rating status evaluatorId assignmentId', // Lấy assignmentId từ evaluation
                     populate: { path: 'evaluatorId', select: 'fullName email' }
                 })
                 .sort(sortOptions)
@@ -122,10 +132,26 @@ const getReports = async (req, res) => {
             Report.countDocuments(query)
         ]);
 
+        // Gắn thông tin Assignment của evaluator vào Report object trước khi gửi đi
+        const reportsWithAssignment = reports.map(report => {
+            const reportObj = report.toObject();
+            if (req.assignmentsMap && req.assignmentsMap.has(report._id.toString())) {
+                const assignment = req.assignmentsMap.get(report._id.toString());
+
+                // Đính kèm Assignment ID và Status trực tiếp vào object
+                reportObj.evaluatorAssignment = {
+                    assignmentId: assignment._id,
+                    status: assignment.status
+                };
+            }
+            return reportObj;
+        });
+
+
         res.json({
             success: true,
             data: {
-                reports,
+                reports: reportsWithAssignment,
                 pagination: {
                     current: pageNum,
                     pages: Math.ceil(total / limitNum),
@@ -185,11 +211,9 @@ const getReportById = async (req, res) => {
             });
         }
 
-        // Kiểm tra quyền truy cập cho Evaluator và Reporter
         const canView = report.canView(req.user.id, req.user.role, req.user.standardAccess, req.user.criteriaAccess);
 
         if (!canView) {
-            // Trường hợp đặc biệt: Evaluator chỉ xem được overall_tdg đã được phân quyền.
             if (req.user.role === 'evaluator' && report.type === 'overall_tdg') {
                 const Assignment = mongoose.model('Assignment');
                 const assignment = await Assignment.findOne({

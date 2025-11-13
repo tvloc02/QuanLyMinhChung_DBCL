@@ -314,7 +314,8 @@ reportSchema.virtual('statusText').get(function() {
 });
 
 reportSchema.virtual('rejectionCount').get(function() {
-    return this.rejectionHistory.length;
+    // FIX: Kiểm tra null/undefined an toàn cho rejectionHistory
+    return this.rejectionHistory ? this.rejectionHistory.length : 0;
 });
 
 reportSchema.virtual('url').get(function() {
