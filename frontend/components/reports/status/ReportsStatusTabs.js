@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import ReportListTable from './ReportListTable';
 
-// Thêm typeFilter và isEvaluatorView vào props
 export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab, userRole, userId, typeFilter, isEvaluatorView }) {
     const router = useRouter();
 
@@ -92,7 +91,6 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 type: typeFilter // Áp dụng type filter từ component ReportsManagement
             };
 
-            // Phân tích statusQuery (Bao gồm cả createdBy=me và status=...)
             const queries = apiStatusQuery.split('&').filter(q => q);
             queries.forEach(query => {
                 if (query.startsWith('status=')) {
@@ -102,19 +100,10 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                 }
             });
 
-            // Logic đặc biệt cho Evaluator
             if (isEvaluatorView) {
-                params.evaluatorId = userId; // Backend sẽ lọc assignment dựa trên evaluatorId này
-
-                // Các tab của evaluator được định nghĩa dựa trên assignment status, không phải report status
-                // Backend controller getReports của evaluator chỉ lấy overall_tdg. Ta cần gửi status query phù hợp cho Assignment.
-                // Ở đây ta giả định backend sẽ nhận biết evaluatorId và tự động chuyển đổi status query thành assignment status query.
-                // Do giới hạn chỉ sửa FE, ta chỉ có thể truyền evaluatorId và typeFilter, và status (giữ nguyên để tránh sửa backend sâu hơn)
-                // Tuy nhiên, để đáp ứng yêu cầu "Báo cáo chưa đánh giá", ta cần lọc theo Assignment Status: accepted, in_progress (hoặc chưa có evaluation)
-                // Ta cần giả định API Reports.getAll hỗ trợ lọc reports có assignment status/evaluation status.
-
-                // Nếu là Evaluator, ta chỉ quan tâm đến các báo cáo có Assignment được giao cho họ.
-                // Ta thêm evaluatorId vào params. Backend sẽ cần tự xử lý logic này.
+                // Khi là evaluator, ta gửi evaluatorId. Backend cần tự xử lý việc lọc report có assignment cho evaluator này.
+                params.evaluatorId = userId;
+                delete params.type; // Backend đã tự lọc theo type=overall_tdg cho evaluator
             }
 
             Object.keys(params).forEach(key => {
@@ -122,11 +111,6 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
                     delete params[key];
                 }
             });
-
-            // Xóa type nếu đang là Evaluator vì typeFilter đã được áp dụng trong reports.js
-            if (userRole === 'evaluator') {
-                delete params.type;
-            }
 
             const response = await apiMethods.reports.getAll(params);
             const data = response.data?.data || response.data;
@@ -171,7 +155,7 @@ export default function ReportsStatusTabs({ statusTabs, activeTab, setActiveTab,
     };
 
     // Ẩn bộ lọc chi tiết cho Evaluator và cho Báo cáo Tiêu chuẩn/Tiêu chí
-    const shouldHideFilters = isEvaluatorView || typeFilter !== 'overall_tdg';
+    const shouldHideFilters = isEvaluatorView || typeFilter === 'standard' || typeFilter === 'criteria';
 
     return (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">

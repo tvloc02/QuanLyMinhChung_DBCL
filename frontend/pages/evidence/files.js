@@ -18,9 +18,6 @@ import {
     Loader2,
     ArrowLeft,
     Sparkles,
-    CheckCircle,
-    XCircle,
-    Clock,
     X,
     Eye
 } from 'lucide-react'
@@ -52,7 +49,6 @@ export default function FilesPage() {
     const currentUserId = user?._id?.toString()
 
     const authToken = typeof window !== 'undefined' ? getLocalStorage('token') : null;
-    const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -93,14 +89,18 @@ export default function FilesPage() {
         setShowPreviewModal(true);
 
         const fileExtension = file.extension?.replace('.', '')?.toLowerCase() || file.originalName.split('.').pop()?.toLowerCase();
-        const isOfficeFile = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension);
 
-        if (isOfficeFile) {
+        const isOfficeFile = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension);
+        const isPdfFile = file.mimeType === 'application/pdf';
+
+        // KHÔI PHỤC LOGIC STREAM CHO CẢ FILE OFFICE VÀ PDF
+        if (isOfficeFile || isPdfFile) {
             const streamUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/files/stream/${file._id}?token=${authToken}`;
             setPreviewDataUri(streamUrl);
             setPreviewLoading(false);
             return;
         }
+        // KẾT THÚC KHÔI PHỤC LOGIC
 
         try {
             const response = await apiMethods.files.download(file._id);
@@ -256,37 +256,6 @@ export default function FilesPage() {
         }
         return <File className="h-8 w-8 text-gray-500" />
     }
-
-    const getApprovalStatusBadge = (status) => {
-        switch (status) {
-            case 'approved':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                        Đã duyệt
-                    </span>
-                )
-            case 'rejected':
-                return (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                        <XCircle className="h-3.5 w-3.5 mr-1" />
-                        Từ chối
-                    </span>
-                )
-            case 'pending':
-            default:
-                return (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">
-                        <Clock className="h-3.5 w-3.5 mr-1" />
-                        Chờ duyệt
-                    </span>
-                )
-        }
-    }
-
-    const pendingFilesCount = files.filter(f => f.approvalStatus === 'pending').length
-    const approvedFilesCount = files.filter(f => f.approvalStatus === 'approved').length
-    const rejectedFilesCount = files.filter(f => f.approvalStatus === 'rejected').length
 
     if (isLoading) {
         return (
@@ -531,6 +500,7 @@ export default function FilesPage() {
                                     const fileExtension = previewFile.extension?.replace('.', '')?.toLowerCase() || previewFile.originalName.split('.').pop()?.toLowerCase();
                                     const isOfficeFile = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension);
 
+                                    // KHÔI PHỤC: Sử dụng logic forceRemoteRender cho file Office
                                     if (!isSupported) {
                                         return (
                                             <div className="flex items-center justify-center h-full p-4">
@@ -557,6 +527,7 @@ export default function FilesPage() {
                                         fileType: previewFile.mimeType,
                                     }];
 
+                                    // KHÔI PHỤC: Thiết lập forceRemoteRender
                                     const forceRemoteRender = isOfficeFile && !previewDataUri.startsWith('data:');
 
                                     return (

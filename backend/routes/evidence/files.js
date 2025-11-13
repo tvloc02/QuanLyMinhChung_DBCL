@@ -14,8 +14,8 @@ const {
     searchFiles,
     getFileStatistics
 } = require('../../controllers/evidence/fileController');
+const File = require('../../models/Evidence/File');
 
-// Upload files
 router.post('/upload/:evidenceId',
     auth,
     upload.array('files', 10),
@@ -27,7 +27,6 @@ router.post('/upload/:evidenceId',
     uploadFiles
 );
 
-// Download file
 router.get('/download/:id',
     auth,
     [
@@ -37,7 +36,6 @@ router.get('/download/:id',
     downloadFile
 );
 
-// Stream file (for preview) - ÁP DỤNG AUTH ĐÃ SỬA
 router.get('/stream/:id',
     auth,
     [
@@ -47,7 +45,6 @@ router.get('/stream/:id',
     streamFile
 );
 
-// Get file info
 router.get('/:id/info',
     auth,
     [
@@ -57,7 +54,6 @@ router.get('/:id/info',
     getFileInfo
 );
 
-// Delete file
 router.delete('/:id',
     auth,
     [
@@ -67,7 +63,6 @@ router.delete('/:id',
     deleteFile
 );
 
-// Get files by evidence
 router.get('/evidence/:evidenceId',
     auth,
     [
@@ -116,13 +111,11 @@ router.get('/evidence/:evidenceId',
     }
 );
 
-// Search files
 router.get('/search',
     auth,
     searchFiles
 );
 
-// Get file statistics
 router.get('/statistics/:evidenceId',
     auth,
     [

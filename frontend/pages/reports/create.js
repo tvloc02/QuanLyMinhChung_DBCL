@@ -277,21 +277,18 @@ export default function CreateReportPage() {
     const handleSubmissionToTask = async (reportId, selectedTaskId) => {
         if (!selectedTaskId) {
             toast('Báo cáo đã được tạo (Draft). Bạn có thể liên kết Task sau.', { icon: '📝' });
-            router.push(`/reports/${reportId}`);
+            await router.push(`/reports/reports`);
             return;
         }
 
         try {
-            // Khi tạo độc lập, Report được tạo với taskId: null và status: 'draft'.
-            // Bây giờ ta nộp, Report được submitReportToTask
             const response = await apiMethods.reports.submitReportToTask(reportId, { taskId: selectedTaskId });
             toast.success(response.data?.message || `Nộp báo cáo thành công cho Task ID: ${selectedTaskId}`);
-            router.push(`/reports/${reportId}`);
+            await router.push(`/reports/reports`);
         } catch (error) {
             console.error('Submission to Task error:', error);
-            // Dù có lỗi nộp, vẫn chuyển hướng đến trang báo cáo để người dùng có thể thử lại
             toast.error(error.response?.data?.message || 'Lỗi khi nộp báo cáo cho nhiệm vụ. Đã lưu dưới dạng Draft.');
-            router.push(`/reports/${reportId}`);
+            await router.push(`/reports/reports`);
         } finally {
             setShowTaskSubmissionModal(false);
             setTaskSubmissionContext(null);
@@ -317,10 +314,9 @@ export default function CreateReportPage() {
                 summary: formData.summary,
                 keywords: formData.keywords,
                 taskId: formData.taskId || null,
-                linkedCriteriaReports: linkedCriteriaReports.map(r => r._id) // Thêm ID các báo cáo chèn vào
+                linkedCriteriaReports: linkedCriteriaReports.map(r => r._id)
             }
 
-            // Chỉ gửi standardId/criteriaId nếu type không phải overall_tdg
             if (formData.type !== 'overall_tdg') {
                 submitData.standardId = formData.standardId
                 if (formData.type === 'criteria') {
@@ -334,20 +330,17 @@ export default function CreateReportPage() {
                 submitData.content = ''
             }
 
-            // Report creation
             const response = await reportService.createReport(submitData)
 
             if (response.success) {
                 const reportId = response.data._id
+                const userRole = user?.role;
 
-                // File upload logic
                 if (formData.contentMethod === 'file_upload' && selectedFile) {
                     try {
-                        // SỬA LỖI TẠO FORM DATA TẠI ĐÂY
                         const fileFormData = new FormData();
                         fileFormData.append('file', selectedFile);
 
-                        // apiMethods.reports.uploadFile cần ReportId và FormData
                         await apiMethods.reports.uploadFile(reportId, fileFormData);
                         setMessage({ type: 'success', text: 'Tạo báo cáo và upload file thành công' })
                     } catch (uploadError) {
@@ -358,8 +351,8 @@ export default function CreateReportPage() {
                     setMessage({ type: 'success', text: 'Tạo báo cáo thành công' })
                 }
 
-                // Nếu KHÔNG có Task context ban đầu (tạo độc lập), hiện modal chọn Task để nộp
-                if (!formData.taskId) {
+                // CHỈ REPORTER MỚI CẦN HIỂN THỊ MODAL NỘP TASK
+                if (userRole === 'reporter' && !formData.taskId) {
                     setTaskSubmissionContext({
                         reportId: reportId,
                         reportType: formData.type,
@@ -368,8 +361,7 @@ export default function CreateReportPage() {
                     });
                     setShowTaskSubmissionModal(true);
                 } else {
-                    // Nếu đã có Task context, Task đã được cập nhật reportId và status='in_progress'
-                    router.push(`/reports/${reportId}`);
+                    await router.push(`/reports/reports`);
                 }
 
             }
@@ -381,7 +373,6 @@ export default function CreateReportPage() {
             } else if (error.message) {
                 errorMessage = error.message
             }
-            // HIỂN THỊ LỖI THẬT SỰ TỪ SERVER
             toast.error(errorMessage);
             setMessage({ type: 'error', text: errorMessage })
         } finally {
@@ -483,7 +474,7 @@ export default function CreateReportPage() {
     }
 
     const handleSelectExistingReport = (reportId) => {
-        router.push(`/reports/${reportId}`)
+        router.push(`/reports/reports`)
         setHasHandledInitialModal(true)
     }
 
@@ -492,7 +483,6 @@ export default function CreateReportPage() {
         setHasHandledInitialModal(true)
         setHasHandledInitialModal(true)
 
-        // Reset form data to context/initial values
         setFormData(prev => ({
             ...prev,
             title: '',
@@ -521,7 +511,6 @@ export default function CreateReportPage() {
         let htmlToInsert = '';
 
         selectedReports.forEach((report, index) => {
-            // Bao bọc nội dung báo cáo chèn vào trong thẻ div để dễ phân biệt
             htmlToInsert += `<div style="border-left: 3px solid #3b82f6; padding-left: 1rem; margin: 1rem 0; background-color: #eff6ff;">
                                 <h4>Báo cáo chèn vào: ${report.title} (${report.code})</h4>
                                 ${report.content}
@@ -540,7 +529,7 @@ export default function CreateReportPage() {
                     ...prev,
                     ...selectedReports.filter(sr =>
                         !prev.some(p => p._id === sr._id)
-                    ).map(sr => ({...sr, _id: sr._id, name: sr.title, code: sr.code})) // Chuẩn hóa lại cấu trúc object
+                    ).map(sr => ({...sr, _id: sr._id, name: sr.title, code: sr.code}))
                 ]);
 
                 toast.success(`Đã chèn ${selectedReports.length} báo cáo`);
@@ -567,16 +556,14 @@ export default function CreateReportPage() {
         )
     }
 
-    // Logic hiển thị Evidence Picker: Chỉ hiển thị nếu đang dùng Online Editor VÀ có context (Program/Org, hoặc Standard/Criteria)
     const showEvidencePicker = formData.contentMethod === 'online_editor' && (
         formData.programId && formData.organizationId
     );
 
-    // Logic kiểm tra ngữ cảnh đã sẵn sàng để tải minh chứng hay chưa
     const isEvidencePickerContextReady =
-        formData.criteriaId || // 1. Báo cáo tiêu chí (luôn cần CriteriaId)
-        (formData.type === 'standard' && formData.standardId) || // 2. Báo cáo tiêu chuẩn (chỉ cần StandardId)
-        (formData.type === 'overall_tdg' && formData.programId && formData.organizationId); // 3. Báo cáo TĐG tổng thể
+        formData.criteriaId ||
+        (formData.type === 'standard' && formData.standardId) ||
+        (formData.type === 'overall_tdg' && formData.programId && formData.organizationId);
 
 
     return (
@@ -622,13 +609,12 @@ export default function CreateReportPage() {
                     onSelectTask={handleSubmissionToTask}
                     onSkip={(id) => {
                         setShowTaskSubmissionModal(false);
-                        toast('Báo cáo đã được tạo (Draft). Bạn có thể liên kết Task sau.', { icon: '📝' });
-                        router.push(`/reports/${id}`);
+                        toast('Báo cáo đã được tạo (Draft). Bạn có thể liên kết Task sau.', { icon: '' });
+                        router.push(`/reports/reports`);
                     }}
                 />
             )}
 
-            {/* MESSAGE ALERT */}
             {message.text && (
                 <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 mb-6 ${
                     message.type === 'success'
@@ -665,7 +651,6 @@ export default function CreateReportPage() {
                 </div>
             )}
 
-            {/* HEADER - Tiêu đề chính */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -691,10 +676,8 @@ export default function CreateReportPage() {
                 </div>
             </div>
 
-            {/* BỐ CỤC CHÍNH: MAIN FORM VÀ SIDEBAR MINH CHỨNG */}
             <div className="flex gap-6 relative">
 
-                {/* CỘT PHẢI - Evidence Picker (Chỉ hiện trên desktop) */}
                 {showEvidencePicker && (
                     <div className="w-96 flex-shrink-0 md:order-2 md:block hidden">
                         <div className="sticky top-6">
@@ -710,7 +693,6 @@ export default function CreateReportPage() {
 
                                 {isEvidencePickerContextReady ? (
                                     <ReportEvidencePicker
-                                        // Truyền cả 4 ID để có thể lọc scope rộng nhất có thể
                                         standardId={formData.standardId}
                                         criteriaId={formData.criteriaId}
                                         programId={formData.programId}
@@ -732,16 +714,14 @@ export default function CreateReportPage() {
                 )}
 
 
-                {/* CỘT CHÍNH - Main Form (chiếm phần còn lại) */}
                 <div className="flex-1 md:order-1">
                     {showEvidencePicker && (
                         <div className="block md:hidden">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
                                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    <Eye className="h-5 w-5 text-cyan-600" />
+                                    <Eye className="w-5 h-5 text-cyan-600" />
                                     Công cụ Minh chứng
                                 </h3>
-                                {/* Nút Tạo Minh Chứng Mới */}
                                 <button
                                     onClick={handleOpenNewEvidenceModal}
                                     className="w-full inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm gap-2"
@@ -773,7 +753,6 @@ export default function CreateReportPage() {
 
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Thông tin cơ bản */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                                 <FileText className="w-6 h-6 text-blue-600" />
@@ -781,7 +760,6 @@ export default function CreateReportPage() {
                             </h2>
 
                             <div className="space-y-6">
-                                {/* Tiêu đề */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tiêu đề báo cáo <span className="text-red-500">*</span>
@@ -802,7 +780,6 @@ export default function CreateReportPage() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Loại báo cáo - Cho phép chọn overall_tdg */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <FileType className="w-4 h-4 inline mr-1" />
@@ -814,7 +791,6 @@ export default function CreateReportPage() {
                                             onChange={(e) => {
                                                 const newType = e.target.value;
                                                 handleChange('type', newType);
-                                                // Xóa tiêu chuẩn/tiêu chí nếu chuyển sang overall_tdg
                                                 if (newType === 'overall_tdg') {
                                                     setFormData(prev => ({ ...prev, standardId: '', criteriaId: '' }));
                                                 }
@@ -828,7 +804,6 @@ export default function CreateReportPage() {
                                         </select>
                                     </div>
 
-                                    {/* Phương thức nhập */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Phương thức nhập <span className="text-red-500">*</span>
@@ -843,8 +818,6 @@ export default function CreateReportPage() {
                                         </select>
                                     </div>
 
-                                    {/* Chương trình - CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA (TẠO ĐỘC LẬP) */}
-                                    {/* Nếu bị khóa, chỉ hiển thị tên chương trình đã chọn (nếu có) */}
                                     {isLocked.programId ? (
                                         <div className="col-span-1">
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -885,7 +858,6 @@ export default function CreateReportPage() {
                                         </div>
                                     )}
 
-                                    {/* Tổ chức - CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA (TẠO ĐỘC LẬP) */}
                                     {isLocked.organizationId ? (
                                         <div className="col-span-1">
                                             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -923,7 +895,6 @@ export default function CreateReportPage() {
                                         </div>
                                     )}
 
-                                    {/* Tiêu chuẩn - Ẩn khi là overall_tdg VÀ CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA */}
                                     {formData.type !== 'overall_tdg' && (
                                         isLocked.standardId ? (
                                             <div className="col-span-1">
@@ -967,7 +938,6 @@ export default function CreateReportPage() {
                                         )
                                     )}
 
-                                    {/* Tiêu chí - Chỉ hiển thị khi là criteria VÀ CHỈ HIỂN THỊ NẾU KHÔNG BỊ KHÓA */}
                                     {formData.type === 'criteria' && (
                                         isLocked.criteriaId ? (
                                             <div className="col-span-1">
@@ -1011,7 +981,6 @@ export default function CreateReportPage() {
                             </div>
                         </div>
 
-                        {/* Nội dung */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                                 <AlignLeft className="w-6 h-6 text-blue-600" />
@@ -1092,7 +1061,6 @@ export default function CreateReportPage() {
                                 </div>
                             )}
 
-                            {/* Gắn Báo cáo Cấp Thấp Hơn */}
                             {formData.type !== 'criteria' && (
                                 <div className="mt-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
                                     <h4 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -1100,7 +1068,6 @@ export default function CreateReportPage() {
                                         Chèn Nội Dung Báo Cáo Cấp Thấp Hơn
                                     </h4>
 
-                                    {/* Danh sách các báo cáo đã chọn */}
                                     <div className="space-y-2">
                                         {linkedCriteriaReports.map(report => (
                                             <div key={report._id} className="flex items-center justify-between p-3 border border-blue-200 bg-white rounded-lg shadow-sm">
@@ -1109,7 +1076,6 @@ export default function CreateReportPage() {
                                                         {report.name} ({report.code})
                                                     </p>
                                                     <p className="text-xs text-gray-500 flex items-center mt-1">
-                                                        {/* Giữ lại placeholder */}
                                                     </p>
                                                 </div>
                                                 <button
@@ -1158,7 +1124,6 @@ export default function CreateReportPage() {
 
                         </div>
 
-                        {/* Thông tin bổ sung */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                                 <Tag className="w-6 h-6 text-blue-600" />
@@ -1166,7 +1131,6 @@ export default function CreateReportPage() {
                             </h2>
 
                             <div className="space-y-6">
-                                {/* Tóm tắt */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Tóm tắt
@@ -1184,7 +1148,6 @@ export default function CreateReportPage() {
                                     </p>
                                 </div>
 
-                                {/* Từ khóa */}
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                                         Từ khóa
@@ -1227,7 +1190,6 @@ export default function CreateReportPage() {
                             </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-center justify-end gap-4 pt-6">
                             <button
                                 type="button"
@@ -1287,20 +1249,29 @@ function TaskSelectionModal({ isOpen, reportId, reportType, standardId, criteria
     const fetchTasks = async () => {
         try {
             setLoading(true);
-            const params = {
+
+            let params = {
                 reportType: reportType,
-                standardId: standardId,
-                criteriaId: criteriaId,
-                status: 'pending,in_progress,rejected',
-                limit: 50
             };
 
+            const safeStandardId = standardId && standardId.trim() !== '' ? standardId : null;
+            const safeCriteriaId = criteriaId && criteriaId.trim() !== '' ? criteriaId : null;
+
+            if (safeStandardId) {
+                params.standardId = safeStandardId;
+            }
+            if (safeCriteriaId) {
+                params.criteriaId = safeCriteriaId;
+            }
+
+            // GỌI API
             const response = await apiMethods.tasks.getAssignedTasks(params);
 
-            // Logic kiểm tra ở frontend: Task phải chưa có ReportId hoặc ReportId là Report hiện tại
+            // Lọc front-end: Task phải chưa có ReportId HOẶC ReportId là Report hiện tại
             const availableTasks = response.data.data.filter(t => !t.reportId || String(t.reportId) === String(reportId));
             setTasks(availableTasks);
         } catch (err) {
+            console.error("Fetch tasks error:", err.response?.data?.message || err.message);
             toast.error("Không thể tải danh sách nhiệm vụ");
         } finally {
             setLoading(false);
@@ -1364,7 +1335,6 @@ function TaskSelectionModal({ isOpen, reportId, reportType, standardId, criteria
     );
 }
 
-// THÊM ĐỊNH NGHĨA GIẢ LẬP CHO CriteriaReportPickerModal
 function CriteriaReportPickerModal({ isOpen, reportType, standardId, programId, organizationId, initialReports, onClose, onSelectReports }) {
     const [reports, setReports] = useState([]);
     const [loadingReports, setLoadingReports] = useState(false);
@@ -1382,12 +1352,10 @@ function CriteriaReportPickerModal({ isOpen, reportType, standardId, programId, 
                 organizationId: organizationId,
             };
 
-            // API getInsertableReports đã được chỉnh sửa để fetch các báo cáo cấp thấp hơn
             const response = await apiMethods.reports.getInsertable(params);
 
             const fetchedReports = response.data?.data?.reports || [];
 
-            // Loại bỏ các báo cáo đã chọn ban đầu khỏi danh sách hiển thị
             const availableReports = fetchedReports.filter(fr => !initialReports.some(ir => ir._id === fr._id));
 
             setReports(availableReports);
@@ -1417,7 +1385,6 @@ function CriteriaReportPickerModal({ isOpen, reportType, standardId, programId, 
 
     if (!isOpen) return null;
 
-    // Logic kiểm tra điều kiện chèn
     const contextReady = isOverallTdg ? (programId && organizationId) : (isStandard && standardId);
 
     return (

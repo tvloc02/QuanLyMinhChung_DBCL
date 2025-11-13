@@ -1,34 +1,28 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { GridFsStorage } = require('multer-gridfs-storage');
 
 const uploadDir = 'uploads';
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Helper function để decode tên file tiếng Việt
 const decodeFilename = (filename) => {
     console.log('=== DECODE FILENAME DEBUG ===');
     console.log('Original filename:', filename);
-    
+
     try {
-        // Thử nhiều cách decode khác nhau
-        
-        // Cách 1: latin1 -> utf8 (phổ biến nhất)
         const decoded1 = Buffer.from(filename, 'latin1').toString('utf8');
         console.log('Method 1 (latin1->utf8):', decoded1);
-        
-        // Cách 2: binary -> utf8
+
         const decoded2 = Buffer.from(filename, 'binary').toString('utf8');
         console.log('Method 2 (binary->utf8):', decoded2);
-        
-        // Cách 3: Giữ nguyên (đã là UTF-8)
+
         console.log('Method 3 (original):', filename);
-        
-        // Kiểm tra cách nào có ký tự tiếng Việt hợp lệ
+
         const vietnameseChars = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
-        
+
         if (vietnameseChars.test(decoded1)) {
             console.log('✓ Using Method 1');
             return decoded1;
@@ -41,39 +35,35 @@ const decodeFilename = (filename) => {
             console.log('✓ Using Method 3 (original)');
             return filename;
         }
-        
-        // Nếu không có ký tự tiếng Việt, ưu tiên latin1->utf8
+
         console.log('✓ No Vietnamese chars, using Method 1');
         return decoded1;
-        
+
     } catch (error) {
         console.warn('Failed to decode filename:', error);
     }
-    
+
     console.log('✗ Using original filename (fallback)');
     return filename;
 };
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const destPath = path.join(uploadDir, 'temp');
-        if (!fs.existsSync(destPath)) {
-            fs.mkdirSync(destPath, { recursive: true });
-        }
-        cb(null, destPath);
-    },
-    filename: (req, file, cb) => {
-        // Decode tên file tiếng Việt
+const storage = new GridFsStorage({
+    url: process.env.MONGODB_URI || 'mongodb://localhost:27017/your_database',
+    options: { useNewUrlParser: true, useUnifiedTopology: true },
+    file: (req, file) => {
         file.originalname = decodeFilename(file.originalname);
-        
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, `${uniqueSuffix}${ext}`);
+        return {
+            filename: `${Date.now()}-${Math.round(Math.random() * 1E9)}-${file.originalname}`,
+            bucketName: 'uploads',
+            metadata: {
+                evidenceId: req.params.evidenceId,
+                parentFolderId: req.body.parentFolderId
+            }
+        };
     }
 });
 
 const fileFilter = (req, file, cb) => {
-    // Decode tên file tiếng Việt
     file.originalname = decodeFilename(file.originalname);
 
     const allowedTypes = [
@@ -101,8 +91,8 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB
-        files: 10 // Maximum 10 files
+        fileSize: 50 * 1024 * 1024,
+        files: 10
     }
 });
 

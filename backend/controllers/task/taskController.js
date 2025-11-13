@@ -39,13 +39,14 @@ const getTasksByFilter = async (req, res, customQuery = {}) => {
             standardId,
             criteriaId,
             status,
+            reportType,
+            assignedTo,
+            createdBy,
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
 
         const academicYearId = req.academicYearId;
-        const userId = req.user.id;
-
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -53,54 +54,92 @@ const getTasksByFilter = async (req, res, customQuery = {}) => {
         let query = { academicYearId, ...customQuery };
 
         if (search) {
-            query.$or = [
-                { taskCode: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-            ];
+            query.description = { $regex: search, $options: 'i' };
         }
 
-        if (standardId) query.standardId = standardId;
-        if (criteriaId) query.criteriaId = criteriaId;
-        if (status) query.status = status;
+        // 1. Lọc theo Loại Báo Cáo (ReportType)
+        if (reportType) query.reportType = reportType;
 
-        const sortOptions = {};
-        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        // 2. Lọc theo Scope ID
+        if (reportType === 'overall_tdg') {
+            // Chỉ lọc theo ReportType
+        } else if (reportType === 'standard') {
+            // Task loại standard phải khớp standardId
+            if (standardId) query.standardId = standardId;
 
-        const [tasks, total] = await Promise.all([
-            Task.find(query)
-                .populate('academicYearId', 'name code')
-                .populate('standardId', 'name code')
-                .populate('criteriaId', 'name code')
-                .populate('programId', 'name code')
-                .populate('organizationId', 'name code')
-                .populate('assignedTo', 'fullName email avatar')
-                .populate('createdBy', 'fullName email')
-                .sort(sortOptions)
-                .skip(skip)
-                .limit(limitNum),
-            Task.countDocuments(query)
-        ]);
+            // QUAN TRỌNG: Chỉ tìm Task Standard KHÔNG có CriteriaId liên kết.
+            // Sử dụng $or để tìm Task có criteriaId: null HOẶC trường criteriaId không tồn tại.
+            query.$or = [
+                { criteriaId: null },
+                { criteriaId: { $exists: false } }
+            ];
+
+        } else if (reportType === 'criteria') {
+            // Task loại criteria phải khớp cả standardId và criteriaId
+            if (standardId) query.standardId = standardId;
+            if (criteriaId) query.criteriaId = criteriaId;
+        }
+
+        // Lọc theo Trạng thái (đã được làm sạch)
+        if (status) {
+            const statusArray = status.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (statusArray.length > 0) {
+                query.status = { $in: statusArray };
+            }
+        }
+
+        if (assignedTo) {
+            query.assignedTo = assignedTo;
+        }
+
+        if (createdBy) {
+            query.createdBy = createdBy;
+        }
+
+        // Xóa trường $or nếu đã tồn tại và thêm vào query.
+        const finalQuery = { ...query };
+        if (query.$or) {
+            finalQuery.$and = finalQuery.$and || [];
+            finalQuery.$and.push({ $or: query.$or });
+            delete finalQuery.$or; // Xóa $or khỏi đối tượng chính
+        }
+
+        const tasks = await Task.find(finalQuery)
+            .populate('assignedTo', 'fullName email')
+            .populate('createdBy', 'fullName email')
+            .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Task.countDocuments(finalQuery);
 
         res.json({
             success: true,
             data: tasks,
-            total,
-            page: pageNum,
-            limit: limitNum
+            pagination: {
+                total,
+                limit: limitNum,
+                page: pageNum,
+                pages: Math.ceil(total / limitNum)
+            }
         });
 
     } catch (error) {
-        console.error(`Get tasks error (Filter: ${JSON.stringify(customQuery)}):`, error);
+        console.error('Get tasks by filter error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách nhiệm vụ'
+            message: 'Lỗi hệ thống khi lấy nhiệm vụ'
         });
     }
 };
 
 const getAssignedTasks = async (req, res) => {
-    const userId = req.user.id;
-    return getTasksByFilter(req, res, { assignedTo: userId });
+    req.query.assignedTo = req.user.id;
+
+    if (!req.query.status) {
+        req.query.status = 'pending,in_progress,submitted,rejected';
+    }
+    return getTasksByFilter(req, res);
 };
 
 const getCreatedTasks = async (req, res) => {

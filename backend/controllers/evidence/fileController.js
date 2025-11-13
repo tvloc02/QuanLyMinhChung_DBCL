@@ -1,10 +1,16 @@
 const File = require('../../models/Evidence/File');
 const Evidence = require('../../models/Evidence/Evidence');
 const path = require('path');
-const fs = require('fs');
 const mongoose = require('mongoose');
 const permissionService = require('../../services/permissionService');
 const jwt = require('jsonwebtoken');
+const gridfs = require('gridfs-stream');
+
+let gfs;
+mongoose.connection.once('open', () => {
+    gfs = gridfs(mongoose.connection.db, mongoose.mongo);
+    gfs.collection('uploads');
+});
 
 const authenticateTokenFromQuery = (req) => {
     const token = req.query.token;
@@ -43,36 +49,6 @@ const updateFolderMetadata = async (folderId) => {
     } catch (error) {
         console.error('Update folder metadata error:', error);
     }
-};
-
-const sanitizeFileName = (evidenceCode, originalName) => {
-    const ext = path.extname(originalName);
-    let baseName = path.basename(originalName, ext);
-
-    const now = new Date();
-    const timestamp = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0'),
-        String(now.getHours()).padStart(2, '0'),
-        String(now.getMinutes()).padStart(2, '0'),
-        String(now.getSeconds()).padStart(2, '0')
-    ].join('');
-
-    let fileName = `${evidenceCode}_${timestamp}_${baseName}${ext}`;
-
-    fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, '_')
-        .replace(/[\u{0080}-\u{FFFF}]/gu, '');
-
-    if (fileName.length > 200) {
-        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-        const truncated = nameWithoutExt.substring(0, 200 - ext.length);
-        fileName = truncated + ext;
-    }
-
-    return fileName;
 };
 
 const uploadFiles = async (req, res) => {
@@ -132,33 +108,15 @@ const uploadFiles = async (req, res) => {
         for (const file of files) {
             const originalNameUtf8 = file.originalname;
 
-            const storedName = sanitizeFileName(evidence.code, originalNameUtf8);
-
-            const permanentPath = path.join('uploads', 'evidences', storedName);
-            const permanentDir = path.dirname(permanentPath);
-
-            if (!fs.existsSync(permanentDir)) {
-                fs.mkdirSync(permanentDir, { recursive: true });
-            }
-
-            if (fs.existsSync(file.path)) {
-                fs.renameSync(file.path, permanentPath);
-            } else {
-                console.warn(`File temp không tồn tại: ${file.path}`);
-                continue;
-            }
-
             const fileDoc = new File({
                 originalName: originalNameUtf8,
-                storedName,
-                filePath: permanentPath,
+                gridfsId: file.id,
                 size: file.size,
                 mimeType: file.mimetype,
                 extension: path.extname(originalNameUtf8).toLowerCase(),
                 evidenceId,
                 uploadedBy: userId,
                 uploadedAt: new Date(),
-                url: `/uploads/evidences/${storedName}`,
                 type: 'file',
                 parentFolder: parentFolderId || null,
             });
@@ -176,7 +134,7 @@ const uploadFiles = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Upload thành công ${savedFiles.length} file`,
+            message: `Upload thành công ${savedFiles.length} file (GridFS)`,
             data: savedFiles
         });
 
@@ -208,17 +166,22 @@ const downloadFile = async (req, res) => {
             });
         }
 
-        if (!fs.existsSync(file.filePath)) {
-            return res.status(404).json({
-                success: false,
-                message: 'File không tồn tại trên hệ thống'
-            });
-        }
-
         await file.incrementDownloadCount();
 
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
-        res.download(file.filePath);
+        res.setHeader('Content-Type', file.mimeType);
+
+        const readstream = gfs.createReadStream({ _id: file.gridfsId, root: 'uploads' });
+
+        readstream.on('error', (err) => {
+            console.error('GridFS read error:', err);
+            return res.status(404).json({
+                success: false,
+                message: 'File không tồn tại trên hệ thống lưu trữ'
+            });
+        });
+
+        readstream.pipe(res);
 
     } catch (error) {
         console.error('Download file error:', error);
@@ -245,24 +208,18 @@ const streamFile = async (req, res) => {
 
         const file = await File.findById(id);
         if (!file) {
-            console.error('File not found in DB:', id);
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy file'
             });
         }
 
-        if (!fs.existsSync(file.filePath)) {
-            console.error('File path does not exist:', file.filePath);
-            return res.status(404).json({
+        if (file.type === 'folder') {
+            return res.status(400).json({
                 success: false,
-                message: 'File không tồn tại trên hệ thống'
+                message: 'Không thể stream thư mục'
             });
         }
-
-        const stat = fs.statSync(file.filePath);
-        const fileSize = stat.size;
-        const range = req.headers.range;
 
         res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', 'inline');
@@ -270,34 +227,66 @@ const streamFile = async (req, res) => {
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Access-Control-Allow-Origin', '*');
 
-        if (range) {
-            const parts = range.replace(/bytes=/, "").split("-");
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-            const chunksize = (end - start) + 1;
+        const readstream = gfs.createReadStream({ _id: file.gridfsId, root: 'uploads' });
 
-            res.writeHead(206, {
-                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                'Accept-Ranges': 'bytes',
-                'Content-Length': chunksize,
-                'Content-Type': file.mimeType || 'application/octet-stream',
-                'Content-Disposition': 'inline',
-                'Access-Control-Allow-Origin': '*'
+        readstream.on('error', (err) => {
+            console.error('GridFS stream error:', err);
+            return res.status(404).json({
+                success: false,
+                message: 'File không tồn tại trên hệ thống lưu trữ'
             });
+        });
 
-            fs.createReadStream(file.filePath, { start, end }).pipe(res);
-        } else {
-            res.writeHead(200, {
-                'Content-Length': fileSize,
-                'Content-Type': file.mimeType || 'application/octet-stream',
-                'Accept-Ranges': 'bytes',
-                'Content-Disposition': 'inline',
-                'Access-Control-Allow-Origin': '*'
-            });
+        // Cần tìm thông tin file để xử lý Range headers (nếu cần)
+        gfs.files.findOne({ _id: file.gridfsId, root: 'uploads' }, (err, fileMeta) => {
+            if (err || !fileMeta) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy file metadata'
+                });
+            }
 
-            fs.createReadStream(file.filePath).pipe(res);
-        }
+            const fileSize = fileMeta.length;
+            const range = req.headers.range;
 
+            if (range) {
+                const parts = range.replace(/bytes=/, "").split("-");
+                const start = parseInt(parts[0], 10);
+                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+                const chunksize = (end - start) + 1;
+
+                res.writeHead(206, {
+                    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                    'Content-Length': chunksize,
+                    'Content-Type': file.mimeType,
+                    'Content-Disposition': 'inline',
+                    'Access-Control-Allow-Origin': '*'
+                });
+
+                const rangedStream = gfs.createReadStream({
+                    _id: file.gridfsId,
+                    root: 'uploads',
+                    range: { startPos: start, endPos: end }
+                });
+
+                rangedStream.on('error', (err) => {
+                    console.error('GridFS ranged stream error:', err);
+                    res.status(500).end();
+                });
+
+                rangedStream.pipe(res);
+
+            } else {
+                res.writeHead(200, {
+                    'Content-Length': fileSize,
+                    'Content-Type': file.mimeType,
+                    'Accept-Ranges': 'bytes',
+                    'Content-Disposition': 'inline',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                readstream.pipe(res);
+            }
+        });
     } catch (error) {
         console.error('Stream file error:', error);
         res.status(500).json({
@@ -343,10 +332,6 @@ const deleteFile = async (req, res) => {
 
         const parentFolderId = file.parentFolder;
 
-        if (file.type === 'file' && fs.existsSync(file.filePath)) {
-            fs.unlinkSync(file.filePath);
-        }
-
         await Evidence.findByIdAndUpdate(
             file.evidenceId._id,
             { $pull: { files: file._id } }
@@ -364,7 +349,7 @@ const deleteFile = async (req, res) => {
 
         res.json({
             success: true,
-            message: file.type === 'folder' ? 'Xóa thư mục thành công' : 'Xóa file thành công'
+            message: file.type === 'folder' ? 'Xóa thư mục thành công' : 'Xóa file thành công (GridFS)'
         });
 
     } catch (error) {

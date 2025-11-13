@@ -8,14 +8,9 @@ const fileSchema = new mongoose.Schema({
         trim: true
     },
 
-    storedName: {
-        type: String,
-        required: [true, 'Tên file lưu trữ là bắt buộc']
-    },
-
-    filePath: {
-        type: String,
-        required: [true, 'Đường dẫn file là bắt buộc']
+    gridfsId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: [true, 'ID GridFS là bắt buộc']
     },
 
     size: {
@@ -52,7 +47,6 @@ const fileSchema = new mongoose.Schema({
         required: [true, 'Người upload là bắt buộc']
     },
 
-    url: String,
     publicId: String,
 
     parentFolder: {
@@ -128,15 +122,7 @@ fileSchema.pre('save', function(next) {
 });
 
 fileSchema.pre('validate', function(next) {
-    const fullPath = `${this.filePath}/${this.storedName}`;
-    if (fullPath.length > 255) {
-        return next(new Error('Đường dẫn đầy đủ (path + name) không được quá 255 ký tự'));
-    }
     next();
-});
-
-fileSchema.virtual('fullName').get(function() {
-    return this.storedName || this.originalName;
 });
 
 fileSchema.virtual('isImage').get(function() {
@@ -170,29 +156,6 @@ fileSchema.methods.addActivityLog = async function(action, userId, description, 
         targetName: this.originalName,
         ...additionalData
     });
-};
-
-fileSchema.statics.sanitizeFileName = function(evidenceCode, evidenceName, originalName) {
-    const ext = path.extname(originalName);
-    let baseName = path.basename(originalName, ext);
-    let fileName = `${evidenceCode}-${baseName}${ext}`;
-    fileName = fileName
-        .replace(/[<>:"/\\|?*]/g, '')
-        .replace(/\s+/g, '-')
-        .trim();
-
-    const maxNameLength = 255;
-    if (fileName.length > maxNameLength) {
-        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
-        const truncatedName = nameWithoutExt.substring(0, maxNameLength - ext.length - 1);
-        fileName = truncatedName + ext;
-    }
-
-    return fileName;
-};
-
-fileSchema.statics.generateStoredName = function(evidenceCode, evidenceName, originalName) {
-    return this.sanitizeFileName(evidenceCode, evidenceName, originalName);
 };
 
 fileSchema.methods.incrementDownloadCount = async function() {
@@ -236,10 +199,21 @@ fileSchema.post('save', async function(doc, next) {
 });
 
 fileSchema.post('findOneAndDelete', async function(doc, next) {
+    const gridfs = require('gridfs-stream');
+    let gfs;
+    gfs = gridfs(mongoose.connection.db, mongoose.mongo);
+    gfs.collection('uploads');
+
+    if (doc && doc.gridfsId) {
+        gfs.remove({ _id: doc.gridfsId, root: 'uploads' }, (err) => {
+            if (err) console.error('Failed to remove file from GridFS:', err);
+        });
+    }
+
     if (doc && doc.uploadedBy) {
         try {
             await doc.addActivityLog('file_delete', doc.updatedBy,
-                `Xóa file: ${doc.originalName}`, {
+                `Xóa file (GridFS): ${doc.originalName}`, {
                     severity: 'medium',
                     result: 'success',
                     isAuditRequired: true
