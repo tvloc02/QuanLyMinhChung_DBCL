@@ -6,7 +6,7 @@ import { apiMethods } from '../../../services/api';
 import { formatDate } from '../../../utils/helpers';
 import {
     Eye, Edit2, Trash2, CheckCircle, XCircle, Send, RotateCcw, UserPlus,
-    Loader2, Upload, ChevronDown, ChevronRight, MessageSquare, ListTodo
+    Loader2, ChevronDown, ChevronRight, MessageSquare, ListTodo
 } from 'lucide-react';
 
 function ReportListTable({ reports, loading, pagination, handlePageChange, userRole, userId, handleActionSuccess, isEvaluatorView }) {
@@ -108,26 +108,31 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                     }
                     break;
                 case 'evaluate':
-                    // Chuyển hướng đến trang tạo đánh giá mới (hoặc chỉnh sửa draft)
-                    // Cần giả định Report object chứa thông tin về assignment của evaluator (sẽ được populate trong controller)
-                    // Giả định report.evaluations được populate: {path: 'evaluations', select: 'assignmentId status'}
+                    // === LOGIC XỬ LÝ NÚT ĐÁNH GIÁ CHO EVALUATOR ===
 
+                    // 1. Kiểm tra xem user đã có bài đánh giá nào cho báo cáo này chưa
                     const myEvaluation = report.evaluations?.find(e =>
-                        String(e.evaluatorId) === String(userId)
+                        String(e.evaluatorId?._id || e.evaluatorId) === String(userId)
                     );
 
-                    const assignmentId = report.assignments?.find(a =>
-                        String(a.evaluatorId) === String(userId)
-                    )?.assignmentId; // Giả sử assignmentId được populate/thêm vào report
+                    // 2. Lấy thông tin Assignment ID từ backend (đã được populate vào evaluatorAssignment)
+                    const assignmentId = report.evaluatorAssignment?.assignmentId;
 
                     if (myEvaluation) {
-                        // Nếu đã có evaluation (draft), chuyển đến trang chỉnh sửa
-                        await router.push(`/evaluations/${myEvaluation._id}/edit`);
+                        // Nếu ĐÃ CÓ bài đánh giá:
+                        // - Nếu đang là bản nháp (draft): Chuyển đến trang chỉnh sửa
+                        // - Nếu đã nộp/hoàn thành: Chuyển đến trang xem chi tiết
+                        if (myEvaluation.status === 'draft') {
+                            router.push(`/evaluations/${myEvaluation._id}/edit`);
+                        } else {
+                            router.push(`/evaluations/${myEvaluation._id}`);
+                        }
                     } else if (assignmentId) {
-                        // Nếu chưa có evaluation nhưng có assignment, chuyển đến trang tạo mới
-                        await router.push(`/evaluations/create?assignmentId=${assignmentId}&reportId=${reportId}`);
+                        // Nếu CHƯA CÓ bài đánh giá nhưng CÓ phân quyền:
+                        // Chuyển đến trang TẠO MỚI với assignmentId và reportId
+                        router.push(`/evaluations/create?assignmentId=${assignmentId}&reportId=${reportId}`);
                     } else {
-                        toast.error('Không tìm thấy phân quyền hợp lệ để đánh giá.');
+                        toast.error('Không tìm thấy thông tin phân quyền hợp lệ để thực hiện đánh giá.');
                     }
                     break;
                 default:
@@ -142,52 +147,53 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         const actions = [];
         const status = report.status;
         const userIdStr = String(userId);
-        const isOverallTdg = report.type === 'overall_tdg';
-        const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
-        const createdByIdStr = String(report.createdBy?._id);
+        const createdByIdStr = String(report.createdBy?._id || report.createdBy);
         const isMyReport = createdByIdStr === userIdStr;
+        const isOverallTdg = report.type === 'overall_tdg';
 
-        // Lấy thông tin Assignment và Evaluation của evaluator hiện tại
-        const evaluatorAssignment = report.evaluatorAssignment; // Được đính kèm từ backend
+        // Lấy thông tin assignment từ backend (field 'evaluatorAssignment' được thêm trong controller)
+        const evaluatorAssignment = report.evaluatorAssignment;
+
+        // Lấy thông tin evaluation của user (nếu có)
         const myEvaluation = report.evaluations?.find(e =>
-            String(e.evaluatorId) === userIdStr
+            String(e.evaluatorId?._id || e.evaluatorId) === userIdStr
         );
 
+        // --- LOGIC CHO EVALUATOR ---
         if (isEvaluatorView && isOverallTdg) {
-            // Evaluator View:
+            // Luôn hiển thị nút xem chi tiết báo cáo
             actions.push({ icon: Eye, variant: "view", title: "Xem chi tiết", action: 'view' });
 
+            // Kiểm tra nếu người dùng có phân quyền đánh giá báo cáo này
             if (evaluatorAssignment) {
-                // Đã có assignment, kiểm tra trạng thái Evaluation
+                const evalStatus = myEvaluation?.status;
 
-                const evaluationStatus = myEvaluation?.status;
-                const isCompleted = ['supervised', 'final'].includes(evaluationStatus);
-
-                if (!myEvaluation || evaluationStatus === 'draft') {
-                    // Chưa tạo Evaluation hoặc đang là Draft -> Cho phép tạo/tiếp tục đánh giá
+                if (!myEvaluation || evalStatus === 'draft' || evalStatus === 'rejected') {
+                    // Trường hợp 1: Chưa đánh giá HOẶC đang viết dở (draft) HOẶC bị từ chối (cần sửa lại)
+                    // -> Hiển thị nút "Đánh giá" (màu xanh)
                     actions.push({ icon: ListTodo, variant: "blue", title: "Đánh giá", action: 'evaluate' });
-                } else if (evaluationStatus === 'submitted') {
-                    // Đã nộp, đang chờ giám sát/duyệt
-                    actions.push({ icon: MessageSquare, variant: "gray", title: "Đã nộp", action: 'view' });
-                } else if (isCompleted) {
-                    // Đã hoàn thành (supervised/final)
-                    actions.push({ icon: CheckCircle, variant: "success", title: "Hoàn tất", action: 'view' });
-                } else if (evaluationStatus === 'rejected') {
-                    // Nếu bị từ chối, cho phép chỉnh sửa lại (nếu assignment chưa hoàn thành)
-                    actions.push({ icon: ListTodo, variant: "warning", title: "Đánh giá lại", action: 'evaluate' });
+                } else if (evalStatus === 'submitted') {
+                    // Trường hợp 2: Đã nộp bài đánh giá
+                    // -> Hiển thị trạng thái "Đã nộp" (màu xám hoặc xanh nhạt, click để xem lại)
+                    actions.push({ icon: CheckCircle, variant: "gray", title: "Đã nộp", action: 'evaluate' });
+                } else if (['supervised', 'final'].includes(evalStatus)) {
+                    // Trường hợp 3: Đã hoàn tất quy trình
+                    // -> Hiển thị "Hoàn tất" (màu xanh lá)
+                    actions.push({ icon: CheckCircle, variant: "success", title: "Hoàn tất", action: 'evaluate' });
                 }
             }
-
             return actions.slice(0, 4);
         }
 
-        // Manager/Admin/Reporter View (Logic giữ nguyên)
+        // --- LOGIC CHO MANAGER / ADMIN / REPORTER ---
         actions.push({ icon: Eye, variant: "view", title: "Xem chi tiết", action: 'view' });
 
+        // Quyền chỉnh sửa báo cáo (của chính mình và đang ở trạng thái nháp/từ chối)
         if (isMyReport && ['draft', 'rejected'].includes(status)) {
             actions.push({ icon: Edit2, variant: "edit", title: "Chỉnh sửa", action: 'edit' });
         }
 
+        // Reporter công khai/rút lại báo cáo
         if (isMyReport && ['draft', 'rejected'].includes(status)) {
             actions.push({ icon: Send, variant: "blue", title: "Công khai", action: 'makePublic' });
         }
@@ -196,6 +202,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
             actions.push({ icon: RotateCcw, variant: "blue", title: "Rút lại", action: 'retractPublic' });
         }
 
+        // Quyền quản lý (Manager/Admin)
         if (isManagerOrAdmin) {
             const hasEvaluations = report.evaluations && report.evaluations.length > 0;
 
@@ -204,6 +211,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                 actions.push({ icon: XCircle, variant: "delete", title: "Từ chối", action: 'reject' });
             }
 
+            // Nút Phân quyền: Chỉ cho báo cáo Tổng hợp TĐG đã được phê duyệt
             if (isOverallTdg && status === 'approved') {
                 actions.push({ icon: UserPlus, variant: "blue", title: "Phân quyền", action: 'assignReview' });
             }
@@ -231,16 +239,14 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
         }));
     };
 
-    // Xác định các cột sẽ hiển thị
-    const showStandardCriteriaCols = !isEvaluatorView && (reports.length === 0 || reports[0].type !== 'overall_tdg');
-
+    // Xác định các cột hiển thị
+    const showStandardCriteriaCols = !isEvaluatorView && (reports.length === 0 || reports[0]?.type !== 'overall_tdg');
     let totalCols = 6;
     if (showStandardCriteriaCols) {
         totalCols = 10;
     } else {
         totalCols = 8;
     }
-
 
     return (
         <div className="overflow-x-auto">
@@ -287,12 +293,6 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                         const limit = pagination.limit || 10;
                         const stt = (current - 1) * limit + index + 1;
                         const taskCode = report.taskId?.taskCode || '-';
-                        const reportIsOverallTdg = report.type === 'overall_tdg';
-
-
-                        // Kiểm tra nếu đang xem báo cáo TĐG nhưng lại có tiêu chuẩn/tiêu chí
-                        const displayStandardCriteria = !reportIsOverallTdg;
-
 
                         return (
                             <tr key={report._id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
@@ -357,7 +357,7 @@ function ReportListTable({ reports, loading, pagination, handlePageChange, userR
                                     <div className="flex items-center justify-center gap-2 flex-wrap">
                                         {actions.map(btn => (
                                             <ActionButton
-                                                key={btn.action}
+                                                key={btn.title}
                                                 icon={btn.icon}
                                                 variant={btn.variant}
                                                 size="sm"

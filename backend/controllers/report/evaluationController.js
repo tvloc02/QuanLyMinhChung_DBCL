@@ -5,120 +5,46 @@ const Report = require('../../models/report/Report');
 
 const getEvaluations = async (req, res) => {
     try {
-        const {
-            page = 1,
-            limit = 10,
-            search,
-            status,
-            evaluatorId,
-            reportId,
-            rating,
-            sortBy = 'createdAt',
-            sortOrder = 'desc'
-        } = req.query;
-
+        const { page = 1, limit = 10, search, status, evaluatorId, reportId, score, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
         const academicYearId = req.academicYearId;
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
-        const skip = (pageNum - 1) * limitNum;
-
+        const skip = (parseInt(page) - 1) * parseInt(limit);
         let query = { academicYearId };
 
-        // Experts chỉ thấy đánh giá của mình (trừ khi có evaluatorId khác được yêu cầu bởi admin/manager)
-        if (req.user.role === 'evaluator' && !evaluatorId) {
-            query.evaluatorId = req.user.id;
-        }
-
-        if (search) {
-            query.$or = [
-                { overallComment: { $regex: search, $options: 'i' } }
-            ];
-        }
-
+        if (req.user.role === 'evaluator' && !evaluatorId) query.evaluatorId = req.user.id;
+        if (search) query.overallComment = { $regex: search, $options: 'i' };
         if (status) query.status = status;
         if (evaluatorId) query.evaluatorId = evaluatorId;
         if (reportId) query.reportId = reportId;
-        if (rating) query.rating = rating;
-
-        const sortOptions = {};
-        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        if (score) query.score = parseInt(score);
 
         const [evaluations, total] = await Promise.all([
             Evaluation.find(query)
                 .populate('reportId', 'title type code')
                 .populate('evaluatorId', 'fullName email')
                 .populate('assignmentId', 'deadline priority')
-                .populate('supervisorGuidance.guidedBy', 'fullName email')
-                .sort(sortOptions)
-                .skip(skip)
-                .limit(limitNum),
+                .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+                .skip(skip).limit(parseInt(limit)),
             Evaluation.countDocuments(query)
         ]);
 
-        res.json({
-            success: true,
-            data: {
-                evaluations,
-                pagination: {
-                    current: pageNum,
-                    pages: Math.ceil(total / limitNum),
-                    total,
-                    hasNext: pageNum * limitNum < total,
-                    hasPrev: pageNum > 1
-                },
-                academicYear: req.currentAcademicYear
-            }
-        });
-
+        res.json({ success: true, data: { evaluations, pagination: { current: parseInt(page), pages: Math.ceil(total / limit), total }, academicYear: req.currentAcademicYear } });
     } catch (error) {
-        console.error('Get evaluations error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy danh sách đánh giá'
-        });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const getEvaluationById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId })
+        const evaluation = await Evaluation.findOne({ _id: req.params.id, academicYearId: req.academicYearId })
             .populate('reportId', 'title type code content')
             .populate('evaluatorId', 'fullName email')
-            .populate('assignmentId')
-            .populate('supervisorGuidance.guidedBy', 'fullName email')
-            .populate({
-                path: 'history.userId',
-                select: 'fullName email'
-            });
-
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá trong năm học này'
-            });
-        }
-
-        if (!evaluation.canView(req.user.id, req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền xem đánh giá này'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: evaluation
-        });
-
+            .populate('assignmentId');
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+        if (!evaluation.canView(req.user.id, req.user.role)) return res.status(403).json({ success: false, message: 'Không có quyền xem' });
+        res.json({ success: true, data: evaluation });
     } catch (error) {
-        console.error('Get evaluation by ID error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy thông tin đánh giá'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
@@ -127,214 +53,78 @@ const createEvaluation = async (req, res) => {
         const { assignmentId } = req.body;
         const academicYearId = req.academicYearId;
 
-        const assignment = await Assignment.findOne({
-            _id: assignmentId,
-            academicYearId
-        }).populate('reportId');
+        const assignment = await Assignment.findOne({ _id: assignmentId, academicYearId }).populate('reportId');
+        if (!assignment) return res.status(400).json({ success: false, message: 'Phân quyền không tồn tại' });
+        if (assignment.evaluatorId.toString() !== req.user.id.toString()) return res.status(403).json({ success: false, message: 'Không có quyền' });
 
-        if (!assignment) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phân quyền không tồn tại trong năm học này'
-            });
-        }
-
-        // Chỉ expert được phân quyền mới tạo đánh giá
-        if (assignment.evaluatorId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền tạo đánh giá cho phân quyền này'
-            });
-        }
-
-        // Phân quyền phải được chấp nhận
-        if (!['accepted', 'in_progress'].includes(assignment.status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phân quyền chưa được chấp nhận'
-            });
-        }
-
-        const existingEvaluation = await Evaluation.findOne({
-            assignmentId,
-            academicYearId
-        });
-
-        if (existingEvaluation) {
-            return res.status(400).json({
-                success: false,
-                message: 'Đánh giá cho phân quyền này đã tồn tại'
-            });
-        }
+        const existing = await Evaluation.findOne({ assignmentId, academicYearId });
+        if (existing) return res.status(400).json({ success: false, message: 'Đánh giá đã tồn tại' });
 
         const evaluation = new Evaluation({
             academicYearId,
             assignmentId,
             reportId: assignment.reportId._id,
             evaluatorId: req.user.id,
-            criteriaScores: assignment.evaluationCriteria.map(criteria => ({
-                criteriaName: criteria.name,
-                maxScore: criteria.maxScore,
-                score: 0,
-                weight: criteria.weight,
-                comment: ''
-            })),
-            rating: 'satisfactory',
-            overallComment: '',
-            evidenceAssessment: {
-                adequacy: 'adequate',
-                relevance: 'fair',
-                quality: 'fair'
-            }
+            status: 'draft',
+            evidenceAssessment: {}
         });
 
         await evaluation.save();
 
-        // Cập nhật trạng thái Assignment sang 'in_progress'
         if (assignment.status === 'accepted') {
             await assignment.start();
         }
 
-        await evaluation.populate([
-            { path: 'reportId', select: 'title type code' },
-            { path: 'evaluatorId', select: 'fullName email' },
-            { path: 'assignmentId' }
-        ]);
-
-        res.status(201).json({
-            success: true,
-            message: 'Tạo đánh giá thành công',
-            data: evaluation
-        });
+        await evaluation.populate([{ path: 'reportId', select: 'title type code' }, { path: 'evaluatorId', select: 'fullName email' }, { path: 'assignmentId' }]);
+        res.status(201).json({ success: true, message: 'Tạo bản nháp thành công', data: evaluation });
 
     } catch (error) {
         console.error('Create evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi tạo đánh giá'
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const updateEvaluation = async (req, res) => {
     try {
-        const { id } = req.params;
-        const updateData = req.body;
-        const academicYearId = req.academicYearId;
+        const evaluation = await Evaluation.findOne({ _id: req.params.id, academicYearId: req.academicYearId });
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+        if (!evaluation.canEdit(req.user.id, req.user.role)) return res.status(403).json({ success: false, message: 'Không có quyền cập nhật' });
 
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá trong năm học này'
-            });
-        }
-
-        if (!evaluation.canEdit(req.user.id, req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền cập nhật đánh giá này'
-            });
-        }
-
-        const allowedFields = [
-            'criteriaScores', 'overallComment', 'strengths', 'improvementAreas',
-            'recommendations', 'evidenceAssessment'
-        ];
-
+        const allowedFields = ['overallComment', 'score', 'strengths', 'improvementAreas', 'recommendations', 'evidenceAssessment'];
         const oldData = {};
         allowedFields.forEach(field => {
-            if (updateData[field] !== undefined) {
+            if (req.body[field] !== undefined) {
                 oldData[field] = evaluation[field];
-                evaluation[field] = updateData[field];
+                evaluation[field] = req.body[field];
             }
         });
 
         evaluation.addHistory('updated', req.user.id, oldData);
-
         await evaluation.save();
-
-        res.json({
-            success: true,
-            message: 'Cập nhật đánh giá thành công',
-            data: evaluation
-        });
-
+        res.json({ success: true, message: 'Cập nhật thành công', data: evaluation });
     } catch (error) {
-        console.error('Update evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi cập nhật đánh giá'
-        });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const submitEvaluation = async (req, res) => {
     try {
-        const { id } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá'
-            });
-        }
-
-        if (evaluation.evaluatorId.toString() !== req.user.id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền nộp đánh giá này'
-            });
-        }
-
-        if (evaluation.status !== 'draft') {
-            return res.status(400).json({
-                success: false,
-                message: 'Đánh giá đã được nộp trước đó'
-            });
-        }
-
-        // Kiểm tra tính hoàn thiện
-        if (!evaluation.isComplete) {
-            return res.status(400).json({
-                success: false,
-                message: 'Đánh giá chưa hoàn thiện, vui lòng điền đầy đủ thông tin'
-            });
-        }
+        const evaluation = await Evaluation.findOne({ _id: req.params.id, academicYearId: req.academicYearId });
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
 
         await evaluation.submit();
 
-        const assignment = await Assignment.findById(evaluation.assignmentId);
-        if (assignment) {
-            await assignment.complete(evaluation._id);
+        const Assignment = require('../../models/report/Assignment');
+        await Assignment.updateOne({ _id: evaluation.assignmentId }, { status: 'completed', completedAt: new Date() });
+
+        res.json({ success: true, message: 'Nộp thành công', data: evaluation });
+    } catch (err) {
+        console.error('Submit error:', err);
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ', errors: Object.values(err.errors).map(e => e.message) });
         }
-
-        // Cập nhật dữ liệu báo cáo
-        const report = await Report.findById(evaluation.reportId);
-        if (report) {
-            const averageScore = await Evaluation.getAverageScoreByReport(evaluation.reportId);
-            report.metadata.averageScore = averageScore;
-            report.metadata.evaluationCount = (report.metadata.evaluationCount || 0) + 1;
-            if (!report.evaluations.map(e => e.toString()).includes(evaluation._id.toString())) {
-                report.evaluations.push(evaluation._id);
-            }
-            await report.save();
-        }
-
-        res.json({
-            success: true,
-            message: 'Nộp đánh giá thành công',
-            data: evaluation
-        });
-
-    } catch (error) {
-        console.error('Submit evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi nộp đánh giá'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
@@ -342,90 +132,32 @@ const superviseEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
         const { comments } = req.body;
-        const academicYearId = req.academicYearId;
+        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') return res.status(403).json({ success: false, message: 'Không có quyền' });
 
-        // Chỉ supervisor hoặc admin mới giám sát được
-        if (req.user.role !== 'admin' && req.user.role !== 'supervisor') {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền giám sát đánh giá'
-            });
-        }
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá'
-            });
-        }
-
-        if (evaluation.status !== 'submitted') {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ có thể giám sát đánh giá đã nộp'
-            });
-        }
+        const evaluation = await Evaluation.findOne({ _id: id, academicYearId: req.academicYearId });
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+        if (evaluation.status !== 'submitted') return res.status(400).json({ success: false, message: 'Chỉ giám sát đánh giá đã nộp' });
 
         await evaluation.supervise(req.user.id, comments);
-
-        res.json({
-            success: true,
-            message: 'Giám sát đánh giá thành công',
-            data: evaluation
-        });
-
+        res.json({ success: true, message: 'Giám sát thành công', data: evaluation });
     } catch (error) {
-        console.error('Supervise evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi giám sát đánh giá'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const finalizeEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
-        const academicYearId = req.academicYearId;
+        if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Không có quyền' });
 
-        // Chỉ admin mới hoàn tất được
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Chỉ admin mới có quyền hoàn tất đánh giá'
-            });
-        }
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá'
-            });
-        }
-
-        if (evaluation.status !== 'supervised') {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ có thể hoàn tất đánh giá đã được giám sát'
-            });
-        }
+        const evaluation = await Evaluation.findOne({ _id: id, academicYearId: req.academicYearId });
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+        if (evaluation.status !== 'supervised') return res.status(400).json({ success: false, message: 'Chỉ hoàn tất đánh giá đã giám sát' });
 
         await evaluation.finalize(req.user.id);
-
-        res.json({
-            success: true,
-            message: 'Hoàn tất đánh giá thành công',
-            data: evaluation
-        });
-
+        res.json({ success: true, message: 'Hoàn tất thành công', data: evaluation });
     } catch (error) {
-        console.error('Finalize evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi hoàn tất đánh giá'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
@@ -433,118 +165,49 @@ const autoSaveEvaluation = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = req.body;
-        const academicYearId = req.academicYearId;
-
-        const evaluation = await Evaluation.findOne({ _id: id, academicYearId });
-        if (!evaluation) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy đánh giá'
-            });
-        }
-
-        if (!evaluation.canEdit(req.user.id, req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: 'Không có quyền cập nhật đánh giá này'
-            });
-        }
+        const evaluation = await Evaluation.findOne({ _id: id, academicYearId: req.academicYearId });
+        if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy' });
+        if (!evaluation.canEdit(req.user.id, req.user.role)) return res.status(403).json({ success: false, message: 'Không có quyền' });
 
         Object.assign(evaluation, updateData);
         await evaluation.autoSave();
-
-        res.json({
-            success: true,
-            message: 'Auto save thành công',
-            data: { lastSaved: evaluation.metadata.lastSaved }
-        });
-
+        res.json({ success: true, message: 'Auto save thành công', data: { lastSaved: evaluation.metadata.lastSaved } });
     } catch (error) {
-        console.error('Auto save evaluation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi auto save'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const getEvaluatorStats = async (req, res) => {
     try {
         const { evaluatorId } = req.params;
-        const academicYearId = req.academicYearId;
-
-        const stats = await Evaluation.getEvaluatorStats(evaluatorId, academicYearId);
-
-        res.json({
-            success: true,
-            data: {
-                ...stats,
-                academicYear: req.currentAcademicYear
-            }
-        });
-
+        const stats = await Evaluation.getEvaluatorStats(evaluatorId, req.academicYearId);
+        res.json({ success: true, data: { ...stats, academicYear: req.currentAcademicYear } });
     } catch (error) {
-        console.error('Get evaluator stats error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê chuyên gia'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const getSystemStats = async (req, res) => {
     try {
-        const academicYearId = req.academicYearId;
-
-        const stats = await Evaluation.getSystemStats(academicYearId);
-
-        res.json({
-            success: true,
-            data: {
-                ...stats,
-                academicYear: req.currentAcademicYear
-            }
-        });
-
+        const stats = await Evaluation.getSystemStats(req.academicYearId);
+        res.json({ success: true, data: { ...stats, academicYear: req.currentAcademicYear } });
     } catch (error) {
-        console.error('Get system stats error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy thống kê hệ thống'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 const getAverageScoreByReport = async (req, res) => {
     try {
         const { reportId } = req.params;
-
         const averageScore = await Evaluation.getAverageScoreByReport(reportId);
-
-        res.json({
-            success: true,
-            data: { averageScore }
-        });
-
+        res.json({ success: true, data: { averageScore } });
     } catch (error) {
-        console.error('Get average score by report error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi lấy điểm trung bình'
-        });
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 };
 
 module.exports = {
-    getEvaluations,
-    getEvaluationById,
-    createEvaluation,
-    updateEvaluation,
-    submitEvaluation,
-    superviseEvaluation,
-    finalizeEvaluation,
-    autoSaveEvaluation,
-    getEvaluatorStats,
-    getSystemStats,
-    getAverageScoreByReport
+    getEvaluations, getEvaluationById, createEvaluation, updateEvaluation,
+    submitEvaluation, superviseEvaluation, finalizeEvaluation, autoSaveEvaluation,
+    getEvaluatorStats, getSystemStats, getAverageScoreByReport
 };

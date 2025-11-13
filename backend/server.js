@@ -3,14 +3,12 @@ require('dotenv').config();
 
 const connectDB = require('./config/database');
 const app = require('./app');
-const taskRouter = require('./routes/task/tasks');
 
 connectDB();
 
 const PORT = process.env.PORT || 5000;
 
 // Mount routes
-app.use('/api/tasks', taskRouter);
 
 const server = app.listen(PORT, () => {
     console.log('=====================================');

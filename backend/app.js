@@ -28,7 +28,7 @@ const academicYearRoutes = require('./routes/system/academicYear');
 const programRoutes = require('./routes/evidence/programs');
 const organizationRoutes = require('./routes/evidence/organizations');
 const standardRoutes = require('./routes/evidence/standards');
-const taskRoutes = require('./routes/task/task');
+const taskRoute = require('./routes/task/task');
 const criteriaRoutes = require('./routes/evidence/criteria');
 const evidenceRoutes = require('./routes/evidence/evidences');
 const fileRoutes = require('./routes/evidence/files');
@@ -63,7 +63,7 @@ const academicYearMiddleware = [
 app.use('/api/programs', programRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/standards', standardRoutes);
-app.use('/api/tasks', taskRoutes);
+app.use('/api/tasks', taskRoute);
 app.use('/api/criteria', criteriaRoutes);
 app.use('/api/evidences',
     ...academicYearMiddleware,
