@@ -126,8 +126,8 @@ export default function EvaluationForm() {
         return errors.length === 0
     }
 
-    const handleSaveDraft = async (silent = false) => {
-        if (!silent) setSaving(true)
+    const handleSaveDraft = async () => {
+        setSaving(true)
         try {
             const payload = {
                 overallComment: evaluationData.overallComment,
@@ -138,14 +138,12 @@ export default function EvaluationForm() {
                 recommendations: evaluationData.recommendations
             }
             await apiMethods.evaluations.update(evaluationData._id, payload)
-            if (!silent) toast.success('Đã lưu nháp')
-            return true
+            toast.success('Đã lưu nháp')
         } catch (error) {
             console.error('Save draft error:', error)
-            if (!silent) toast.error('Lỗi khi lưu nháp')
-            return false
+            toast.error('Lỗi khi lưu nháp')
         } finally {
-            if (!silent) setSaving(false)
+            setSaving(false)
         }
     }
 
@@ -159,11 +157,8 @@ export default function EvaluationForm() {
 
         setSubmitting(true)
         try {
-            // 1. Lưu nháp trước để đảm bảo Backend có dữ liệu mới nhất
-            const saved = await handleSaveDraft(true) // true = silent save
-            if (!saved) throw new Error('Không thể lưu dữ liệu trước khi nộp')
-
-            // 2. Gọi API submit
+            // GỌI API SUBMIT TRỰC TIẾP (Không lưu nháp ở đây nữa)
+            // Lưu ý: Dữ liệu phải được lưu trước đó bằng nút "Lưu nháp"
             await apiMethods.evaluations.submit(evaluationData._id)
 
             toast.success('Nộp đánh giá thành công')
@@ -171,7 +166,6 @@ export default function EvaluationForm() {
         } catch (error) {
             console.error('Submit error:', error)
             const msg = error.response?.data?.message || error.message || 'Lỗi khi nộp đánh giá';
-            // Nếu lỗi 400 từ backend trả về message chi tiết
             toast.error(msg);
         } finally {
             setSubmitting(false)
@@ -254,7 +248,7 @@ export default function EvaluationForm() {
                     {/* CỘT PHẢI: Form Đánh giá */}
                     <div className="lg:col-span-7 space-y-6">
 
-                        {/* --- CARD 1: TIẾN ĐỘ & HÀNH ĐỘNG (Đã chuyển từ Footer lên đây) --- */}
+                        {/* --- CARD 1: TIẾN ĐỘ & HÀNH ĐỘNG --- */}
                         <div className="bg-white rounded-xl shadow-md p-6 border-2 border-blue-100">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-bold text-gray-800 flex items-center">
@@ -276,7 +270,7 @@ export default function EvaluationForm() {
                             {/* Action Buttons */}
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => handleSaveDraft(false)}
+                                    onClick={handleSaveDraft}
                                     disabled={saving || submitting}
                                     className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition flex justify-center items-center disabled:opacity-50"
                                 >
@@ -297,7 +291,7 @@ export default function EvaluationForm() {
                             </div>
                             {getProgress() < 100 && (
                                 <p className="text-xs text-center text-red-500 mt-3 italic">
-                                    * Vui lòng hoàn thành tất cả các mục bắt buộc để nộp.
+                                    * Vui lòng điền đủ thông tin và <b>Lưu nháp</b> trước khi nộp.
                                 </p>
                             )}
                         </div>

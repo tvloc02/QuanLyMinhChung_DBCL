@@ -161,9 +161,9 @@ export const apiMethods = {
         create: (data) => api.post('/api/criteria', data),
         update: (id, data) => api.put(`/api/criteria/${id}`, data),
         delete: (id) => api.delete(`/api/criteria/${id}`),
-        getByStandard: (standardId) => api.get('/api/criteria/standard/${standardId}'),
+        getByStandard: (standardId) => api.get(`/api/criteria/standard/${standardId}`),
         getByProgram: (programId, organizationId) =>
-            api.get('/api/criteria/program/${programId}/organization/${organizationId}'),
+            api.get(`/api/criteria/program/${programId}/organization/${organizationId}`),
         import: (formData) => api.post('/api/criteria/import', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         }),
@@ -268,12 +268,10 @@ export const apiMethods = {
             return api.get(`/api/files/${fileId}/info`)
         },
 
-        // Thêm mới
         getContent: (fileId) => {
             return api.get(`/api/files/${fileId}/content`)
         },
 
-        // Thêm mới
         reprocess: (fileId) => {
             return api.post(`/api/files/${fileId}/reprocess`)
         },
@@ -369,30 +367,31 @@ export const apiMethods = {
         getById: (id) => api.get(`/api/evaluations/${id}`),
         create: (data) => api.post('/api/evaluations', data),
         update: (id, data) => api.put(`/api/evaluations/${id}`, data),
-        submit: (id) => api.post('/api/evaluations/${id}/submit'),
-        review: (id, data) => api.post('/api/evaluations/${id}/review', data),
-        finalize: (id, data) => api.post('/api/evaluations/${id}/finalize', data),
-        autoSave: (id, data) => api.put('/api/evaluations/${id}/autosave', data),
-        getEvaluatorStats: (evaluatorId) => api.get('/api/evaluations/evaluator-stats/${evaluatorId}'),
+        // ĐÃ SỬA: dùng api.post và backtick ` `
+        submit: (id) => api.post(`/api/evaluations/${id}/submit`),
+        review: (id, data) => api.post(`/api/evaluations/${id}/review`, data),
+        finalize: (id, data) => api.post(`/api/evaluations/${id}/finalize`, data),
+        autoSave: (id, data) => api.put(`/api/evaluations/${id}/autosave`, data),
+        getEvaluatorStats: (evaluatorId) => api.get(`/api/evaluations/evaluator-stats/${evaluatorId}`),
         getSystemStats: () => api.get('/api/evaluations/system-stats'),
-        getAverageScoreByReport: (reportId) => api.get('/api/evaluations/average-score/${reportId}'),
+        getAverageScoreByReport: (reportId) => api.get(`/api/evaluations/average-score/${reportId}`),
     },
 
     notifications: {
         getAll: (params) => api.get('/api/notifications', { params }),
-        getById: (id) => api.get('/api/notifications/${id}'),
-        markAsRead: (id) => api.post('/api/notifications/${id}/read'),
+        getById: (id) => api.get(`/api/notifications/${id}`),
+        markAsRead: (id) => api.post(`/api/notifications/${id}/read`),
         markAllAsRead: () => api.post('/api/notifications/mark-all-read'),
-        delete: (id) => api.delete('/api/notifications/${id}'),
+        delete: (id) => api.delete(`/api/notifications/${id}`),
         getUnreadCount: () => api.get('/api/notifications/unread-count'),
         getStats: () => api.get('/api/notifications/stats')
     },
 
     activityLogs: {
         getAll: (params) => api.get('/activity-logs', { params }),
-        getUserActivity: (userId, params) => api.get('/activity-logs/user/${userId}', { params }),
+        getUserActivity: (userId, params) => api.get(`/activity-logs/user/${userId}`, { params }),
         getAuditTrail: (targetType, targetId) =>
-            api.get('/activity-logs/audit/${targetType}/${targetId}')
+            api.get(`/activity-logs/audit/${targetType}/${targetId}`)
     },
 
     system: {
@@ -403,10 +402,10 @@ export const apiMethods = {
 
     userGroups: {
         getAll: (params) => api.get('/api/user-groups', { params }),
-        getById: (id) => api.get('/api/user-groups/${id}'),
+        getById: (id) => api.get(`/api/user-groups/${id}`),
         create: (data) => api.post('/api/user-groups', data),
-        update: (id, data) => api.put('/api/user-groups/${id}', data),
-        delete: (id) => api.delete('/api/user-groups/${id}'),
+        update: (id, data) => api.put(`/api/user-groups/${id}`, data),
+        delete: (id) => api.delete(`/api/user-groups/${id}`),
         seed: () => api.post('/api/user-groups/seed')
     },
 

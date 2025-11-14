@@ -52,7 +52,7 @@ export default function ChatbotPage() {
             }
         }
 
-        loadUploadedFiles()
+        // loadUploadedFiles()
     }, [])
 
     useEffect(() => {
@@ -64,19 +64,19 @@ export default function ChatbotPage() {
         { name: 'AI Chatbot', icon: Bot }
     ]
 
-    const loadUploadedFiles = async () => {
-        setFilesLoading(true)
-        try {
-            const response = await axios.get('/api/get-file-vectors')
-            if (response.data.success) {
-                setUploadedFiles(response.data.vectors || [])
-            }
-        } catch (error) {
-            console.error('Error loading files:', error)
-        } finally {
-            setFilesLoading(false)
-        }
-    }
+    // const loadUploadedFiles = async () => {
+    //     setFilesLoading(true)
+    //     try {
+    //         const response = await axios.get('/api/get-file-vectors')
+    //         if (response.data.success) {
+    //             setUploadedFiles(response.data.vectors || [])
+    //         }
+    //     } catch (error) {
+    //         console.error('Error loading files:', error)
+    //     } finally {
+    //         setFilesLoading(false)
+    //     }
+    // }
 
     const handleSendMessage = async (e) => {
         e.preventDefault()
@@ -125,54 +125,54 @@ export default function ChatbotPage() {
         }
     }
 
-    const handleFileUpload = async (e) => {
-        const files = Array.from(e.target.files)
-        if (files.length === 0) return
+    // const handleFileUpload = async (e) => {
+    //     const files = Array.from(e.target.files)
+    //     if (files.length === 0) return
 
-        const formData = new FormData()
-        files.forEach(file => {
-            formData.append('files', file)
-        })
-        formData.append('evidenceId', 'chatbot-files') // ID giả cho chatbot
+    //     const formData = new FormData()
+    //     files.forEach(file => {
+    //         formData.append('files', file)
+    //     })
+    //     formData.append('evidenceId', 'chatbot-files') // ID giả cho chatbot
 
-        try {
-            const uploadPromise = axios.post('/api/files/upload/chatbot-files', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            })
+    //     try {
+    //         const uploadPromise = axios.post('/api/files/upload/chatbot-files', formData, {
+    //             headers: {
+    //                 'Content-Type': 'multipart/form-data'
+    //             }
+    //         })
 
-            await toast.promise(uploadPromise, {
-                loading: 'Đang upload và xử lý file...',
-                success: 'Upload và vector hóa thành công!',
-                error: 'Lỗi khi upload file'
-            })
+    //         await toast.promise(uploadPromise, {
+    //             loading: 'Đang upload và xử lý file...',
+    //             success: 'Upload và vector hóa thành công!',
+    //             error: 'Lỗi khi upload file'
+    //         })
 
-            // Reload danh sách files
-            setTimeout(() => {
-                loadUploadedFiles()
-            }, 2000)
+    //         // Reload danh sách files
+    //         setTimeout(() => {
+    //             loadUploadedFiles()
+    //         }, 2000)
 
-        } catch (error) {
-            console.error('Upload error:', error)
-        }
+    //     } catch (error) {
+    //         console.error('Upload error:', error)
+    //     }
 
-        // Reset input
-        e.target.value = ''
-    }
+    //     // Reset input
+    //     e.target.value = ''
+    // }
 
-    const handleDeleteVector = async (vectorId) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa vector này?')) return
+    // const handleDeleteVector = async (vectorId) => {
+    //     if (!confirm('Bạn có chắc chắn muốn xóa vector này?')) return
 
-        try {
-            await axios.delete(`/api/delete-vector/${vectorId}`)
-            toast.success('Đã xóa vector thành công')
-            loadUploadedFiles()
-        } catch (error) {
-            toast.error('Lỗi khi xóa vector')
-            console.error('Delete error:', error)
-        }
-    }
+    //     try {
+    //         await axios.delete(`/api/delete-vector/${vectorId}`)
+    //         toast.success('Đã xóa vector thành công')
+    //         loadUploadedFiles()
+    //     } catch (error) {
+    //         toast.error('Lỗi khi xóa vector')
+    //         console.error('Delete error:', error)
+    //     }
+    // }
 
     const handleClearChat = () => {
         if (!confirm('Bạn có chắc chắn muốn xóa lịch sử chat?')) return
@@ -200,7 +200,7 @@ export default function ChatbotPage() {
             <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Main Chat Area */}
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-3">
                         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                             {/* Chat Header */}
                             <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
@@ -331,9 +331,8 @@ export default function ChatbotPage() {
                         </div>
                     </div>
 
-                    {/* Sidebar - File Management */}
-                    <div className="space-y-6">
-                        {/* Upload Section */}
+                    {/* Sidebar - File Management (Temporarily Disabled) */}
+                    {/* <div className="space-y-6">
                         <div className="bg-white rounded-xl shadow-lg p-4">
                             <h3 className="text-lg font-semibold mb-4 flex items-center">
                                 <Upload className="h-5 w-5 mr-2 text-green-600" />
@@ -359,7 +358,6 @@ export default function ChatbotPage() {
                             </p>
                         </div>
 
-                        {/* Files List */}
                         <div className="bg-white rounded-xl shadow-lg p-4">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-semibold flex items-center">
@@ -415,7 +413,6 @@ export default function ChatbotPage() {
                             )}
                         </div>
 
-                        {/* Status Info */}
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
                             <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
                                 <AlertCircle className="h-5 w-5 mr-2" />
@@ -440,7 +437,7 @@ export default function ChatbotPage() {
                                 </li>
                             </ul>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </Layout>

@@ -400,10 +400,10 @@ const getAllMenuItems = (router) => [
     {
         name: 'Trợ lý AI',
         icon: AtomIcon,
-        path: '/chatbot/index',
+        path: '/chatbot',
         permissionKey: 'chatbot',
         hasSubmenu: false,
-        active: () => router.pathname === '/chatbot/index'
+        active: () => router.pathname === '/chatbot'
     },
     {
         name: 'Thống kê & Báo cáo',

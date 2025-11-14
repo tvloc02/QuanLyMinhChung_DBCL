@@ -5,7 +5,6 @@ import Layout from '../../components/common/Layout'
 import api, { apiMethods } from '../../services/api'
 import toast from 'react-hot-toast'
 import {
-    FileText,
     Search,
     Filter,
     Eye,
@@ -15,15 +14,8 @@ import {
     Loader2,
     ChevronDown,
     ChevronRight,
-    CheckCircle,
-    Clock,
-    AlertCircle,
     BarChart3,
-    Calendar,
-    Star,
-    MessageSquare,
-    Award,
-    Send
+    Calendar
 } from 'lucide-react'
 import { formatDate } from '../../utils/helpers'
 
@@ -46,7 +38,16 @@ export default function MyEvaluations() {
         hasNext: false,
         hasPrev: false
     })
-    const [stats, setStats] = useState(null)
+
+    // Stats mặc định
+    const [stats, setStats] = useState({
+        total: 0,
+        draft: 0,
+        submitted: 0,
+        supervised: 0,
+        final: 0,
+        averageScore: 0
+    })
 
     const [filters, setFilters] = useState({
         search: '',
@@ -77,11 +78,15 @@ export default function MyEvaluations() {
 
     const fetchMyStats = async () => {
         try {
+            // Lưu ý: Nếu gặp lỗi 404 ở đây, hãy kiểm tra lại file services/api.js
+            // Đường dẫn đúng backend thường là: /api/evaluations/stats/evaluator/${id}
             const res = await apiMethods.evaluations.getEvaluatorStats(user.id)
-            setStats(res.data.data)
+            if (res.data && res.data.data) {
+                setStats(res.data.data)
+            }
         } catch (error) {
-            console.error('Fetch stats error:', error)
-            setStats(null)
+            console.warn('Không thể tải thống kê (có thể do sai đường dẫn API):', error)
+            // Không setStats(null) để giữ giao diện không bị crash, dùng số liệu mặc định 0
         }
     }
 
@@ -136,8 +141,7 @@ export default function MyEvaluations() {
         if (!confirm('Bạn có chắc chắn muốn xóa đánh giá này?')) return
 
         try {
-            // Đánh giá chỉ có thể bị xóa ở trạng thái draft (Logic nằm ở backend)
-            // apiMethods.evaluations.delete(id) cần được định nghĩa trong services/api
+            // Gọi API xóa (lưu ý: Backend cần hỗ trợ route DELETE /api/evaluations/:id)
             await api.delete(`/api/evaluations/${id}`)
             toast.success('Xóa đánh giá thành công')
             fetchMyEvaluations()
@@ -217,8 +221,7 @@ export default function MyEvaluations() {
         submitted: 0,
         supervised: 0,
         final: 0,
-        averageScore: 0,
-        totalTimeSpentHours: 0
+        averageScore: 0
     }
 
     if (isLoading) {
@@ -261,11 +264,11 @@ export default function MyEvaluations() {
                     </div>
                 </div>
 
+                {/* THỐNG KÊ (Đã xóa phần giờ làm) */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
                         <p className="text-blue-600 text-sm font-semibold mb-2">Tổng cộng</p>
                         <p className="text-3xl font-bold text-blue-900">{statsData.total}</p>
-                        <p className="text-xs text-gray-500 mt-1">Giờ làm: {statsData.totalTimeSpentHours}h</p>
                     </div>
                     <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border-2 border-yellow-200">
                         <p className="text-yellow-600 text-sm font-semibold mb-2">Bản nháp</p>
@@ -281,7 +284,9 @@ export default function MyEvaluations() {
                     </div>
                     <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 border-2 border-indigo-200">
                         <p className="text-indigo-600 text-sm font-semibold mb-2">Điểm TB</p>
-                        <p className="text-3xl font-bold text-indigo-900">{statsData.averageScore.toFixed(2)}/10</p>
+                        <p className="text-3xl font-bold text-indigo-900">
+                            {statsData.averageScore ? statsData.averageScore.toFixed(2) : 0}/7
+                        </p>
                     </div>
                 </div>
 
@@ -485,9 +490,14 @@ export default function MyEvaluations() {
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-center border-r border-gray-200">
-                                                    {evaluation.rating && (
-                                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getRatingColor(evaluation.rating)}`}>
-                                                            {getRatingLabel(evaluation.rating)}
+                                                    {evaluation.score && (
+                                                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                                                            evaluation.score >= 6 ? 'bg-indigo-100 text-indigo-700 border-indigo-300' :
+                                                                evaluation.score >= 5 ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                                                    evaluation.score >= 4 ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                                                        'bg-red-100 text-red-700 border-red-300'
+                                                        }`}>
+                                                            {evaluation.score}/7
                                                         </span>
                                                     )}
                                                 </td>
