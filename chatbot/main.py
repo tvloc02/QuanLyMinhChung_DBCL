@@ -1,14 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from model.chatbot import ChatBot
+from model.file_processor import FileProcessor
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import io
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
-# --- END FIX ---
 
 app = Flask(__name__)
 CORS(app)
@@ -24,10 +25,12 @@ logging.basicConfig(
 
 try:
     bot = ChatBot(data_file="/chatbot/model/training_data.json")
-    logging.info("Chatbot initialized successfully")
+    file_processor = FileProcessor()
+    logging.info("Chatbot and FileProcessor initialized successfully")
 except Exception as e:
-    logging.error(f"Failed to initialize chatbot: {str(e)}")
+    logging.error(f"Failed to initialize: {str(e)}")
     bot = None
+    file_processor = None
 
 chat_history = {}
 
@@ -47,11 +50,16 @@ def ai_chat():
 
         message = data.get("message", "").strip()
         session_id = data.get("session_id", "default")
+        search_type = data.get("search_type", "knowledge")  # knowledge hoặc files
 
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        reply = bot.get_reply(message)
+        # Sử dụng kiến thức từ files đã upload hoặc kiến thức hệ thống
+        if search_type == "files":
+            reply = bot.get_reply_from_files(message)
+        else:
+            reply = bot.get_reply(message)
 
         followups = bot.get_contextual_followup(reply)
 
@@ -61,7 +69,8 @@ def ai_chat():
         chat_history[session_id].append({
             "timestamp": datetime.now().isoformat(),
             "user_message": message,
-            "bot_reply": reply
+            "bot_reply": reply,
+            "search_type": search_type
         })
 
         if len(chat_history[session_id]) > 50:
@@ -89,6 +98,109 @@ def ai_chat():
             "reply": "Xin lỗi, tôi gặp sự cố nội bộ. Vui lòng thử lại sau."
         }), 500
 
+@app.route("/api/process-file", methods=["POST"])
+def process_file():
+    if not file_processor:
+        return jsonify({
+            "success": False,
+            "error": "FileProcessor chưa được khởi tạo"
+        }), 503
+
+    try:
+        if 'file' not in request.files:
+            return jsonify({
+                "success": False,
+                "error": "Không tìm thấy file"
+            }), 400
+
+        file = request.files['file']
+        file_id = request.form.get('file_id')
+
+        if not file_id:
+            return jsonify({
+                "success": False,
+                "error": "Thiếu file_id"
+            }), 400
+
+        # Đọc nội dung file
+        file_content = io.BytesIO(file.read())
+        filename = file.filename
+        content_type = file.content_type
+
+        # Xử lý file
+        result = file_processor.process_file(
+            file_content,
+            filename,
+            content_type,
+            file_id
+        )
+
+        if result['success']:
+            return jsonify({
+                "success": True,
+                "content": result['content'],
+                "summary": result['summary'],
+                "vector_id": result['vector_id']
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": result.get('error', 'Lỗi xử lý file')
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Error processing file: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route("/api/delete-vector/<vector_id>", methods=["DELETE"])
+def delete_vector(vector_id):
+    if not file_processor:
+        return jsonify({
+            "success": False,
+            "error": "FileProcessor chưa được khởi tạo"
+        }), 503
+
+    try:
+        success = file_processor.delete_vector(vector_id)
+        return jsonify({"success": success})
+    except Exception as e:
+        logging.error(f"Error deleting vector: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route("/api/summarize-text", methods=["POST"])
+def summarize_text():
+    if not bot or not bot.client:
+        return jsonify({
+            "error": "Dịch vụ AI chưa sẵn sàng"
+        }), 503
+
+    try:
+        data = request.get_json()
+        text = data.get("text", "")
+        max_length = data.get("max_length", 500)
+
+        if not text:
+            return jsonify({"error": "Text is required"}), 400
+
+        summary = bot.summarize_text(text, max_length)
+
+        return jsonify({
+            "success": True,
+            "summary": summary
+        })
+
+    except Exception as e:
+        logging.error(f"Error in summarize: {str(e)}")
+        return jsonify({
+            "error": "Lỗi khi tóm tắt văn bản"
+        }), 500
+
 @app.route("/api/chat-history/<session_id>", methods=["GET"])
 def get_chat_history(session_id):
     try:
@@ -111,6 +223,28 @@ def clear_history(session_id):
     except Exception as e:
         logging.error(f"Error clearing history: {str(e)}")
         return jsonify({"error": "Failed to clear history"}), 500
+
+@app.route("/api/get-file-vectors", methods=["GET"])
+def get_file_vectors():
+    """Lấy danh sách các file đã được vector hóa"""
+    if not file_processor:
+        return jsonify({
+            "success": False,
+            "error": "FileProcessor chưa được khởi tạo"
+        }), 503
+
+    try:
+        vectors_info = file_processor.get_all_vectors_info()
+        return jsonify({
+            "success": True,
+            "vectors": vectors_info
+        })
+    except Exception as e:
+        logging.error(f"Error getting vectors: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route("/api/suggestions", methods=["GET"])
 def get_suggestions():
@@ -191,6 +325,7 @@ def submit_feedback():
 def health_check():
     return jsonify({
         "status": "healthy" if bot else "unhealthy",
+        "file_processor": "ready" if file_processor else "not ready",
         "timestamp": datetime.now().isoformat(),
         "active_sessions": len(chat_history)
     })

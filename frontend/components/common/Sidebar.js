@@ -36,6 +36,7 @@ import {
     UserCheck,
     UserPlus,
     Users,
+    AtomIcon
 } from 'lucide-react'
 
 
@@ -55,7 +56,8 @@ const ROLE_PERMISSIONS = {
         'notifications', 'analytics', 'analytics_dashboard', 'analytics_comprehensive', 'analytics_logs',
         'analytics_view', 'system', 'system_settings', 'system_backup', 'system_restore', 'system_logs',
         'system_mail', 'users', 'users_list', 'users_create', 'users_experts', 'users_managers',
-        'user_groups', 'permissions', 'departments'
+        'user_groups', 'permissions', 'departments',
+        'chatbot'
     ],
 
     manager: [
@@ -71,6 +73,7 @@ const ROLE_PERMISSIONS = {
         'analytics', 'analytics_dashboard', 'analytics_comprehensive', 'analytics_logs',
         'users_list',
         'departments',
+        'chatbot'
     ],
 
     reporter: [
@@ -81,6 +84,7 @@ const ROLE_PERMISSIONS = {
         'reports', 'reports_list', 'reports_request', 'reports_create',
         'evaluations', 'evaluations_supervised',
         'notifications',
+        'chatbot'
     ],
 
     evaluator: [
@@ -89,7 +93,8 @@ const ROLE_PERMISSIONS = {
         'reports', 'reports_list',
         'assignments', // Xem phân quyền
         'evaluations', 'evaluations_my', // Đánh giá của tôi
-        'notifications'
+        'notifications',
+        'chatbot'
     ]
 }
 
@@ -391,6 +396,14 @@ const getAllMenuItems = (router) => [
         permissionKey: 'notifications',
         hasSubmenu: false,
         active: () => router.pathname === '/notifications/notifications'
+    },
+    {
+        name: 'Trợ lý AI',
+        icon: AtomIcon,
+        path: '/chatbot/index',
+        permissionKey: 'chatbot',
+        hasSubmenu: false,
+        active: () => router.pathname === '/chatbot/index'
     },
     {
         name: 'Thống kê & Báo cáo',

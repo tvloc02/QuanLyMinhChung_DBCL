@@ -10,6 +10,8 @@ const {
     streamFile,
     deleteFile,
     getFileInfo,
+    getFileContent,
+    reprocessFile,
     moveFile,
     searchFiles,
     getFileStatistics
@@ -54,6 +56,26 @@ router.get('/:id/info',
     getFileInfo
 );
 
+// Route mới để lấy nội dung và tóm tắt file
+router.get('/:id/content',
+    auth,
+    [
+        param('id').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    getFileContent
+);
+
+// Route mới để xử lý lại file
+router.post('/:id/reprocess',
+    auth,
+    [
+        param('id').isMongoId().withMessage('ID file không hợp lệ')
+    ],
+    validation,
+    reprocessFile
+);
+
 router.delete('/:id',
     auth,
     [
@@ -73,18 +95,19 @@ router.get('/evidence/:evidenceId',
     validation,
     async (req, res) => {
         try {
-            const { evidenceId, page = 1, limit = 10 } = req.query;
+            const { evidenceId } = req.params;
+            const { page = 1, limit = 10 } = req.query;
             const pageNum = parseInt(page);
             const limitNum = parseInt(limit);
             const skip = (pageNum - 1) * limitNum;
 
             const [files, total] = await Promise.all([
-                File.find({ evidenceId, status: 'active' })
+                File.find({ evidenceId })
                     .populate('uploadedBy', 'fullName email')
                     .sort({ uploadedAt: -1 })
                     .skip(skip)
                     .limit(limitNum),
-                File.countDocuments({ evidenceId, status: 'active' })
+                File.countDocuments({ evidenceId })
             ]);
 
             res.json({

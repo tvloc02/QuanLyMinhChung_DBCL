@@ -4,12 +4,13 @@ const path = require('path');
 const mongoose = require('mongoose');
 const permissionService = require('../../services/permissionService');
 const jwt = require('jsonwebtoken');
-const gridfs = require('gridfs-stream');
+const { GridFSBucket } = require('mongodb');
+const axios = require('axios');
+const FormData = require('form-data');
 
-let gfs;
+let gfsBucket;
 mongoose.connection.once('open', () => {
-    gfs = gridfs(mongoose.connection.db, mongoose.mongo);
-    gfs.collection('uploads');
+    gfsBucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
 });
 
 const authenticateTokenFromQuery = (req) => {
@@ -48,6 +49,64 @@ const updateFolderMetadata = async (folderId) => {
         });
     } catch (error) {
         console.error('Update folder metadata error:', error);
+    }
+};
+
+// Hàm xử lý file và gửi tới Python service
+const processFileContent = async (fileId) => {
+    try {
+        const file = await File.findById(fileId);
+        if (!file) return;
+
+        // Đánh dấu đang xử lý
+        file.processStatus = 'processing';
+        await file.save();
+
+        // Lấy nội dung file từ GridFS
+        const chunks = [];
+        const downloadStream = gfsBucket.openDownloadStream(file.gridfsId);
+
+        await new Promise((resolve, reject) => {
+            downloadStream.on('data', chunk => chunks.push(chunk));
+            downloadStream.on('end', resolve);
+            downloadStream.on('error', reject);
+        });
+
+        const fileBuffer = Buffer.concat(chunks);
+
+        // Gửi file tới Python service để xử lý
+        const formData = new FormData();
+        formData.append('file', fileBuffer, {
+            filename: file.originalName,
+            contentType: file.mimeType
+        });
+        formData.append('file_id', fileId.toString());
+
+        const response = await axios.post(
+            `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/api/process-file`,
+            formData,
+            {
+                headers: formData.getHeaders(),
+                maxBodyLength: Infinity,
+                maxContentLength: Infinity
+            }
+        );
+
+        if (response.data.success) {
+            // Cập nhật file với nội dung và tóm tắt
+            file.extractedContent = response.data.content;
+            file.summary = response.data.summary;
+            file.vectorId = response.data.vector_id;
+            file.processStatus = 'completed';
+            await file.save();
+        } else {
+            file.processStatus = 'failed';
+            await file.save();
+        }
+
+    } catch (error) {
+        console.error('Process file content error:', error);
+        await File.findByIdAndUpdate(fileId, { processStatus: 'failed' });
     }
 };
 
@@ -119,10 +178,14 @@ const uploadFiles = async (req, res) => {
                 uploadedAt: new Date(),
                 type: 'file',
                 parentFolder: parentFolderId || null,
+                processStatus: 'pending'
             });
 
             await fileDoc.save();
             savedFiles.push(fileDoc);
+
+            // Xử lý file không đồng bộ
+            processFileContent(fileDoc._id);
 
             if (parentFolderId) {
                 await updateFolderMetadata(parentFolderId);
@@ -134,7 +197,7 @@ const uploadFiles = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Upload thành công ${savedFiles.length} file (GridFS)`,
+            message: `Upload thành công ${savedFiles.length} file. Đang xử lý nội dung...`,
             data: savedFiles
         });
 
@@ -171,24 +234,28 @@ const downloadFile = async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`);
         res.setHeader('Content-Type', file.mimeType);
 
-        const readstream = gfs.createReadStream({ _id: file.gridfsId, root: 'uploads' });
+        const downloadStream = gfsBucket.openDownloadStream(file.gridfsId);
 
-        readstream.on('error', (err) => {
-            console.error('GridFS read error:', err);
-            return res.status(404).json({
-                success: false,
-                message: 'File không tồn tại trên hệ thống lưu trữ'
-            });
+        downloadStream.on('error', (err) => {
+            console.error('GridFS download error:', err);
+            if (!res.headersSent) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'File không tồn tại trên hệ thống lưu trữ'
+                });
+            }
         });
 
-        readstream.pipe(res);
+        downloadStream.pipe(res);
 
     } catch (error) {
         console.error('Download file error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi hệ thống khi tải file'
-        });
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi tải file'
+            });
+        }
     }
 };
 
@@ -222,76 +289,97 @@ const streamFile = async (req, res) => {
         }
 
         res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Disposition', 'inline');
         res.setHeader('Cache-Control', 'public, max-age=86400');
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Disposition', 'inline');
 
-        const readstream = gfs.createReadStream({ _id: file.gridfsId, root: 'uploads' });
+        const downloadStream = gfsBucket.openDownloadStream(file.gridfsId);
 
-        readstream.on('error', (err) => {
+        downloadStream.on('error', (err) => {
             console.error('GridFS stream error:', err);
-            return res.status(404).json({
-                success: false,
-                message: 'File không tồn tại trên hệ thống lưu trữ'
-            });
-        });
-
-        // Cần tìm thông tin file để xử lý Range headers (nếu cần)
-        gfs.files.findOne({ _id: file.gridfsId, root: 'uploads' }, (err, fileMeta) => {
-            if (err || !fileMeta) {
+            if (!res.headersSent) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Không tìm thấy file metadata'
+                    message: 'File không tồn tại trên hệ thống lưu trữ'
                 });
-            }
-
-            const fileSize = fileMeta.length;
-            const range = req.headers.range;
-
-            if (range) {
-                const parts = range.replace(/bytes=/, "").split("-");
-                const start = parseInt(parts[0], 10);
-                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-                const chunksize = (end - start) + 1;
-
-                res.writeHead(206, {
-                    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                    'Content-Length': chunksize,
-                    'Content-Type': file.mimeType,
-                    'Content-Disposition': 'inline',
-                    'Access-Control-Allow-Origin': '*'
-                });
-
-                const rangedStream = gfs.createReadStream({
-                    _id: file.gridfsId,
-                    root: 'uploads',
-                    range: { startPos: start, endPos: end }
-                });
-
-                rangedStream.on('error', (err) => {
-                    console.error('GridFS ranged stream error:', err);
-                    res.status(500).end();
-                });
-
-                rangedStream.pipe(res);
-
-            } else {
-                res.writeHead(200, {
-                    'Content-Length': fileSize,
-                    'Content-Type': file.mimeType,
-                    'Accept-Ranges': 'bytes',
-                    'Content-Disposition': 'inline',
-                    'Access-Control-Allow-Origin': '*'
-                });
-                readstream.pipe(res);
             }
         });
+
+        downloadStream.pipe(res);
+
     } catch (error) {
         console.error('Stream file error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi stream file'
+            });
+        }
+    }
+};
+
+const getFileContent = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const file = await File.findById(id)
+            .select('originalName extractedContent summary processStatus vectorId')
+            .populate('uploadedBy', 'fullName');
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                originalName: file.originalName,
+                content: file.extractedContent,
+                summary: file.summary,
+                processStatus: file.processStatus,
+                vectorId: file.vectorId,
+                uploadedBy: file.uploadedBy
+            }
+        });
+
+    } catch (error) {
+        console.error('Get file content error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi hệ thống khi stream file'
+            message: 'Lỗi khi lấy nội dung file'
+        });
+    }
+};
+
+const reprocessFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const file = await File.findById(id);
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy file'
+            });
+        }
+
+        // Xử lý lại file
+        processFileContent(id);
+
+        res.json({
+            success: true,
+            message: 'Đang xử lý lại nội dung file...'
+        });
+
+    } catch (error) {
+        console.error('Reprocess file error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xử lý lại file'
         });
     }
 };
@@ -332,6 +420,17 @@ const deleteFile = async (req, res) => {
 
         const parentFolderId = file.parentFolder;
 
+        // Xóa vector từ Python service nếu có
+        if (file.vectorId) {
+            try {
+                await axios.delete(
+                    `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/api/delete-vector/${file.vectorId}`
+                );
+            } catch (error) {
+                console.error('Delete vector error:', error);
+            }
+        }
+
         await Evidence.findByIdAndUpdate(
             file.evidenceId._id,
             { $pull: { files: file._id } }
@@ -349,7 +448,7 @@ const deleteFile = async (req, res) => {
 
         res.json({
             success: true,
-            message: file.type === 'folder' ? 'Xóa thư mục thành công' : 'Xóa file thành công (GridFS)'
+            message: file.type === 'folder' ? 'Xóa thư mục thành công' : 'Xóa file thành công'
         });
 
     } catch (error) {
@@ -513,7 +612,8 @@ const searchFiles = async (req, res) => {
         if (keyword) {
             query.$or = [
                 { originalName: { $regex: keyword, $options: 'i' } },
-                { extractedContent: { $regex: keyword, $options: 'i' } }
+                { extractedContent: { $regex: keyword, $options: 'i' } },
+                { summary: { $regex: keyword, $options: 'i' } }
             ];
         }
 
@@ -595,7 +695,17 @@ const getFileStatistics = async (req, res) => {
                     totalFiles: { $sum: { $cond: [{ $eq: ['$type', 'file'] }, 1, 0] } },
                     totalFolders: { $sum: { $cond: [{ $eq: ['$type', 'folder'] }, 1, 0] } },
                     totalSize: { $sum: '$size' },
-                    totalDownloads: { $sum: '$downloadCount' }
+                    totalDownloads: { $sum: '$downloadCount' },
+                    totalProcessed: {
+                        $sum: {
+                            $cond: [{ $eq: ['$processStatus', 'completed'] }, 1, 0]
+                        }
+                    },
+                    totalPending: {
+                        $sum: {
+                            $cond: [{ $eq: ['$processStatus', 'pending'] }, 1, 0]
+                        }
+                    }
                 }
             }
         ]);
@@ -620,7 +730,9 @@ const getFileStatistics = async (req, res) => {
             totalFiles: 0,
             totalFolders: 0,
             totalSize: 0,
-            totalDownloads: 0
+            totalDownloads: 0,
+            totalProcessed: 0,
+            totalPending: 0
         };
 
         res.json({
@@ -646,6 +758,8 @@ module.exports = {
     streamFile,
     deleteFile,
     getFileInfo,
+    getFileContent,
+    reprocessFile,
     moveFile,
     searchFiles,
     getFileStatistics

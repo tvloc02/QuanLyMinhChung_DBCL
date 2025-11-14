@@ -233,46 +233,66 @@ export const apiMethods = {
     },
 
     files: {
-        upload: (file, evidenceId, parentFolderId = null) => {
-            const formData = new FormData()
-            // Đảm bảo tên file được gửi đúng encoding UTF-8
-            formData.append('files', file, file.name)
-            if (parentFolderId) {
-                formData.append('parentFolderId', parentFolderId)
-            }
-            return api.post(`/api/files/upload/${evidenceId}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    // ĐÃ XÓA 'Accept-Charset': 'utf-8'
-                }
-            })
-        },
-        uploadMultiple: (files, evidenceId, parentFolderId = null) => {
+        uploadMultiple: async (files, evidenceId, parentFolderId = null) => {
             const formData = new FormData()
             files.forEach(file => {
-                formData.append('files', file, file.name)
+                formData.append('files', file)
             })
             if (parentFolderId) {
                 formData.append('parentFolderId', parentFolderId)
             }
             return api.post(`/api/files/upload/${evidenceId}`, formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                    // ĐÃ XÓA 'Accept-Charset': 'utf-8'
+                    'Content-Type': 'multipart/form-data'
                 }
             })
         },
-        download: (fileId) => api.get(`/api/files/download/${fileId}`, { responseType: 'blob' }),
-        stream: (fileId) => api.get(`/api/files/stream/${fileId}`, { responseType: 'blob' }),
-        extractContent: (fileId) => api.get(`/api/files/extract/${fileId}`),
-        getInfo: (fileId) => api.get(`/api/files/${fileId}/info`),
-        delete: (fileId) => api.delete(`/api/files/${fileId}`),
-        move: (fileId, data) => api.post(`/api/files/${fileId}/move`, data),
-        search: (params) => api.get('/api/files/search', { params }),
-        getByEvidence: (evidenceId, params) => api.get(`/api/files/evidence/${evidenceId}`, { params }),
-        getStatistics: (evidenceId) => api.get(`/api/files/${evidenceId}/statistics`),
-        approve: (fileId, data) => api.post(`/api/files/${fileId}/approve`, data),
-        incrementDownload: (fileId) => api.post(`/api/files/${fileId}/increment-download`)
+
+        download: (fileId) => {
+            return api.get(`/api/files/download/${fileId}`, {
+                responseType: 'blob'
+            })
+        },
+
+        stream: (fileId) => {
+            return api.get(`/api/files/stream/${fileId}`, {
+                responseType: 'blob'
+            })
+        },
+
+        delete: (fileId) => {
+            return api.delete(`/api/files/${fileId}`)
+        },
+
+        getInfo: (fileId) => {
+            return api.get(`/api/files/${fileId}/info`)
+        },
+
+        // Thêm mới
+        getContent: (fileId) => {
+            return api.get(`/api/files/${fileId}/content`)
+        },
+
+        // Thêm mới
+        reprocess: (fileId) => {
+            return api.post(`/api/files/${fileId}/reprocess`)
+        },
+
+        getByEvidence: (evidenceId, params = {}) => {
+            return api.get(`/api/files/evidence/${evidenceId}`, { params })
+        },
+
+        search: (params) => {
+            return api.get('/api/files/search', { params })
+        },
+
+        getStatistics: (evidenceId) => {
+            return api.get(`/api/files/statistics/${evidenceId}`)
+        },
+
+        move: (fileId, targetFolderId) => {
+            return api.put(`/api/files/${fileId}/move`, { targetFolderId })
+        }
     },
 
     reports: {
