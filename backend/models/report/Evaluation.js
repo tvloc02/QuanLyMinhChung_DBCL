@@ -199,7 +199,7 @@ evaluationSchema.methods.canView = function(userId, userRole) {
     if (userRole === 'admin') return true;
     if (this.evaluatorId.toString() === userId.toString()) return true;
     if (userRole === 'supervisor') return true;
-    return (userRole === 'manager' || userRole === 'expert') && this.status !== 'draft';
+    return userRole === 'manager' || userRole === 'reporter' || userRole === 'evaluator';
 };
 
 evaluationSchema.methods.autoSave = function() {
