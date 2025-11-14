@@ -39,6 +39,9 @@ const notificationRoutes = require('./routes/system/notifications');
 const systemRoutes = require('./routes/system/system');
 const permissionRoutes = require('./routes/user/permission');
 const aiChatRoutes = require('./routes/aiChat/aiChat');
+const activityLogRoutes = require('./routes/system/activityLogs');
+
+app.use('/api/activity-logs', activityLogRoutes);
 
 app.use('/api/public/evidences', publicEvidenceRoutes);
 

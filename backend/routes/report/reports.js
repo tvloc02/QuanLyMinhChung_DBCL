@@ -231,9 +231,10 @@ router.get('/',
             .optional()
             .isIn(['criteria', 'standard', 'overall_tdg'])
             .withMessage('Loại báo cáo không hợp lệ'),
+        // SỬA LỖI TẠI ĐÂY: Xóa bỏ .isIn() để cho phép chuỗi "status1,status2"
         query('status')
             .optional()
-            .isIn(['draft', 'public', 'approved', 'rejected', 'published'])
+            .isString()
             .withMessage('Trạng thái không hợp lệ'),
         query('programId')
             .optional()
@@ -275,7 +276,7 @@ router.delete('/:id',
 );
 
 router.post('/:id/publish',
-    requireManager, // Giữ requireManager vì Phát hành là bước cuối
+    requireManager,
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
     reportController.publishReport
@@ -288,22 +289,6 @@ router.post('/:id/unpublish',
     reportController.unpublishReport
 );
 
-// XÓA CÁC ROUTE DUYỆT BÁO CÁO ĐỘC LẬP - DUYỆT QUA TASK
-// router.post('/:id/approve',
-//     requireManager,
-//     approvalValidation,
-//     validation,
-//     reportController.approveReport
-// );
-
-// router.post('/:id/reject',
-//     requireManager,
-//     approvalValidation,
-//     validation,
-//     reportController.rejectReport
-// );
-// KẾT THÚC PHẦN XÓA
-
 router.post('/:id/make-public',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
@@ -313,7 +298,7 @@ router.post('/:id/make-public',
 router.post('/:id/retract-public',
     [param('id').isMongoId().withMessage('ID báo cáo không hợp lệ')],
     validation,
-    reportController.retractPublic // API THU HỒI CÔNG KHAI MỚI
+    reportController.retractPublic
 );
 
 router.post('/:id/assign-reporter',
@@ -365,9 +350,10 @@ router.get('/stats',
             .optional()
             .isIn(['criteria', 'standard', 'overall_tdg'])
             .withMessage('Loại báo cáo không hợp lệ'),
+        // SỬA LỖI TẠI ĐÂY CŨNG VẬY: Cho phép status dạng chuỗi tự do hơn
         query('status')
             .optional()
-            .isIn(['draft', 'public', 'approved', 'rejected', 'published'])
+            .isString()
             .withMessage('Trạng thái không hợp lệ'),
         query('programId')
             .optional()

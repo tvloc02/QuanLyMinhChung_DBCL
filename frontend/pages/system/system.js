@@ -33,7 +33,7 @@ const SystemPage = () => {
             name: 'Khôi phục dữ liệu',
             description: 'Khôi phục các dữ liệu đã bị xóa',
             icon: RotateCcw,
-            gradient: 'from-green-500 to-emerald-500',
+            gradient: 'from-sky-500 to-blue-500',
             path: '/system/general',
             stats: systemInfo?.deletedItems || 0
         },
@@ -42,7 +42,7 @@ const SystemPage = () => {
             name: 'Lịch sử hoạt động',
             description: 'Theo dõi và giám sát hoạt động hệ thống',
             icon: Activity,
-            gradient: 'from-purple-500 to-pink-500',
+            gradient: 'from-blue-600 to-indigo-600',
             path: '/system/logs',
             stats: systemInfo?.totalLogs || 0
         },
@@ -51,7 +51,7 @@ const SystemPage = () => {
             name: 'Cấu hình Email',
             description: 'Thiết lập máy chủ SMTP và email',
             icon: Mail,
-            gradient: 'from-orange-500 to-red-500',
+            gradient: 'from-cyan-600 to-teal-500',
             path: '/system/mail',
             stats: systemInfo?.emailConfigured ? 'Đã cấu hình' : 'Chưa cấu hình'
         }
@@ -63,32 +63,32 @@ const SystemPage = () => {
             name: 'Bảo mật',
             description: 'Cấu hình các thiết lập bảo mật',
             icon: Shield,
-            color: 'text-indigo-600',
-            bgColor: 'bg-indigo-100'
+            color: 'text-blue-600',
+            bgColor: 'bg-blue-100'
         },
         {
             id: 'notification',
             name: 'Thông báo',
             description: 'Cấu hình hệ thống thông báo',
             icon: Bell,
-            color: 'text-purple-600',
-            bgColor: 'bg-purple-100'
+            color: 'text-cyan-600',
+            bgColor: 'bg-cyan-100'
         },
         {
             id: 'language',
             name: 'Ngôn ngữ & Khu vực',
             description: 'Thiết lập múi giờ và định dạng',
             icon: Globe,
-            color: 'text-blue-600',
-            bgColor: 'bg-blue-100'
+            color: 'text-sky-600',
+            bgColor: 'bg-sky-100'
         },
         {
             id: 'theme',
             name: 'Giao diện',
             description: 'Tùy chỉnh màu sắc và giao diện',
             icon: Palette,
-            color: 'text-pink-600',
-            bgColor: 'bg-pink-100'
+            color: 'text-indigo-600',
+            bgColor: 'bg-indigo-100'
         }
     ]
 
@@ -133,7 +133,7 @@ const SystemPage = () => {
             <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
-                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
@@ -158,8 +158,7 @@ const SystemPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-700 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -167,12 +166,12 @@ const SystemPage = () => {
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold mb-1">Cài đặt hệ thống</h1>
-                                <p className="text-indigo-100">Quản lý và cấu hình các thiết lập hệ thống</p>
+                                <p className="text-blue-100">Quản lý và cấu hình các thiết lập hệ thống</p>
                             </div>
                         </div>
                         <button
                             onClick={fetchSystemInfo}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-700 rounded-xl hover:shadow-xl transition-all font-medium"
                         >
                             <RefreshCw className="w-5 h-5" />
                             <span>Làm mới</span>
@@ -180,7 +179,6 @@ const SystemPage = () => {
                     </div>
                 </div>
 
-                {/* System Status */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-6">
@@ -213,14 +211,14 @@ const SystemPage = () => {
                                     </p>
                                     <p className="text-sm text-gray-500 mt-1">Còn trống</p>
                                 </div>
-                                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
+                                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-sky-100 rounded-xl flex items-center justify-center">
                                     <HardDrive className="w-8 h-8 text-blue-600" />
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-3 border-t-2 border-blue-100">
+                        <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-6 py-3 border-t-2 border-blue-100">
                             <div className="w-full bg-blue-200 rounded-full h-2">
-                                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full" style={{ width: '15%' }}></div>
+                                <div className="bg-gradient-to-r from-blue-500 to-sky-500 h-2 rounded-full" style={{ width: '15%' }}></div>
                             </div>
                         </div>
                     </div>
@@ -230,18 +228,18 @@ const SystemPage = () => {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-600 mb-1">Hoạt động hôm nay</p>
-                                    <p className="text-3xl font-bold text-purple-600">
-                                        {systemInfo?.todayActivities || 248}
+                                    <p className="text-3xl font-bold text-cyan-600">
+                                        {systemInfo?.todayActivities || 0}
                                     </p>
                                     <p className="text-sm text-gray-500 mt-1">Người dùng</p>
                                 </div>
-                                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
-                                    <Activity className="w-8 h-8 text-purple-600" />
+                                <div className="w-16 h-16 bg-gradient-to-br from-cyan-100 to-teal-100 rounded-xl flex items-center justify-center">
+                                    <Activity className="w-8 h-8 text-cyan-600" />
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-3 border-t-2 border-purple-100">
-                            <div className="flex items-center text-sm text-purple-700">
+                        <div className="bg-gradient-to-r from-cyan-50 to-teal-50 px-6 py-3 border-t-2 border-cyan-100">
+                            <div className="flex items-center text-sm text-cyan-700">
                                 <TrendingUp className="w-4 h-4 mr-2" />
                                 <span className="font-medium">Ổn định</span>
                             </div>
@@ -249,10 +247,9 @@ const SystemPage = () => {
                     </div>
                 </div>
 
-                {/* System Modules */}
                 <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Server className="w-6 h-6 text-indigo-600" />
+                        <Server className="w-6 h-6 text-blue-600" />
                         Quản lý hệ thống
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -271,14 +268,14 @@ const SystemPage = () => {
                                                     <Icon className="w-7 h-7 text-white" />
                                                 </div>
                                                 <div className="flex-1">
-                                                    <h3 className="text-lg font-bold text-gray-900 mb-1">
+                                                    <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-700 transition-colors">
                                                         {module.name}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 mb-3">
                                                         {module.description}
                                                     </p>
                                                     {module.stats !== undefined && (
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200">
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200 group-hover:bg-blue-50 group-hover:text-blue-800 group-hover:border-blue-200 transition-colors">
                                                             {typeof module.stats === 'number'
                                                                 ? `${module.stats} mục`
                                                                 : module.stats
@@ -287,8 +284,8 @@ const SystemPage = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="ml-4 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                                            <div className="ml-4 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
                                             </div>
                                         </div>
                                     </div>
@@ -298,10 +295,9 @@ const SystemPage = () => {
                     </div>
                 </div>
 
-                {/* Advanced Settings */}
                 <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Settings className="w-6 h-6 text-indigo-600" />
+                        <Settings className="w-6 h-6 text-blue-600" />
                         Cài đặt nâng cao
                     </h2>
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -311,7 +307,7 @@ const SystemPage = () => {
                                 return (
                                     <div
                                         key={setting.id}
-                                        className="group p-6 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer transition-all"
+                                        className="group p-6 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 cursor-pointer transition-all"
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-4">
@@ -327,8 +323,8 @@ const SystemPage = () => {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
                                             </div>
                                         </div>
                                     </div>
@@ -338,23 +334,22 @@ const SystemPage = () => {
                     </div>
                 </div>
 
-                {/* System Info */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div className="p-8">
                         <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                            <Server className="w-6 h-6 text-indigo-600" />
+                            <Server className="w-6 h-6 text-blue-600" />
                             Thông tin hệ thống
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                            <div className="p-4 bg-gradient-to-r from-blue-50 to-sky-50 rounded-xl border border-blue-100">
                                 <span className="text-sm font-semibold text-gray-700">Phiên bản</span>
-                                <p className="text-lg font-bold text-indigo-600 mt-1">
+                                <p className="text-lg font-bold text-blue-600 mt-1">
                                     {systemInfo?.version || '1.0.0'}
                                 </p>
                             </div>
-                            <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                            <div className="p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl border border-cyan-100">
                                 <span className="text-sm font-semibold text-gray-700">Môi trường</span>
-                                <p className="text-lg font-bold text-purple-600 mt-1">
+                                <p className="text-lg font-bold text-cyan-600 mt-1">
                                     {systemInfo?.environment || 'Production'}
                                 </p>
                             </div>
@@ -370,9 +365,9 @@ const SystemPage = () => {
                                     {systemInfo?.uptime || '7 ngày 14 giờ'}
                                 </p>
                             </div>
-                            <div className="md:col-span-2 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-100">
+                            <div className="md:col-span-2 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
                                 <span className="text-sm font-semibold text-gray-700">Sao lưu gần nhất</span>
-                                <p className="text-lg font-bold text-cyan-600 mt-1">
+                                <p className="text-lg font-bold text-gray-700 mt-1">
                                     {systemInfo?.lastBackup
                                         ? new Date(systemInfo.lastBackup).toLocaleString('vi-VN')
                                         : 'Chưa có'
@@ -383,7 +378,6 @@ const SystemPage = () => {
                     </div>
                 </div>
 
-                {/* Warning */}
                 <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-start space-x-4">
                         <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0">

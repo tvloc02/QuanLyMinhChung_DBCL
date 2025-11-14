@@ -5,7 +5,6 @@ const path = require('path');
 const archiver = require('archiver');
 const nodemailer = require('nodemailer');
 
-// Get system info
 const getSystemInfo = async (req, res) => {
     try {
         const [
@@ -54,7 +53,6 @@ const getSystemInfo = async (req, res) => {
     }
 };
 
-// Get mail configuration
 const getMailConfig = async (req, res) => {
     try {
         const config = {
@@ -67,14 +65,12 @@ const getMailConfig = async (req, res) => {
             emailProvider: process.env.EMAIL_PROVIDER || 'custom'
         };
 
-        console.log('✅ Mail config retrieved successfully');
-
         res.json({
             success: true,
             data: config
         });
     } catch (error) {
-        console.error('❌ Get mail config error:', error);
+        console.error('Get mail config error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi lấy cấu hình email',
@@ -83,7 +79,6 @@ const getMailConfig = async (req, res) => {
     }
 };
 
-// Update mail configuration
 const updateMailConfig = async (req, res) => {
     try {
         const {
@@ -103,7 +98,6 @@ const updateMailConfig = async (req, res) => {
             });
         }
 
-        // Update environment variables
         process.env.SMTP_HOST = smtpHost;
         process.env.SMTP_PORT = smtpPort;
         process.env.SMTP_SECURE = smtpSecure ? 'true' : 'false';
@@ -114,7 +108,6 @@ const updateMailConfig = async (req, res) => {
         process.env.SMTP_FROM = smtpFrom || smtpUser;
         process.env.EMAIL_PROVIDER = emailProvider || 'custom';
 
-        // Update .env file
         const envPath = path.join(__dirname, '../../.env');
         try {
             let envContent = '';
@@ -148,9 +141,8 @@ const updateMailConfig = async (req, res) => {
             });
 
             await fs.writeFile(envPath, envLines.join('\n'));
-            console.log('✅ .env file updated successfully');
         } catch (fileError) {
-            console.error('⚠️ Error updating .env file:', fileError);
+            console.error('Error updating .env file:', fileError);
         }
 
         await ActivityLog.log({
@@ -169,7 +161,7 @@ const updateMailConfig = async (req, res) => {
             message: 'Cập nhật cấu hình email thành công'
         });
     } catch (error) {
-        console.error('❌ Update mail config error:', error);
+        console.error('Update mail config error:', error);
         res.status(500).json({
             success: false,
             message: 'Lỗi khi cập nhật cấu hình email',
@@ -178,17 +170,9 @@ const updateMailConfig = async (req, res) => {
     }
 };
 
-// Test email configuration
 const testEmail = async (req, res) => {
     try {
         const { testEmail: emailAddress, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure } = req.body;
-
-        console.log('📧 Testing email with config:', {
-            smtpHost,
-            smtpPort,
-            smtpUser,
-            emailAddress
-        });
 
         if (!emailAddress) {
             return res.status(400).json({
@@ -204,7 +188,6 @@ const testEmail = async (req, res) => {
             });
         }
 
-        // Create transporter with provided config
         const transporter = nodemailer.createTransport({
             host: smtpHost,
             port: parseInt(smtpPort),
@@ -217,13 +200,8 @@ const testEmail = async (req, res) => {
             logger: true
         });
 
-        console.log('🔌 Verifying SMTP connection...');
-
-        // Verify connection
         await transporter.verify();
-        console.log('✅ SMTP connection verified');
 
-        // Send test email
         const mailOptions = {
             from: smtpFrom || smtpUser,
             to: emailAddress,
@@ -251,11 +229,8 @@ const testEmail = async (req, res) => {
             `
         };
 
-        console.log('📤 Sending test email...');
         const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email sent successfully:', info.messageId);
 
-        // Log successful test
         await ActivityLog.log({
             userId: req.user._id,
             action: 'system_maintenance',
@@ -272,7 +247,7 @@ const testEmail = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Test email error:', error);
+        console.error('Test email error:', error);
 
         let errorMessage = 'Lỗi khi gửi email thử';
 
@@ -294,7 +269,6 @@ const testEmail = async (req, res) => {
     }
 };
 
-// Create backup
 const createBackup = async (req, res) => {
     try {
         const backupDir = path.join(__dirname, '../backups');
@@ -357,7 +331,6 @@ const createBackup = async (req, res) => {
     }
 };
 
-// Get backups list
 const getBackups = async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
@@ -424,7 +397,6 @@ const getBackups = async (req, res) => {
     }
 };
 
-// Download backup
 const downloadBackup = async (req, res) => {
     try {
         const { id } = req.params;
@@ -452,7 +424,6 @@ const downloadBackup = async (req, res) => {
     }
 };
 
-// Restore backup
 const restoreBackup = async (req, res) => {
     try {
         const { id } = req.params;
@@ -484,7 +455,6 @@ const restoreBackup = async (req, res) => {
     }
 };
 
-// Delete backup
 const deleteBackup = async (req, res) => {
     try {
         const { id } = req.params;
@@ -516,19 +486,53 @@ const deleteBackup = async (req, res) => {
     }
 };
 
-// Get deleted items
 const getDeletedItems = async (req, res) => {
     try {
+        const { page = 1, limit = 10, search, type } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        let query = {
+            action: { $regex: '_delete$' },
+            result: 'success'
+        };
+
+        if (type) {
+            query.targetType = type;
+        }
+
+        if (search) {
+            query.targetName = { $regex: search, $options: 'i' };
+        }
+
+        const [logs, total] = await Promise.all([
+            ActivityLog.find(query)
+                .populate('userId', 'fullName email')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            ActivityLog.countDocuments(query)
+        ]);
+
+        const items = logs.map(log => ({
+            _id: log._id,
+            originalId: log.targetId,
+            type: log.targetType,
+            name: log.targetName || 'Không tên',
+            description: log.description,
+            deletedBy: log.userId,
+            deletedAt: log.createdAt
+        }));
+
         res.json({
             success: true,
             data: {
-                items: [],
+                items,
                 pagination: {
-                    current: 1,
-                    pages: 0,
-                    total: 0,
-                    hasNext: false,
-                    hasPrev: false
+                    current: parseInt(page),
+                    pages: Math.ceil(total / parseInt(limit)),
+                    total,
+                    hasNext: skip + parseInt(limit) < total,
+                    hasPrev: parseInt(page) > 1
                 }
             }
         });
@@ -541,7 +545,6 @@ const getDeletedItems = async (req, res) => {
     }
 };
 
-// Restore deleted item
 const restoreItem = async (req, res) => {
     try {
         const { type, id } = req.params;
@@ -569,7 +572,6 @@ const restoreItem = async (req, res) => {
     }
 };
 
-// Permanent delete item
 const permanentDeleteItem = async (req, res) => {
     try {
         const { type, id } = req.params;

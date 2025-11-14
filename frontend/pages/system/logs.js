@@ -191,7 +191,7 @@ const LogsPage = () => {
             <Layout title="Đang tải..." breadcrumbItems={breadcrumbItems}>
                 <div className="flex items-center justify-center py-12">
                     <div className="text-center">
-                        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                         <p className="text-gray-600">Đang tải dữ liệu...</p>
                     </div>
                 </div>
@@ -202,7 +202,6 @@ const LogsPage = () => {
     return (
         <Layout title="" breadcrumbItems={breadcrumbItems}>
             <div className="space-y-6">
-                {/* Message Alert */}
                 {message.text && (
                     <div className={`rounded-2xl border p-6 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
                         message.type === 'success'
@@ -239,8 +238,7 @@ const LogsPage = () => {
                     </div>
                 )}
 
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-700 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <div className="p-3 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl">
@@ -248,12 +246,12 @@ const LogsPage = () => {
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold mb-1">Lịch sử hoạt động</h1>
-                                <p className="text-indigo-100">Theo dõi và giám sát các hoạt động trong hệ thống</p>
+                                <p className="text-blue-100">Theo dõi và giám sát các hoạt động trong hệ thống</p>
                             </div>
                         </div>
                         <button
                             onClick={handleExport}
-                            className="flex items-center space-x-2 px-6 py-3 bg-white text-indigo-600 rounded-xl hover:shadow-xl transition-all font-medium"
+                            className="flex items-center space-x-2 px-6 py-3 bg-white text-blue-700 rounded-xl hover:shadow-xl transition-all font-medium"
                         >
                             <Download className="w-5 h-5" />
                             <span>Xuất dữ liệu</span>
@@ -261,17 +259,16 @@ const LogsPage = () => {
                     </div>
                 </div>
 
-                {/* Stats Cards */}
                 {stats && (
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-gray-600">Tổng hoạt động</p>
-                                    <p className="text-3xl font-bold text-indigo-600 mt-2">{stats.total || 0}</p>
+                                    <p className="text-3xl font-bold text-blue-600 mt-2">{stats.total || 0}</p>
                                 </div>
-                                <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center">
-                                    <Activity className="w-7 h-7 text-indigo-600" />
+                                <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
+                                    <Activity className="w-7 h-7 text-blue-600" />
                                 </div>
                             </div>
                         </div>
@@ -284,7 +281,7 @@ const LogsPage = () => {
                                         {stats.byResult?.find(r => r._id === 'success')?.count || 0}
                                     </p>
                                 </div>
-                                <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+                                <div className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center">
                                     <CheckCircle className="w-7 h-7 text-green-600" />
                                 </div>
                             </div>
@@ -298,7 +295,7 @@ const LogsPage = () => {
                                         {stats.byResult?.find(r => r._id === 'failure')?.count || 0}
                                     </p>
                                 </div>
-                                <div className="w-14 h-14 bg-gradient-to-br from-red-100 to-pink-100 rounded-xl flex items-center justify-center">
+                                <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center">
                                     <XCircle className="w-7 h-7 text-red-600" />
                                 </div>
                             </div>
@@ -312,7 +309,7 @@ const LogsPage = () => {
                                         {stats.bySeverity?.filter(s => s._id === 'critical' || s._id === 'high').reduce((sum, s) => sum + (s.count || 0), 0) || 0}
                                     </p>
                                 </div>
-                                <div className="w-14 h-14 bg-gradient-to-br from-orange-100 to-red-100 rounded-xl flex items-center justify-center">
+                                <div className="w-14 h-14 bg-orange-50 rounded-xl flex items-center justify-center">
                                     <AlertCircle className="w-7 h-7 text-orange-600" />
                                 </div>
                             </div>
@@ -320,7 +317,6 @@ const LogsPage = () => {
                     </div>
                 )}
 
-                {/* Filters */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -328,7 +324,7 @@ const LogsPage = () => {
                                 <select
                                     value={actionFilter}
                                     onChange={(e) => setActionFilter(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 >
                                     <option value="">Tất cả hành động</option>
                                     <option value="user_login">Đăng nhập</option>
@@ -345,7 +341,7 @@ const LogsPage = () => {
                                 <select
                                     value={severityFilter}
                                     onChange={(e) => setSeverityFilter(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 >
                                     <option value="">Tất cả mức độ</option>
                                     <option value="low">Thấp</option>
@@ -359,7 +355,7 @@ const LogsPage = () => {
                                 <select
                                     value={resultFilter}
                                     onChange={(e) => setResultFilter(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 >
                                     <option value="">Tất cả kết quả</option>
                                     <option value="success">Thành công</option>
@@ -374,7 +370,7 @@ const LogsPage = () => {
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 />
                             </div>
 
@@ -383,19 +379,18 @@ const LogsPage = () => {
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Logs List */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="text-center">
-                                <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+                                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
                                 <p className="text-gray-600">Đang tải dữ liệu...</p>
                             </div>
                         </div>
@@ -410,20 +405,20 @@ const LogsPage = () => {
                         <>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                                    <thead className="bg-blue-50 border-b-2 border-blue-100">
                                     <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Thời gian</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Người dùng</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Hoạt động</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Mô tả</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Mức độ</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Kết quả</th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">IP</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Thời gian</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Người dùng</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Hoạt động</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Mô tả</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Mức độ</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">Kết quả</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-blue-800 uppercase">IP</th>
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
                                     {logs.map((log) => (
-                                        <tr key={log._id} className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all">
+                                        <tr key={log._id} className="hover:bg-blue-50 transition-all">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center space-x-2">
                                                     <Clock className="w-4 h-4 text-gray-400" />
@@ -432,8 +427,8 @@ const LogsPage = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center space-x-2">
-                                                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-                                                        <span className="text-white text-xs font-bold">
+                                                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                                                        <span className="text-xs font-bold">
                                                             {log.userId?.fullName?.charAt(0).toUpperCase() || 'S'}
                                                         </span>
                                                     </div>
@@ -463,14 +458,13 @@ const LogsPage = () => {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
                             {pagination.pages > 1 && (
-                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t-2 border-gray-200">
+                                <div className="bg-gray-50 px-6 py-4 border-t-2 border-gray-200">
                                     <div className="flex items-center justify-between">
                                         <div className="text-sm text-gray-700">
-                                            Hiển thị <span className="font-semibold text-indigo-600">{(pagination.current - 1) * 20 + 1}</span> đến{' '}
-                                            <span className="font-semibold text-indigo-600">{Math.min(pagination.current * 20, pagination.total)}</span>{' '}
-                                            trong tổng số <span className="font-semibold text-indigo-600">{pagination.total}</span> kết quả
+                                            Hiển thị <span className="font-semibold text-blue-600">{(pagination.current - 1) * 20 + 1}</span> đến{' '}
+                                            <span className="font-semibold text-blue-600">{Math.min(pagination.current * 20, pagination.total)}</span>{' '}
+                                            trong tổng số <span className="font-semibold text-blue-600">{pagination.total}</span> kết quả
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <button

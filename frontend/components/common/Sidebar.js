@@ -287,34 +287,6 @@ const getAllMenuItems = (router) => [
                 active: () => router.pathname === '/reports/create'
             },
             {
-                name: 'Tạo yêu cầu mới',
-                icon: UserPlus,
-                path: '/reports/create-request',
-                permissionKey: 'reports_create_request',
-                active: () => router.pathname === '/reports/create-request'
-            },
-            {
-                name: 'Quản lý Phân quyền',
-                icon: Shield,
-                path: '/assignments/assignments-management',
-                permissionKey: 'assignments',
-                active: () => router.pathname === '/assignments/assignments-management'
-            },
-            {
-                name: 'Phân quyền của tôi',
-                icon: ClipboardCheck,
-                path: '/assignments/my-assignments',
-                permissionKey: 'assignments',
-                active: () => router.pathname === '/assignments/my-assignments'
-            },
-            {
-                name: 'Kết quả đánh giá báo cáo',
-                icon: ClipboardCheck,
-                path: '/evaluations/supervised-reports',
-                permissionKey: 'evaluations_supervised',
-                active: () => router.pathname === '/evaluations/supervised-reports'
-            },
-            {
                 name: 'Đánh giá của tôi',
                 icon: GraduationCap,
                 path: '/evaluations/my-evaluations',
@@ -380,13 +352,6 @@ const getAllMenuItems = (router) => [
                 permissionKey: 'permissions',
                 active: () => router.pathname === '/admin/permissions'
             },
-            {
-                name: 'Phòng ban',
-                icon: Building2,
-                path: '/users/departments',
-                permissionKey: 'departments',
-                active: () => router.pathname === '/users/departments'
-            }
         ]
     },
     {
@@ -426,13 +391,6 @@ const getAllMenuItems = (router) => [
                 path: '/analytics/comprehensive',
                 permissionKey: 'analytics_comprehensive',
                 active: () => router.pathname === '/analytics/comprehensive'
-            },
-            {
-                name: 'Nhật ký hoạt động',
-                icon: Activity,
-                path: '/analytics/logs',
-                permissionKey: 'analytics_logs',
-                active: () => router.pathname === '/analytics/logs'
             },
             {
                 name: 'Xem hoạt động',

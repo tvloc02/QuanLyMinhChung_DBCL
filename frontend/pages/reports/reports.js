@@ -15,7 +15,7 @@ import {
 import ReportsStatusTabs from '../../components/reports/status/ReportsStatusTabs'
 
 // Định nghĩa tabs cho từng loại báo cáo
-// BÁO CÁO TỔNG HỢP TĐG (overall_tdg)
+// BÁO CÁO TỔNG HỢP TĐG (overall_tdg) - Giữ nguyên
 const overallTdgTabs = [
     { id: 'my_reports_tdg', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'type=overall_tdg&createdBy=me&status=' },
     { id: 'tdg_needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=submitted,public' },
@@ -25,19 +25,17 @@ const overallTdgTabs = [
     { id: 'tdg_all', label: 'Tất cả', roles: ['manager', 'admin'], statusQuery: 'type=overall_tdg&status=' },
 ];
 
-// BÁO CÁO TIÊU CHUẨN (standard)
+// BÁO CÁO TIÊU CHUẨN (standard) - Đã xóa "Đã Phát hành"
 const standardTabs = [
     { id: 'my_reports_standard', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'type=standard&createdBy=me&status=' },
     { id: 'standard_needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'type=standard&status=submitted,public' },
-    { id: 'standard_published', label: 'Đã Phát hành', roles: ['manager', 'admin', 'reporter'], statusQuery: 'type=standard&status=published' },
     { id: 'standard_all', label: 'Tất cả', roles: ['manager', 'admin'], statusQuery: 'type=standard&status=' },
 ];
 
-// BÁO CÁO TIÊU CHÍ (criteria)
+// BÁO CÁO TIÊU CHÍ (criteria) - Đã xóa "Đã Phát hành"
 const criteriaTabs = [
     { id: 'my_reports_criteria', label: 'Báo cáo của tôi', roles: ['reporter', 'manager', 'admin'], statusQuery: 'type=criteria&createdBy=me&status=' },
     { id: 'criteria_needs_review', label: 'Chờ duyệt', roles: ['manager', 'admin'], statusQuery: 'type=criteria&status=submitted,public' },
-    { id: 'criteria_published', label: 'Đã Phát hành', roles: ['manager', 'admin', 'reporter'], statusQuery: 'type=criteria&status=published' },
     { id: 'criteria_all', label: 'Tất cả', roles: ['manager', 'admin'], statusQuery: 'type=criteria&status=' },
 ];
 
