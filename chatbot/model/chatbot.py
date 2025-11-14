@@ -22,8 +22,8 @@ class ChatBot:
             if not api_key:
                 raise ValueError("GEMINI_API_KEY environment variable not set.")
 
-            self.client = genai.Client(api_key=api_key)
-            self.model = "gemini-2.0-flash-exp"
+            genai.configure(api_key=api_key)
+            self.model = "gemini-1.5-flash" # Corrected model name
             self.embedding_model = 'text-embedding-004'
             self.safety_settings = [
                 types.SafetySetting(
@@ -38,7 +38,6 @@ class ChatBot:
 
         except Exception as e:
             logging.error(f"Failed to initialize Gemini Client: {e}")
-            self.client = None
             raise
 
         # 2. Khởi tạo và Tải ChromaDB Vector Store cho knowledge base
@@ -90,15 +89,17 @@ class ChatBot:
 
     def get_reply(self, message: str) -> str:
         """Trả lời dựa trên knowledge base"""
-        if not self.client or not self.collection:
+        if not self.collection:
             return "Dịch vụ AI hoặc Kho Vector chưa được khởi tạo. Vui lòng kiểm tra API Key và đảm bảo đã chạy index_data.py."
 
         try:
             # Vector hóa câu hỏi
-            query_embedding = self.client.models.embed_content(
+            embedding_response = genai.embed_content(
                 model=self.embedding_model,
-                contents=message,
-            ).embedding
+                content=message,
+                task_type="RETRIEVAL_QUERY"
+            )
+            query_embedding = embedding_response['embedding']
 
             # Truy vấn ChromaDB knowledge base
             results = self.collection.query(
@@ -134,14 +135,16 @@ class ChatBot:
         )
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=final_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
+            model = genai.GenerativeModel(
+                self.model,
+                system_instruction=system_prompt,
+                safety_settings=self.safety_settings
+            )
+            response = model.generate_content(
+                final_prompt,
+                generation_config=types.GenerateContentConfig(
                     temperature=0.3,
                     max_output_tokens=250,
-                    safety_settings=self.safety_settings
                 )
             )
 
@@ -162,15 +165,17 @@ class ChatBot:
 
     def get_reply_from_files(self, message: str) -> str:
         """Trả lời dựa trên nội dung files đã upload"""
-        if not self.client or not self.files_collection:
+        if not self.files_collection:
             return "Dịch vụ AI hoặc Kho Files chưa được khởi tạo. Vui lòng kiểm tra cấu hình."
 
         try:
             # Vector hóa câu hỏi
-            query_embedding = self.client.models.embed_content(
+            embedding_response = genai.embed_content(
                 model=self.embedding_model,
-                contents=message,
-            ).embedding
+                content=message,
+                task_type="RETRIEVAL_QUERY"
+            )
+            query_embedding = embedding_response['embedding']
 
             # Truy vấn trong files collection
             results = self.files_collection.query(
@@ -218,14 +223,16 @@ class ChatBot:
         )
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=final_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
+            model = genai.GenerativeModel(
+                self.model,
+                system_instruction=system_prompt,
+                safety_settings=self.safety_settings
+            )
+            response = model.generate_content(
+                final_prompt,
+                generation_config=types.GenerateContentConfig(
                     temperature=0.3,
                     max_output_tokens=400,  # Cho phép trả lời dài hơn
-                    safety_settings=self.safety_settings
                 )
             )
 
@@ -246,9 +253,6 @@ class ChatBot:
 
     def summarize_text(self, text: str, max_length: int = 500) -> str:
         """Tóm tắt văn bản"""
-        if not self.client:
-            return "Dịch vụ AI chưa sẵn sàng"
-
         try:
             # Giới hạn độ dài văn bản đầu vào
             if len(text) > 10000:
@@ -262,13 +266,12 @@ class ChatBot:
             
             Tóm tắt:"""
 
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
+            model = genai.GenerativeModel(self.model, safety_settings=self.safety_settings)
+            response = model.generate_content(
+                prompt,
+                generation_config=types.GenerateContentConfig(
                     temperature=0.3,
                     max_output_tokens=max_length // 4,
-                    safety_settings=self.safety_settings
                 )
             )
 
@@ -280,9 +283,6 @@ class ChatBot:
 
     def get_contextual_followup(self, last_reply: str) -> list[str]:
         """Gợi ý câu hỏi tiếp theo"""
-        if not self.client:
-            return []
-
         if "xin lỗi" in last_reply.lower() or "không tìm thấy" in last_reply.lower():
             return []
 
@@ -293,13 +293,12 @@ class ChatBot:
         )
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
+            model = genai.GenerativeModel(self.model, safety_settings=self.safety_settings)
+            response = model.generate_content(
+                prompt,
+                generation_config=types.GenerateContentConfig(
                     temperature=0.5,
                     max_output_tokens=100,
-                    safety_settings=self.safety_settings
                 )
             )
 

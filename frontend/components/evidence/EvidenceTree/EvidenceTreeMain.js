@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-    ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Loader2,
+    ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Loader2, UserX,
     Eye, Edit, Trash2, Upload, Users, FileTextIcon, Maximize2, Minimize2,
     GripVertical, Clock, Check, CheckCircle2, XCircle
 } from 'lucide-react'
@@ -91,7 +91,7 @@ export default function EvidenceTreeMain({
                                              onDeleteCriteria,
                                              onViewEvidence,
                                              onEditEvidence,
-                                             onDeleteEvidence,
+                                             onDeleteEvidence
                                          }) {
     const router = useRouter()
 
@@ -106,7 +106,6 @@ export default function EvidenceTreeMain({
 
     const [standardPermissions, setStandardPermissions] = useState({});
     const [criteriaPermissions, setCriteriaPermissions] = useState({});
-    const [isPermissionLoading, setIsPermissionLoading] = useState(true);
 
     const handleWriteReportFromTree = (reportType, standardId, criteriaId, programId, organizationId) => {
         if (onWriteReportClick) {
@@ -123,11 +122,9 @@ export default function EvidenceTreeMain({
     useEffect(() => {
         const updatePermissions = async () => {
             if (treeData.length === 0) {
-                setIsPermissionLoading(false);
                 return;
             }
 
-            setIsPermissionLoading(true);
             const newStandardPermissions = {};
             const newCriteriaPermissions = {};
             const standardPromises = [];
@@ -167,7 +164,6 @@ export default function EvidenceTreeMain({
 
             setStandardPermissions(newStandardPermissions);
             setCriteriaPermissions(newCriteriaPermissions);
-            setIsPermissionLoading(false);
         };
 
         updatePermissions();
@@ -489,10 +485,8 @@ export default function EvidenceTreeMain({
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {isPermissionLoading || loading ? (
+                {loading ? (
                     <div className="p-16 text-center">
-                        <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
-                        <p className="text-gray-500">Đang tải cây minh chứng và kiểm tra quyền...</p>
                     </div>
                 ) : treeData.length === 0 ? (
                     <div className="p-16 text-center">

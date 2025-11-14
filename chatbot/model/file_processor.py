@@ -51,6 +51,15 @@ class FileProcessor:
             logging.error(f"Failed to initialize FileProcessor: {e}")
             raise
 
+    # Hàm trợ giúp để lấy embedding an toàn (TÁI SỬ DỤNG LOGIC TỪ CHATBOT)
+    def _get_embedding_value(self, response):
+        if hasattr(response, 'embedding'):
+            return response.embedding
+        if hasattr(response, 'values') and len(response.values) > 0:
+            return response.values[0]
+        # Không raise error mà trả về vector rỗng nếu lỗi trong quá trình tạo
+        return [0.0] * 768
+
     def extract_text_from_pdf(self, file_content: BytesIO) -> str:
         """Trích xuất văn bản từ file PDF"""
         try:
@@ -136,7 +145,7 @@ class FileProcessor:
 
     def extract_text(self, file_content: BytesIO, filename: str, content_type: str) -> str:
         """Trích xuất văn bản từ file dựa trên loại file"""
-        file_content.seek(0)  # Reset position
+        file_content.seek(0) # Reset position
 
         # Xác định loại file
         ext = os.path.splitext(filename)[1].lower()
@@ -227,11 +236,15 @@ class FileProcessor:
                     model=self.embedding_model,
                     contents=[text]
                 )
-                embeddings.append(response.values[0])
+
+                # SỬA LỖI: Lấy embedding an toàn
+                embedding = self._get_embedding_value(response)
+                embeddings.append(embedding)
+
             except Exception as e:
                 logging.error(f"Error creating embedding: {e}")
                 # Thêm vector rỗng nếu lỗi
-                embeddings.append([0.0] * 768)  # Kích thước vector mặc định
+                embeddings.append([0.0] * 768)
 
         return embeddings
 
@@ -321,10 +334,13 @@ class FileProcessor:
         """Tìm kiếm trong các file đã upload"""
         try:
             # Tạo embedding cho query
-            query_embedding = self.client.models.embed_content(
+            embedding_response = self.client.models.embed_content(
                 model=self.embedding_model,
                 contents=query
-            ).embedding
+            )
+            # SỬA LỖI: Lấy embedding an toàn
+            query_embedding = self._get_embedding_value(embedding_response)
+
 
             # Tìm kiếm trong ChromaDB
             results = self.file_collection.query(

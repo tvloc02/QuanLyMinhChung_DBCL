@@ -505,8 +505,43 @@ export default function EvidenceTree() {
         router.push(`/evidence/files?evidenceId=${evidenceId}`)
     }
 
-    const handleDeleteEntity = (type, entity) => {
-        toast.error(`❌ ${type} "${entity.code || entity.name}" đang được sử dụng và không thể xóa.`)
+    const handleDeleteEntity = async (type, entity) => {
+        const typeLabels = {
+            standard: 'Tiêu chuẩn',
+            criteria: 'Tiêu chí',
+            evidence: 'Minh chứng'
+        };
+        const typeName = typeLabels[type] || 'mục';
+
+        if (!confirm(`Bạn có chắc chắn muốn xóa ${typeName} "${entity.code || entity.name}" không? Hành động này sẽ xóa vĩnh viễn và không thể hoàn tác.`)) {
+            return;
+        }
+
+        const toastId = toast.loading(`Đang xóa ${typeName}...`);
+        try {
+            let deleteApi;
+            switch (type) {
+                case 'standard':
+                    deleteApi = apiMethods.standards.delete;
+                    break;
+                case 'criteria':
+                    deleteApi = apiMethods.criteria.delete;
+                    break;
+                case 'evidence':
+                    deleteApi = apiMethods.evidences.delete;
+                    break;
+                default:
+                    throw new Error('Loại không hợp lệ để xóa.');
+            }
+
+            await deleteApi(entity.id);
+            toast.success(`${typeName} đã được xóa thành công!`, { id: toastId });
+            fetchTreeData(); // Tải lại cây minh chứng
+
+        } catch (error) {
+            console.error(`Delete ${type} error:`, error);
+            toast.error(error.response?.data?.message || `Lỗi khi xóa ${typeName}.`, { id: toastId });
+        }
     }
 
     return (

@@ -17,25 +17,114 @@ import {
     AlertCircle,
     CheckCircle,
     Clock,
-    X
+    X,
+    BookOpen,
+    Save
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { apiMethods } from '../../services/api'
+import { v4 as uuidv4 } from 'uuid';
+
+function KnowledgeManagementModal({ isOpen, onClose, knowledgeData, setKnowledgeData, onSaveAndReindex }) {
+    if (!isOpen) return null;
+
+    const handleAddChunk = () => {
+        const newChunk = { id: `chunk_${uuidv4()}`, source: 'Nguồn mới', text: 'Nội dung mới...' };
+        setKnowledgeData(prev => [...prev, newChunk]);
+    };
+
+    const handleRemoveChunk = (id) => {
+        if (!confirm('Bạn có chắc muốn xóa chunk này?')) return;
+        setKnowledgeData(prev => prev.filter(chunk => chunk.id !== id));
+    };
+
+    const handleDataChange = (id, field, value) => {
+        setKnowledgeData(prev =>
+            prev.map(chunk => (chunk.id === id ? { ...chunk, [field]: value } : chunk))
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+                <div className="flex justify-between items-center p-4 border-b">
+                    <h2 className="text-xl font-bold flex items-center">
+                        <BookOpen className="mr-2" /> Quản lý Kiến thức Hệ thống
+                    </h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                        <X />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    {knowledgeData.map(chunk => (
+                        <div key={chunk.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 relative">
+                            <button
+                                onClick={() => handleRemoveChunk(chunk.id)}
+                                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-full"
+                                title="Xóa chunk"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                            <div className="space-y-2">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600">Nguồn (Source)</label>
+                                    <input
+                                        type="text"
+                                        value={chunk.source}
+                                        onChange={(e) => handleDataChange(chunk.id, 'source', e.target.value)}
+                                        className="w-full mt-1 p-2 border rounded-md"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600">Nội dung (Text)</label>
+                                    <textarea
+                                        value={chunk.text}
+                                        onChange={(e) => handleDataChange(chunk.id, 'text', e.target.value)}
+                                        className="w-full mt-1 p-2 border rounded-md"
+                                        rows={4}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    <button
+                        onClick={handleAddChunk}
+                        className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-100 hover:border-gray-400"
+                    >
+                        + Thêm Chunk mới
+                    </button>
+                </div>
+                <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+                    <button
+                        onClick={onSaveAndReindex}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+                    >
+                        <Save className="mr-2" /> Lưu và Re-index
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 export default function ChatbotPage() {
     const { user, isLoading } = useAuth()
 
-    // States cho chat
     const [messages, setMessages] = useState([])
     const [input, setInput] = useState('')
     const [chatLoading, setChatLoading] = useState(false)
     const [sessionId, setSessionId] = useState(null)
-    const [searchType, setSearchType] = useState('knowledge') // knowledge hoặc files
+    const [searchType, setSearchType] = useState('knowledge')
 
-    // States cho file management
     const [uploadedFiles, setUploadedFiles] = useState([])
     const [filesLoading, setFilesLoading] = useState(false)
-    const [selectedFiles, setSelectedFiles] = useState([])
+    
+    const [isKnowledgeModalOpen, setKnowledgeModalOpen] = useState(false);
+    const [knowledgeData, setKnowledgeData] = useState([]);
+    const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+
 
     const messagesEndRef = useRef(null)
     const fileInputRef = useRef(null)
@@ -52,7 +141,7 @@ export default function ChatbotPage() {
             }
         }
 
-        // loadUploadedFiles()
+        loadUploadedFiles()
     }, [])
 
     useEffect(() => {
@@ -64,19 +153,70 @@ export default function ChatbotPage() {
         { name: 'AI Chatbot', icon: Bot }
     ]
 
-    // const loadUploadedFiles = async () => {
-    //     setFilesLoading(true)
-    //     try {
-    //         const response = await axios.get('/api/get-file-vectors')
-    //         if (response.data.success) {
-    //             setUploadedFiles(response.data.vectors || [])
-    //         }
-    //     } catch (error) {
-    //         console.error('Error loading files:', error)
-    //     } finally {
-    //         setFilesLoading(false)
-    //     }
-    // }
+    const loadUploadedFiles = async (showSuccessToast = false) => {
+        setFilesLoading(true)
+        try {
+            const response = await apiMethods.aiChat.getFileVectors()
+            if (response.data.success) {
+                setUploadedFiles(response.data.vectors || [])
+                if (showSuccessToast) {
+                    toast.success('Đã tải lại danh sách files thành công.')
+                }
+            }
+        } catch (error) {
+            console.error('Error loading files:', error)
+            toast.error('Lỗi khi tải danh sách files.')
+        } finally {
+            setFilesLoading(false)
+        }
+    }
+    
+    const loadKnowledge = async () => {
+        setKnowledgeLoading(true);
+        try {
+            const response = await apiMethods.aiChat.getSystemKnowledge();
+            if (response.data.success) {
+                setKnowledgeData(response.data.data || []);
+                setKnowledgeModalOpen(true);
+            } else {
+                toast.error('Không thể tải kiến thức hệ thống.');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi tải kiến thức hệ thống.');
+            console.error('Error loading knowledge:', error);
+        } finally {
+            setKnowledgeLoading(false);
+        }
+    };
+
+    const handleSaveAndReindex = async () => {
+        if (!confirm('Hành động này sẽ ghi đè lên file kiến thức và bắt đầu quá trình re-index. Bạn có chắc chắn?')) return;
+
+        const savePromise = apiMethods.aiChat.updateSystemKnowledge(knowledgeData);
+        toast.promise(savePromise, {
+            loading: 'Đang lưu file kiến thức...',
+            success: 'Lưu file thành công!',
+            error: 'Lỗi khi lưu file.'
+        });
+
+        try {
+            await savePromise;
+            
+            const reindexPromise = apiMethods.aiChat.reindexKnowledge();
+            toast.promise(reindexPromise, {
+                loading: 'Đang gửi yêu cầu re-index...',
+                success: (res) => res.data.message || 'Yêu cầu re-index thành công!',
+                error: 'Lỗi khi gửi yêu cầu re-index.'
+            });
+            
+            await reindexPromise;
+            setKnowledgeModalOpen(false);
+
+        } catch (error) {
+            console.error('Save or reindex error:', error);
+        }
+    };
+
 
     const handleSendMessage = async (e) => {
         e.preventDefault()
@@ -125,54 +265,50 @@ export default function ChatbotPage() {
         }
     }
 
-    // const handleFileUpload = async (e) => {
-    //     const files = Array.from(e.target.files)
-    //     if (files.length === 0) return
+    const handleFileUpload = async (e) => {
+        const files = Array.from(e.target.files)
+        if (files.length === 0) return
 
-    //     const formData = new FormData()
-    //     files.forEach(file => {
-    //         formData.append('files', file)
-    //     })
-    //     formData.append('evidenceId', 'chatbot-files') // ID giả cho chatbot
+        try {
+            const uploadPromise = apiMethods.files.uploadMultiple(files, 'chatbot-files')
 
-    //     try {
-    //         const uploadPromise = axios.post('/api/files/upload/chatbot-files', formData, {
-    //             headers: {
-    //                 'Content-Type': 'multipart/form-data'
-    //             }
-    //         })
+            await toast.promise(uploadPromise, {
+                loading: 'Đang upload và xử lý file...',
+                success: 'Upload và vector hóa thành công!',
+                error: (err) => {
+                    const errorMsg = err.response?.data?.message || 'Lỗi khi upload file';
+                    console.error('Upload error detail:', err.response?.data?.results || err);
+                    return errorMsg;
+                }
+            })
 
-    //         await toast.promise(uploadPromise, {
-    //             loading: 'Đang upload và xử lý file...',
-    //             success: 'Upload và vector hóa thành công!',
-    //             error: 'Lỗi khi upload file'
-    //         })
+            // ĐIỀU CHỈNH: Tăng thời gian chờ và gọi loadUploadedFiles
+            setTimeout(() => {
+                // Tải lại danh sách sau khi quá trình vector hóa (Flask) có thể đã hoàn thành
+                loadUploadedFiles(true)
+            }, 10000) // Tăng lên 5 giây để đảm bảo Python đã ghi vào ChromaDB
 
-    //         // Reload danh sách files
-    //         setTimeout(() => {
-    //             loadUploadedFiles()
-    //         }, 2000)
+        } catch (error) {
+            console.error('Final upload error block:', error)
+            // Lỗi đã được toast.promise xử lý, không cần toast lại ở đây
+        }
 
-    //     } catch (error) {
-    //         console.error('Upload error:', error)
-    //     }
+        // Reset input
+        e.target.value = ''
+    }
 
-    //     // Reset input
-    //     e.target.value = ''
-    // }
+    const handleDeleteVector = async (vectorId) => {
+        if (!confirm('Bạn có chắc chắn muốn xóa vector này?')) return
 
-    // const handleDeleteVector = async (vectorId) => {
-    //     if (!confirm('Bạn có chắc chắn muốn xóa vector này?')) return
-
-    //     try {
-    //         await axios.delete(`/api/delete-vector/${vectorId}`)
-    //         toast.success('Đã xóa vector thành công')
-    //         loadUploadedFiles()
-    //     } catch (error) {
-    //         toast.error('Lỗi khi xóa vector')
-    //         console.error('Delete error:', error)
-    //     }
-    // }
+        try {
+            await apiMethods.aiChat.deleteVector(vectorId)
+            toast.success('Đã xóa vector thành công')
+            loadUploadedFiles()
+        } catch (error) {
+            toast.error('Lỗi khi xóa vector')
+            console.error('Delete error:', error)
+        }
+    }
 
     const handleClearChat = () => {
         if (!confirm('Bạn có chắc chắn muốn xóa lịch sử chat?')) return
@@ -197,12 +333,17 @@ export default function ChatbotPage() {
 
     return (
         <Layout title="AI Chatbot - Quản lý kiến thức" breadcrumbItems={breadcrumbItems}>
+            <KnowledgeManagementModal
+                isOpen={isKnowledgeModalOpen}
+                onClose={() => setKnowledgeModalOpen(false)}
+                knowledgeData={knowledgeData}
+                setKnowledgeData={setKnowledgeData}
+                onSaveAndReindex={handleSaveAndReindex}
+            />
             <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Main Chat Area */}
                     <div className="lg:col-span-3">
                         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                            {/* Chat Header */}
                             <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center space-x-3">
@@ -234,7 +375,6 @@ export default function ChatbotPage() {
                                 </div>
                             </div>
 
-                            {/* Messages Area */}
                             <div className="h-[500px] overflow-y-auto p-4 bg-gray-50">
                                 {messages.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -273,7 +413,6 @@ export default function ChatbotPage() {
                                                         {formatTime(msg.timestamp)}
                                                     </div>
 
-                                                    {/* Follow-up questions */}
                                                     {msg.followups && msg.followups.length > 0 && (
                                                         <div className="mt-3 pt-3 border-t border-gray-200">
                                                             <p className="text-xs text-gray-600 mb-2">Gợi ý câu hỏi:</p>
@@ -308,7 +447,6 @@ export default function ChatbotPage() {
                                 )}
                             </div>
 
-                            {/* Input Area */}
                             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
                                 <div className="flex space-x-2">
                                     <input
@@ -331,12 +469,29 @@ export default function ChatbotPage() {
                         </div>
                     </div>
 
-                    {/* Sidebar - File Management (Temporarily Disabled) */}
-                    {/* <div className="space-y-6">
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-xl shadow-lg p-4">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
+                                Quản lý Kiến thức Hệ thống
+                            </h3>
+                            <button
+                                onClick={loadKnowledge}
+                                disabled={knowledgeLoading}
+                                className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition flex items-center justify-center disabled:opacity-70"
+                            >
+                                {knowledgeLoading ? <Loader2 className="h-5 w-5 mr-2 animate-spin"/> : <BookOpen className="h-5 w-5 mr-2" />}
+                                Mở Trình quản lý
+                            </button>
+                             <p className="text-xs text-gray-500 mt-2">
+                                Chỉnh sửa, thêm, xóa các nguồn kiến thức gốc của AI.
+                            </p>
+                        </div>
+
                         <div className="bg-white rounded-xl shadow-lg p-4">
                             <h3 className="text-lg font-semibold mb-4 flex items-center">
                                 <Upload className="h-5 w-5 mr-2 text-green-600" />
-                                Upload Files để AI học
+                                Upload Files để AI học (Tạm thời)
                             </h3>
                             <input
                                 ref={fileInputRef}
@@ -365,7 +520,7 @@ export default function ChatbotPage() {
                                     Files đã vector hóa
                                 </h3>
                                 <button
-                                    onClick={loadUploadedFiles}
+                                    onClick={() => loadUploadedFiles(true)}
                                     className="p-1 hover:bg-gray-100 rounded-lg transition"
                                     title="Làm mới"
                                 >
@@ -412,32 +567,7 @@ export default function ChatbotPage() {
                                 </div>
                             )}
                         </div>
-
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
-                            <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-                                <AlertCircle className="h-5 w-5 mr-2" />
-                                Hướng dẫn sử dụng
-                            </h4>
-                            <ul className="text-sm text-blue-800 space-y-1">
-                                <li className="flex items-start">
-                                    <span className="mr-2">•</span>
-                                    <span>Upload file để AI học nội dung</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="mr-2">•</span>
-                                    <span>Chọn "Files đã upload" để hỏi về nội dung file</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="mr-2">•</span>
-                                    <span>Chọn "Kiến thức hệ thống" để hỏi về hệ thống</span>
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="mr-2">•</span>
-                                    <span>AI sẽ tự động tóm tắt và lưu trữ nội dung</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div> */}
+                    </div>
                 </div>
             </div>
         </Layout>

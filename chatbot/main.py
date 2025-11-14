@@ -36,7 +36,7 @@ chat_history = {}
 
 @app.route("/api/ai-chat", methods=["POST"])
 def ai_chat():
-    if not bot or not bot.client:
+    if not bot:
         return jsonify({
             "error": "Dịch vụ AI chưa sẵn sàng",
             "reply": "Xin lỗi, tôi gặp sự cố cấu hình kỹ thuật. Vui lòng kiểm tra API Key."
@@ -175,7 +175,7 @@ def delete_vector(vector_id):
 
 @app.route("/api/summarize-text", methods=["POST"])
 def summarize_text():
-    if not bot or not bot.client:
+    if not bot:
         return jsonify({
             "error": "Dịch vụ AI chưa sẵn sàng"
         }), 503
@@ -365,6 +365,74 @@ def get_quick_actions():
         }
     ]
     return jsonify({"actions": actions})
+
+from index_data import create_vector_store
+import json
+import threading
+
+# ... (existing imports)
+
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
+load_dotenv(dotenv_path=dotenv_path)
+
+app = Flask(__name__)
+CORS(app)
+
+# ... (existing logging config)
+
+# ... (existing bot initialization)
+
+# --- Knowledge Base Management Endpoints ---
+KNOWLEDGE_FILE_PATH = os.path.join(os.path.dirname(__file__), 'model', 'data_chunks.json')
+
+@app.route("/api/system-knowledge", methods=["GET"])
+def get_system_knowledge():
+    try:
+        if not os.path.exists(KNOWLEDGE_FILE_PATH):
+            return jsonify({"success": True, "data": []})
+        with open(KNOWLEDGE_FILE_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        logging.error(f"Error reading knowledge file: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/system-knowledge", methods=["POST"])
+def update_system_knowledge():
+    try:
+        new_data = request.get_json()
+        if new_data is None:
+            return jsonify({"success": False, "error": "Invalid data"}), 400
+        
+        with open(KNOWLEDGE_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(new_data, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({"success": True, "message": "Knowledge base updated."})
+    except Exception as e:
+        logging.error(f"Error writing knowledge file: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/reindex-knowledge", methods=["POST"])
+def reindex_knowledge():
+    def run_indexing():
+        try:
+            logging.info("Starting background re-indexing...")
+            create_vector_store()
+            logging.info("Background re-indexing finished.")
+        except Exception as e:
+            logging.error(f"Error during background re-indexing: {e}")
+
+    # Chạy re-index trong một thread riêng để không block request
+    thread = threading.Thread(target=run_indexing)
+    thread.start()
+
+    return jsonify({
+        "success": True, 
+        "message": "Quá trình re-index đã được bắt đầu. Quá trình này có thể mất vài phút."
+    }), 202
+
+
+# ... (existing routes)
 
 @app.errorhandler(404)
 def not_found(error):

@@ -15,48 +15,41 @@ EMBEDDING_MODEL = 'text-embedding-004'
 CHROMA_PATH = "chroma_db"
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'model', 'data_chunks.json')
 
-def get_embeddings(texts, client):
-    """Sử dụng Gemini API để lấy vector cho các đoạn văn bản"""
-    embeddings = []
-    print(f"Bắt đầu vector hóa {len(texts)} đoạn văn bản...")
-
-    for i, text in enumerate(texts):
-        try:
-            # Gọi API cho từng đoạn văn bản
-            response = client.models.embed_content(
-                model=EMBEDDING_MODEL,
-                contents=[text],
-            )
-
-            # Lấy embedding từ response
-            if hasattr(response, 'embedding'):
-                embeddings.append(response.embedding)
-            elif hasattr(response, 'values') and len(response.values) > 0:
-                embeddings.append(response.values[0])
-            else:
-                print(f"Cảnh báo: Không tìm thấy embedding cho đoạn {i}")
-                embeddings.append([0.0] * 768)  # Vector mặc định
-
-            if (i + 1) % 5 == 0:
-                print(f"  Đã xử lý {i + 1}/{len(texts)} đoạn...")
-
-        except Exception as e:
-            print(f"Lỗi khi vector hóa đoạn {i}: {e}")
-            embeddings.append([0.0] * 768)  # Vector mặc định nếu lỗi
-
-    return embeddings
+def get_embeddings(texts):
+    """Sử dụng Gemini API để lấy vector cho các đoạn văn bản theo batch."""
+    try:
+        # API hỗ trợ batching, nên ta có thể gửi cả list
+        response = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content=texts,
+            task_type="RETRIEVAL_DOCUMENT"
+        )
+        return response['embedding']
+    except Exception as e:
+        print(f"Lỗi nghiêm trọng khi vector hóa batch: {e}")
+        # Nếu batch fail, thử lại từng cái một
+        print("Thử lại từng văn bản một...")
+        embeddings = []
+        for text in texts:
+            try:
+                response = genai.embed_content(
+                    model=EMBEDDING_MODEL,
+                    content=text,
+                    task_type="RETRIEVAL_DOCUMENT"
+                )
+                embeddings.append(response['embedding'])
+            except Exception as e_single:
+                print(f"Lỗi khi vector hóa văn bản: {e_single}. Sử dụng vector 0.")
+                embeddings.append([0.0] * 768) # Vector mặc định
+        return embeddings
 
 def create_vector_store():
     if not API_KEY:
         print("Lỗi: GEMINI_API_KEY chưa được thiết lập. Vui lòng kiểm tra file .env")
         return
 
-    try:
-        client = genai.Client(api_key=API_KEY)
-        print("✓ Kết nối Gemini API thành công")
-    except Exception as e:
-        print(f"Lỗi khởi tạo Gemini Client: {e}")
-        return
+    genai.configure(api_key=API_KEY)
+    print("✓ Cấu hình Gemini API thành công")
 
     # 1. Đọc dữ liệu từ file chunks
     try:
@@ -78,16 +71,6 @@ def create_vector_store():
                 "id": "chunk_2",
                 "text": "Để upload minh chứng, người dùng cần: 1) Đăng nhập vào hệ thống, 2) Chọn mục Quản lý minh chứng, 3) Nhấn nút Tạo mới, 4) Điền thông tin và upload file đính kèm.",
                 "source": "Hướng dẫn upload"
-            },
-            {
-                "id": "chunk_3",
-                "text": "Hệ thống hỗ trợ các định dạng file: PDF, Word (DOC, DOCX), Excel (XLS, XLSX), PowerPoint (PPT, PPTX), ảnh (JPG, PNG) và file văn bản (TXT). Dung lượng tối đa mỗi file là 50MB.",
-                "source": "Định dạng file hỗ trợ"
-            },
-            {
-                "id": "chunk_4",
-                "text": "Có 4 vai trò chính trong hệ thống: Admin (quản trị toàn hệ thống), Manager (quản lý cấp phòng ban), TDG (thành viên tự đánh giá), và Expert (chuyên gia đánh giá).",
-                "source": "Phân quyền người dùng"
             }
         ]
 
@@ -99,15 +82,15 @@ def create_vector_store():
         print(f"✓ Đã tạo file mẫu với {len(data)} chunks")
 
     texts = [item['text'] for item in data]
-    ids = [item['id'] for item in data]
+    ids = [str(item.get('id', f'chunk_{i}')) for i, item in enumerate(data)]
     metadatas = [{'source': item['source']} for item in data]
 
     # 2. Lấy Embeddings
     print("\n=== Bắt đầu tạo embeddings ===")
-    embeddings = get_embeddings(texts, client)
+    embeddings = get_embeddings(texts)
 
-    if not embeddings:
-        print("Lỗi: Không thể tạo embeddings")
+    if not embeddings or len(embeddings) != len(texts):
+        print("Lỗi: Không thể tạo embeddings cho tất cả các văn bản.")
         return
 
     print(f"✓ Đã tạo {len(embeddings)} embeddings")
@@ -150,15 +133,12 @@ def create_vector_store():
     print("\n=== Kiểm tra kết quả ===")
     test_query = "upload minh chứng"
     try:
-        test_embedding = client.models.embed_content(
+        response = genai.embed_content(
             model=EMBEDDING_MODEL,
-            contents=test_query
+            content=test_query,
+            task_type="RETRIEVAL_QUERY"
         )
-
-        if hasattr(test_embedding, 'embedding'):
-            query_vec = test_embedding.embedding
-        else:
-            query_vec = test_embedding.values[0]
+        query_vec = response['embedding']
 
         results = collection.query(
             query_embeddings=[query_vec],

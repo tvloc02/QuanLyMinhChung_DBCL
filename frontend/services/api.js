@@ -413,6 +413,15 @@ export const apiMethods = {
         getByCode: (code) => publicApi.get(`/api/public/evidences/${code}`),
         getById: (id) => publicApi.get(`/api/public/evidences/id/${id}`)
     },
+
+    aiChat: {
+        getFileVectors: () => api.get('/api/get-file-vectors'),
+        deleteVector: (vectorId) => api.delete(`/api/delete-vector/${vectorId}`),
+        sendMessage: (data) => api.post('/api/ai-chat', data),
+        getSystemKnowledge: () => api.get('/api/system-knowledge'),
+        updateSystemKnowledge: (data) => api.post('/api/system-knowledge', data),
+        reindexKnowledge: () => api.post('/api/reindex-knowledge')
+    }
 }
 
 export default api
