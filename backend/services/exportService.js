@@ -1,7 +1,10 @@
 const XLSX = require('xlsx');
 const mongoose = require('mongoose');
 const Evidence = require('../models/Evidence/Evidence');
-const { Program, Organization, Standard, Criteria } = require('../models/Evidence/Program');
+const Program = require('../models/Evidence/Program');
+const Organization = require('../models/Evidence/Organization');
+const Standard = require('../models/Evidence/Standard');
+const Criteria = require('../models/Evidence/Criteria');
 
 const exportEvidences = async (filters, format = 'xlsx') => {
     try {
@@ -10,12 +13,15 @@ const exportEvidences = async (filters, format = 'xlsx') => {
         if (!filters.academicYearId) {
             throw new Error('Academic Year ID is required for export');
         }
-        query.academicYearId = mongoose.Types.ObjectId(filters.academicYearId);
+        // FIX: Thêm 'new'
+        query.academicYearId = new mongoose.Types.ObjectId(filters.academicYearId);
 
-        if (filters.programId) query.programId = mongoose.Types.ObjectId(filters.programId);
-        if (filters.organizationId) query.organizationId = mongoose.Types.ObjectId(filters.organizationId);
-        if (filters.standardId) query.standardId = mongoose.Types.ObjectId(filters.standardId);
-        if (filters.criteriaId) query.criteriaId = mongoose.Types.ObjectId(filters.criteriaId);
+        // FIX: Thêm 'new'
+        if (filters.programId) query.programId = new mongoose.Types.ObjectId(filters.programId);
+        if (filters.organizationId) query.organizationId = new mongoose.Types.ObjectId(filters.organizationId);
+        if (filters.standardId) query.standardId = new mongoose.Types.ObjectId(filters.standardId);
+        if (filters.criteriaId) query.criteriaId = new mongoose.Types.ObjectId(filters.criteriaId);
+
         if (filters.status) query.status = filters.status;
         if (filters.documentType) query.documentType = filters.documentType;
 
@@ -185,16 +191,18 @@ const exportImportTemplate = async (programId, organizationId, academicYearId) =
         }
 
         const standards = await Standard.find({
-            academicYearId: mongoose.Types.ObjectId(academicYearId),
-            programId: mongoose.Types.ObjectId(programId),
-            organizationId: mongoose.Types.ObjectId(organizationId),
+            // FIX: Thêm 'new'
+            academicYearId: new mongoose.Types.ObjectId(academicYearId),
+            programId: new mongoose.Types.ObjectId(programId),
+            organizationId: new mongoose.Types.ObjectId(organizationId),
             status: 'active'
         }).sort({ code: 1 });
 
         const criteria = await Criteria.find({
-            academicYearId: mongoose.Types.ObjectId(academicYearId),
-            programId: mongoose.Types.ObjectId(programId),
-            organizationId: mongoose.Types.ObjectId(organizationId),
+            // FIX: Thêm 'new'
+            academicYearId: new mongoose.Types.ObjectId(academicYearId),
+            programId: new mongoose.Types.ObjectId(programId),
+            organizationId: new mongoose.Types.ObjectId(organizationId),
             status: 'active'
         }).populate('standardId', 'name code').sort({ 'standardId.code': 1, code: 1 });
 
@@ -290,26 +298,32 @@ const exportEvidenceTree = async (programId, organizationId, academicYearId) => 
             throw new Error('programId, organizationId, academicYearId là bắt buộc');
         }
 
+        const [program, organization] = await Promise.all([
+            Program.findById(programId).lean(),
+            Organization.findById(organizationId).lean()
+        ]);
+
         const evidences = await Evidence.find({
-            academicYearId: mongoose.Types.ObjectId(academicYearId),
-            programId: mongoose.Types.ObjectId(programId),
-            organizationId: mongoose.Types.ObjectId(organizationId)
+            // FIX: Thêm 'new' vào tất cả các ObjectId
+            academicYearId: new mongoose.Types.ObjectId(academicYearId),
+            programId: new mongoose.Types.ObjectId(programId),
+            organizationId: new mongoose.Types.ObjectId(organizationId)
         })
             .populate('standardId', 'name code')
             .populate('criteriaId', 'name code')
-            .populate('programId', 'name code')
-            .populate('organizationId', 'name code')
             .sort({ 'standardId.code': 1, 'criteriaId.code': 1, code: 1 })
             .lean();
 
         const standards = await Standard.find({
-            academicYearId: mongoose.Types.ObjectId(academicYearId),
-            programId: mongoose.Types.ObjectId(programId)
+            // FIX: Thêm 'new'
+            academicYearId: new mongoose.Types.ObjectId(academicYearId),
+            programId: new mongoose.Types.ObjectId(programId)
         }).lean();
 
         const criteria = await Criteria.find({
-            academicYearId: mongoose.Types.ObjectId(academicYearId),
-            programId: mongoose.Types.ObjectId(programId)
+            // FIX: Thêm 'new'
+            academicYearId: new mongoose.Types.ObjectId(academicYearId),
+            programId: new mongoose.Types.ObjectId(programId)
         }).lean();
 
         const treeStructure = {};
@@ -341,8 +355,8 @@ const exportEvidenceTree = async (programId, organizationId, academicYearId) => 
         const wb = XLSX.utils.book_new();
         const data = [
             [
-                `Chương trình: ${evidences[0]?.programId?.name || ''}`,
-                `Tổ chức: ${evidences[0]?.organizationId?.name || ''}`
+                `Chương trình: ${program?.name || ''}`,
+                `Tổ chức: ${organization?.name || ''}`
             ],
             [],
             ['STT', 'Tiêu chuẩn', 'Tiêu chí', 'Mã Minh chứng', 'Tên Minh chứng', 'Số File', 'Trạng thái']
@@ -463,13 +477,16 @@ const buildMatchQuery = (filters) => {
     let query = {};
 
     if (filters.academicYearId) {
-        query.academicYearId = mongoose.Types.ObjectId(filters.academicYearId);
+        // FIX: Thêm 'new'
+        query.academicYearId = new mongoose.Types.ObjectId(filters.academicYearId);
     }
 
-    if (filters.programId) query.programId = mongoose.Types.ObjectId(filters.programId);
-    if (filters.organizationId) query.organizationId = mongoose.Types.ObjectId(filters.organizationId);
-    if (filters.standardId) query.standardId = mongoose.Types.ObjectId(filters.standardId);
-    if (filters.criteriaId) query.criteriaId = mongoose.Types.ObjectId(filters.criteriaId);
+    // FIX: Thêm 'new'
+    if (filters.programId) query.programId = new mongoose.Types.ObjectId(filters.programId);
+    if (filters.organizationId) query.organizationId = new mongoose.Types.ObjectId(filters.organizationId);
+    if (filters.standardId) query.standardId = new mongoose.Types.ObjectId(filters.standardId);
+    if (filters.criteriaId) query.criteriaId = new mongoose.Types.ObjectId(filters.criteriaId);
+
     if (filters.status) query.status = filters.status;
     if (filters.documentType) query.documentType = filters.documentType;
 
