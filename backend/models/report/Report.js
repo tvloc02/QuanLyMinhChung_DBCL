@@ -344,13 +344,28 @@ reportSchema.methods.canEdit = function(userId, userRole) {
     const isCreator = String(this.createdBy) === currentUserIdStr;
     const isAssigned = this.assignedReporters.some(r => String(r) === currentUserIdStr);
 
-    return isCreator || isAssigned;
+    const hasApprovedRequest = this.editRequests.some(req =>
+        req.status === 'approved' && String(req.requesterId) === currentUserIdStr
+    );
+
+    return isCreator || isAssigned || hasApprovedRequest;
 };
 
 reportSchema.methods.canView = function(userId, userRole, userStandardAccess = [], userCriteriaAccess = []) {
+    console.log('Checking canView:', {
+        reportId: this._id,
+        reportStatus: this.status,
+        reportCreatedBy: this.createdBy,
+        userId,
+        userRole,
+    });
     if (userRole === 'admin') return true;
 
     if (String(this.createdBy) === String(userId)) return true;
+
+    if (this.assignedReporters.some(r => String(r) === String(userId))) return true;
+
+    if (this.editRequests.some(req => req.status === 'approved' && String(req.requesterId) === String(userId))) return true;
 
     if (['public', 'approved', 'in_evaluation', 'published', 'submitted'].includes(this.status)) return true;
 

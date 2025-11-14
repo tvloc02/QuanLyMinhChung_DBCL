@@ -127,7 +127,7 @@ export default function ReportDetail() {
         } catch (error) {
             console.error('Fetch report error:', error)
             toast.error('Lỗi khi tải báo cáo')
-            router.replace('/reports')
+            await router.replace('/reports/reports')
         } finally {
             setLoading(false)
         }
@@ -140,10 +140,15 @@ export default function ReportDetail() {
         const isAssignee = currentReport.assignedReporters?.some(r => String(r._id) === String(currentUser._id))
         const isManager = currentUser.role === 'manager'
         const isAdmin = currentUser.role === 'admin'
+        const isPublic = ['public', 'published'].includes(currentReport.status);
 
-        // Sử dụng canEdit từ model (Admin/Manager hoặc người được giao/người tạo)
-        // Lưu ý: Cần đảm bảo report.canEdit có sẵn, nếu không sẽ dùng logic fallback
-        const canEdit = currentReport.canEdit ? currentReport.canEdit(currentUser._id, currentUser.role) : (isCreator || isAssignee || isManager || isAdmin)
+        // Fallback logic based on roles and relation
+        const hasBasePermissions = isCreator || isAssignee || isManager || isAdmin;
+
+        // `canEdit` from backend is the primary source of truth.
+        const canEdit = currentReport.canEdit ?? hasBasePermissions;
+
+        const canView = isPublic || hasBasePermissions || canEdit;
 
         // Reporter chỉ được Xóa khi là người tạo VÀ trạng thái draft/in_progress/rejected
         const canDelete = (isCreator || isAdmin) && ['draft', 'in_progress', 'rejected'].includes(currentReport.status)
@@ -166,7 +171,7 @@ export default function ReportDetail() {
         const canRequestEditPermission = !canEdit && currentReport.status !== 'approved' && currentReport.status !== 'published' && !hasPendingRequest;
 
         return {
-            canView: true,
+            canView: canView,
             canEdit: canEdit,
             canDelete: canDelete,
             canMakePublic: canMakePublic,
@@ -184,6 +189,15 @@ export default function ReportDetail() {
         }
     }
 
+    const permissions = getPermissions(report, user)
+
+    useEffect(() => {
+        if (report && user && !permissions.canView) {
+            toast.error("Bạn không có quyền xem báo cáo này.");
+            router.replace('/reports/reports');
+        }
+    }, [report, user, permissions, router]);
+
     // --- CHECK LOADING VÀ RENDER SỚM ---
     if (loading || !report || !user) {
         return (
@@ -199,8 +213,6 @@ export default function ReportDetail() {
 
 
     // CÁC BIẾN SAU KHI DỮ LIỆU ĐÃ SẴN SÀNG
-    const permissions = getPermissions(report, user)
-
     // Kiểm tra xem người dùng có pending request nào không
     const pendingRequest = report.editRequests?.find(r => String(r.requesterId) === String(user._id) && r.status === 'pending');
 
@@ -217,7 +229,7 @@ export default function ReportDetail() {
             setActionLoading(prev => ({ ...prev, delete: true }))
             await apiMethods.reports.delete(id)
             toast.success('Xóa báo cáo thành công')
-            router.replace('/reports')
+            await router.replace('/reports/reports')
         } catch (error) {
             toast.error(error.response?.data?.message || 'Lỗi khi xóa báo cáo')
         } finally {

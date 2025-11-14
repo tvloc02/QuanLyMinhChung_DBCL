@@ -511,10 +511,7 @@ export default function CreateReportPage() {
         let htmlToInsert = '';
 
         selectedReports.forEach((report, index) => {
-            htmlToInsert += `<div style="border-left: 3px solid #3b82f6; padding-left: 1rem; margin: 1rem 0; background-color: #eff6ff;">
-                                <h4>Báo cáo chèn vào: ${report.title} (${report.code})</h4>
-                                ${report.content}
-                             </div>`;
+            htmlToInsert += report.content;
 
             if (index < selectedReports.length - 1) {
                 htmlToInsert += '<p><br></p>';
