@@ -2,56 +2,73 @@ import json
 import os
 import chromadb
 from google import genai
+from google.genai.errors import APIError
 from dotenv import load_dotenv
 
-# Tải biến môi trường
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dotenv_path = os.path.join(parent_dir, 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-# Cấu hình
 API_KEY = os.getenv("GEMINI_API_KEY")
 EMBEDDING_MODEL = 'text-embedding-004'
 CHROMA_PATH = "chroma_db"
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'model', 'data_chunks.json')
 
 def get_embeddings(texts):
-    """Sử dụng Gemini API để lấy vector cho các đoạn văn bản theo batch."""
+    if not API_KEY:
+        print("Lỗi: GEMINI_API_KEY chưa được thiết lập.")
+        return None
+
     try:
-        # API hỗ trợ batching, nên ta có thể gửi cả list
-        response = genai.embed_content(
+        # Khởi tạo Client bên trong hàm để đảm bảo có thể retry
+        client = genai.Client(api_key=API_KEY)
+        response = client.models.embed_content(
             model=EMBEDDING_MODEL,
-            content=texts,
-            task_type="RETRIEVAL_DOCUMENT"
+            contents=texts
         )
-        return response['embedding']
-    except Exception as e:
-        print(f"Lỗi nghiêm trọng khi vector hóa batch: {e}")
-        # Nếu batch fail, thử lại từng cái một
-        print("Thử lại từng văn bản một...")
+
+        if hasattr(response, 'embedding') and response.embedding:
+            return response.embedding
+        if hasattr(response, 'values') and response.values:
+            return response.values
+
+        return None
+    except APIError as e:
+        print(f"Lỗi API khi vector hóa batch (NGHIÊM TRỌNG): {e}")
+        # THỬ LẠI TỪNG VĂN BẢN ĐỂ IN LỖI CỤ THỂ HƠN
+        print("Thử vector hóa từng văn bản một để tìm lỗi cụ thể...")
         embeddings = []
-        for text in texts:
+        for i, text in enumerate(texts):
             try:
-                response = genai.embed_content(
+                client = genai.Client(api_key=API_KEY)
+                response = client.models.embed_content(
                     model=EMBEDDING_MODEL,
-                    content=text,
-                    task_type="RETRIEVAL_DOCUMENT"
+                    contents=[text]
                 )
-                embeddings.append(response['embedding'])
-            except Exception as e_single:
-                print(f"Lỗi khi vector hóa văn bản: {e_single}. Sử dụng vector 0.")
-                embeddings.append([0.0] * 768) # Vector mặc định
-        return embeddings
+                embedding = response.embedding if hasattr(response, 'embedding') and response.embedding else response.values[0]
+                embeddings.append(embedding)
+            except APIError as e_single:
+                print(f"Lỗi API khi vector hóa văn bản #{i+1}: {e_single}")
+                # Nếu API lỗi, ta KHÔNG nên dùng vector 0 mà nên dừng
+                return None
+            except Exception as e_other:
+                print(f"Lỗi chung khi vector hóa văn bản #{i+1}: {e_other}")
+                return None
+
+        if any(len(e) > 1 for e in embeddings):
+            return embeddings
+        return None
+    except Exception as e:
+        print(f"Lỗi chung khi vector hóa batch: {e}")
+        return None
 
 def create_vector_store():
     if not API_KEY:
         print("Lỗi: GEMINI_API_KEY chưa được thiết lập. Vui lòng kiểm tra file .env")
         return
 
-    genai.configure(api_key=API_KEY)
-    print("✓ Cấu hình Gemini API thành công")
+    print("✓ Cấu hình Gemini API thành công (sử dụng Client)")
 
-    # 1. Đọc dữ liệu từ file chunks
     try:
         with open(DATA_FILE, 'r', encoding="utf-8") as f:
             data = json.load(f)
@@ -60,7 +77,6 @@ def create_vector_store():
         print(f"Lỗi: Không tìm thấy file {DATA_FILE}")
         print("Tạo file data_chunks.json mẫu...")
 
-        # Tạo dữ liệu mẫu nếu chưa có
         sample_data = [
             {
                 "id": "chunk_1",
@@ -85,35 +101,31 @@ def create_vector_store():
     ids = [str(item.get('id', f'chunk_{i}')) for i, item in enumerate(data)]
     metadatas = [{'source': item['source']} for item in data]
 
-    # 2. Lấy Embeddings
     print("\n=== Bắt đầu tạo embeddings ===")
     embeddings = get_embeddings(texts)
 
     if not embeddings or len(embeddings) != len(texts):
         print("Lỗi: Không thể tạo embeddings cho tất cả các văn bản.")
+        print("NGUYÊN NHÂN: Vui lòng kiểm tra lại GEMINI_API_KEY và đảm bảo nó có quyền gọi API.")
         return
 
     print(f"✓ Đã tạo {len(embeddings)} embeddings")
 
-    # 3. Lưu trữ vào ChromaDB
     print("\n=== Lưu vào ChromaDB ===")
     chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
-    # Xóa collection cũ nếu tồn tại
     try:
         chroma_client.delete_collection(name="chatbot_knowledge")
         print("✓ Đã xóa collection cũ")
     except Exception:
         print("✓ Không có collection cũ")
 
-    # Tạo collection mới
     collection = chroma_client.get_or_create_collection(
         name="chatbot_knowledge",
         metadata={"hnsw:space": "cosine"}
     )
     print("✓ Đã tạo collection mới")
 
-    # Thêm dữ liệu vào ChromaDB
     try:
         collection.add(
             embeddings=embeddings,
@@ -129,16 +141,15 @@ def create_vector_store():
     print(f"\n✅ HOÀN THÀNH! Đã vector hóa và lưu trữ {collection.count()} documents")
     print(f"📁 Dữ liệu được lưu tại: {os.path.abspath(CHROMA_PATH)}")
 
-    # Kiểm tra
     print("\n=== Kiểm tra kết quả ===")
     test_query = "upload minh chứng"
     try:
-        response = genai.embed_content(
+        client = genai.Client(api_key=API_KEY)
+        response = client.models.embed_content(
             model=EMBEDDING_MODEL,
-            content=test_query,
-            task_type="RETRIEVAL_QUERY"
+            contents=[test_query]
         )
-        query_vec = response['embedding']
+        query_vec = response.embedding
 
         results = collection.query(
             query_embeddings=[query_vec],

@@ -7,7 +7,6 @@ from google.genai import types
 from google.genai.errors import APIError
 import chromadb
 
-# Thiết lập đường dẫn biến môi trường
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dotenv_path = os.path.join(parent_dir, 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
@@ -16,14 +15,13 @@ logging.basicConfig(level=logging.INFO)
 
 class ChatBot:
     def __init__(self, data_file="UNUSED"):
-        # 1. Khởi tạo Gemini Client và Mô hình
         try:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 raise ValueError("GEMINI_API_KEY environment variable not set.")
 
-            genai.configure(api_key=api_key)
-            self.model = "gemini-1.5-flash" # Corrected model name
+            self.client = genai.Client(api_key=api_key)
+            self.model = "gemini-1.5-flash"
             self.embedding_model = 'text-embedding-004'
             self.safety_settings = [
                 types.SafetySetting(
@@ -40,7 +38,6 @@ class ChatBot:
             logging.error(f"Failed to initialize Gemini Client: {e}")
             raise
 
-        # 2. Khởi tạo và Tải ChromaDB Vector Store cho knowledge base
         try:
             CHROMA_PATH = "chroma_db"
             self.chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
@@ -53,7 +50,6 @@ class ChatBot:
             logging.error(f"Failed to load ChromaDB knowledge collection: {e}. Đảm bảo đã chạy index_data.py.")
             self.collection = None
 
-        # 3. Khởi tạo ChromaDB cho files collection
         try:
             FILES_CHROMA_PATH = "chroma_db_files"
             self.files_chroma_client = chromadb.PersistentClient(path=FILES_CHROMA_PATH)
@@ -71,7 +67,6 @@ class ChatBot:
             self.files_collection = None
 
     def _build_system_instruction(self, context_type="knowledge") -> str:
-        """Tạo system instruction dựa trên loại context"""
         if context_type == "files":
             return (
                 "Bạn là trợ lý AI thông minh, chuyên phân tích và trả lời câu hỏi dựa trên nội dung các tài liệu đã được tải lên. "
@@ -88,27 +83,22 @@ class ChatBot:
             )
 
     def get_reply(self, message: str) -> str:
-        """Trả lời dựa trên knowledge base"""
         if not self.collection:
             return "Dịch vụ AI hoặc Kho Vector chưa được khởi tạo. Vui lòng kiểm tra API Key và đảm bảo đã chạy index_data.py."
 
         try:
-            # Vector hóa câu hỏi
-            embedding_response = genai.embed_content(
+            embedding_response = self.client.models.embed_content(
                 model=self.embedding_model,
-                content=message,
-                task_type="RETRIEVAL_QUERY"
+                contents=[message]
             )
-            query_embedding = embedding_response['embedding']
+            query_embedding = embedding_response.embedding
 
-            # Truy vấn ChromaDB knowledge base
             results = self.collection.query(
                 query_embeddings=[query_embedding],
                 n_results=3,
                 include=['documents', 'distances', 'metadatas']
             )
 
-            # Lấy các đoạn văn bản và độ tương đồng
             retrieved_documents = results['documents'][0]
             distances = results['distances'][0]
 
@@ -116,7 +106,6 @@ class ChatBot:
             logging.error(f"Error during Knowledge Vector Retrieval: {e}")
             return "Xin lỗi, tôi gặp lỗi khi tìm kiếm trong kho kiến thức. Vui lòng thử lại."
 
-        # Xây dựng context
         context_chunks = []
         for doc, dist in zip(retrieved_documents, distances):
             similarity_score = 1 - dist
@@ -124,7 +113,6 @@ class ChatBot:
 
         context = "\n".join(context_chunks)
 
-        # Xây dựng prompt
         system_prompt = self._build_system_instruction("knowledge")
 
         final_prompt = (
@@ -135,20 +123,18 @@ class ChatBot:
         )
 
         try:
-            model = genai.GenerativeModel(
-                self.model,
-                system_instruction=system_prompt,
-                safety_settings=self.safety_settings
-            )
-            response = model.generate_content(
-                final_prompt,
-                generation_config=types.GenerateContentConfig(
+            model = self.client.models.generate_content(
+                model=self.model,
+                contents=final_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
                     temperature=0.3,
                     max_output_tokens=250,
+                    safety_settings=self.safety_settings
                 )
             )
 
-            reply = response.text.strip()
+            reply = model.text.strip()
 
             unrelated_phrase = "xin lỗi, tôi chỉ có thể hỗ trợ các vấn đề liên quan đến hệ thống quản lý minh chứng"
             if unrelated_phrase in reply.lower():
@@ -164,30 +150,25 @@ class ChatBot:
             raise RuntimeError("Gemini API call failed due to an unknown error.")
 
     def get_reply_from_files(self, message: str) -> str:
-        """Trả lời dựa trên nội dung files đã upload"""
         if not self.files_collection:
             return "Dịch vụ AI hoặc Kho Files chưa được khởi tạo. Vui lòng kiểm tra cấu hình."
 
         try:
-            # Vector hóa câu hỏi
-            embedding_response = genai.embed_content(
+            embedding_response = self.client.models.embed_content(
                 model=self.embedding_model,
-                content=message,
-                task_type="RETRIEVAL_QUERY"
+                contents=[message]
             )
-            query_embedding = embedding_response['embedding']
+            query_embedding = embedding_response.embedding
 
-            # Truy vấn trong files collection
             results = self.files_collection.query(
                 query_embeddings=[query_embedding],
-                n_results=5,  # Lấy nhiều kết quả hơn từ files
+                n_results=5,
                 include=['documents', 'distances', 'metadatas']
             )
 
             if not results['documents'][0]:
                 return "Không tìm thấy thông tin liên quan trong các file đã upload. Vui lòng upload file chứa thông tin bạn cần hỏi."
 
-            # Lấy các đoạn văn bản và metadata
             retrieved_documents = results['documents'][0]
             distances = results['distances'][0]
             metadatas = results['metadatas'][0]
@@ -196,7 +177,6 @@ class ChatBot:
             logging.error(f"Error during Files Vector Retrieval: {e}")
             return "Xin lỗi, tôi gặp lỗi khi tìm kiếm trong các file đã upload."
 
-        # Xây dựng context với thông tin file
         context_chunks = []
         files_referenced = set()
 
@@ -211,7 +191,6 @@ class ChatBot:
         context = "\n\n".join(context_chunks)
         files_list = ", ".join(files_referenced)
 
-        # Xây dựng prompt
         system_prompt = self._build_system_instruction("files")
 
         final_prompt = (
@@ -223,22 +202,19 @@ class ChatBot:
         )
 
         try:
-            model = genai.GenerativeModel(
-                self.model,
-                system_instruction=system_prompt,
-                safety_settings=self.safety_settings
-            )
-            response = model.generate_content(
-                final_prompt,
-                generation_config=types.GenerateContentConfig(
+            model = self.client.models.generate_content(
+                model=self.model,
+                contents=final_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
                     temperature=0.3,
-                    max_output_tokens=400,  # Cho phép trả lời dài hơn
+                    max_output_tokens=400,
+                    safety_settings=self.safety_settings
                 )
             )
 
-            reply = response.text.strip()
+            reply = model.text.strip()
 
-            # Thêm thông tin về các file được tham khảo
             if files_referenced:
                 reply += f"\n\n📎 *Nguồn tham khảo: {files_list}*"
 
@@ -252,9 +228,7 @@ class ChatBot:
             return "Xin lỗi, đã xảy ra lỗi không mong muốn."
 
     def summarize_text(self, text: str, max_length: int = 500) -> str:
-        """Tóm tắt văn bản"""
         try:
-            # Giới hạn độ dài văn bản đầu vào
             if len(text) > 10000:
                 text = text[:10000] + "..."
 
@@ -266,12 +240,13 @@ class ChatBot:
             
             Tóm tắt:"""
 
-            model = genai.GenerativeModel(self.model, safety_settings=self.safety_settings)
-            response = model.generate_content(
-                prompt,
-                generation_config=types.GenerateContentConfig(
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.3,
                     max_output_tokens=max_length // 4,
+                    safety_settings=self.safety_settings
                 )
             )
 
@@ -282,7 +257,6 @@ class ChatBot:
             return "Lỗi khi tóm tắt văn bản"
 
     def get_contextual_followup(self, last_reply: str) -> list[str]:
-        """Gợi ý câu hỏi tiếp theo"""
         if "xin lỗi" in last_reply.lower() or "không tìm thấy" in last_reply.lower():
             return []
 
@@ -293,10 +267,10 @@ class ChatBot:
         )
 
         try:
-            model = genai.GenerativeModel(self.model, safety_settings=self.safety_settings)
-            response = model.generate_content(
-                prompt,
-                generation_config=types.GenerateContentConfig(
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                     temperature=0.5,
                     max_output_tokens=100,
                 )

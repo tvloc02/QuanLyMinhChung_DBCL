@@ -12,7 +12,6 @@ from io import BytesIO
 import hashlib
 from dotenv import load_dotenv
 
-# Load environment variables
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dotenv_path = os.path.join(parent_dir, 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
@@ -21,9 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 class FileProcessor:
     def __init__(self):
-        """Khởi tạo FileProcessor với Gemini và ChromaDB"""
         try:
-            # Khởi tạo Gemini Client
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 raise ValueError("GEMINI_API_KEY not set")
@@ -32,11 +29,9 @@ class FileProcessor:
             self.model = "gemini-2.0-flash-exp"
             self.embedding_model = 'text-embedding-004'
 
-            # Khởi tạo ChromaDB cho files
             self.chroma_path = "chroma_db_files"
             self.chroma_client = chromadb.PersistentClient(path=self.chroma_path)
 
-            # Tạo collection cho files
             try:
                 self.file_collection = self.chroma_client.get_collection(name="uploaded_files")
             except:
@@ -51,17 +46,14 @@ class FileProcessor:
             logging.error(f"Failed to initialize FileProcessor: {e}")
             raise
 
-    # Hàm trợ giúp để lấy embedding an toàn (TÁI SỬ DỤNG LOGIC TỪ CHATBOT)
     def _get_embedding_value(self, response):
         if hasattr(response, 'embedding'):
             return response.embedding
         if hasattr(response, 'values') and len(response.values) > 0:
             return response.values[0]
-        # Không raise error mà trả về vector rỗng nếu lỗi trong quá trình tạo
         return [0.0] * 768
 
     def extract_text_from_pdf(self, file_content: BytesIO) -> str:
-        """Trích xuất văn bản từ file PDF"""
         try:
             pdf_reader = PyPDF2.PdfReader(file_content)
             text = ""
@@ -74,7 +66,6 @@ class FileProcessor:
             return ""
 
     def extract_text_from_docx(self, file_content: BytesIO) -> str:
-        """Trích xuất văn bản từ file DOCX"""
         try:
             doc = docx.Document(file_content)
             text = []
@@ -82,7 +73,6 @@ class FileProcessor:
                 if paragraph.text.strip():
                     text.append(paragraph.text)
 
-            # Extract text from tables
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
@@ -95,7 +85,6 @@ class FileProcessor:
             return ""
 
     def extract_text_from_xlsx(self, file_content: BytesIO) -> str:
-        """Trích xuất văn bản từ file Excel"""
         try:
             workbook = openpyxl.load_workbook(file_content, read_only=True)
             text = []
@@ -115,7 +104,6 @@ class FileProcessor:
             return ""
 
     def extract_text_from_pptx(self, file_content: BytesIO) -> str:
-        """Trích xuất văn bản từ file PowerPoint"""
         try:
             presentation = pptx.Presentation(file_content)
             text = []
@@ -133,7 +121,6 @@ class FileProcessor:
             return ""
 
     def extract_text_from_txt(self, file_content: BytesIO) -> str:
-        """Trích xuất văn bản từ file text"""
         try:
             text = file_content.read()
             if isinstance(text, bytes):
@@ -144,10 +131,8 @@ class FileProcessor:
             return ""
 
     def extract_text(self, file_content: BytesIO, filename: str, content_type: str) -> str:
-        """Trích xuất văn bản từ file dựa trên loại file"""
-        file_content.seek(0) # Reset position
+        file_content.seek(0)
 
-        # Xác định loại file
         ext = os.path.splitext(filename)[1].lower()
 
         if ext == '.pdf' or content_type == 'application/pdf':
@@ -165,7 +150,6 @@ class FileProcessor:
             return ""
 
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        """Chia văn bản thành các chunks nhỏ hơn"""
         if not text:
             return []
 
@@ -176,7 +160,6 @@ class FileProcessor:
         while start < text_length:
             end = start + chunk_size
 
-            # Tìm điểm ngắt tự nhiên (dấu chấm, xuống dòng)
             if end < text_length:
                 for delimiter in ['\n\n', '\n', '. ', '! ', '? ']:
                     delimiter_pos = text.rfind(delimiter, start + overlap, end)
@@ -193,12 +176,10 @@ class FileProcessor:
         return chunks
 
     def summarize_text(self, text: str, max_length: int = 500) -> str:
-        """Tóm tắt văn bản sử dụng Gemini"""
         try:
             if not text:
                 return "Không có nội dung để tóm tắt"
 
-            # Giới hạn văn bản đầu vào để tránh quá tải
             max_input_length = 10000
             if len(text) > max_input_length:
                 text = text[:max_input_length] + "..."
@@ -216,7 +197,7 @@ class FileProcessor:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=max_length // 4,  # Ước lượng tokens
+                    max_output_tokens=max_length // 4,
                 )
             )
 
@@ -227,7 +208,6 @@ class FileProcessor:
             return "Lỗi khi tóm tắt nội dung"
 
     def create_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Tạo embeddings cho danh sách văn bản"""
         embeddings = []
 
         for text in texts:
@@ -237,21 +217,17 @@ class FileProcessor:
                     contents=[text]
                 )
 
-                # SỬA LỖI: Lấy embedding an toàn
                 embedding = self._get_embedding_value(response)
                 embeddings.append(embedding)
 
             except Exception as e:
                 logging.error(f"Error creating embedding: {e}")
-                # Thêm vector rỗng nếu lỗi
                 embeddings.append([0.0] * 768)
 
         return embeddings
 
     def process_file(self, file_content: BytesIO, filename: str, content_type: str, file_id: str) -> Dict[str, Any]:
-        """Xử lý file: trích xuất nội dung, tóm tắt và vector hóa"""
         try:
-            # 1. Trích xuất văn bản
             text = self.extract_text(file_content, filename, content_type)
 
             if not text:
@@ -260,22 +236,17 @@ class FileProcessor:
                     'error': 'Không thể trích xuất nội dung từ file'
                 }
 
-            # 2. Tóm tắt nội dung
             summary = self.summarize_text(text, max_length=500)
 
-            # 3. Chia thành chunks
             chunks = self.chunk_text(text)
 
             if not chunks:
-                chunks = [text[:1000]]  # Lấy 1000 ký tự đầu nếu không chia được
+                chunks = [text[:1000]]
 
-            # 4. Tạo embeddings
             embeddings = self.create_embeddings(chunks)
 
-            # 5. Tạo ID duy nhất cho vector
             vector_id = f"file_{file_id}_{hashlib.md5(filename.encode()).hexdigest()[:8]}"
 
-            # 6. Lưu vào ChromaDB
             ids = [f"{vector_id}_{i}" for i in range(len(chunks))]
             metadatas = [
                 {
@@ -298,7 +269,7 @@ class FileProcessor:
 
             return {
                 'success': True,
-                'content': text[:5000],  # Giới hạn nội dung trả về
+                'content': text[:5000],
                 'summary': summary,
                 'vector_id': vector_id,
                 'chunks_count': len(chunks)
@@ -312,9 +283,7 @@ class FileProcessor:
             }
 
     def delete_vector(self, vector_id: str) -> bool:
-        """Xóa vector khỏi ChromaDB"""
         try:
-            # Lấy tất cả IDs liên quan đến vector_id
             results = self.file_collection.get(
                 where={"file_id": vector_id.replace("file_", "")}
             )
@@ -331,18 +300,14 @@ class FileProcessor:
             return False
 
     def search_in_files(self, query: str, n_results: int = 3) -> List[Dict[str, Any]]:
-        """Tìm kiếm trong các file đã upload"""
         try:
-            # Tạo embedding cho query
             embedding_response = self.client.models.embed_content(
                 model=self.embedding_model,
-                contents=query
+                contents=[query]
             )
-            # SỬA LỖI: Lấy embedding an toàn
             query_embedding = self._get_embedding_value(embedding_response)
 
 
-            # Tìm kiếm trong ChromaDB
             results = self.file_collection.query(
                 query_embeddings=[query_embedding],
                 n_results=n_results,
@@ -360,7 +325,7 @@ class FileProcessor:
                         'content': doc,
                         'filename': metadata.get('filename', 'Unknown'),
                         'file_id': metadata.get('file_id', ''),
-                        'similarity': 1 - distance  # Chuyển distance thành similarity
+                        'similarity': 1 - distance
                     })
 
             return search_results
@@ -370,12 +335,9 @@ class FileProcessor:
             return []
 
     def get_all_vectors_info(self) -> List[Dict[str, Any]]:
-        """Lấy thông tin về tất cả vectors đã lưu"""
         try:
-            # Lấy tất cả dữ liệu từ collection
             all_data = self.file_collection.get()
 
-            # Group by file_id
             files_info = {}
             for metadata in all_data['metadatas']:
                 file_id = metadata.get('file_id', '')

@@ -1,22 +1,52 @@
 [
   {
     "id": "chunk_1",
-    "text": "Để nhập minh chứng vào hệ thống, bạn cần truy cập vào trang Import Evidence (Nhập minh chứng), chọn file Excel đã chuẩn bị và nhấn nút Tải lên để hệ thống xử lý. Quy trình này hỗ trợ việc gán các minh chứng theo cấu trúc tiêu chuẩn đánh giá.",
-    "source": "Chức năng Import Minh chứng"
+    "source": "Giới thiệu hệ thống",
+    "text": "Hệ thống Quản lý Minh chứng là nền tảng số hóa toàn diện giúp các cơ sở giáo dục đại học quản lý, lưu trữ, tìm kiếm và báo cáo các minh chứng phục vụ công tác đảm bảo chất lượng và kiểm định chương trình đào tạo theo tiêu chuẩn của Bộ Giáo dục và Đào tạo"
   },
   {
     "id": "chunk_2",
-    "text": "Chức năng báo cáo của hệ thống, nằm tại Trang Báo cáo, giúp người dùng dễ dàng tạo và xuất các thống kê chi tiết về tình trạng minh chứng, tiến độ thực hiện báo cáo ra các định dạng như Excel hoặc PDF.",
-    "source": "Chức năng Báo cáo & Thống kê"
+    "source": "Hướng dẫn tạo minh chứng",
+    "text": "Để tạo minh chứng mới: Bước 1 - Đăng nhập hệ thống với tài khoản được cấp. Bước 2 - Vào menu Quản lý minh chứng. Bước 3 - Click nút Tạo mới. Bước 4 - Điền đầy đủ thông tin: Mã minh chứng, Tên minh chứng, Mô tả chi tiết. Bước 5 - Chọn Tiêu chuẩn và Tiêu chí liên quan. Bước 6 - Upload file đính kèm nếu có. Bước 7 - Nhấn Lưu để hoàn tất"
   },
   {
     "id": "chunk_3",
-    "text": "Việc phân quyền người dùng được quản lý tập trung tại trang Quản lý người dùng, nơi quản trị viên có thể gán các quyền truy cập và chỉnh sửa dữ liệu theo các cấp độ chi tiết: tiêu chí (criteria) hoặc tiêu chuẩn (standard).",
-    "source": "Chức năng Quản lý Phân quyền"
+    "source": "Chức năng tìm kiếm",
+    "text": "Tìm kiếm minh chứng nâng cao: Hệ thống hỗ trợ tìm kiếm theo nhiều tiêu chí như Mã minh chứng, Tên minh chứng, Tiêu chuẩn, Tiêu chí, Thời gian tạo, Người tạo. Có thể kết hợp nhiều điều kiện tìm kiếm, sử dụng toán tử AND/OR, tìm kiếm trong nội dung file đính kèm"
   },
   {
     "id": "chunk_4",
-    "text": "Hệ thống Quản lý Minh chứng và Đảm bảo Chất lượng được xây dựng dựa trên Thông tư 12/2017/TT-BGDĐT. Mục đích chính là hệ thống hóa và tra cứu minh chứng, phục vụ công tác Tự đánh giá và Kiểm định chất lượng giáo dục đại học.",
-    "source": "Thông tư 12/2017/TT-BGDĐT"
+    "source": "Import dữ liệu",
+    "text": "Import minh chứng từ Excel: Chuẩn bị file Excel theo mẫu hệ thống. Các cột bắt buộc: Mã minh chứng, Tên minh chứng, Mô tả, Tiêu chuẩn, Tiêu chí. Vào trang Import Evidence, chọn file Excel, kiểm tra preview dữ liệu, nhấn Xác nhận import. Hệ thống sẽ validate và báo lỗi nếu dữ liệu không hợp lệ"
+  },
+  {
+    "id": "chunk_5",
+    "source": "Báo cáo và thống kê",
+    "text": "Xuất báo cáo minh chứng: Truy cập trang Báo cáo, chọn loại báo cáo (Tổng hợp, Chi tiết, Thống kê), chọn khoảng thời gian, tiêu chuẩn/tiêu chí cần báo cáo. Hệ thống hỗ trợ xuất ra Excel, PDF, Word với template tùy chỉnh. Có thể lập lịch tự động gửi báo cáo qua email"
+  },
+  {
+    "id": "chunk_6",
+    "source": "Quản lý phân quyền",
+    "text": "Phân quyền người dùng: Admin có toàn quyền hệ thống. Manager quản lý minh chứng của đơn vị. TDG (Tự đánh giá) có quyền xem và đề xuất. Expert (Chuyên gia) có quyền đánh giá và nhận xét. Phân quyền chi tiết đến từng tiêu chuẩn, tiêu chí, thậm chí từng minh chứng cụ thể"
+  },
+  {
+    "id": "chunk_7",
+    "source": "Quản lý file đính kèm",
+    "text": "Upload file minh chứng: Hệ thống hỗ trợ upload nhiều file cùng lúc, dung lượng tối đa 50MB/file. Các định dạng: PDF, Word, Excel, PowerPoint, ảnh (JPG, PNG). File được lưu trữ an toàn trên server, mã hóa khi truyền tải, tự động scan virus, hỗ trợ version control"
+  },
+  {
+    "id": "chunk_8",
+    "source": "Quy trình phê duyệt",
+    "text": "Quy trình phê duyệt minh chứng: Người tạo submit minh chứng. Trưởng đơn vị review và approve/reject. Nếu reject, ghi rõ lý do để chỉnh sửa. Sau khi approve, minh chứng được đưa vào kho chính thức. Lịch sử phê duyệt được lưu lại đầy đủ"
+  },
+  {
+    "id": "chunk_9",
+    "source": "Backup & Restore",
+    "text": "Sao lưu và khôi phục dữ liệu: Hệ thống tự động backup hàng ngày vào 2h sáng. Lưu trữ backup 30 ngày gần nhất. Admin có thể backup thủ công bất cứ lúc nào. Khôi phục dữ liệu từ bản backup chỉ trong vài phút. Hỗ trợ export toàn bộ dữ liệu"
+  },
+  {
+    "id": "chunk_10",
+    "source": "API Integration",
+    "text": "Tích hợp API: Hệ thống cung cấp RESTful API để tích hợp với phần mềm khác. Xác thực qua JWT token. Endpoints cho CRUD minh chứng, tìm kiếm, báo cáo. Rate limit 100 requests/phút. Documentation đầy đủ tại /api/docs"
   }
 ]

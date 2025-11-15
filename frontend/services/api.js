@@ -367,7 +367,6 @@ export const apiMethods = {
         getById: (id) => api.get(`/api/evaluations/${id}`),
         create: (data) => api.post('/api/evaluations', data),
         update: (id, data) => api.put(`/api/evaluations/${id}`, data),
-        // ĐÃ SỬA: dùng api.post và backtick ` `
         submit: (id) => api.post(`/api/evaluations/${id}/submit`),
         review: (id, data) => api.post(`/api/evaluations/${id}/review`, data),
         finalize: (id, data) => api.post(`/api/evaluations/${id}/finalize`, data),
@@ -415,13 +414,19 @@ export const apiMethods = {
     },
 
     aiChat: {
-        getFileVectors: () => api.get('/api/get-file-vectors'),
-        deleteVector: (vectorId) => api.delete(`/api/delete-vector/${vectorId}`),
         sendMessage: (data) => api.post('/api/ai-chat', data),
+        getChatHistory: (sessionId) => api.get(`/api/ai-chat/history/${sessionId}`),
+        clearHistory: (sessionId) => api.delete(`/api/ai-chat/history/${sessionId}`),
+        getFileVectors: () => api.get('/api/file-vectors'),
+        deleteVector: (vectorId) => api.delete(`/api/delete-vector/${vectorId}`),
         getSystemKnowledge: () => api.get('/api/system-knowledge'),
         updateSystemKnowledge: (data) => api.post('/api/system-knowledge', data),
-        reindexKnowledge: () => api.post('/api/reindex-knowledge')
-    }
+        reindexKnowledge: () => api.post('/api/reindex-knowledge'),
+        processFile: (formData) => api.post('/api/process-file', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 60000,
+        }),
+    },
 }
 
 export default api

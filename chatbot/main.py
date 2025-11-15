@@ -7,6 +7,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import io
+from index_data import create_vector_store
+import json
+import threading
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
 load_dotenv(dotenv_path=dotenv_path)
@@ -50,12 +53,11 @@ def ai_chat():
 
         message = data.get("message", "").strip()
         session_id = data.get("session_id", "default")
-        search_type = data.get("search_type", "knowledge")  # knowledge hoặc files
+        search_type = data.get("search_type", "knowledge")
 
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Sử dụng kiến thức từ files đã upload hoặc kiến thức hệ thống
         if search_type == "files":
             reply = bot.get_reply_from_files(message)
         else:
@@ -122,12 +124,10 @@ def process_file():
                 "error": "Thiếu file_id"
             }), 400
 
-        # Đọc nội dung file
         file_content = io.BytesIO(file.read())
         filename = file.filename
         content_type = file.content_type
 
-        # Xử lý file
         result = file_processor.process_file(
             file_content,
             filename,
@@ -201,7 +201,7 @@ def summarize_text():
             "error": "Lỗi khi tóm tắt văn bản"
         }), 500
 
-@app.route("/api/chat-history/<session_id>", methods=["GET"])
+@app.route("/api/ai-chat/history/<session_id>", methods=["GET"])
 def get_chat_history(session_id):
     try:
         history = chat_history.get(session_id, [])
@@ -214,7 +214,7 @@ def get_chat_history(session_id):
         logging.error(f"Error getting chat history: {str(e)}")
         return jsonify({"error": "Failed to get chat history"}), 500
 
-@app.route("/api/clear-history/<session_id>", methods=["DELETE"])
+@app.route("/api/ai-chat/history/<session_id>", methods=["DELETE"])
 def clear_history(session_id):
     try:
         if session_id in chat_history:
@@ -224,9 +224,8 @@ def clear_history(session_id):
         logging.error(f"Error clearing history: {str(e)}")
         return jsonify({"error": "Failed to clear history"}), 500
 
-@app.route("/api/get-file-vectors", methods=["GET"])
+@app.route("/api/file-vectors", methods=["GET"])
 def get_file_vectors():
-    """Lấy danh sách các file đã được vector hóa"""
     if not file_processor:
         return jsonify({
             "success": False,
@@ -366,23 +365,6 @@ def get_quick_actions():
     ]
     return jsonify({"actions": actions})
 
-from index_data import create_vector_store
-import json
-import threading
-
-# ... (existing imports)
-
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
-load_dotenv(dotenv_path=dotenv_path)
-
-app = Flask(__name__)
-CORS(app)
-
-# ... (existing logging config)
-
-# ... (existing bot initialization)
-
-# --- Knowledge Base Management Endpoints ---
 KNOWLEDGE_FILE_PATH = os.path.join(os.path.dirname(__file__), 'model', 'data_chunks.json')
 
 @app.route("/api/system-knowledge", methods=["GET"])
@@ -403,10 +385,10 @@ def update_system_knowledge():
         new_data = request.get_json()
         if new_data is None:
             return jsonify({"success": False, "error": "Invalid data"}), 400
-        
+
         with open(KNOWLEDGE_FILE_PATH, 'w', encoding='utf-8') as f:
             json.dump(new_data, f, ensure_ascii=False, indent=2)
-        
+
         return jsonify({"success": True, "message": "Knowledge base updated."})
     except Exception as e:
         logging.error(f"Error writing knowledge file: {e}")
@@ -422,17 +404,13 @@ def reindex_knowledge():
         except Exception as e:
             logging.error(f"Error during background re-indexing: {e}")
 
-    # Chạy re-index trong một thread riêng để không block request
     thread = threading.Thread(target=run_indexing)
     thread.start()
 
     return jsonify({
-        "success": True, 
+        "success": True,
         "message": "Quá trình re-index đã được bắt đầu. Quá trình này có thể mất vài phút."
     }), 202
-
-
-# ... (existing routes)
 
 @app.errorhandler(404)
 def not_found(error):
