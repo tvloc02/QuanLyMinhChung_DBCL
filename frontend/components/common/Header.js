@@ -10,7 +10,6 @@ import {
     ChevronDown,
     Menu,
     X,
-    Search,
     Calendar,
     Check,
     AlertCircle,
@@ -214,7 +213,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
             case 'high':
                 return <AlertTriangle className="h-4 w-4 text-orange-500" />
             default:
-                return <Info className="h-4 w-4" style={{ color: '#6366F1' }} />
+                return <Info className="h-4 w-4" style={{ color: '#3B82F6' }} /> // Blue-500
         }
     }
 
@@ -325,8 +324,8 @@ export default function Header({ onMenuClick, sidebarOpen }) {
         const configs = {
             active: {
                 label: 'Đang hoạt động',
-                color: 'text-emerald-700 bg-emerald-50',
-                dot: 'bg-emerald-500'
+                color: 'text-blue-700 bg-blue-50',
+                dot: 'bg-blue-500'
             },
             completed: {
                 label: 'Đã hoàn thành',
@@ -367,7 +366,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                 <div className="flex items-center space-x-4">
                     <button
                         onClick={onMenuClick}
-                        className="p-2 rounded-xl text-gray-500 hover:bg-indigo-50 lg:hidden transition-colors"
+                        className="p-2 rounded-xl text-gray-500 hover:bg-blue-50 lg:hidden transition-colors"
                     >
                         {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                     </button>
@@ -394,29 +393,6 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     </div>
                 </div>
 
-                {/* Center - Search */}
-                <div className="hidden md:flex flex-1 max-w-2xl mx-8">
-                    <div className="relative w-full">
-                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm minh chứng, báo cáo, tiêu chí..."
-                            className="w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none transition-all text-gray-700 bg-gray-50"
-                            style={{ borderColor: '#E5E7EB' }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#6366F1'
-                                e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)'
-                                e.target.style.background = 'white'
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#E5E7EB'
-                                e.target.style.boxShadow = 'none'
-                                e.target.style.background = '#F9FAFB'
-                            }}
-                        />
-                    </div>
-                </div>
-
                 {/* Right side */}
                 <div className="flex items-center space-x-3">
                     {/* Academic Year Selector */}
@@ -424,16 +400,16 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         <button
                             onClick={() => !changing && setAcademicYearDropdownOpen(!academicYearDropdownOpen)}
                             disabled={changing}
-                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-indigo-50 border-2 transition-all ${
+                            className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl hover:bg-blue-50 border-2 transition-all ${
                                 changing ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             style={{ borderColor: '#E5E7EB' }}
                             title="Chọn năm học"
                         >
                             {changing ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                             ) : (
-                                <Calendar className="h-5 w-5 text-indigo-600" />
+                                <Calendar className="h-5 w-5 text-blue-600" />
                             )}
 
                             <div className="hidden lg:block text-left min-w-0">
@@ -457,7 +433,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         {academicYearDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border-2 z-50 max-h-96 overflow-hidden"
                                  style={{ borderColor: '#E5E7EB' }}>
-                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50"
+                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-blue-50 to-sky-50"
                                      style={{ borderColor: '#E5E7EB' }}>
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -466,7 +442,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         </div>
                                         <a
                                             href="/academic-years/create"
-                                            className="p-2 rounded-lg hover:bg-white transition-colors text-indigo-600"
+                                            className="p-2 rounded-lg hover:bg-white transition-colors text-blue-600"
                                             title="Tạo năm học mới"
                                         >
                                             <Plus className="h-4 w-4" />
@@ -477,7 +453,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 <div className="max-h-64 overflow-y-auto">
                                     {loading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                                            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                                             <span className="ml-2 text-sm text-gray-600">Đang tải...</span>
                                         </div>
                                     ) : error ? (
@@ -486,7 +462,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <p className="text-sm text-red-600 mb-2">Không thể tải danh sách năm học</p>
                                             <button
                                                 onClick={fetchAcademicYears}
-                                                className="text-xs font-medium text-indigo-600"
+                                                className="text-xs font-medium text-blue-600"
                                             >
                                                 Thử lại
                                             </button>
@@ -497,7 +473,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <p className="text-sm mb-2 text-gray-600">Chưa có năm học nào</p>
                                             <a
                                                 href="/academic-years/create"
-                                                className="text-sm font-medium text-indigo-600"
+                                                className="text-sm font-medium text-blue-600"
                                             >
                                                 Tạo năm học đầu tiên
                                             </a>
@@ -510,11 +486,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                     key={year._id}
                                                     onClick={() => handleAcademicYearChange(year)}
                                                     disabled={changing}
-                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-indigo-50 transition-colors ${
-                                                        currentAcademicYear?._id === year._id ? 'border-r-4 bg-indigo-50' : ''
+                                                    className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50 transition-colors ${
+                                                        currentAcademicYear?._id === year._id ? 'border-r-4 bg-blue-50' : ''
                                                     } ${changing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     style={currentAcademicYear?._id === year._id ? {
-                                                        borderRightColor: '#6366F1'
+                                                        borderRightColor: '#2563EB' // Blue-600
                                                     } : {}}
                                                 >
                                                     <div className="flex-1 min-w-0">
@@ -523,7 +499,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                                 {year.name}
                                                             </p>
                                                             {currentAcademicYear?._id === year._id && (
-                                                                <Check className="h-4 w-4 flex-shrink-0 text-indigo-600" />
+                                                                <Check className="h-4 w-4 flex-shrink-0 text-blue-600" />
                                                             )}
                                                         </div>
                                                         <div className="flex items-center space-x-2">
@@ -546,7 +522,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                     <div className="px-4 py-2 border-t-2 bg-gray-50" style={{ borderColor: '#E5E7EB' }}>
                                         <div className="flex items-center justify-between text-xs text-gray-600">
                                             <span className="font-semibold">{academicYears.length} năm học</span>
-                                            <a href="/academic-years" className="font-bold text-indigo-600">
+                                            <a href="/academic-years" className="font-bold text-blue-600">
                                                 Quản lý →
                                             </a>
                                         </div>
@@ -569,7 +545,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                         fetchNotifications()
                                     }
                                 }}
-                                className="relative p-3 rounded-xl hover:bg-indigo-50 transition-colors border-2"
+                                className="relative p-3 rounded-xl hover:bg-blue-50 transition-colors border-2"
                                 style={{ borderColor: unreadCount > 0 ? '#EF4444' : '#E5E7EB' }}
                             >
                                 <Bell className="h-5 w-5 text-gray-600" />
@@ -584,7 +560,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         {notificationDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border-2 z-50 max-h-[32rem] overflow-hidden"
                                  style={{ borderColor: '#E5E7EB' }}>
-                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-indigo-50 to-purple-50"
+                                <div className="px-4 py-3 border-b-2 bg-gradient-to-r from-blue-50 to-sky-50"
                                      style={{ borderColor: '#E5E7EB' }}>
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -597,7 +573,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             {unreadCount > 0 && (
                                                 <button
                                                     onClick={handleMarkAllAsRead}
-                                                    className="text-xs font-medium p-1 rounded-lg hover:bg-white transition-colors text-indigo-600"
+                                                    className="text-xs font-medium p-1 rounded-lg hover:bg-white transition-colors text-blue-600"
                                                     title="Đánh dấu tất cả đã đọc"
                                                 >
                                                     <CheckCheck className="h-4 w-4" />
@@ -605,7 +581,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             )}
                                             <button
                                                 onClick={() => router.push('/notifications/notifications')}
-                                                className="text-xs font-bold text-indigo-600"
+                                                className="text-xs font-bold text-blue-600"
                                             >
                                                 Xem tất cả →
                                             </button>
@@ -616,7 +592,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                 <div className="max-h-96 overflow-y-auto">
                                     {notificationsLoading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                                            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                                             <span className="ml-2 text-sm text-gray-600">Đang tải...</span>
                                         </div>
                                     ) : notifications.length === 0 ? (
@@ -630,7 +606,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                             <div
                                                 key={notification._id}
                                                 onClick={() => handleNotificationClick(notification)}
-                                                className={`px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b-2 transition-colors ${
+                                                className={`px-4 py-3 hover:bg-blue-50 cursor-pointer border-b-2 transition-colors ${
                                                     notification.isUnread ? 'bg-blue-50' : ''
                                                 }`}
                                                 style={{ borderColor: '#E5E7EB' }}
@@ -651,7 +627,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                             </p>
                                                             {notification.isUnread && (
                                                                 <div className="flex-shrink-0 ml-2">
-                                                                    <div className="h-2 w-2 rounded-full bg-indigo-600"></div>
+                                                                    <div className="h-2 w-2 rounded-full bg-blue-600"></div>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -663,7 +639,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                             {notification.isUnread && (
                                                                 <button
                                                                     onClick={(e) => handleMarkAsRead(e, notification._id)}
-                                                                    className="text-xs font-medium text-indigo-600"
+                                                                    className="text-xs font-medium text-blue-600"
                                                                     title="Đánh dấu đã đọc"
                                                                 >
                                                                     <Eye className="h-3 w-3" />
@@ -684,7 +660,7 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                                                 setNotificationDropdownOpen(false)
                                                 router.push('/notifications/notifications')
                                             }}
-                                            className="w-full text-center text-sm font-bold text-indigo-600"
+                                            className="w-full text-center text-sm font-bold text-blue-600"
                                         >
                                             Xem tất cả thông báo
                                         </button>
@@ -698,11 +674,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                     <div className="relative dropdown-container">
                         <button
                             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-indigo-50 transition-colors border-2"
+                            className="flex items-center space-x-2 p-2 rounded-xl hover:bg-blue-50 transition-colors border-2"
                             style={{ borderColor: '#E5E7EB' }}
                         >
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md"
-                                 style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}>
+                                 style={{ background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)' }}>
                                 <span className="text-white text-sm font-bold">
                                     {user?.fullName ? user.fullName.charAt(0).toUpperCase() :
                                         user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -725,11 +701,11 @@ export default function Header({ onMenuClick, sidebarOpen }) {
                         {userDropdownOpen && (
                             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl py-2 z-50 border-2"
                                  style={{ borderColor: '#E5E7EB' }}>
-                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
+                                <a href="/users/profile" className="flex items-center px-4 py-3 text-sm hover:bg-blue-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
                                     <User className="h-4 w-4 mr-3 text-gray-600" />
                                     Thông tin tài khoản
                                 </a>
-                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-indigo-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
+                                <a href="/settings" className="flex items-center px-4 py-3 text-sm hover:bg-blue-50 transition-colors rounded-lg mx-2 text-gray-900 font-semibold">
                                     <Settings className="h-4 w-4 mr-3 text-gray-600" />
                                     Cài đặt
                                 </a>

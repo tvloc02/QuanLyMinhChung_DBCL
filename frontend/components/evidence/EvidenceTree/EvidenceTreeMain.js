@@ -444,7 +444,7 @@ export default function EvidenceTreeMain({
                                             customColor={`bg-yellow-600 hover:bg-yellow-700`}
                                         />
                                     )}
-                                    {canManageAll && (
+                                    {(canManageAll || canUpload) && (
                                         <ActionButton
                                             icon={Trash2}
                                             label="Xóa Minh chứng"

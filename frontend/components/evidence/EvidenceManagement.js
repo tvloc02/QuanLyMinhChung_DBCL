@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { apiMethods } from '../../services/api'
 import { ActionButton } from '../ActionButtons'
 import toast from 'react-hot-toast'
+
 import {
     Plus,
     Search,
@@ -39,7 +40,9 @@ export default function EvidenceManagement() {
     const router = useRouter()
     const { user, isLoading: isAuthLoading } = useAuth()
     const isAdmin = user?.role === 'admin'
+    const isManager = user?.role === 'manager'
     const isReporter = user?.role === 'reporter'
+    const canManageAll = isAdmin || isManager
 
     const [evidences, setEvidences] = useState([])
     const [loading, setLoading] = useState(true)
@@ -81,6 +84,42 @@ export default function EvidenceManagement() {
     const [importMode, setImportMode] = useState('create')
     const [isImporting, setIsImporting] = useState(false)
     const [importProgress, setImportProgress] = useState(0)
+
+    const [hasWritePermission, setHasWritePermission] = useState(false)
+
+    const canManageEvidence = canManageAll || (isReporter && hasWritePermission)
+
+    useEffect(() => {
+        const fetchPermissions = async () => {
+            if (!user) {
+                setHasWritePermission(false)
+                return
+            }
+
+            if (canManageAll) {
+                setHasWritePermission(true)
+                return
+            }
+
+            if (!isReporter) {
+                setHasWritePermission(false)
+                return
+            }
+
+            try {
+                const permResponse = await apiMethods.permissions.hasWritePermission()
+                const hasWrite = permResponse.data?.data?.hasWritePermission || false
+                setHasWritePermission(hasWrite)
+            } catch (error) {
+                console.error('Check hasWritePermission error:', error)
+                setHasWritePermission(false)
+            }
+        }
+
+        if (!isAuthLoading) {
+            fetchPermissions()
+        }
+    }, [user, isAuthLoading, canManageAll, isReporter])
 
     useEffect(() => {
         fetchPrograms()
@@ -475,7 +514,7 @@ export default function EvidenceManagement() {
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {(isAdmin || isReporter) && (
+                        {canManageEvidence && (
                             <button
                                 onClick={handleImportClick}
                                 className="inline-flex items-center px-4 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 hover:shadow-lg transition-all font-semibold"
@@ -484,7 +523,7 @@ export default function EvidenceManagement() {
                                 Import
                             </button>
                         )}
-                        {(isAdmin || isReporter) && (
+                        {canManageEvidence && (
                             <button
                                 onClick={handleExport}
                                 className="inline-flex items-center px-4 py-3 bg-cyan-500 text-white rounded-xl hover:bg-cyan-600 hover:shadow-lg transition-all font-semibold"
@@ -493,7 +532,7 @@ export default function EvidenceManagement() {
                                 Export
                             </button>
                         )}
-                        {isAdmin && (
+                        {canManageAll && (
                             <button
                                 onClick={() => router.push('/evidence/create')}
                                 className="inline-flex items-center px-6 py-3 bg-white text-blue-600 rounded-xl hover:shadow-xl transition-all font-semibold"
@@ -648,22 +687,22 @@ export default function EvidenceManagement() {
                                 Hủy chọn
                             </button>
                             {isAdmin && (
-                                <>
-                                    <button
-                                        onClick={handleBulkApprove}
-                                        className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md"
-                                    >
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Duyệt File
-                                    </button>
-                                    <button
-                                        onClick={handleBulkDelete}
-                                        className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md"
-                                    >
-                                        <Trash className="h-4 w-4 mr-2" />
-                                        Xóa
-                                    </button>
-                                </>
+                                <button
+                                    onClick={handleBulkApprove}
+                                    className="inline-flex items-center px-5 py-2.5 bg-green-600 text-white text-sm rounded-xl hover:bg-green-700 font-semibold transition-all shadow-md"
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Duyệt File
+                                </button>
+                            )}
+                            {canManageEvidence && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="inline-flex items-center px-5 py-2.5 bg-red-600 text-white text-sm rounded-xl hover:bg-red-700 font-semibold transition-all shadow-md"
+                                >
+                                    <Trash className="h-4 w-4 mr-2" />
+                                    Xóa
+                                </button>
                             )}
                         </div>
                     </div>
@@ -723,7 +762,7 @@ export default function EvidenceManagement() {
                             <table className="w-full border-collapse">
                                 <thead className="bg-gradient-to-r from-blue-50 to-sky-50">
                                 <tr>
-                                    {isAdmin && (
+                                    {canManageEvidence && (
                                         <th className="px-3 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-b-2 border-blue-200 w-12">
                                             <input
                                                 type="checkbox"
@@ -765,7 +804,7 @@ export default function EvidenceManagement() {
                                 <tbody className="bg-white">
                                 {evidences.map((evidence, index) => (
                                     <tr key={evidence._id} className="hover:bg-gray-50 transition-colors border-b border-gray-200">
-                                        {isAdmin && (
+                                        {canManageEvidence && (
                                             <td className="px-3 py-3 text-center border-r border-gray-200">
                                                 <input
                                                     type="checkbox"
@@ -776,14 +815,14 @@ export default function EvidenceManagement() {
                                             </td>
                                         )}
                                         <td className="px-2 py-3 text-center border-r border-gray-200">
-                                                <span className="text-sm font-semibold text-gray-700">
-                                                    {((pagination.current - 1) * filters.limit) + index + 1}
-                                                </span>
+                                            <span className="text-sm font-semibold text-gray-700">
+                                                {((pagination.current - 1) * filters.limit) + index + 1}
+                                            </span>
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200">
-                                                <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
-                                                    {evidence.code}
-                                                </span>
+                                            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">
+                                                {evidence.code}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3 border-r border-gray-200">
                                             <div>
@@ -846,9 +885,9 @@ export default function EvidenceManagement() {
                                             )}
                                         </td>
                                         <td className="px-2 py-3 text-center border-r border-gray-200">
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
-                                                    {evidence.files?.length || 0}
-                                                </span>
+                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                                {evidence.files?.length || 0}
+                                            </span>
                                         </td>
                                         <td className="px-3 py-3 text-center border-r border-gray-200">
                                             <ApprovalStatusBadge evidence={evidence} />
@@ -866,7 +905,7 @@ export default function EvidenceManagement() {
                                                     title="Xem chi tiết"
                                                 />
 
-                                                {isAdmin && (
+                                                {canManageEvidence && (
                                                     <>
                                                         <ActionButton
                                                             icon={Edit}

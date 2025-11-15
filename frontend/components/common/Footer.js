@@ -19,7 +19,7 @@ export default function Footer({ collapsed, isDesktop }) {
                             />
                         </div>
                         <div>
-                            <p className="text-sm font-semibold" style={{ color: '#0066CC' }}>
+                            <p className="text-sm font-semibold" style={{ color: '#1D4ED8' }}>
                                 CMC University
                             </p>
                             <p className="text-xs text-gray-600">

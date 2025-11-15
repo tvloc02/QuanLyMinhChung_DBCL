@@ -247,10 +247,10 @@ const createEvidence = async (req, res) => {
 
         let evidenceCode = code;
 
-        // ⭐️ LOGIC TẠO MÃ TỰ ĐỘNG
+        // ⭐️ LOGIC TẠO MÃ TỰ ĐỘNG THEO FORMAT Hn.ab.cd.ef
+        // Ví dụ: P1.01.01.04 → P1.01.01.05
         if (autoGenerateCode || !evidenceCode) {
             try {
-                // Giả định Evidence model có phương thức findLastCode/generateCode
                 const lastEvidence = await Evidence.findOne({
                     academicYearId,
                     standardId,
@@ -259,32 +259,42 @@ const createEvidence = async (req, res) => {
                     .sort({ code: -1 })
                     .select('code');
 
-                let nextNumber = 1;
+                let nextCode = null;
+
                 if (lastEvidence && lastEvidence.code) {
-                    const parts = lastEvidence.code.split('.'); // Giả định format là XXX.XX.XX.YY
-                    const lastNum = parseInt(parts[parts.length - 1]);
-                    if (!isNaN(lastNum)) {
-                        nextNumber = lastNum + 1;
+                    const parts = lastEvidence.code.split('.');
+
+                    // parts[0] = Hn, parts[1] = ab, parts[2] = cd, parts[3] = ef
+                    if (parts.length === 4) {
+                        const prefix = parts.slice(0, 3).join('.');
+                        const lastSeq = parseInt(parts[3], 10);
+
+                        if (!isNaN(lastSeq)) {
+                            const nextSeq = String(lastSeq + 1).padStart(2, '0');
+                            nextCode = `${prefix}.${nextSeq}`;
+                        }
                     }
                 }
 
-                // Cần đảm bảo Evidence model có phương thức generateCode hoặc logic này đủ
-                evidenceCode = `${standard.code}.${criteria.code}.${String(nextNumber).padStart(2, '0')}`;
-                // Giả định: Format mã minh chứng là TC.TT.MM.SS (Standard.Criteria.Box.Sequence)
-                // Cần điều chỉnh logic generateCode ở đây hoặc trong model cho phù hợp với format của bạn
-                // Hiện tại tôi sẽ dùng logic đơn giản dựa trên hàm generateCode giả định có trong Evidence model
-
-                // Vì không có file Evidence model, tôi sẽ dùng logic có sẵn trong Evidence Controller (getEvidences.js)
-                if (Evidence.generateCode) {
-                    evidenceCode = await Evidence.generateCode(
-                        academicYearId,
-                        standard.code,
-                        criteria.code,
-                        nextNumber // Sử dụng số thứ tự tiếp theo
-                    );
-                } else {
-                    evidenceCode = `${standard.code}.${criteria.code}.${String(nextNumber).padStart(2, '0')}`;
+                // Trường hợp chưa có minh chứng trước đó hoặc mã cũ không đúng format
+                if (!nextCode) {
+                    if (typeof Evidence.generateCode === 'function') {
+                        // Giả định generateCode(academicYearId, standardCode, criteriaCode, boxNumber)
+                        nextCode = await Evidence.generateCode(
+                            academicYearId,
+                            standard.code,
+                            criteria.code,
+                            1
+                        );
+                    } else {
+                        return res.status(500).json({
+                            success: false,
+                            message: 'Không thể tự động tạo mã minh chứng do thiếu cấu hình generateCode'
+                        });
+                    }
                 }
+
+                evidenceCode = nextCode;
 
             } catch (genError) {
                 return res.status(500).json({

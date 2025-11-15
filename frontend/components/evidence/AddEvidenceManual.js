@@ -314,7 +314,7 @@ export default function AddEvidenceManual() {
                 }
 
                 setTimeout(() => {
-                    router.push('/evidence-management')
+                    router.push('/evidence/evidence-management')
                 }, 1500)
             }
         } catch (error) {
